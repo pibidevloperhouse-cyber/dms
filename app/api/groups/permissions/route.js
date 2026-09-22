@@ -8,6 +8,7 @@ const mapToCamel = (obj) => {
         id: obj.id,
         companyId: obj.company_id,
         groupId: obj.group_id,
+        userId: obj.user_id,
         documentId: obj.document_id,
         folderId: obj.folder_id,
         scope: obj.scope,
@@ -48,6 +49,7 @@ const mapToSnake = (obj) => {
         id: obj.id,
         company_id: obj.companyId,
         group_id: obj.groupId,
+        user_id: obj.userId,
         document_id: obj.documentId,
         folder_id: obj.folderId,
         scope: obj.scope,
@@ -85,7 +87,7 @@ const mapToSnake = (obj) => {
 
 export async function POST(req) {
     try {
-        const { action, session, groupId, permissionsPayload } = await req.json();
+        const { action, session, groupId, userId, permissionsPayload } = await req.json();
         
         if (!session || !session.company_id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -93,11 +95,15 @@ export async function POST(req) {
 
         // ─── ACTION: FETCH PERMISSIONS ───
         if (action === 'fetch') {
+            const condition = userId
+                ? eq(permissions.userId, userId)
+                : eq(permissions.groupId, groupId);
+
             const fetchedPermissions = await db.select()
                 .from(permissions)
                 .where(
                     and(
-                        eq(permissions.groupId, groupId),
+                        condition,
                         eq(permissions.companyId, session.company_id)
                     )
                 );

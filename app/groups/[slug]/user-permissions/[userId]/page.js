@@ -21,10 +21,11 @@ const PERMISSION_SECTIONS = [
 
 const DEFAULT_PERMS = { can_view: false, can_edit: false, can_download: false, can_delete: false, can_add_members: false, can_remove_members: false };
 
-export default function PermissionsPage() {
+export default function UserPermissionsPage() {
     const params = useParams();
     const router = useRouter();
     const groupSlug = params.slug;
+    const userId = params.userId;
 
     const [groupData, setGroupData] = useState(null);
     const [perms, setPerms] = useState({});
@@ -73,7 +74,7 @@ export default function PermissionsPage() {
             try {
                 const res = await fetch('/api/groups/permissions', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'fetch', session, groupId: groupData.id })
+                    body: JSON.stringify({ action: 'fetch', session, groupId: null, userId })
                 });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
@@ -150,7 +151,7 @@ export default function PermissionsPage() {
                 }
 
                 const payload = {
-                    company_id: groupData.company_id, group_id: groupData.id, scope,
+                    company_id: groupData.company_id, group_id: null, user_id: userId, scope,
                     can_view: false, can_add_members: s.can_add_members || false, can_remove_members: s.can_remove_members || false,
                     can_create_group: s.can_create_group || false, can_delete_group: s.can_delete_group || false,
                     can_access_documents: s.can_access_documents || false, can_access_groups: s.can_access_groups || false,
@@ -166,7 +167,7 @@ export default function PermissionsPage() {
 
             const res = await fetch('/api/groups/permissions', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save', session, groupId: groupData.id, permissionsPayload: { toDeleteIds, toUpsert } })
+                body: JSON.stringify({ action: 'save', session, groupId: null, userId, permissionsPayload: { toDeleteIds, toUpsert } })
             });
 
             const data = await res.json();
@@ -214,7 +215,7 @@ export default function PermissionsPage() {
                             <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] text-white flex items-center justify-center shadow-sm">
                                 <FaShieldAlt size={15} />
                             </span>
-                            Edit Permissions
+                            Edit User Permissions
                         </h1>
                     </div>
                 </div>

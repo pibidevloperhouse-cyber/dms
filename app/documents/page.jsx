@@ -24,6 +24,7 @@ function UnifiedWorkspace() {
     const [files, setFiles] = useState([]);
     const [mergedPerms, setMergedPerms] = useState({});
     const [globalFolderPerms, setGlobalFolderPerms] = useState({ can_create: false, can_merge: false, can_delete: false });
+    const [dealRestrictions, setDealRestrictions] = useState(null);
 
     // UI State
     const [loading, setLoading] = useState(true);
@@ -84,6 +85,7 @@ function UnifiedWorkspace() {
             setFiles(data.files);
             setMergedPerms(data.mergedPerms);
             setGlobalFolderPerms(data.globalFolderPerms);
+            setDealRestrictions(data.dealRestrictions || null);
 
             setBookmarkedIds(new Set(data.files.filter(f => f.is_bookmarked).map(f => f.id)));
             setDownloadedIds(new Set(data.files.filter(f => f.is_downloaded).map(f => f.id)));
@@ -130,8 +132,17 @@ function UnifiedWorkspace() {
     const canUser = (action, item = null) => {
         if (!session) return false;
         if (session.role === 'super_admin') return true;
+        
+        // Strict Deal Restrictions override for Guests/Buyers
+        if (dealRestrictions) {
+            if (action === 'can_upload' && dealRestrictions.guestCanUploadDocs === false) return false;
+            if ((action === 'can_download_secure' || action === 'can_download_original' || action === 'can_download') && dealRestrictions.guestCanDownloadDocs === false) return false;
+            if (action === 'can_create_folder' && dealRestrictions.guestCanCreateFolders === false) return false;
+        }
+
         if (!item) {
             if (action === 'can_upload' && currentFolderId === null) return false;
+            if (action === 'can_create_folder') return globalFolderPerms.can_create;
             if (action === 'can_export') return false;
             return false;
         }

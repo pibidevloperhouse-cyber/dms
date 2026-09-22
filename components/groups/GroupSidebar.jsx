@@ -27,8 +27,12 @@ export default function GroupsSidebar({ isOpen = true }) {
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupDescription, setNewGroupDescription] = useState('');
     const [newGroupRole, setNewGroupRole] = useState('');
+    const [newGroupType, setNewGroupType] = useState('group');
+    const [newGroupEmail, setNewGroupEmail] = useState('');
     const [currentUserRole, setCurrentUserRole] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [guestLead, setGuestLead] = useState(null);
+    const [sellerMembers, setSellerMembers] = useState([]);
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -44,11 +48,22 @@ export default function GroupsSidebar({ isOpen = true }) {
             const userId = session?.id;
             const companyId = session?.company_id;
             setCurrentUserRole(userRole || '');
+            let individualGroups = [];
 
             // Check create/delete group permissions
             if (userRole === 'super_admin') {
                 setCanCreateGroup(true);
                 setCanDeleteGroup(true);
+            } else if (session?.active_workspace_id && (userRole === 'guest_admin' || userRole === 'buyer' || userRole === 'external_user')) {
+                const { data: deal } = await supabase
+                    .from('dms_deals')
+                    .select('guest_can_create_groups')
+                    .eq('id', session.active_workspace_id)
+                    .single();
+                if (deal) {
+                    setCanCreateGroup(deal.guest_can_create_groups);
+                    setCanDeleteGroup(deal.guest_can_create_groups);
+                }
             } else {
                 const { data: ugRows } = await supabase
                     .from('user_groups')
@@ -116,7 +131,9 @@ export default function GroupsSidebar({ isOpen = true }) {
 
                 const { data } = await query;
 
-                let groups = data || [];
+                let allGroups = data || [];
+                individualGroups = allGroups.filter(g => g.type === 'individual');
+                let groups = allGroups.filter(g => g.type !== 'individual');
 
                 if (userRole === 'admin') {
                     // Show groups that have admin, sub_admin or external_user members
@@ -177,6 +194,47 @@ export default function GroupsSidebar({ isOpen = true }) {
                 })));
             }
 
+            // Fetch Guest Lead if in a workspace
+            if (session?.active_workspace_id) {
+                const { data: deal } = await supabase
+                    .from('dms_deals')
+                    .select('buyer_id')
+                    .eq('id', session.active_workspace_id)
+                    .single();
+                    
+                if (deal?.buyer_id) {
+                    const { data: lead } = await supabase
+                        .from('users')
+                        .select('id, name, email, role')
+                        .eq('id', deal.buyer_id)
+                        .single();
+                    if (lead) setGuestLead(lead);
+                }
+            }
+
+            // Fetch Seller Members (Internal users)
+            if (companyId) {
+                const { data: sellers } = await supabase
+                    .from('users')
+                    .select('id, name, email, role')
+                    .eq('company_id', companyId)
+                    .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
+                
+                const formattedIndividuals = individualGroups.map(g => ({
+                    id: g.id,
+                    name: g.name,
+                    email: g.name,
+                    role: g.role || '',
+                    isIndividualGroup: true
+                }));
+                
+                if (sellers) {
+                    setSellerMembers([...formattedIndividuals, ...sellers]);
+                } else {
+                    setSellerMembers(formattedIndividuals);
+                }
+            }
+
             setIsLoading(false);
         };
 
@@ -186,48 +244,105 @@ export default function GroupsSidebar({ isOpen = true }) {
     const handleDeleteGroup = async () => {
         if (!deleteTarget) return;
         setIsDeleting(true);
-        const { error } = await supabase
-            .from("groups")
-            .delete()
-            .eq("id", deleteTarget.id);
-        if (!error) {
-            setNavItems(prev => prev.filter(g => g.id !== deleteTarget.id));
+
+        try {
+            if (deleteTarget.isUser) {
+                const { error } = await supabase.from('users').delete().eq('id', deleteTarget.id);
+                if (error) throw error;
+                setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
+            } else {
+                await supabase.from('invitations').delete().eq('group_id', deleteTarget.id);
+                
+                const { error } = await supabase.from('groups').delete().eq('id', deleteTarget.id);
+                if (error) throw error;
+                
+                if (deleteTarget.isIndividualGroup) {
+                    setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
+                } else {
+                    setNavItems(prev => prev.filter(g => g.id !== deleteTarget.id));
+                }
+            }
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert("Delete failed: " + err.message);
         }
+
         setIsDeleting(false);
         setDeleteTarget(null);
     };
 
     const handleCreateGroup = async () => {
-        if (!newGroupName.trim() || isSubmitting) return;
+        const isIndividual = newGroupType === 'individual';
+        if (isSubmitting) return;
+        if (isIndividual && !newGroupEmail.trim()) return;
+        if (!isIndividual && !newGroupName.trim()) return;
+
         setIsSubmitting(true);
         try {
             const session = JSON.parse(localStorage.getItem('vdr_session'));
-            // const { data, error } = await supabase.from('groups').insert({
-            //     name: newGroupName.trim(),
-            //     description: newGroupDescription.trim() || null,
-            //     company_id: session?.company_id,
-            //     created_by: session?.id
-            // }).select().single();
+            const finalGroupName = isIndividual ? newGroupEmail.trim() : newGroupName.trim();
             const { data, error } = await supabase.from('groups').insert({
-                name: newGroupName.trim(),
+                name: finalGroupName,
                 description: newGroupDescription.trim() || null,
-                role: newGroupRole,                    // ← இந்த line add
+                role: newGroupRole,
+                type: newGroupType,
                 company_id: session?.company_id,
                 workspace_id: session?.active_workspace_id || null,
                 created_by: session?.id
             }).select().single();
 
             if (!error && data) {
-                setNavItems(prev => [{
-                    id: data.id,
-                    name: data.name,
-                    href: `/groups/${data.id}`,
-                    role: data.role || ''
-                }, ...prev]);
+                if (newGroupType === 'individual' && newGroupEmail.trim()) {
+                    try {
+                        const inviteRes = await fetch('/api/invite', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: newGroupEmail.trim(),
+                                description: newGroupDescription.trim(),
+                                group_id: data.id,
+                                invited_by: session?.id,
+                                requires_nda: false
+                            })
+                        });
+                        const inviteData = await inviteRes.json();
+                        if (inviteData.error) {
+                            alert(`Group created but invite failed: ${inviteData.error}`);
+                        } else {
+                            alert(`Individual created and invite generated successfully!\\n\\nInvite Link (also printed in terminal):\\n${inviteData.registrationUrl}`);
+                        }
+                    } catch (err) {
+                        console.error("Failed to send invite:", err);
+                        alert("Group created but failed to trigger invite: " + err.message);
+                    }
+                }
+
+                if (isIndividual) {
+                    setSellerMembers(prev => [{
+                        id: data.id,
+                        name: data.name,
+                        email: data.name,
+                        role: data.role || '',
+                        isIndividualGroup: true
+                    }, ...prev]);
+                } else {
+                    setNavItems(prev => [{
+                        id: data.id,
+                        name: data.name,
+                        href: `/groups/${data.id}`,
+                        role: data.role || ''
+                    }, ...prev]);
+                }
+                
                 setIsAddGroupModalOpen(false);
                 setNewGroupName('');
                 setNewGroupDescription('');
                 setNewGroupRole('external_user');
+                setNewGroupType('group');
+                setNewGroupEmail('');
+            } else {
+                alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
+                console.error("Group creation error:", error);
             }
         } finally {
             setIsSubmitting(false);
@@ -237,9 +352,88 @@ export default function GroupsSidebar({ isOpen = true }) {
     return (
         <>
             <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
-                <div className="flex-1 overflow-y-auto">
-                    <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Active Members</h2>
+                <div className="flex-1 overflow-y-auto pb-6">
+                    {guestLead && (
+                        <>
+                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
+                            </div>
+                            <nav className="py-3 space-y-1 mb-2">
+                                <Link
+                                    href="/groups/buyer-member"
+                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
+                                        pathname === '/groups/buyer-member' 
+                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
+                                        ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
+                                        <span className="font-bold font-sans text-[13px]">{guestLead.name?.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    <div className="flex flex-col flex-1 truncate">
+                                        <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
+                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Guest Admin</span>
+                                    </div>
+                                </Link>
+                            </nav>
+                        </>
+                    )}
+
+                    <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
+                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
+                    </div>
+                    
+                    <nav className="py-3 space-y-1 mb-2">
+                        {sellerMembers.map((seller) => (
+                            <Link 
+                                href={`/groups/${seller.id}`}
+                                key={seller.id} 
+                                className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
+                                    pathname === `/groups/${seller.id}` 
+                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3 truncate">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${
+                                        pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
+                                    }`}>
+                                        <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    <div className="flex flex-col flex-1 truncate">
+                                        <span className="font-sans text-[14px] truncate">{seller.name}</span>
+                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
+                                            {seller.role.replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                    {canDeleteGroup && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setDeleteTarget({ 
+                                                    id: seller.id, 
+                                                    name: seller.name, 
+                                                    isUser: !seller.isIndividualGroup,
+                                                    isIndividualGroup: seller.isIndividualGroup 
+                                                });
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                            title="Delete member"
+                                        >
+                                            {TRASH_ICON}
+                                        </button>
+                                    )}
+                                </div>
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <div className={`p-5 border-b border-gray-100 flex items-center justify-between border-t mt-2`}>
+                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Group Members</h2>
                     </div>
 
                     <nav className="py-3 space-y-1">
@@ -283,6 +477,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                     super_admin:   'Super Admin',
                                                     admin:         'Admin',
                                                     sub_admin:     'Sub Admin',
+                                                    internal_user: 'Internal User',
                                                     user:          'User',
                                                     external_user: 'External User',
                                                 };
@@ -358,9 +553,28 @@ export default function GroupsSidebar({ isOpen = true }) {
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
-                                <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans" />
+                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Type</label>
+                                <select
+                                    value={newGroupType}
+                                    onChange={e => setNewGroupType(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans"
+                                >
+                                    <option value="group">Group</option>
+                                    <option value="individual">Individual</option>
+                                </select>
                             </div>
+                            {newGroupType !== 'individual' && (
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
+                                    <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans" />
+                                </div>
+                            )}
+                            {newGroupType === 'individual' && (
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Email Address</label>
+                                    <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans" />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Role</label>
                                 <select
@@ -369,16 +583,12 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans"
                                 >
                                     <option value="" disabled>Select Role</option>
-                                    {/* admin — visible only to super_admin */}
-                                    {currentUserRole === 'super_admin' && (
-                                        <option value="admin">Admin</option>
+                                    {newGroupType === 'individual' && (
+                                        <option value="super_admin">Super Admin</option>
                                     )}
-                                    {/* sub_admin — visible to admin & super_admin */}
-                                    {(currentUserRole === 'admin' || currentUserRole === 'super_admin') && (
-                                        <option value="sub_admin">Sub Admin</option>
-                                    )}
-                                    {/* external_user — visible to all */}
-                                    <option value="external_user">External User</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="sub_admin">Sub Admin</option>
+                                    <option value="internal_user">Internal User</option>
                                 </select>
                             </div>
                             <div>
@@ -387,7 +597,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => setIsAddGroupModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans">Cancel</button>
-                                <button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isSubmitting} className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50">
+                                <button onClick={handleCreateGroup} disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || isSubmitting} className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50">
                                     {isSubmitting ? "Creating..." : "Create"}
                                 </button>
                             </div>
