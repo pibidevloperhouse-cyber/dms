@@ -13,16 +13,20 @@ export default function WorkspaceDashboard() {
   const [projectDesc, setProjectDesc] = useState("");
   const [dealType, setDealType] = useState("Merge");
   const [userRole, setUserRole] = useState('seller');
+  const [vdrRole, setVdrRole] = useState('external_user');
   const router = useRouter();
 
   useEffect(() => {
     const roleItem = localStorage.getItem('userRole');
+    const vdrRoleItem = localStorage.getItem('vdrRole') || 'external_user';
+    
     if (!roleItem) {
       router.push('/dms/login');
       return;
     }
     const role = roleItem.toLowerCase();
     setUserRole(role);
+    setVdrRole(vdrRoleItem);
 
     const fetchData = async () => {
       if (role === 'buyer') {
@@ -42,7 +46,8 @@ export default function WorkspaceDashboard() {
         if (!companyId) return;
 
         try {
-          const res = await fetch(`/api/dms/projects?companyId=${companyId}`);
+          const userId = localStorage.getItem('userId');
+          const res = await fetch(`/api/dms/projects?companyId=${companyId}&userId=${userId}&role=${vdrRoleItem}`);
           if (res.ok) {
             const data = await res.json();
             setWorkspaces(data.projects || []);
@@ -172,7 +177,7 @@ export default function WorkspaceDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
             {/* Add New Workspace Card - Sellers Only */}
-            {userRole !== 'buyer' && !userRole.includes('guest') && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="h-44 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:border-gray-400 hover:bg-gray-50 transition-all group"
@@ -208,7 +213,7 @@ export default function WorkspaceDashboard() {
                       )}
                     </div>
 
-                    {userRole !== 'buyer' && !userRole.includes('guest') && (
+                    {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
                       <div className="relative">
                         <button
                           onClick={(e) => {

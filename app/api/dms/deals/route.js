@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
-import { dmsDeals, users } from '../../../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { dmsDeals, users, userGroups, groups } from '../../../../db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,9 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('projectId');
     const buyerId = searchParams.get('buyerId');
+
+    const userId = searchParams.get('userId');
+    const role = searchParams.get('role');
 
     if (!projectId) {
       return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
@@ -21,7 +24,7 @@ export async function GET(req) {
       ndaStatus: dmsDeals.ndaStatus,
       createdAt: dmsDeals.createdAt,
       buyerId: users.id,
-      name: dmsDeals.dealName, // Use the stored dealName
+      name: dmsDeals.dealName,
       featureQa: dmsDeals.featureQa,
       featureBidding: dmsDeals.featureBidding,
       featureTasks: dmsDeals.featureTasks,
@@ -29,11 +32,32 @@ export async function GET(req) {
     .from(dmsDeals)
     .leftJoin(users, eq(dmsDeals.buyerId, users.id));
 
-    if (buyerId) {
-      query = query.where(and(eq(dmsDeals.projectId, projectId), eq(dmsDeals.buyerId, buyerId)));
-    } else {
-      query = query.where(eq(dmsDeals.projectId, projectId));
+    let conditions = [eq(dmsDeals.projectId, projectId)];
+
+    const targetBuyerId = buyerId || ((role === 'buyer' || role === 'guest_admin') ? userId : null);
+
+    if (targetBuyerId) {
+      conditions.push(eq(dmsDeals.buyerId, targetBuyerId));
+    } else if (role && !['super_admin', 'external_user', 'guest_admin', 'buyer'].includes(role) && userId) {
+      // Filter for internal non-super admins based on their assigned deals (workspaces)
+      const userGroupsQuery = await db.select().from(userGroups).where(eq(userGroups.userId, userId));
+      const groupIds = userGroupsQuery.map(ug => ug.groupId);
+      
+      if (groupIds.length === 0) {
+        return NextResponse.json({ deals: [] }, { status: 200 });
+      }
+
+      const groupsQuery = await db.select().from(groups).where(inArray(groups.id, groupIds));
+      const workspaceIds = groupsQuery.map(g => g.workspaceId).filter(id => id != null);
+      
+      if (workspaceIds.length === 0) {
+        return NextResponse.json({ deals: [] }, { status: 200 });
+      }
+
+      conditions.push(inArray(dmsDeals.id, workspaceIds));
     }
+
+    query = query.where(and(...conditions));
 
     const deals = await query;
 

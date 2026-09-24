@@ -179,6 +179,9 @@ export const permissions = pgTable('permissions', {
   canAccessTasks: boolean('can_access_tasks').default(false),
   canAccessCommunication: boolean('can_access_communication').default(false),
   canAccessControlAudits: boolean('can_access_control_audits').default(false),
+  canViewBuyer: boolean('can_view_buyer').default(false),
+  canViewSellerMembers: boolean('can_view_seller_members').default(false),
+  canViewSellerGroups: boolean('can_view_seller_groups').default(false),
 });
 
 export const userGroups = pgTable('user_groups', {

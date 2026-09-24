@@ -56,16 +56,16 @@ export async function GET(req) {
   }
 }
 
-// POST: Create User from Invite
 export async function POST(req) {
   try {
-    const { userId, companyId, name, email, password, requiresNda } = await req.json();
+    const { userId, companyId, name, email, password, requiresNda, role } = await req.json();
 
     if (!userId || !companyId || !name || !email || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const assignedNdaStatus = requiresNda ? 'pending' : 'not_required';
+    const targetRole = role || 'user';
 
     await db.insert(users).values({
       id: userId,
@@ -73,7 +73,7 @@ export async function POST(req) {
       name: name.trim(),
       email: email,
       passwordHash: password,
-      role: 'user',
+      role: targetRole,
       status: 'active',
       ndaStatus: assignedNdaStatus,
     });

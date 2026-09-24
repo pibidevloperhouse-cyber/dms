@@ -140,6 +140,8 @@ function InviteRegisterContent({ token }) {
       const assignedNdaStatus = inviteData.requires_nda ? "pending" : "not_required";
       let userId = crypto.randomUUID();
 
+      const targetRole = inviteData.groups?.role || "external_user";
+
       // Create user via new API
       const userRes = await fetch("/api/auth/register/invite", {
         method: "POST",
@@ -150,13 +152,12 @@ function InviteRegisterContent({ token }) {
           name,
           email: inviteData.email,
           password,
-          requiresNda: inviteData.requires_nda
+          requiresNda: inviteData.requires_nda,
+          role: targetRole
         })
       });
       const userData = await userRes.json();
       if (!userRes.ok) throw new Error(userData.error || "Failed to create user account.");
-
-      const targetRole = inviteData.groups?.role || "external_user";
 
       // 3. Call secure backend to assign permissions and update invitation
       const assignRes = await fetch("/api/invite/accept", {
@@ -181,7 +182,7 @@ function InviteRegisterContent({ token }) {
           company_id: companyData.id,
           name: name,
           email: inviteData.email,
-          role: "user",
+          role: targetRole,
           nda_status: assignedNdaStatus
         }));
         router.push("/sign-nda?from=register");

@@ -40,7 +40,10 @@ const mapToCamel = (obj) => {
         canAccessDeals: obj.can_access_deals,
         canAccessTasks: obj.can_access_tasks,
         canAccessCommunication: obj.can_access_communication,
-        canAccessControlAudits: obj.can_access_control_audits
+        canAccessControlAudits: obj.can_access_control_audits,
+        canViewBuyer: obj.can_view_buyer,
+        canViewSellerMembers: obj.can_view_seller_members,
+        canViewSellerGroups: obj.can_view_seller_groups
     };
 };
 
@@ -81,7 +84,10 @@ const mapToSnake = (obj) => {
         can_access_deals: obj.canAccessDeals,
         can_access_tasks: obj.canAccessTasks,
         can_access_communication: obj.canAccessCommunication,
-        can_access_control_audits: obj.canAccessControlAudits
+        can_access_control_audits: obj.canAccessControlAudits,
+        can_view_buyer: obj.canViewBuyer,
+        can_view_seller_members: obj.canViewSellerMembers,
+        can_view_seller_groups: obj.canViewSellerGroups
     };
 };
 

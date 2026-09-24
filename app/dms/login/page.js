@@ -31,6 +31,7 @@ export default function DMSLogin() {
       const { data } = await res.json();
       
       localStorage.setItem('userRole', data.dmsRole || 'buyer');
+      localStorage.setItem('vdrRole', data.role || 'external_user');
       localStorage.setItem('companyId', data.company_id);
       localStorage.setItem('userId', data.id);
       localStorage.setItem('userName', data.name || 'User');

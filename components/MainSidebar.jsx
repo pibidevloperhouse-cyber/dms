@@ -20,6 +20,7 @@ export default function MainSidebar() {
   const [hasBiddingAccess, setHasBiddingAccess] = useState(false);
   const [hasCommunicationAccess, setHasCommunicationAccess] = useState(false);
   const [hasControlAuditsAccess, setHasControlAuditsAccess] = useState(false);
+  const [hasRedactionAccess, setHasRedactionAccess] = useState(false);
   const [session, setSession] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [openSubmenuKey, setOpenSubmenuKey] = useState(null);
@@ -44,25 +45,28 @@ export default function MainSidebar() {
             if (deal) dealFeatures = deal;
           }
         } catch (e) {
-          console.error("Not a deal or failed to fetch deal features", e);
+          console.error(e);
         }
       }
 
-      // 2. Super Admin gets automatic access to all modules (but respects deal feature toggles)
-      if (sessionObj.role === 'super_admin') {
-        setHasGroupsAccess(!dealFeatures || dealFeatures.featureGroups !== false);
+      // 2. Strict Role-Based Visibility overrides
+      const role = sessionObj.role;
+
+      if (role === 'super_admin') {
+        setHasGroupsAccess(true);
         setHasSettingsAccess(true);
-        setHasQaAccess(!dealFeatures || dealFeatures.featureQa !== false);
+        setHasQaAccess(true);
         setHasDealsAccess(true);
-        setHasTasksAccess(!dealFeatures || dealFeatures.featureTasks !== false);
-        setHasBiddingAccess(!dealFeatures || dealFeatures.featureBidding !== false);
-        setHasCommunicationAccess(!dealFeatures || dealFeatures.featureCommunication !== false);
+        setHasTasksAccess(true);
+        setHasBiddingAccess(true);
+        setHasCommunicationAccess(true);
         setHasControlAuditsAccess(true);
+        setHasRedactionAccess(true);
         return;
       }
 
       // 3. Guest Admin (Buyer Lead) gets features purely from Deal API
-      if (['guest_admin', 'buyer', 'external_user'].includes(sessionObj.role)) {
+      if (['guest_admin', 'buyer', 'external_user'].includes(role)) {
         if (dealFeatures) {
           setHasGroupsAccess(dealFeatures.featureGroups || false);
           setHasSettingsAccess(false);
@@ -72,6 +76,7 @@ export default function MainSidebar() {
           setHasBiddingAccess(dealFeatures.featureBidding || false);
           setHasCommunicationAccess(dealFeatures.featureCommunication || false);
           setHasControlAuditsAccess(false);
+          setHasRedactionAccess(false);
         }
         return;
       }
@@ -88,18 +93,19 @@ export default function MainSidebar() {
       // 5. Check workspace scope permissions
       const { data: perms } = await supabase
         .from('permissions')
-        .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits')
+        .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits, can_redaction')
         .eq('scope', 'workspace')
         .in('group_id', groupIds);
 
       // 6. Set module access flags (AND with deal features if present)
-      const canAccessGroups = perms?.some(p => p.can_access_groups) && (!dealFeatures || dealFeatures.featureGroups);
+      const canAccessGroups = perms?.some(p => p.can_access_groups) && (!dealFeatures || dealFeatures.featureGroups !== false);
       const canAccessSettings = perms?.some(p => p.can_access_settings); // Settings usually not part of deal features
-      const canAccessQa = perms?.some(p => p.can_access_qa) && (!dealFeatures || dealFeatures.featureQa);
-      const canAccessDeals = perms?.some(p => p.can_access_deals) && (!dealFeatures || dealFeatures.featureBidding);
-      const canAccessTasks = perms?.some(p => p.can_access_tasks) && (!dealFeatures || dealFeatures.featureTasks);
-      const canAccessCommunication = perms?.some(p => p.can_access_communication) && (!dealFeatures || dealFeatures.featureCommunication);
+      const canAccessQa = perms?.some(p => p.can_access_qa) && (!dealFeatures || dealFeatures.featureQa !== false);
+      const canAccessDeals = perms?.some(p => p.can_access_deals) && (!dealFeatures || dealFeatures.featureBidding !== false);
+      const canAccessTasks = perms?.some(p => p.can_access_tasks) && (!dealFeatures || dealFeatures.featureTasks !== false);
+      const canAccessCommunication = perms?.some(p => p.can_access_communication) && (!dealFeatures || dealFeatures.featureCommunication !== false);
       const canAccessControlAudits = perms?.some((p) => p.can_access_control_audits);
+      const canAccessRedaction = perms?.some((p) => p.can_redaction);
 
       setHasGroupsAccess(!!canAccessGroups);
       setHasSettingsAccess(!!canAccessSettings);
@@ -108,6 +114,7 @@ export default function MainSidebar() {
       setHasTasksAccess(!!canAccessTasks);
       setHasCommunicationAccess(!!canAccessCommunication);
       setHasControlAuditsAccess(!!canAccessControlAudits);
+      setHasRedactionAccess(!!canAccessRedaction);
     };
 
     checkModulePermissions();
@@ -131,14 +138,13 @@ export default function MainSidebar() {
             if (item.key === 'deals' || item.key === 'teams') return null;
             if (item.key === 'groups' && !hasGroupsAccess) return null;
             if (item.key === 'settings' && !hasSettingsAccess) return null;
-            if (item.key === 'analytics' && !isAdmin && !isSuperAdmin) return null;
+            if (item.key === 'analytics' && !isSuperAdmin) return null;
             if (item.key === 'qa' && !hasQaAccess) return null;
             if (item.key === 'tasks' && !hasTasksAccess) return null;
             if (item.key === 'bidding' && !hasBiddingAccess) return null;
             if (item.key === 'communication' && !hasCommunicationAccess) return null;
             if (item.key === 'control_audits' && !hasControlAuditsAccess) return null;
-            // Hide redaction for guest admin (only Documents, Q&A, Bidding, Tasks should be visible)
-            if (item.key === 'redaction' && ['guest_admin', 'buyer', 'external_user'].includes(session?.role)) return null;
+            if (item.key === 'redaction' && !hasRedactionAccess) return null;
 
             const isActive = pathname?.startsWith(item.href);
             const hasSubItems = item.subItems && item.subItems.length > 0;
