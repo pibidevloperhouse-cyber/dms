@@ -13,11 +13,11 @@ export default function Marketplace() {
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     // Check 12 hours timeout
     const loginTime = localStorage.getItem('loginTimestamp');
     const role = localStorage.getItem('userRole');
-    
+
     if (role && loginTime) {
       const TWELVE_HOURS = 12 * 60 * 60 * 1000;
       if (Date.now() - parseInt(loginTime, 10) > TWELVE_HOURS) {
@@ -37,7 +37,7 @@ export default function Marketplace() {
     }
 
     setUserRole(role);
-    
+
     // Fetch active teasers from the database
     const fetchTeasers = async () => {
       try {
@@ -50,7 +50,7 @@ export default function Marketplace() {
         console.error("Failed to fetch marketplace deals:", err);
       }
     };
-    
+
     fetchTeasers();
   }, [router]);
 
@@ -66,7 +66,7 @@ export default function Marketplace() {
   if (!isMounted || !userRole) return null;
 
   return (
-    <main className={`${userRole ? 'h-screen overflow-hidden bg-[#f4f7f9] text-gray-900' : 'min-h-screen bg-[#0b1120] text-white'}`}>
+    <main className={`${userRole ? 'min-h-screen bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] text-gray-900 selection:bg-teal-600/20' : 'min-h-screen bg-[#0b1120] text-white'}`}>
       {/* Custom Header for Marketplace */}
       <nav className="fixed top-0 left-0 w-full bg-[#0b1120]/95 backdrop-blur-md z-50 py-5 px-4 md:px-12 flex justify-between items-center border-b border-white/10 text-white">
         <div className="flex items-center">
@@ -95,18 +95,18 @@ export default function Marketplace() {
         {/* Right side - Auth */}
         <div className="hidden md:flex items-center gap-4">
           {userRole ? (
-              <button
-                onClick={handleLogout}
-                className="text-white hover:text-red-400 border border-white/30 hover:border-red-400 px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-2"
-              >
-                <FaPowerOff /> Logout
-              </button>
+            <button
+              onClick={handleLogout}
+              className="text-white hover:text-red-400 border border-white/30 hover:border-red-400 px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-2"
+            >
+              <FaPowerOff /> Logout
+            </button>
           ) : (
             <>
-              <Link href="/dms/login" className="text-white hover:text-[#eab308] border border-white/30 hover:border-[#eab308] px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap">
+              <Link href="/dms/login" className="text-white hover:text-teal-500 border border-white/30 hover:border-teal-500 px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap">
                 Sign In
               </Link>
-              <Link href="/dms/register" className="text-white hover:text-[#eab308] border border-white/30 hover:border-[#eab308] px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap">
+              <Link href="/dms/register" className="text-white hover:text-teal-500 border border-white/30 hover:border-teal-500 px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap">
                 Sign Up
               </Link>
             </>
@@ -118,7 +118,7 @@ export default function Marketplace() {
       {!userRole && (
         <section className="pt-40 pb-20 px-8 md:px-24">
           <div className="max-w-4xl">
-            <p className="text-[#eab308] text-xs font-bold tracking-[0.2em] uppercase mb-6">
+            <p className="text-teal-500 text-xs font-bold tracking-[0.2em] uppercase mb-6">
               Private Markets &middot; Live
             </p>
 
@@ -135,170 +135,185 @@ export default function Marketplace() {
 
       {/* Logged-in Dashboard View */}
       {userRole && (
-        <div className="pt-28 px-4 md:px-8 lg:px-12 max-w-[1600px] w-full mx-auto h-full flex flex-col pb-4">
+        <div className="pt-32 px-4 md:px-8 lg:px-12 max-w-[1600px] w-full mx-auto pb-20">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8">
-            <div>
-              <p className="text-[#b48629] text-xs font-bold tracking-[0.15em] uppercase mb-2">Live Marketplace</p>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900">Explore Active Opportunities</h1>
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+            <div className="space-y-3">
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900">
+                Explore <span className="text-transparent bg-clip-text bg-teal-600">Opportunities</span>
+              </h1>
+              <p className="text-gray-500 max-w-xl text-sm md:text-base leading-relaxed">Discover premium, vetted acquisition targets. Filter by your exact mandate and request access to anonymous teasers.</p>
             </div>
-            <div className="text-sm text-gray-500 mt-4 md:mt-0">
-              11 matching opportunities &middot; updated 4m ago
-            </div>
-          </div>
-
-          {/* Search Bar Area */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
-            <div className="relative flex-1">
-              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by industry, business model, or keyword"
-                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#b48629] focus:ring-1 focus:ring-[#b48629] transition-all"
-              />
-            </div>
-            <div className="relative w-full md:w-48">
-              <select className="w-full appearance-none bg-white border border-gray-200 rounded-lg py-3 pl-4 pr-10 text-sm focus:outline-none focus:border-[#b48629] text-gray-700 cursor-pointer">
-                <option>Sort: Newest</option>
-                <option>Sort: Revenue (High to Low)</option>
-                <option>Sort: EBITDA (High to Low)</option>
-              </select>
-              <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
+            <div className="flex items-center gap-3 text-sm font-semibold text-gray-700 bg-white px-5 py-2.5 rounded-full shadow-sm border border-gray-200/60">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              </span>
+              {opportunities.length} active matching deals
             </div>
           </div>
 
-          {/* Main Content Grid */}
-          <div className="flex flex-col lg:flex-row gap-8 flex-1 overflow-hidden">
-            {/* Sidebar Filters */}
-            <div className="w-full lg:w-64 flex-shrink-0">
-              <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xs font-bold tracking-widest text-gray-900">FILTERS</h3>
-                  <button className="text-gray-500 hover:text-gray-900 text-xs flex items-center gap-1 transition-colors">
-                    <FaRedoAlt className="text-[10px]" /> Reset
+          {/* Filters Area */}
+          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-200 mb-6">
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-end">
+              <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Industry */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Industry</label>
+                  <div className="relative group">
+                    <select className="w-full appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200/60 rounded-2xl py-3.5 pl-5 pr-12 text-sm font-semibold focus:outline-none focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-600/10 text-gray-800 transition-all cursor-pointer">
+                      <option>All Industries</option>
+                      <option>Technology / SaaS</option>
+                      <option>Healthcare</option>
+                      <option>Manufacturing</option>
+                    </select>
+                    <FaChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none group-hover:text-gray-600 transition-colors" />
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Location</label>
+                  <div className="relative group">
+                    <select className="w-full appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200/60 rounded-2xl py-3.5 pl-5 pr-12 text-sm font-semibold focus:outline-none focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-600/10 text-gray-800 transition-all cursor-pointer">
+                      <option>All Locations</option>
+                      <option>North America</option>
+                      <option>Europe</option>
+                      <option>Asia Pacific</option>
+                    </select>
+                    <FaChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none group-hover:text-gray-600 transition-colors" />
+                  </div>
+                </div>
+
+                {/* Deal Type */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Deal Type</label>
+                  <div className="relative group">
+                    <select className="w-full appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200/60 rounded-2xl py-3.5 pl-5 pr-12 text-sm font-semibold focus:outline-none focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-600/10 text-gray-800 transition-all cursor-pointer">
+                      <option>All Deal Types</option>
+                      <option>Majority Acquisition</option>
+                      <option>Minority Investment</option>
+                      <option>Asset Sale</option>
+                    </select>
+                    <FaChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none group-hover:text-gray-600 transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              <button className="flex-shrink-0 text-gray-600 hover:text-gray-900 text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-gray-50 hover:bg-gray-200/80 px-6 py-3.5 rounded-2xl border border-gray-200/60 w-full lg:w-auto h-[52px]">
+                <FaRedoAlt /> Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Search Area Box */}
+          <div className="bg-white rounded-3xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-200 mb-10">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              <div className="relative flex-1 group w-full">
+                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-teal-600 transition-colors">
+                  <FaSearch className="text-lg" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by industry, keyword, or business model..."
+                  className="w-full pl-14 pr-5 py-4 bg-gray-50/50 border border-transparent rounded-2xl text-base focus:outline-none focus:bg-gray-50 focus:border-teal-600/30 focus:ring-4 focus:ring-teal-600/10 transition-all hover:bg-gray-50"
+                />
+              </div>
+
+              <div className="h-10 w-px bg-gray-100 hidden md:block"></div>
+
+              <div className="relative w-full md:w-72">
+                <select className="w-full appearance-none bg-gray-50/50 border border-transparent rounded-2xl py-4 pl-5 pr-12 text-base font-semibold text-gray-700 focus:outline-none focus:bg-gray-50 focus:border-teal-600/30 focus:ring-4 focus:ring-teal-600/10 transition-all cursor-pointer hover:bg-gray-50">
+                  <option>Sort by: Newest First</option>
+                  <option>Sort by: Revenue (High to Low)</option>
+                  <option>Sort by: EBITDA (High to Low)</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-5 flex items-center pointer-events-none text-gray-400">
+                  <FaChevronDown className="text-sm" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Grid (Full width) */}
+          <div className="w-full">
+            {/* Projects Area */}
+            <div className="w-full">
+              {opportunities.length === 0 ? (
+                <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-200 rounded-3xl shadow-sm p-8">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <FaSearch className="text-3xl text-gray-300" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No opportunities found</h3>
+                  <p className="text-gray-500 text-sm max-w-md text-center">Try adjusting your filters or search terms to find more deals matching your criteria.</p>
+                  <button className="mt-6 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-full transition-colors shadow-lg shadow-teal-600/20">
+                    Clear all filters
                   </button>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {opportunities.map((opp, idx) => (
+                    <div key={idx} className="bg-white rounded-3xl border border-gray-200 shadow-sm flex flex-col group relative overflow-hidden hover:-translate-y-1 hover:border-gray-300 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
+                      {/* Clean white card without top border to match design */}
 
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-2">Industry</label>
-                    <div className="relative">
-                      <select className="w-full appearance-none bg-white border border-gray-200 rounded-md py-2.5 pl-3 pr-8 text-sm focus:outline-none focus:border-[#b48629] text-gray-700 cursor-pointer">
-                        <option>All Industries</option>
-                        <option>Technology / SaaS</option>
-                        <option>Healthcare</option>
-                        <option>Manufacturing</option>
-                      </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
-                    </div>
-                  </div>
+                      <div className="p-6 sm:p-8 flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-6">
+                          <span className={`px-3.5 py-1.5 text-[10px] font-extrabold tracking-widest rounded-full uppercase shadow-sm ${opp.status === 'Active' ? 'bg-teal-600/10 text-teal-600' : 'bg-green-50 text-green-700'}`}>
+                            {opp.status || 'Active'}
+                          </span>
+                          <button className="text-gray-300 hover:text-teal-600 transition-colors p-2 hover:bg-teal-600/5 rounded-full -mr-2 -mt-2">
+                            <FaRegBookmark className="text-lg" />
+                          </button>
+                        </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-2">Location</label>
-                    <div className="relative">
-                      <select className="w-full appearance-none bg-white border border-gray-200 rounded-md py-2.5 pl-3 pr-8 text-sm focus:outline-none focus:border-[#b48629] text-gray-700 cursor-pointer">
-                        <option>All Locations</option>
-                        <option>North America</option>
-                        <option>Europe</option>
-                        <option>Asia Pacific</option>
-                      </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-2">Deal Type</label>
-                    <div className="relative">
-                      <select className="w-full appearance-none bg-white border border-gray-200 rounded-md py-2.5 pl-3 pr-8 text-sm focus:outline-none focus:border-[#b48629] text-gray-700 cursor-pointer">
-                        <option>All Deal Types</option>
-                        <option>Majority Acquisition</option>
-                        <option>Minority Investment</option>
-                        <option>Asset Sale</option>
-                      </select>
-                      <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    All opportunities are presented anonymously. Detailed information is shared only after seller approval.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Projects Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 mb-4 text-sm text-gray-500 flex-shrink-0">
-                <FaFilter className="text-gray-400 text-xs" />
-                <span>Showing <strong>{opportunities.length}</strong> opportunities</span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-4 pb-12 custom-scrollbar">
-                {opportunities.length === 0 ? (
-                  <div className="w-full min-h-[300px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-200 rounded-lg">
-                    <FaSearch className="text-4xl mb-4 opacity-40" />
-                    <p className="text-xl font-medium">No opportunities found</p>
-                    <p className="text-sm mt-2">Check back later or adjust your filters.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {opportunities.map((opp, idx) => (
-                      <div key={idx} className="bg-white border border-gray-200 flex flex-col group relative overflow-hidden hover:shadow-md transition-shadow">
-
-                        <div className="p-5 flex flex-col h-full">
-                          <div className="flex justify-between items-start mb-6">
-                            <span className={`px-3 py-1 text-white text-[10px] font-bold tracking-wide rounded-sm uppercase ${opp.status === 'Active' ? 'bg-[#b48629]' : 'bg-green-700'}`}>
-                              {opp.status || 'Active'}
+                        <div className="mb-6">
+                          <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2 flex items-center gap-2">
+                            {opp.projectName}
+                          </p>
+                          <h3 className="text-xl font-bold text-gray-900 leading-tight mb-4 group-hover:text-teal-600 transition-colors line-clamp-2">
+                            {opp.name}
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-md font-semibold border border-gray-100">
+                              <FaMapMarkerAlt className="mr-1.5 text-gray-400" /> {opp.geography || 'Global'}
                             </span>
-                            <button className="text-gray-400 hover:text-gray-900 transition-colors">
-                              <FaRegBookmark />
-                            </button>
+                            <span className="inline-flex items-center text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-md font-semibold border border-gray-100">
+                              <FaBriefcase className="mr-1.5 text-gray-400" /> {opp.sector || 'Sector'}
+                            </span>
                           </div>
+                        </div>
 
-                          <div className="mb-6">
-                            <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-2">{opp.projectName}</p>
-                            <h3 className="text-lg font-bold text-gray-900 leading-snug mb-3">{opp.name}</h3>
-                            <div className="flex items-center text-xs text-[#b48629] font-medium">
-                              <FaMapMarkerAlt className="mr-1.5" /> {opp.sector || 'Sector'} &middot; {opp.geography || 'Global'}
-                            </div>
+                        <div className="grid grid-cols-2 gap-3 mb-8 mt-auto">
+                          <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Revenue</p>
+                            <p className="font-extrabold text-gray-900 text-sm">{opp.revenue || 'TBD'}</p>
                           </div>
+                          <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">EBITDA</p>
+                            <p className="font-extrabold text-gray-900 text-sm">{opp.ebitda || 'TBD'}</p>
+                          </div>
+                          <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Growth</p>
+                            <p className="font-extrabold text-gray-700 text-sm">{opp.growth || '--'}</p>
+                          </div>
+                          <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Employees</p>
+                            <p className="font-extrabold text-gray-700 text-sm">{opp.employees || '--'}</p>
+                          </div>
+                        </div>
 
-                          <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-8 mt-auto">
-                            <div>
-                              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Revenue</p>
-                              <p className="font-bold text-gray-900">{opp.revenue || 'TBD'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">EBITDA</p>
-                              <p className="font-bold text-gray-900">{opp.ebitda || 'TBD'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Growth</p>
-                              <p className="font-bold text-gray-400">{opp.growth || '--'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Employees</p>
-                              <p className="font-bold text-gray-400">{opp.employees || '--'}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-4 border-t border-gray-100 mb-4">
-                            <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Opportunity</span>
-                            <span className="text-[10px] text-gray-500 italic">Anonymous</span>
-                          </div>
+                        <div className="pt-6 border-t border-gray-200">
                           <Link href={`/dms/teaser?project=${encodeURIComponent(opp.projectName)}&projectId=${opp.projectId}`} className="block w-full">
-                            <button className="w-full py-3 bg-[#0b1120] hover:bg-gray-800 text-white text-sm font-bold rounded transition-colors">
-                              View Teaser
+                            <button className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 hover:shadow-teal-600/40">
+                              View Teaser <FaArrowRight className="opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
                             </button>
                           </Link>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -314,7 +329,7 @@ export default function Marketplace() {
                 <div className="bg-white p-8 border border-gray-200 flex flex-col justify-between group hover:shadow-lg transition-shadow">
                   <div>
                     <div className="flex justify-between items-start mb-6">
-                      <span className="text-4xl font-bold text-[#b48629]">01</span>
+                      <span className="text-4xl font-bold text-teal-600">01</span>
                       <FaSearch className="text-gray-600 text-xl" />
                     </div>
                     <h3 className="text-2xl font-bold mb-4">Discover</h3>
@@ -322,14 +337,14 @@ export default function Marketplace() {
                       Browse confidential acquisition opportunities across a focused set of industries, geographies, and deal types.
                     </p>
                   </div>
-                  <FaArrowRight className="text-[#b48629]" />
+                  <FaArrowRight className="text-teal-600" />
                 </div>
 
                 {/* Card 2 */}
                 <div className="bg-white p-8 border border-gray-200 flex flex-col justify-between group hover:shadow-lg transition-shadow">
                   <div>
                     <div className="flex justify-between items-start mb-6">
-                      <span className="text-4xl font-bold text-[#b48629]">02</span>
+                      <span className="text-4xl font-bold text-teal-600">02</span>
                       <FaCheck className="text-gray-600 text-xl" />
                     </div>
                     <h3 className="text-2xl font-bold mb-4">Review</h3>
@@ -337,14 +352,14 @@ export default function Marketplace() {
                       Explore anonymous company teasers, financial highlights, and the opportunity's stated transaction context.
                     </p>
                   </div>
-                  <FaArrowRight className="text-[#b48629]" />
+                  <FaArrowRight className="text-teal-600" />
                 </div>
 
                 {/* Card 3 */}
                 <div className="bg-white p-8 border border-gray-200 flex flex-col justify-between group hover:shadow-lg transition-shadow">
                   <div>
                     <div className="flex justify-between items-start mb-6">
-                      <span className="text-4xl font-bold text-[#b48629]">03</span>
+                      <span className="text-4xl font-bold text-teal-600">03</span>
                       <FaShieldAlt className="text-gray-600 text-xl" />
                     </div>
                     <h3 className="text-2xl font-bold mb-4">Request Access</h3>
@@ -352,14 +367,14 @@ export default function Marketplace() {
                       Share your credentials and investment mandate so the seller can evaluate a thoughtful access request.
                     </p>
                   </div>
-                  <FaArrowRight className="text-[#b48629]" />
+                  <FaArrowRight className="text-teal-600" />
                 </div>
 
                 {/* Card 4 */}
                 <div className="bg-white p-8 border border-gray-200 flex flex-col justify-between group hover:shadow-lg transition-shadow">
                   <div>
                     <div className="flex justify-between items-start mb-6">
-                      <span className="text-4xl font-bold text-[#b48629]">04</span>
+                      <span className="text-4xl font-bold text-teal-600">04</span>
                       <FaLink className="text-gray-600 text-xl" />
                     </div>
                     <h3 className="text-2xl font-bold mb-4">Connect</h3>
@@ -367,12 +382,12 @@ export default function Marketplace() {
                       Once approved, continue into a secure transaction process with the right information at the right time.
                     </p>
                   </div>
-                  <FaArrowRight className="text-[#b48629]" />
+                  <FaArrowRight className="text-teal-600" />
                 </div>
               </div>
 
               {/* Callout */}
-              <div className="bg-white p-6 border-l-4 border-l-[#b48629] shadow-sm">
+              <div className="bg-white p-6 border-l-4 border-l-teal-600 shadow-sm">
                 <p className="text-gray-800 font-medium text-sm md:text-base">
                   More advanced transaction workflows will be introduced in future versions, including secure VDR, NDA, Q&A, and transaction workflows.
                 </p>
@@ -388,7 +403,7 @@ export default function Marketplace() {
                 {/* Card 1 */}
                 <div className="p-10 border-b md:border-r border-gray-200">
                   <div className="w-12 h-12 bg-[#0b1120] rounded mb-6 flex items-center justify-center border border-gray-700 shadow-sm">
-                    <FaSearch className="text-[#eab308] text-xl" />
+                    <FaSearch className="text-teal-500 text-xl" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">Browse efficiently</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">
@@ -399,7 +414,7 @@ export default function Marketplace() {
                 {/* Card 2 */}
                 <div className="p-10 border-b border-gray-200">
                   <div className="w-12 h-12 bg-[#0b1120] rounded mb-6 flex items-center justify-center border border-gray-700 shadow-sm">
-                    <FaLock className="text-[#eab308] text-xl" />
+                    <FaLock className="text-teal-500 text-xl" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">Stay confidential</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">
@@ -410,7 +425,7 @@ export default function Marketplace() {
                 {/* Card 3 */}
                 <div className="p-10 border-b md:border-b-0 md:border-r border-gray-200">
                   <div className="w-12 h-12 bg-[#0b1120] rounded mb-6 flex items-center justify-center border border-gray-700 shadow-sm">
-                    <FaShieldAlt className="text-[#eab308] text-xl" />
+                    <FaShieldAlt className="text-teal-500 text-xl" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">Request thoughtfully</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">
@@ -421,7 +436,7 @@ export default function Marketplace() {
                 {/* Card 4 */}
                 <div className="p-10">
                   <div className="w-12 h-12 bg-[#0b1120] rounded mb-6 flex items-center justify-center border border-gray-700 shadow-sm">
-                    <FaBriefcase className="text-[#eab308] text-xl" />
+                    <FaBriefcase className="text-teal-500 text-xl" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">Move with intent</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">
@@ -434,20 +449,20 @@ export default function Marketplace() {
               <div>
                 <h2 className="text-3xl font-bold mb-10 text-gray-900">Your buyer journey</h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="border-t-[3px] border-[#d4af37] pt-4">
-                    <p className="text-[#b48629] font-bold text-sm mb-2">01</p>
+                  <div className="border-t-[3px] border-teal-500 pt-4">
+                    <p className="text-teal-600 font-bold text-sm mb-2">01</p>
                     <p className="font-bold text-sm">Browse deals</p>
                   </div>
-                  <div className="border-t-[3px] border-[#d4af37] pt-4">
-                    <p className="text-[#b48629] font-bold text-sm mb-2">02</p>
+                  <div className="border-t-[3px] border-teal-500 pt-4">
+                    <p className="text-teal-600 font-bold text-sm mb-2">02</p>
                     <p className="font-bold text-sm">Open a teaser</p>
                   </div>
-                  <div className="border-t-[3px] border-[#d4af37] pt-4">
-                    <p className="text-[#b48629] font-bold text-sm mb-2">03</p>
+                  <div className="border-t-[3px] border-teal-500 pt-4">
+                    <p className="text-teal-600 font-bold text-sm mb-2">03</p>
                     <p className="font-bold text-sm">Request access</p>
                   </div>
-                  <div className="border-t-[3px] border-[#d4af37] pt-4">
-                    <p className="text-[#b48629] font-bold text-sm mb-2">04</p>
+                  <div className="border-t-[3px] border-teal-500 pt-4">
+                    <p className="text-teal-600 font-bold text-sm mb-2">04</p>
                     <p className="font-bold text-sm">Access pending</p>
                   </div>
                 </div>
