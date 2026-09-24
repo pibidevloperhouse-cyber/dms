@@ -22,6 +22,9 @@ export async function GET(req) {
       createdAt: dmsDeals.createdAt,
       buyerId: users.id,
       name: dmsDeals.dealName, // Use the stored dealName
+      featureQa: dmsDeals.featureQa,
+      featureBidding: dmsDeals.featureBidding,
+      featureTasks: dmsDeals.featureTasks,
     })
     .from(dmsDeals)
     .leftJoin(users, eq(dmsDeals.buyerId, users.id));

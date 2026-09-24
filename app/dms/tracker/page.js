@@ -217,12 +217,12 @@ export default function TrackerPage() {
                       </td>
                       <td className="py-4 px-6 text-center">
                         {req.ndaStatus === 'signed' ? (
-                          <div className="flex items-center justify-center text-green-500" title="NDA Signed">
-                            <FaCheckCircle className="text-lg" />
+                          <div className="flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity" title="NDA Signed">
+                            <Image src="/images/verifyed_nda.jpeg" alt="NDA Signed" width={32} height={32} className="rounded-md" />
                           </div>
                         ) : (
                           <div className="flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity" title="NDA Pending">
-                            <Image src="/images/lock nda.png" alt="NDA Pending" width={24} height={24} className="rounded-md" />
+                            <Image src="/images/lock nda.png" alt="NDA Pending" width={32} height={32} className="rounded-md" />
                           </div>
                         )}
                       </td>
@@ -230,11 +230,16 @@ export default function TrackerPage() {
                         {req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? (
                           <button
                             onClick={() => {
-                              setNdaTarget({
-                                projectName: req.projectName,
-                                dealName: req.company
-                              });
-                              setShowNDAModal(true);
+                              if (req.ndaStatus === 'signed') {
+                                router.push(`/dms/workspace?filterProject=${encodeURIComponent(req.projectName)}&filterDeal=${encodeURIComponent(req.company)}`);
+                              } else {
+                                setNdaTarget({
+                                  proposalId: req.id,
+                                  projectName: req.projectName,
+                                  dealName: req.company
+                                });
+                                setShowNDAModal(true);
+                              }
                             }}
                             title="Open Deal"
                             className="p-2 text-[#00c875] hover:bg-[#00c875]/10 rounded-full transition-colors flex items-center justify-center mx-auto"
@@ -262,10 +267,30 @@ export default function TrackerPage() {
         onClose={() => setShowNDAModal(false)}
         projectName={ndaTarget?.projectName}
         companyName={ndaTarget?.dealName}
-        onAccept={() => {
-          setShowNDAModal(false);
-          if (ndaTarget) {
-            router.push(`/dms/workspace?filterProject=${encodeURIComponent(ndaTarget.projectName)}&filterDeal=${encodeURIComponent(ndaTarget.dealName)}`);
+        onAccept={async (signatureData) => {
+          if (ndaTarget && ndaTarget.proposalId) {
+            try {
+              const res = await fetch('/api/dms/tracker/sign-nda', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  proposalId: ndaTarget.proposalId,
+                  signatureData
+                })
+              });
+
+              if (res.ok) {
+                // Update local state to show signed status
+                setRequests(prev => prev.map(r => r.id === ndaTarget.proposalId ? { ...r, ndaStatus: 'signed' } : r));
+                setShowNDAModal(false);
+                router.push(`/dms/workspace?filterProject=${encodeURIComponent(ndaTarget.projectName)}&filterDeal=${encodeURIComponent(ndaTarget.dealName)}`);
+              } else {
+                console.error("Failed to sign NDA");
+                alert("Failed to save signature. Please try again.");
+              }
+            } catch (err) {
+              console.error("Error signing NDA:", err);
+            }
           }
         }}
       />

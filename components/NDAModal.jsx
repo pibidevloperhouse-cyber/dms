@@ -32,9 +32,14 @@ export default function NDAModal({ isOpen, onClose, onAccept, projectName, compa
     if (signatureType === 'draw' && !hasDrawn) return;
     if (signatureType === 'upload' && !uploadedImage) return;
 
-    // We can get the data URL of the drawn signature using sigCanvas.current.toDataURL()
-    // For now, we just proceed.
-    onAccept();
+    let signatureData = null;
+    if (signatureType === 'draw') {
+      signatureData = sigCanvas.current.toDataURL();
+    } else {
+      signatureData = uploadedImage;
+    }
+
+    onAccept(signatureData);
   };
 
   const isSubmitDisabled = (signatureType === 'draw' && !hasDrawn) || (signatureType === 'upload' && !uploadedImage);

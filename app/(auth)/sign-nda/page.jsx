@@ -191,7 +191,7 @@ export default function SignNdaPage() {
             localStorage.setItem("vdr_session", JSON.stringify(updatedSession));
 
             // Route to Dashboard!
-            router.push("/documents");
+            router.push("/dms/workspace");
 
         } catch (err) {
             console.error("Failed to accept NDA:", err);

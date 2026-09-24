@@ -21,6 +21,26 @@ export default function GroupsLayoutWrapper({ children }) {
                 return;
             }
 
+            if (session.role === 'guest_admin') {
+                const dealId = session.active_workspace_id;
+                if (dealId) {
+                    try {
+                        const res = await fetch(`/api/dms/deals/${dealId}`);
+                        if (res.ok) {
+                            const { deal } = await res.json();
+                            if (deal.featureGroups) {
+                                setIsAuthorized(true);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+                router.push('/documents');
+                return;
+            }
+
             const { data: ugRows } = await supabase.from('user_groups').select('group_id').eq('user_id', session.id);
             const groupIds = ugRows?.map(r => r.group_id) || [];
 

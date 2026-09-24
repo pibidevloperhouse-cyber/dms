@@ -14,6 +14,7 @@ export default function DynamicGroupPage() {
 
     
     const [members, setMembers] = useState([]);
+    const [guestLead, setGuestLead] = useState(null);
     const [groupData, setGroupData] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -125,28 +126,32 @@ export default function DynamicGroupPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {canAddMembers && (
-                            <button onClick={() => router.push(`/groups/${groupSlug}/invite-member`)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 hover:border-gray-300 transition-all duration-500 shadow-sm active:scale-95 cursor-pointer">
-                                <FaUserPlus size={14} className="text-slate-500" />
-                                <span>Invite Member</span>
-                            </button>
-                        )}
-                        {canEditPermissions && (
-                            <button onClick={() => router.push(`/groups/${groupSlug}/permissions`)}
-                                className="flex items-center gap-2 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-secondary)] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-500 shadow-[0_8px_30px_rgba(var(--brand-rgb),0.14)] active:scale-95 cursor-pointer">
-                                <FaCog size={14} className="text-white/80" />
-                                <span>Edit Permissions</span>
-                            </button>
+                        {groupData?.type !== 'individual' && (
+                            <>
+                                {canAddMembers && (
+                                    <button onClick={() => router.push(`/groups/${groupSlug}/invite-member`)}
+                                        className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-50 hover:border-gray-300 transition-all duration-500 shadow-sm active:scale-95 cursor-pointer">
+                                        <FaUserPlus size={14} className="text-slate-500" />
+                                        <span>Invite Member</span>
+                                    </button>
+                                )}
+                                {canEditPermissions && (
+                                    <button onClick={() => router.push(`/groups/${groupSlug}/permissions`)}
+                                        className="flex items-center gap-2 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-secondary)] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-500 shadow-[0_8px_30px_rgba(var(--brand-rgb),0.14)] active:scale-95 cursor-pointer">
+                                        <FaCog size={14} className="text-white/80" />
+                                        <span>Edit Permissions</span>
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-10 pb-12 mt-2">
-                <div className="bg-white/80 backdrop-blur-xl border border-gray-200/80 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[500px] hover:border-gray-300 transition-all duration-500">
+            <div className="flex-1 overflow-y-auto px-10 pb-12 mt-2 space-y-8">
+                <div className="bg-white/80 backdrop-blur-xl border border-gray-200/80 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[400px] hover:border-gray-300 transition-all duration-500">
                     <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <h3 className="font-semibold text-sm text-slate-700">Active Members</h3>
+                        <h3 className="font-semibold text-sm text-slate-700">Seller Group Members</h3>
                         <span className="bg-slate-200 text-slate-600 font-medium text-xs px-2.5 py-0.5 rounded-full">{members.length}</span>
                     </div>
 
@@ -158,16 +163,16 @@ export default function DynamicGroupPage() {
                                     <th className="py-4 px-6 font-semibold text-slate-500 text-xs uppercase tracking-wider w-1/3">Email Address</th>
                                     <th className="py-4 px-6 font-semibold text-slate-500 text-xs uppercase tracking-wider">Phone</th>
                                     <th className="py-4 px-6 font-semibold text-slate-500 text-xs uppercase tracking-wider text-center">Status</th>
-                                    {canRemoveMembers && (
+                                    {(canRemoveMembers || canEditPermissions) && (
                                         <th className="py-4 px-6 font-semibold text-slate-500 text-xs uppercase tracking-wider text-right">Action</th>
                                     )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {loading ? (
-                                    <tr><td colSpan={canRemoveMembers ? 5 : 4} className="py-20 text-center"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto" /></td></tr>
+                                    <tr><td colSpan={(canRemoveMembers || canEditPermissions) ? 5 : 4} className="py-20 text-center"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto" /></td></tr>
                                 ) : members.length === 0 ? (
-                                    <tr><td colSpan={canRemoveMembers ? 5 : 4} className="py-24 text-center font-medium text-slate-500 text-sm">No members assigned to this group yet.</td></tr>
+                                    <tr><td colSpan={(canRemoveMembers || canEditPermissions) ? 5 : 4} className="py-24 text-center font-medium text-slate-500 text-sm">No members assigned to this group yet.</td></tr>
                                 ) : (
                                     members.map((member) => (
                                         <tr key={member.id} className="group hover:bg-slate-50/50 transition-colors duration-200">
@@ -186,14 +191,25 @@ export default function DynamicGroupPage() {
                                                     {member.status}
                                                 </span>
                                             </td>
-                                            {canRemoveMembers && (
-                                                <td className="py-4 px-6 text-right">
-                                                    {member.id !== session?.id && (
-                                                        <button onClick={() => handleRemoveMember(member.id)}
-                                                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all ml-auto" title="Remove member">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                                                        </button>
-                                                    )}
+                                            {(canRemoveMembers || canEditPermissions) && (
+                                                <td className="py-4 px-6">
+                                                    <div className="flex items-center justify-end gap-3">
+                                                        {canEditPermissions && (
+                                                            <button 
+                                                                onClick={() => router.push(`/groups/${groupSlug}/user-permissions/${member.id}`)}
+                                                                className="flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-teal-600 transition-colors shadow-sm"
+                                                            >
+                                                                <FaCog size={14} />
+                                                                <span>Edit Permissions</span>
+                                                            </button>
+                                                        )}
+                                                        {canRemoveMembers && groupData?.type !== 'individual' && member.id !== session?.id && (
+                                                            <button onClick={() => handleRemoveMember(member.id)}
+                                                                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all" title="Remove member">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>

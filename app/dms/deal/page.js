@@ -20,6 +20,7 @@ export default function DealDashboard() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [newDealName, setNewDealName] = useState("");
   const [newDealDesc, setNewDealDesc] = useState("");
@@ -40,6 +41,17 @@ export default function DealDashboard() {
   // NDA Modal State
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [ndaTarget, setNdaTarget] = useState(null);
+
+  // Features Modal State
+  const [isManageFeaturesModalOpen, setIsManageFeaturesModalOpen] = useState(false);
+  const [featureDeal, setFeatureDeal] = useState(null);
+  const [featuresForm, setFeaturesForm] = useState({
+    featureQa: false,
+    featureBidding: false,
+    featureTasks: false,
+  });
+
+  const [selectedDealForPermissions, setSelectedDealForPermissions] = useState(null);
 
   // Deal form state
   const [formData, setFormData] = useState({
@@ -267,6 +279,34 @@ export default function DealDashboard() {
     router.push('/dms/login');
   };
 
+  const handleSavePermissions = async () => {
+    setIsSavingPermissions(true);
+    try {
+      await Promise.all(
+        deals.filter(d => d.status !== 'trashed').map(deal => 
+          fetch('/api/dms/deals/features', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dealId: deal.id,
+              featureQa: deal.featureQa,
+              featureBidding: deal.featureBidding,
+              featureTasks: deal.featureTasks,
+              featureGroups: deal.featureGroups,
+              featureCommunication: deal.featureCommunication
+            })
+          })
+        )
+      );
+      alert("Permissions saved successfully! Changes will reflect when the Buyer logs in.");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save permissions.");
+    } finally {
+      setIsSavingPermissions(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#F8F9FA] font-sans overflow-hidden">
 
@@ -294,6 +334,16 @@ export default function DealDashboard() {
               <FaDatabase className="text-lg" />
               <span>Deals</span>
             </button>
+
+            {userRole !== 'buyer' && !userRole.includes('guest') && (
+              <button
+                onClick={() => handleTabChange('permissions')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'permissions' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+              >
+                <FaCog className="text-lg" />
+                <span>Deal Permissions</span>
+              </button>
+            )}
             
             {userRole !== 'buyer' && !userRole.includes('guest') && (
               <>
@@ -577,6 +627,58 @@ export default function DealDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {activeTab === 'permissions' && (
+              <div className="w-full">
+                <div className="mb-6 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Deal Permissions</h2>
+                    <p className="text-sm text-gray-500 mt-1">Manage module access and granular guest permissions for each deal workspace.</p>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[800px] text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-widest">Deal Name</th>
+                          <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-widest text-center">Permissions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {deals.filter(d => d.status !== 'trashed').length === 0 ? (
+                          <tr>
+                            <td colSpan="2" className="py-8 text-center text-sm text-gray-500">No active deals found.</td>
+                          </tr>
+                        ) : (
+                          deals.filter(d => d.status !== 'trashed').map((deal) => (
+                            <tr key={deal.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="py-4 px-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded bg-[#f4f7f9] flex items-center justify-center">
+                                    <FaShieldAlt className="text-[#b48629]" />
+                                  </div>
+                                  <span className="font-bold text-gray-900 text-sm">{deal.name || 'Unnamed Deal'}</span>
+                                </div>
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                                <button
+                                  onClick={() => setSelectedDealForPermissions(deal)}
+                                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto"
+                                >
+                                  <FaCog /> Edit Permissions
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1011,6 +1113,96 @@ export default function DealDashboard() {
         }}
       />
 
+      {/* Granular Permissions Modal */}
+      {selectedDealForPermissions && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl relative animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Deal Permissions: {selectedDealForPermissions.name || 'Unnamed Deal'}</h2>
+                <p className="text-xs text-gray-500 mt-1">Configure module access and Guest Admin capabilities.</p>
+              </div>
+              <button onClick={() => setSelectedDealForPermissions(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-8 flex-1">
+              {/* Modules Section */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">Enabled Modules</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { key: 'featureQa', label: 'Q&A Module' },
+                    { key: 'featureBidding', label: 'Bidding Module' },
+                    { key: 'featureTasks', label: 'Tasks & Workflow' },
+                    { key: 'featureGroups', label: 'Groups Management' },
+                    { key: 'featureCommunication', label: 'Communication' }
+                  ].map(module => (
+                    <label key={module.key} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                      <span className="text-sm font-medium text-gray-700">{module.label}</span>
+                      <div className="relative inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={selectedDealForPermissions[module.key] || false}
+                          onChange={(e) => {
+                            setSelectedDealForPermissions({
+                              ...selectedDealForPermissions,
+                              [module.key]: e.target.checked
+                            });
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00c875]"></div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setSelectedDealForPermissions(null)}
+                className="px-5 py-2 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg font-bold transition-colors text-sm shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/dms/deals/features', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        dealId: selectedDealForPermissions.id,
+                        featureQa: selectedDealForPermissions.featureQa,
+                        featureBidding: selectedDealForPermissions.featureBidding,
+                        featureTasks: selectedDealForPermissions.featureTasks,
+                        featureGroups: selectedDealForPermissions.featureGroups,
+                        featureCommunication: selectedDealForPermissions.featureCommunication
+                      })
+                    });
+                    
+                    if (res.ok) {
+                      setDeals(deals.map(d => d.id === selectedDealForPermissions.id ? selectedDealForPermissions : d));
+                      setSelectedDealForPermissions(null);
+                    } else {
+                      alert('Failed to update deal permissions.');
+                    }
+                  } catch (err) {
+                    console.error('Failed to update deal permissions', err);
+                    alert('An error occurred while saving.');
+                  }
+                }}
+                className="px-5 py-2 bg-[#0b1120] hover:bg-gray-800 text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

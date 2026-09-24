@@ -324,18 +324,24 @@ export default function TokenRegisterPage() {
             // 🔥 1. Check if NDA is required from the invite
             const assignedNdaStatus = invitationDetails.requires_nda ? "pending" : "not_required";
 
-            // 2. Insert user with nda_status
+            // Hash the password securely
+            const bcrypt = require('bcryptjs');
+            const salt = bcrypt.genSaltSync(10);
+            const hashedPassword = bcrypt.hashSync(formData.password, salt);
+
+            // 2. Insert user with nda_status and dms_role
             const { data: newUser, error: userError } = await supabase
                 .from("users")
                 .insert({
                     name: formData.name,
                     email: invitationDetails.email,
                     phone_number: formData.mobile,
-                    password_hash: formData.password,
+                    password_hash: hashedPassword,
                     role: targetRole,
                     company_id: targetCompany,
                     status: "active",
-                    nda_status: assignedNdaStatus, // <-- Added NDA Status here!
+                    nda_status: assignedNdaStatus,
+                    dms_role: "seller", // <-- Set dms_role to seller
                 })
                 .select("id")
                 .single();
@@ -574,6 +580,23 @@ export default function TokenRegisterPage() {
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    Type
+                                </label>
+                                <div className="relative">
+                                    <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        name="type"
+                                        value="Seller"
+                                        disabled={true}
+                                        className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-slate-500 font-bold"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
                                     Mobile Number
                                 </label>
                                 <div className="relative">
@@ -680,7 +703,7 @@ export default function TokenRegisterPage() {
                                 Your account has been created successfully.
                             </p>
                             <Link
-                                href="/login"
+                                href="/dms/login"
                                 className="block mt-6 w-full py-3 bg-brand text-white rounded-xl"
                             >
                                 Go To Login

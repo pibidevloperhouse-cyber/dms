@@ -21,6 +21,7 @@ export async function POST(req) {
         const isGodMode = session.role === 'super_admin';
         let myPerms = {};
         let globalTemp = { can_create: false, can_merge: false, can_delete: false };
+        let dealRestrictions = null;
 
         // 1. 🛡️ CALCULATE ABAC PERMISSIONS ON THE SERVER
         if (!isGodMode) {
@@ -62,6 +63,22 @@ export async function POST(req) {
         if (workspaceId) {
             foldersQuery = foldersQuery.eq('workspace_id', workspaceId);
             docsQuery = docsQuery.eq('workspace_id', workspaceId);
+            
+            // Check Deal Restrictions for Buyers/Guests
+            if (['guest_admin', 'buyer', 'external_user'].includes(session.role)) {
+                const { data: dealData } = await supabase
+                    .from('dms_deals')
+                    .select('guest_can_upload_docs, guest_can_download_docs, guest_can_create_folders')
+                    .eq('id', workspaceId)
+                    .single();
+                if (dealData) {
+                    dealRestrictions = {
+                        guestCanUploadDocs: dealData.guest_can_upload_docs,
+                        guestCanDownloadDocs: dealData.guest_can_download_docs,
+                        guestCanCreateFolders: dealData.guest_can_create_folders
+                    };
+                }
+            }
         } else {
             // If no workspace is selected, we might want to return nothing or only items with no workspace
             foldersQuery = foldersQuery.is('workspace_id', null);
@@ -128,7 +145,8 @@ export async function POST(req) {
             success: true,
             files: [...mappedFolders, ...mappedDocs],
             mergedPerms: myPerms,
-            globalFolderPerms: globalTemp
+            globalFolderPerms: globalTemp,
+            dealRestrictions
         });
 
     } catch (err) {

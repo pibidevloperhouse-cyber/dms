@@ -17,6 +17,7 @@ export default function MainSidebar() {
   const [hasQaAccess, setHasQaAccess] = useState(false);
   const [hasDealsAccess, setHasDealsAccess] = useState(false);
   const [hasTasksAccess, setHasTasksAccess] = useState(false);
+  const [hasBiddingAccess, setHasBiddingAccess] = useState(false);
   const [hasCommunicationAccess, setHasCommunicationAccess] = useState(false);
   const [hasControlAuditsAccess, setHasControlAuditsAccess] = useState(false);
   const [session, setSession] = useState(null);
@@ -33,19 +34,49 @@ export default function MainSidebar() {
     setIsSuperAdmin(sessionObj.role === 'super_admin');
 
     const checkModulePermissions = async () => {
-      // 1. Super Admin gets automatic access to all modules
+      // 1. Fetch deal features first if in a workspace
+      let dealFeatures = null;
+      if (sessionObj.active_workspace_id) {
+        try {
+          const res = await fetch(`/api/dms/deals/${sessionObj.active_workspace_id}`);
+          if (res.ok) {
+            const { deal } = await res.json();
+            if (deal) dealFeatures = deal;
+          }
+        } catch (e) {
+          console.error("Not a deal or failed to fetch deal features", e);
+        }
+      }
+
+      // 2. Super Admin gets automatic access to all modules (but respects deal feature toggles)
       if (sessionObj.role === 'super_admin') {
-        setHasGroupsAccess(true);
+        setHasGroupsAccess(!dealFeatures || dealFeatures.featureGroups !== false);
         setHasSettingsAccess(true);
-        setHasQaAccess(true);
+        setHasQaAccess(!dealFeatures || dealFeatures.featureQa !== false);
         setHasDealsAccess(true);
-        setHasTasksAccess(true);
-        setHasCommunicationAccess(true);
+        setHasTasksAccess(!dealFeatures || dealFeatures.featureTasks !== false);
+        setHasBiddingAccess(!dealFeatures || dealFeatures.featureBidding !== false);
+        setHasCommunicationAccess(!dealFeatures || dealFeatures.featureCommunication !== false);
         setHasControlAuditsAccess(true);
         return;
       }
 
-      // 2. Everyone else checks group permissions in DB
+      // 3. Guest Admin (Buyer Lead) gets features purely from Deal API
+      if (['guest_admin', 'buyer', 'external_user'].includes(sessionObj.role)) {
+        if (dealFeatures) {
+          setHasGroupsAccess(dealFeatures.featureGroups || false);
+          setHasSettingsAccess(false);
+          setHasDealsAccess(false);
+          setHasQaAccess(dealFeatures.featureQa || false);
+          setHasTasksAccess(dealFeatures.featureTasks || false);
+          setHasBiddingAccess(dealFeatures.featureBidding || false);
+          setHasCommunicationAccess(dealFeatures.featureCommunication || false);
+          setHasControlAuditsAccess(false);
+        }
+        return;
+      }
+
+      // 4. Everyone else checks group permissions in DB
       const { data: ugRows } = await supabase
         .from('user_groups')
         .select('group_id')
@@ -54,23 +85,23 @@ export default function MainSidebar() {
       const groupIds = ugRows?.map(r => r.group_id) || [];
       if (!groupIds.length) return;
 
-      // 3. Check workspace scope permissions
+      // 5. Check workspace scope permissions
       const { data: perms } = await supabase
         .from('permissions')
         .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits')
         .eq('scope', 'workspace')
         .in('group_id', groupIds);
 
-      // 4. Set module access flags
-      const canAccessGroups = perms?.some(p => p.can_access_groups);
-      const canAccessSettings = perms?.some(p => p.can_access_settings);
-      const canAccessQa = perms?.some(p => p.can_access_qa);
-      const canAccessDeals = perms?.some(p => p.can_access_deals);
-      const canAccessTasks = perms?.some(p => p.can_access_tasks);
-      const canAccessCommunication = perms?.some(p => p.can_access_communication);
+      // 6. Set module access flags (AND with deal features if present)
+      const canAccessGroups = perms?.some(p => p.can_access_groups) && (!dealFeatures || dealFeatures.featureGroups);
+      const canAccessSettings = perms?.some(p => p.can_access_settings); // Settings usually not part of deal features
+      const canAccessQa = perms?.some(p => p.can_access_qa) && (!dealFeatures || dealFeatures.featureQa);
+      const canAccessDeals = perms?.some(p => p.can_access_deals) && (!dealFeatures || dealFeatures.featureBidding);
+      const canAccessTasks = perms?.some(p => p.can_access_tasks) && (!dealFeatures || dealFeatures.featureTasks);
+      const canAccessCommunication = perms?.some(p => p.can_access_communication) && (!dealFeatures || dealFeatures.featureCommunication);
       const canAccessControlAudits = perms?.some((p) => p.can_access_control_audits);
 
-      setHasGroupsAccess(!!canAccessGroups || sessionObj.role === 'guest_admin');
+      setHasGroupsAccess(!!canAccessGroups);
       setHasSettingsAccess(!!canAccessSettings);
       setHasQaAccess(!!canAccessQa);
       setHasDealsAccess(!!canAccessDeals);
@@ -103,8 +134,12 @@ export default function MainSidebar() {
             if (item.key === 'analytics' && !isAdmin && !isSuperAdmin) return null;
             if (item.key === 'qa' && !hasQaAccess) return null;
             if (item.key === 'tasks' && !hasTasksAccess) return null;
+            if (item.key === 'bidding' && !hasBiddingAccess) return null;
             if (item.key === 'communication' && !hasCommunicationAccess) return null;
             if (item.key === 'control_audits' && !hasControlAuditsAccess) return null;
+            // Hide redaction for guest admin (only Documents, Q&A, Bidding, Tasks should be visible)
+            if (item.key === 'redaction' && ['guest_admin', 'buyer', 'external_user'].includes(session?.role)) return null;
+
             const isActive = pathname?.startsWith(item.href);
             const hasSubItems = item.subItems && item.subItems.length > 0;
             const isSubmenuOpen = openSubmenuKey === item.key;
@@ -217,7 +252,7 @@ export default function MainSidebar() {
               <button
                 onClick={() => {
                   localStorage.removeItem('vdr_session');
-                  window.location.href = '/login';
+                  window.location.href = '/dms/login';
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] text-rose-500 hover:bg-rose-50 rounded-lg transition-colors font-bold group"
               >

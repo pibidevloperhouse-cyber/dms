@@ -109,6 +109,32 @@ function QAPageContent() {
       return;
     }
 
+    if (curSession.role === 'guest_admin') {
+      const dealId = curSession.active_workspace_id;
+      if (dealId) {
+        try {
+          const res = await fetch(`/api/dms/deals/${dealId}`);
+          if (res.ok) {
+            const { deal } = await res.json();
+            if (deal.featureQa) {
+              setQaPermissions({
+                canAccess: true,
+                canAsk: true,
+                canAnswer: true,
+                isSuperAdmin: false,
+                checked: true
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setQaPermissions({ canAccess: false, canAsk: false, canAnswer: false, isSuperAdmin: false, checked: true });
+      return;
+    }
+
     try {
       const { data: ugRows } = await supabase
         .from('user_groups')
