@@ -80,3 +80,21 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing project id' }, { status: 400 });
+    }
+
+    await db.delete(dmsProjects).where(eq(dmsProjects.id, id));
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error('Failed to delete project:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
