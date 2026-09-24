@@ -7,9 +7,11 @@ import { useTasks } from './TasksContext';
 
 export default function TasksNav() {
   const pathname = usePathname();
-  const { viewMode } = useTasks();
+  const { viewMode, isBuyerUser } = useTasks();
 
-  const tabs = viewMode === 'Buyer' 
+  const isBuyer = isBuyerUser || viewMode === 'Buyer';
+
+  const tabs = isBuyer 
     ? [ { id: 'board', label: 'My Tasks', path: '/tasks/board' } ]
     : [
         { id: 'board', label: 'Task Board', path: '/tasks/board' },

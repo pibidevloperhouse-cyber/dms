@@ -62,11 +62,38 @@ const STAGES = ['preparation', 'dd', 'negotiation', 'closing'];
 export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState(MOCK_TASKS);
   const [logs, setLogs] = useState(MOCK_LOGS);
+  const [userRole, setUserRole] = useState('seller');
+  const [isBuyerUser, setIsBuyerUser] = useState(false);
   const [viewMode, setViewMode] = useState('Seller'); // 'Seller' or 'Buyer'
   const [currentDealStage, setCurrentDealStage] = useState('preparation');
   const [selectedTask, setSelectedTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Parse logged-in user's role from vdr_session (specifically dmsRole / dm_role / role)
+  useEffect(() => {
+    try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      if (rawSession) {
+        const sessionObj = JSON.parse(rawSession);
+        // Supabase / Drizzle dms_role or dmsRole column value
+        const role = sessionObj?.dmsRole || sessionObj?.dm_role || sessionObj?.role || '';
+        const roleLower = String(role).toLowerCase();
+
+        const isBuyer = roleLower.includes('buyer') || ['guest_admin', 'external_user', 'buyer_member', 'buyer_admin'].includes(roleLower);
+
+        setUserRole(roleLower.includes('buyer') ? 'buyer' : 'seller');
+        setIsBuyerUser(isBuyer);
+        if (isBuyer) {
+          setViewMode('Buyer');
+        } else {
+          setViewMode('Seller');
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing session role in TasksProvider:', err);
+    }
+  }, []);
 
   // Auto-progression logic: Check if all milestones for current stage are completed
   useEffect(() => {
@@ -93,7 +120,7 @@ export function TasksProvider({ children }) {
     }
   }, [tasks, currentDealStage]);
 
-  const visibleTasks = viewMode === 'Buyer'
+  const visibleTasks = (isBuyerUser || viewMode === 'Buyer')
     ? tasks.filter(t => t.visibility === 'external')
     : tasks;
 
@@ -126,6 +153,8 @@ export function TasksProvider({ children }) {
       tasks,
       visibleTasks,
       logs,
+      userRole,
+      isBuyerUser,
       viewMode,
       setViewMode,
       currentDealStage,
