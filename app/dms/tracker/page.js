@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FaArrowLeft, FaSearch, FaEllipsisV, FaDownload, FaTimes, FaRegClock, FaFolder, FaFolderOpen, FaPowerOff, FaLock, FaCheckCircle, FaRegCircle } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaEllipsisV, FaDownload, FaTimes, FaRegClock, FaFolder, FaFolderOpen, FaPowerOff, FaLock, FaCheckCircle, FaRegCircle, FaThLarge, FaBriefcase, FaUser, FaChartLine, FaRegBell } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
 
@@ -75,41 +75,113 @@ export default function TrackerPage() {
     router.push('/dms/login');
   };
 
-  if (!isMounted) return null;
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen bg-[#f8fafc]">
+        <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+          <div className="w-10 h-10 bg-[#008f70] rounded-md mb-8"></div>
+        </aside>
+        <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc]"></div>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-gray-900 font-sans">
-      {/* Header Navbar */}
-      <nav className="fixed top-0 left-0 w-full bg-[#0b1120]/95 backdrop-blur-md z-50 py-5 px-4 md:px-12 flex justify-between items-center border-b border-white/10 text-white">
-        <div className="flex items-center">
-          <div className="flex items-center">
-            <Link href="/dms/marketplace" className="text-lg text-gray-300 hover:text-white font-medium transition-colors mr-20">
-              Marketplace
-            </Link>
-            <div className="flex items-center gap-20">
-              <Link href="#" className="text-lg text-gray-300 hover:text-white font-medium transition-colors">
-                Profile
-              </Link>
-              <span className="text-xl font-bold text-white tracking-wide">
-                Tracker
-              </span>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-[#f8fafc] font-sans text-gray-900 selection:bg-teal-600/20">
+      {/* Left Sidebar */}
+      <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+        {/* Logo */}
+        <div className="w-10 h-10 bg-[#008f70] rounded-md flex items-center justify-center text-white font-bold text-xl mb-8 shadow-sm cursor-pointer hover:bg-[#007058] transition-colors">
+          D
         </div>
-
-        {/* Right side - Auth */}
-        <div className="hidden md:flex items-center gap-4">
-          <button
-            onClick={handleLogout}
-            className="text-white hover:text-red-400 border border-white/30 hover:border-red-400 px-6 py-2 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-2"
+        
+        {/* Nav Icons */}
+        <div className="flex flex-col gap-4 w-full items-center">
+          {/* Overview */}
+          <button 
+            onClick={() => { sessionStorage.setItem('marketplaceTab', 'overview'); router.push('/dms/marketplace'); }}
+            className="relative p-3 w-full flex justify-center text-white group" 
+            title="Overview"
           >
-            <FaPowerOff /> Logout
+            <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+              <FaThLarge className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+            </div>
+          </button>
+          
+          {/* Marketplace */}
+          <button 
+            onClick={() => { sessionStorage.setItem('marketplaceTab', 'marketplace'); router.push('/dms/marketplace'); }}
+            className="relative p-3 w-full flex justify-center text-white group" 
+            title="Marketplace"
+          >
+            <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+              <FaBriefcase className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+            </div>
+          </button>
+          
+          {/* Tracker (Active) */}
+          <button 
+            className="relative p-3 w-full flex justify-center text-white group" 
+            title="Tracker"
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>
+            <div className="bg-[#1f2937] p-2.5 rounded-lg">
+              <FaChartLine className="w-[20px] h-[20px] text-gray-200" />
+            </div>
+          </button>
+          
+          {/* Profile */}
+          <button 
+            onClick={() => { sessionStorage.setItem('marketplaceTab', 'profile'); router.push('/dms/marketplace'); }}
+            className="relative p-3 w-full flex justify-center text-white group mt-1" 
+            title="Profile"
+          >
+            <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+              <FaUser className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+            </div>
           </button>
         </div>
-      </nav>
+        
+        {/* Bottom Icons */}
+        <div className="mt-auto flex flex-col gap-4 text-gray-400 w-full items-center">
+          <button 
+            className="p-3 hover:text-red-400 transition-colors" 
+            title="Logout"
+            onClick={handleLogout}
+          >
+            <FaPowerOff className="w-[22px] h-[22px]" />
+          </button>
+        </div>
+      </aside>
 
       {/* Main Content Area */}
-      <div className="pt-24 px-4 md:px-8 pb-12 max-w-[1400px] mx-auto">
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Header */}
+        <header className="h-[72px] border-b border-gray-200 flex items-center justify-between px-8 bg-white shrink-0 z-40 sticky top-0">
+          <div className="flex items-center gap-6">
+            <div className="text-[17px] font-bold text-gray-900 tracking-tight capitalize">
+              Tracker
+            </div>
+          </div>
+          <div className="flex items-center gap-8">
+            <button className="relative text-gray-800 hover:text-black transition-colors">
+              <FaRegBell className="w-[20px] h-[20px]" />
+              <span className="absolute -top-[2px] -right-[2px] w-2.5 h-2.5 bg-red-600 rounded-full border border-white"></span>
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[#003b5c] font-bold text-[15px] shrink-0">
+                TR
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-gray-900 font-bold text-[15px] leading-tight truncate tracking-tight">Tracker View</span>
+                <span className="text-gray-500 font-medium text-[13px] leading-tight truncate">Seller</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="pt-8 px-4 md:px-8 pb-12 max-w-[1400px] w-full mx-auto">
 
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8">
@@ -294,6 +366,7 @@ export default function TrackerPage() {
           }
         }}
       />
-    </main>
+      </div>
+    </div>
   );
 }

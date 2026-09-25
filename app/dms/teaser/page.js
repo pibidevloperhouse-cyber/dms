@@ -89,25 +89,25 @@ function TeaserContent() {
   };
 
   return (
-    <div className="min-h-screen font-sans">
+    <div className="min-h-screen font-sans bg-[#f8fafc] selection:bg-teal-600/20">
 
       {/* Hero / Header Section */}
-      <div className="bg-[#fafafa]">
-        <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+      <div className="bg-[#f8fafc]">
+        <div className="max-w-[1400px] w-full mx-auto px-6 py-16 md:py-20">
           {/* Back Button */}
-          {isApproved ? (
-            <Link href="/dms/workspace" className="inline-flex items-center text-sm font-medium text-[#b48629] hover:text-[#916b20] transition-colors mb-12">
+          {/* {isApproved ? (
+            <Link href="/dms/workspace" className="inline-flex items-center text-sm font-medium text-[#008f70] hover:text-[#007058] transition-colors mb-12">
               <FaArrowLeft className="mr-2" /> Back to workspace
             </Link>
           ) : (
             <Link href="/dms/marketplace" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-12">
               <FaArrowLeft className="mr-2" /> Back to marketplace
             </Link>
-          )}
+          )} */}
 
           {/* Top Badges */}
           <div className="flex items-center gap-4 mb-6">
-            <span className="px-3 py-1 bg-[#b48629] text-white text-[11px] font-bold tracking-wide rounded-sm uppercase">
+            <span className="px-3 py-1 bg-[#008f70] text-white text-[11px] font-bold tracking-wide rounded-lg uppercase">
               Confidential Opportunity
             </span>
             <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">
@@ -127,17 +127,17 @@ function TeaserContent() {
                 solutions to enterprise customers.
               </p>
 
-              <div className="flex flex-wrap items-center text-sm font-medium text-[#b48629]">
+              <div className="flex flex-wrap items-center text-sm font-medium text-[#008f70]">
                 <span>B2B SaaS</span>
                 <span className="mx-3 text-gray-300">/</span>
-                <span className="text-[#b48629]">North America</span>
+                <span className="text-[#008f70]">North America</span>
                 <span className="mx-3 text-gray-300">/</span>
-                <span className="text-[#b48629]">Majority Acquisition</span>
+                <span className="text-[#008f70]">Majority Acquisition</span>
               </div>
             </div>
 
             <div className="lg:col-span-1">
-              <div className="bg-white border border-gray-200 p-6 rounded-sm shadow-sm">
+              <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
                 {isApproved ? (
                   <>
                     <div className="flex items-center gap-2 mb-4 text-[#00c875]">
@@ -157,7 +157,7 @@ function TeaserContent() {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 mb-4 text-gray-900">
-                      <FaLock className="text-[#b48629]" />
+                      <FaLock className="text-[#008f70]" />
                       <h3 className="text-xs font-bold tracking-widest uppercase">Identity Protected</h3>
                     </div>
                     <p className="text-sm text-gray-600 leading-relaxed">
@@ -172,8 +172,8 @@ function TeaserContent() {
       </div>
 
       {/* Details Section */}
-      <div className="bg-[#f4f7f9] border-t border-gray-200 py-16 md:py-24">
-        <div className="max-w-5xl mx-auto px-6">
+      <div className="bg-white border-t border-gray-200 py-16 md:py-24">
+        <div className="max-w-[1400px] w-full mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
 
             {/* Left Column (Detailed Data) */}
@@ -203,7 +203,7 @@ function TeaserContent() {
               </div>
 
               <h2 className="text-xl font-bold text-gray-900 mb-6">Financial Snapshot</h2>
-              <div className="bg-white border border-gray-200 rounded flex flex-col md:flex-row overflow-hidden text-center md:text-left">
+              <div className="bg-white border border-gray-200 rounded-xl flex flex-col md:flex-row overflow-hidden text-center md:text-left">
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Revenue</p>
                   <p className="text-xl font-bold text-gray-900">$12.4M</p>
@@ -229,8 +229,8 @@ function TeaserContent() {
 
             {/* Right Column (Transaction Overview Box) */}
             <div className="lg:col-span-1">
-              <div className="bg-white border border-gray-200 p-6 rounded-sm shadow-sm">
-                <h3 className="text-[10px] font-bold text-[#b48629] tracking-widest uppercase mb-6">Transaction Overview</h3>
+              <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
+                <h3 className="text-[10px] font-bold text-[#008f70] tracking-widest uppercase mb-6">Transaction Overview</h3>
 
                 <div className="flex justify-between py-3 border-b border-gray-100">
                   <span className="text-sm text-gray-500">Deal Type</span>
@@ -278,7 +278,7 @@ function TeaserContent() {
       {/* Request Access Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-[#0b1120]/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-[#f4f7f9] w-full max-w-[600px] rounded-sm shadow-2xl relative flex flex-col max-h-[90vh]">
+          <div className="bg-[#f8fafc] w-full max-w-[600px] rounded-xl shadow-[0_4px_20px_rgb(0,0,0,0.1)] relative flex flex-col max-h-[90vh]">
             <button
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 transition-colors p-1"
@@ -286,9 +286,9 @@ function TeaserContent() {
               <FaTimes />
             </button>
 
-            <div className="p-8 pb-6 bg-[#f4f7f9] rounded-t-sm">
-              <div className="w-10 h-10 bg-[#0b1120] rounded-sm flex items-center justify-center mb-5 border border-gray-800">
-                <FaLock className="text-[#b48629]" />
+            <div className="p-8 pb-6 bg-[#f8fafc] rounded-t-xl">
+              <div className="w-10 h-10 bg-[#0b1120] rounded-xl flex items-center justify-center mb-5 border border-gray-800">
+                <FaLock className="text-[#008f70]" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Request Access to This Opportunity</h2>
               <p className="text-sm text-gray-500 leading-relaxed">
@@ -300,23 +300,23 @@ function TeaserContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Full Name</label>
-                  <input type="text" name="fullName" value={requestForm.fullName} onChange={handleFormChange} placeholder="Alex Morgan" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900" />
+                  <input type="text" name="fullName" value={requestForm.fullName} onChange={handleFormChange} placeholder="Alex Morgan" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Work Email</label>
-                  <input type="email" name="email" value={requestForm.email} onChange={handleFormChange} placeholder="alex@firm.com" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900" />
+                  <input type="email" name="email" value={requestForm.email} onChange={handleFormChange} placeholder="alex@firm.com" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Company</label>
-                  <input type="text" name="company" value={requestForm.company} onChange={handleFormChange} placeholder="Northstar Capital" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900" />
+                  <input type="text" name="company" value={requestForm.company} onChange={handleFormChange} placeholder="Northstar Capital" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Job Title</label>
-                  <input type="text" name="jobTitle" value={requestForm.jobTitle} onChange={handleFormChange} placeholder="Partner" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900" />
+                  <input type="text" name="jobTitle" value={requestForm.jobTitle} onChange={handleFormChange} placeholder="Partner" className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Investor / Buyer Type</label>
-                  <select name="investorType" value={requestForm.investorType} onChange={handleFormChange} className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900 bg-white">
+                  <select name="investorType" value={requestForm.investorType} onChange={handleFormChange} className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900 bg-white">
                     <option>Select type</option>
                     <option>Private Equity</option>
                     <option>Strategic Buyer</option>
@@ -325,7 +325,7 @@ function TeaserContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1.5">Investment Range</label>
-                  <select name="investmentRange" value={requestForm.investmentRange} onChange={handleFormChange} className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors text-gray-900 bg-white">
+                  <select name="investmentRange" value={requestForm.investmentRange} onChange={handleFormChange} className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors text-gray-900 bg-white">
                     <option>Select range</option>
                     <option>$1M - $5M</option>
                     <option>$5M - $20M</option>
@@ -336,11 +336,11 @@ function TeaserContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1.5">Message</label>
-                <textarea rows="4" name="message" value={requestForm.message} onChange={handleFormChange} placeholder="Share a little about your investment mandate..." className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#b48629] focus:border-[#b48629] transition-colors resize-none text-gray-900"></textarea>
+                <textarea rows="4" name="message" value={requestForm.message} onChange={handleFormChange} placeholder="Share a little about your investment mandate..." className="w-full border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#008f70] focus:border-[#008f70] transition-colors resize-none text-gray-900"></textarea>
               </div>
             </div>
 
-            <div className="p-6 flex justify-end bg-white rounded-b-sm border-t border-gray-100">
+            <div className="p-6 flex justify-end bg-white rounded-b-xl border-t border-gray-100">
               <button
                 onClick={handleSubmitRequest}
                 className="py-2.5 px-6 bg-[#0b1120] hover:bg-gray-800 text-white text-sm font-bold rounded transition-colors"
@@ -354,12 +354,12 @@ function TeaserContent() {
 
       {/* Global Footer */}
       <footer className="bg-[#0b1120] text-gray-400 py-16 border-t border-white/10 mt-auto">
-        <div className="max-w-5xl mx-auto px-6">
+        <div className="max-w-[1400px] w-full mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
 
             <div className="md:col-span-1">
               <h2 className="text-white text-xl font-bold tracking-tight mb-4 flex items-center">
-                <span className="w-6 h-6 bg-[#b48629] rounded-sm mr-2 flex items-center justify-center text-white text-xs font-serif italic">N</span>
+                <span className="w-6 h-6 bg-[#008f70] rounded-md mr-2 flex items-center justify-center text-white text-xs font-serif italic">N</span>
                 Secure DMS
               </h2>
               <p className="text-sm leading-relaxed text-gray-500">
@@ -411,7 +411,7 @@ function TeaserContent() {
 
 export default function DealTeaserPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fafafa] p-8 flex justify-center items-center text-gray-500">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#f8fafc] p-8 flex justify-center items-center text-gray-500">Loading...</div>}>
       <TeaserContent />
     </Suspense>
   );
