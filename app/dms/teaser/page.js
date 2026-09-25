@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { FaArrowLeft, FaLock, FaCheck, FaTimes } from "react-icons/fa";
+import { Suspense, useState, useEffect } from "react";
+import { FaArrowLeft, FaLock, FaCheck, FaTimes, FaPowerOff, FaThLarge, FaBriefcase, FaChartLine, FaUser } from "react-icons/fa";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -11,6 +11,22 @@ function TeaserContent() {
   const router = useRouter();
   const projectName = searchParams.get('project') || "Project Aurora";
   const isApproved = searchParams.get('approved') === 'true';
+
+  const [userRole, setUserRole] = useState(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setUserRole(localStorage.getItem('userRole'));
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('companyId');
+    localStorage.removeItem('userName');
+    router.push('/dms/login');
+  };
 
   const handleRemoveFromMarketplace = () => {
     if (confirm("Are you sure you want to remove this teaser from the marketplace?")) {
@@ -89,11 +105,82 @@ function TeaserContent() {
   };
 
   return (
-    <div className="min-h-screen font-sans bg-[#f8fafc] selection:bg-teal-600/20">
+    <div className="flex min-h-screen font-sans bg-[#f8fafc] selection:bg-teal-600/20">
+      
+      {/* Left Sidebar (Only for logged in) */}
+      {isMounted && userRole && (
+        <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+          {/* Logo */}
+          <div className="w-10 h-10 bg-[#008f70] rounded-md flex items-center justify-center text-white font-bold text-xl mb-8 shadow-sm cursor-pointer hover:bg-[#007058] transition-colors">
+            D
+          </div>
+          
+          {/* Nav Icons */}
+          <div className="flex flex-col gap-4 w-full items-center">
+            {/* Overview */}
+            <button 
+              onClick={() => { sessionStorage.setItem('marketplaceTab', 'overview'); router.push('/dms/marketplace'); }}
+              className="relative p-3 w-full flex justify-center text-white group" 
+              title="Overview"
+            >
+              <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+                <FaThLarge className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+              </div>
+            </button>
+            
+            {/* Marketplace */}
+            <button 
+              onClick={() => { sessionStorage.setItem('marketplaceTab', 'marketplace'); router.push('/dms/marketplace'); }}
+              className="relative p-3 w-full flex justify-center text-white group" 
+              title="Marketplace"
+            >
+              <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+                <FaBriefcase className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+              </div>
+            </button>
+            
+            {/* Tracker */}
+            <button 
+              onClick={() => router.push('/dms/tracker')}
+              className="relative p-3 w-full flex justify-center text-white group" 
+              title="Tracker"
+            >
+              <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+                <FaChartLine className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+              </div>
+            </button>
+            
+            {/* Profile */}
+            <button 
+              onClick={() => { sessionStorage.setItem('marketplaceTab', 'profile'); router.push('/dms/marketplace'); }}
+              className="relative p-3 w-full flex justify-center text-white group mt-1" 
+              title="Profile"
+            >
+              <div className="p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors">
+                <FaUser className="w-[20px] h-[20px] text-gray-400 group-hover:text-white transition-colors" />
+              </div>
+            </button>
+          </div>
+          
+          {/* Bottom Icons */}
+          <div className="mt-auto flex flex-col gap-4 text-gray-400 w-full items-center">
+            <button 
+              className="p-3 hover:text-red-400 transition-colors" 
+              title="Logout"
+              onClick={handleLogout}
+            >
+              <FaPowerOff className="w-[22px] h-[22px]" />
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
 
       {/* Hero / Header Section */}
       <div className="bg-[#f8fafc]">
-        <div className="max-w-[1400px] w-full mx-auto px-6 py-16 md:py-20">
+        <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12 pt-8 pb-12">
           {/* Back Button */}
           {/* {isApproved ? (
             <Link href="/dms/workspace" className="inline-flex items-center text-sm font-medium text-[#008f70] hover:text-[#007058] transition-colors mb-12">
@@ -118,11 +205,11 @@ function TeaserContent() {
           {/* Header Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
             <div className="lg:col-span-2">
-              <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-6">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight mb-6">
                 {projectName}
               </h1>
 
-              <p className="text-lg text-gray-600 leading-relaxed mb-8">
+              <p className="text-gray-500 text-sm md:text-base leading-relaxed mb-8">
                 A profitable mid-market B2B SaaS company providing workflow automation
                 solutions to enterprise customers.
               </p>
@@ -172,18 +259,18 @@ function TeaserContent() {
       </div>
 
       {/* Details Section */}
-      <div className="bg-white border-t border-gray-200 py-16 md:py-24">
-        <div className="max-w-[1400px] w-full mx-auto px-6">
+      <div className="bg-white border-t border-gray-200 py-12 md:py-16">
+        <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
 
             {/* Left Column (Detailed Data) */}
             <div className="lg:col-span-2">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Company Overview</h2>
-              <p className="text-gray-600 leading-relaxed mb-12">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Company Overview</h2>
+              <p className="text-sm text-gray-600 leading-relaxed mb-12">
                 A profitable mid-market B2B SaaS company providing workflow automation solutions to enterprise customers. The company combines a durable operating model with an attractive opportunity for a well-capitalized partner to support its next phase of growth.
               </p>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Key Highlights</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-6">Key Highlights</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 mb-12">
                 {[
                   "10+ years operating history",
@@ -202,7 +289,7 @@ function TeaserContent() {
                 ))}
               </div>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Financial Snapshot</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-6">Financial Snapshot</h2>
               <div className="bg-white border border-gray-200 rounded-xl flex flex-col md:flex-row overflow-hidden text-center md:text-left">
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Revenue</p>
@@ -354,7 +441,7 @@ function TeaserContent() {
 
       {/* Global Footer */}
       <footer className="bg-[#0b1120] text-gray-400 py-16 border-t border-white/10 mt-auto">
-        <div className="max-w-[1400px] w-full mx-auto px-6">
+        <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
 
             <div className="md:col-span-1">
@@ -405,6 +492,7 @@ function TeaserContent() {
         </div>
       </footer>
 
+      </div>
     </div>
   );
 }
