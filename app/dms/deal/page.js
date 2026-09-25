@@ -396,10 +396,10 @@ export default function DealDashboard() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8 relative flex flex-col items-center justify-start">
+      <main className="flex-1 overflow-y-auto p-8 relative">
 
         {/* Top Header outside card */}
-        <div className="w-full max-w-5xl flex items-center justify-between mb-4 mt-2">
+        <div className="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 mt-2">
           <Link href="/dms/workspace" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-medium group">
             <div className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm group-hover:-translate-x-1 transition-transform">
               <FaArrowLeft className="text-sm" />
@@ -419,7 +419,7 @@ export default function DealDashboard() {
         </div>
 
         {/* Main Container */}
-        <div className="w-full max-w-5xl min-h-[60vh] bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
+        <div className="w-full max-w-5xl mx-auto min-h-[60vh] bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
 
           {/* Header Row */}
           {activeTab === 'deals' && (
