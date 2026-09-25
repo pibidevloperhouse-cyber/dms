@@ -30,6 +30,7 @@ export default function GroupsSidebar({ isOpen = true }) {
     const [newGroupType, setNewGroupType] = useState('group');
     const [newGroupEmail, setNewGroupEmail] = useState('');
     const [currentUserRole, setCurrentUserRole] = useState('');
+    const [isBuyerSide, setIsBuyerSide] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [guestLead, setGuestLead] = useState(null);
     const [sellerMembers, setSellerMembers] = useState([]);
@@ -39,32 +40,51 @@ export default function GroupsSidebar({ isOpen = true }) {
 
     const [canCreateGroup, setCanCreateGroup] = useState(false);
     const [canDeleteGroup, setCanDeleteGroup] = useState(false);
+    const [canViewBuyer, setCanViewBuyer] = useState(false);
+    const [canViewSellerMembers, setCanViewSellerMembers] = useState(false);
+    const [canViewSellerGroups, setCanViewSellerGroups] = useState(false);
 
     useEffect(() => {
         const fetchGroups = async () => {
             setIsLoading(true);
-            const session = JSON.parse(localStorage.getItem('vdr_session'));
+            const rawSession = localStorage.getItem('vdr_session');
+            const session = rawSession ? JSON.parse(rawSession) : null;
             const userRole = session?.role;
             const userId = session?.id;
             const companyId = session?.company_id;
+            const dmsRole = session?.dms_role || localStorage.getItem('userRole') || '';
+            const isBuyer = dmsRole === 'buyer' || userRole === 'guest_admin' || userRole === 'guest_lead' || userRole === 'buyer';
+            setIsBuyerSide(isBuyer);
             setCurrentUserRole(userRole || '');
             let individualGroups = [];
+            
+            let localCanViewBuyer = false;
+            let localCanViewSellerMembers = false;
+            let localCanViewSellerGroups = false;
 
-            // Check create/delete group permissions
+            // Check create/delete group permissions and visibility permissions
             if (userRole === 'super_admin') {
                 setCanCreateGroup(true);
                 setCanDeleteGroup(true);
-            } else if (session?.active_workspace_id && (userRole === 'guest_admin' || userRole === 'buyer' || userRole === 'external_user')) {
-                const { data: deal } = await supabase
-                    .from('dms_deals')
-                    .select('guest_can_create_groups')
-                    .eq('id', session.active_workspace_id)
-                    .single();
-                if (deal) {
-                    setCanCreateGroup(deal.guest_can_create_groups);
-                    setCanDeleteGroup(deal.guest_can_create_groups);
-                }
+                localCanViewBuyer = true;
+                localCanViewSellerMembers = true;
+                localCanViewSellerGroups = true;
+                setCanViewBuyer(true);
+                setCanViewSellerMembers(true);
+                setCanViewSellerGroups(true);
             } else {
+                if (session?.active_workspace_id && (userRole === 'guest_admin' || userRole === 'buyer' || userRole === 'external_user')) {
+                    const { data: deal } = await supabase
+                        .from('dms_deals')
+                        .select('guest_can_create_groups')
+                        .eq('id', session.active_workspace_id)
+                        .single();
+                    if (deal) {
+                        setCanCreateGroup(!!deal.guest_can_create_groups);
+                        setCanDeleteGroup(!!deal.guest_can_create_groups);
+                    }
+                }
+
                 const { data: ugRows } = await supabase
                     .from('user_groups')
                     .select('group_id')
@@ -75,124 +95,84 @@ export default function GroupsSidebar({ isOpen = true }) {
                 if (groupIds.length > 0) {
                     const { data: perms } = await supabase
                         .from('permissions')
-                        .select('can_create_group, can_delete_group')
+                        .select('can_create_group, can_delete_group, can_view_buyer, can_view_seller_members, can_view_seller_groups')
                         .eq('company_id', companyId)
                         .eq('scope', 'workspace')
                         .in('group_id', groupIds);
 
                     if (perms && perms.length > 0) {
-                        setCanCreateGroup(perms.some(p => p.can_create_group));
-                        setCanDeleteGroup(perms.some(p => p.can_delete_group));
+                        if (perms.some(p => p.can_create_group)) setCanCreateGroup(true);
+                        if (perms.some(p => p.can_delete_group)) setCanDeleteGroup(true);
+                        
+                        localCanViewBuyer = perms.some(p => p.can_view_buyer);
+                        localCanViewSellerMembers = perms.some(p => p.can_view_seller_members);
+                        localCanViewSellerGroups = perms.some(p => p.can_view_seller_groups);
+                        
+                        setCanViewBuyer(localCanViewBuyer);
+                        setCanViewSellerMembers(localCanViewSellerMembers);
+                        setCanViewSellerGroups(localCanViewSellerGroups);
                     }
                 }
             }
 
-            if (userRole === 'external_user') {
+            let query = supabase
+                .from('groups')
+                .select('*')
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+
+            if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
+            else query = query.is('workspace_id', null);
+
+            const { data } = await query;
+
+            let allGroups = data || [];
+            individualGroups = allGroups.filter(g => g.type === 'individual');
+            let groups = allGroups.filter(g => g.type !== 'individual');
+
+            // If user has localCanViewSellerGroups or is super_admin, they can view all workspace seller groups!
+            if (userRole !== 'super_admin' && !localCanViewSellerGroups) {
+                // User does not have permission to view all seller groups.
+                // Restrict to groups the user belongs to:
                 const { data: ugRows } = await supabase
                     .from('user_groups')
                     .select('group_id')
                     .eq('user_id', userId);
 
-                const groupIds = ugRows?.map(r => r.group_id) || [];
-                if (!groupIds.length) { setNavItems([]); setIsLoading(false); return; }
-
-                let query = supabase
-                    .from('groups')
-                    .select('*')
-                    .in('id', groupIds)
-                    .eq('company_id', companyId);
-                
-                if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
-                else query = query.is('workspace_id', null);
-
-                const { data } = await query;
-                let groups = data || [];
-                const roleOrder = { 'admin': 1, 'sub_admin': 2, 'external_user': 3 };
-                groups.sort((a, b) => {
-                    const orderA = roleOrder[a.role] || 99;
-                    const orderB = roleOrder[b.role] || 99;
-                    if (orderA !== orderB) return orderA - orderB;
-                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-                });
-
-                setNavItems(groups.map(g => ({
-                    id: g.id, name: g.name, href: `/groups/${g.id}`, role: g.role || ''
-                })));
-
-            } else {
-                let query = supabase
-                    .from('groups')
-                    .select('*')
-                    .eq('company_id', companyId)
-                    .order('created_at', { ascending: false });
-
-                if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
-                else query = query.is('workspace_id', null);
-
-                const { data } = await query;
-
-                let allGroups = data || [];
-                individualGroups = allGroups.filter(g => g.type === 'individual');
-                let groups = allGroups.filter(g => g.type !== 'individual');
+                const myGroupIds = new Set((ugRows || []).map(r => r.group_id));
 
                 if (userRole === 'admin') {
-                    // Show groups that have admin, sub_admin or external_user members
-                    const { data: targetUsers } = await supabase
-                        .from('users')
-                        .select('id')
-                        .eq('company_id', companyId)
-                        .in('role', ['admin', 'sub_admin', 'external_user']);
-
-                    const targetUserIds = (targetUsers || []).map(u => u.id);
-
-                    if (targetUserIds.length > 0) {
-                        const { data: ugRows } = await supabase
-                            .from('user_groups')
-                            .select('group_id')
-                            .in('user_id', targetUserIds);
-
-                        const validGroupIds = new Set((ugRows || []).map(r => r.group_id));
-                        groups = groups.filter(g => validGroupIds.has(g.id));
-                    } else {
-                        groups = [];
-                    }
-
-
-                } else if (userRole === 'sub_admin') {
-                    // Show groups that have external_user members only
-                    const { data: extUsers } = await supabase
-                        .from('users')
-                        .select('id')
-                        .eq('company_id', companyId)
-                        .eq('role', 'external_user');
-
-                    const extUserIds = (extUsers || []).map(u => u.id);
-
-                    if (extUserIds.length > 0) {
-                        const { data: ugExt } = await supabase
-                            .from('user_groups')
-                            .select('group_id')
-                            .in('user_id', extUserIds);
-
-                        const validGroupIds = new Set((ugExt || []).map(r => r.group_id));
-                        groups = groups.filter(g => validGroupIds.has(g.id));
-                    } else {
-                        groups = [];
-                    }
+                    groups = groups.filter(g => myGroupIds.has(g.id) || g.role === 'admin');
+                } else if (isBuyer) {
+                    groups = groups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user'].includes(g.role));
+                } else {
+                    groups = groups.filter(g => myGroupIds.has(g.id));
                 }
-
-                const roleOrder = { 'admin': 1, 'sub_admin': 2, 'external_user': 3 };
-                groups.sort((a, b) => {
-                    const orderA = roleOrder[a.role] || 99;
-                    const orderB = roleOrder[b.role] || 99;
-                    if (orderA !== orderB) return orderA - orderB;
-                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-                });
-
-                setNavItems(groups.map(g => ({
-                    id: g.id, name: g.name, href: `/groups/${g.id}`, role: g.role || ''
-                })));
             }
+
+            if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
+                individualGroups = [];
+            }
+
+            const roleOrder = { 
+                'super_admin': 1, 
+                'admin': 2, 
+                'sub_admin': 3, 
+                'internal_user': 4,
+                'guest_admin': 5, 
+                'guest_lead': 6, 
+                'external_user': 7 
+            };
+            groups.sort((a, b) => {
+                const orderA = roleOrder[a.role] || 99;
+                const orderB = roleOrder[b.role] || 99;
+                if (orderA !== orderB) return orderA - orderB;
+                return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            });
+
+            setNavItems(groups.map(g => ({
+                id: g.id, name: g.name, href: `/groups/${g.id}`, role: g.role || ''
+            })));
 
             // Fetch Guest Lead if in a workspace
             if (session?.active_workspace_id) {
@@ -214,12 +194,19 @@ export default function GroupsSidebar({ isOpen = true }) {
 
             // Fetch Seller Members (Internal users)
             if (companyId) {
-                const { data: sellers } = await supabase
+                let sellersQuery = supabase
                     .from('users')
                     .select('id, name, email, role')
                     .eq('company_id', companyId)
                     .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
                 
+                if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
+                    // Dummy condition to fetch nothing
+                    sellersQuery = sellersQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+                }
+                
+                const { data: sellers } = await sellersQuery;
+
                 const formattedIndividuals = individualGroups.map(g => ({
                     id: g.id,
                     name: g.name,
@@ -292,6 +279,37 @@ export default function GroupsSidebar({ isOpen = true }) {
             }).select().single();
 
             if (!error && data) {
+                // Insert Default Permissions based on Role
+                let workspacePerms = {
+                    company_id: session?.company_id,
+                    group_id: data.id,
+                    scope: 'workspace',
+                };
+                
+                if (newGroupRole === 'admin') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_redaction: true, can_access_qa: true, can_access_settings: true };
+                } else if (newGroupRole === 'sub_admin') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_access_qa: true, can_access_settings: true };
+                } else if (newGroupRole === 'internal_user') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_communication: true, can_access_qa: true, can_access_settings: true };
+                } else if (newGroupRole === 'guest_admin') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_access_qa: true };
+                } else if (newGroupRole === 'guest_lead') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_qa: true };
+                } else if (newGroupRole === 'external_user') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_qa: true };
+                }
+                
+                if (['admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
+                    await supabase.from('permissions').insert([workspacePerms]);
+                }
+
+                if (session?.id && data?.id) {
+                    await supabase.from('user_groups').insert({
+                        user_id: session.id,
+                        group_id: data.id
+                    });
+                }
                 if (newGroupType === 'individual' && newGroupEmail.trim()) {
                     try {
                         const inviteRes = await fetch('/api/invite', {
@@ -337,7 +355,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setIsAddGroupModalOpen(false);
                 setNewGroupName('');
                 setNewGroupDescription('');
-                setNewGroupRole('external_user');
+                setNewGroupRole('');
                 setNewGroupType('group');
                 setNewGroupEmail('');
             } else {
@@ -353,7 +371,7 @@ export default function GroupsSidebar({ isOpen = true }) {
         <>
             <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
                 <div className="flex-1 overflow-y-auto pb-6">
-                    {guestLead && (
+                    {guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
                         <>
                             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                                 <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
@@ -380,9 +398,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                         </>
                     )}
 
-                    <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
-                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
-                    </div>
+                    {(currentUserRole === 'super_admin' || sellerMembers.length > 0) && (
+                        <>
+                            <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
+                                <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
+                            </div>
                     
                     <nav className="py-3 space-y-1 mb-2">
                         {sellerMembers.map((seller) => (
@@ -431,14 +451,20 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </Link>
                         ))}
                     </nav>
+                        </>
+                    )}
 
                     <div className={`p-5 border-b border-gray-100 flex items-center justify-between border-t mt-2`}>
-                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Group Members</h2>
+                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">
+                            {isBuyerSide ? 'Group Members' : 'Seller Group Members'}
+                        </h2>
                     </div>
 
                     <nav className="py-3 space-y-1">
                         {isLoading ? (
                             <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-100 rounded w-full"></div></div>
+                        ) : navItems.length === 0 ? (
+                            <div className="px-5 py-4 text-xs text-gray-400 italic">No groups available</div>
                         ) : (
                             navItems.map((item) => {
                                 const active = pathname === item.href;
@@ -479,11 +505,14 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                     sub_admin:     'Sub Admin',
                                                     internal_user: 'Internal User',
                                                     user:          'User',
+                                                    guest_admin:   'Guest Admin',
+                                                    guest_lead:    'Guest Lead',
                                                     external_user: 'External User',
+                                                    buyer:         'Buyer',
                                                 };
                                                 return (
                                                     <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">
-                                                        {roleLabels[item.role] || item.role}
+                                                        {roleLabels[item.role] || item.role.replace('_', ' ')}
                                                     </span>
                                                 );
                                             })()}
@@ -583,12 +612,25 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans"
                                 >
                                     <option value="" disabled>Select Role</option>
-                                    {newGroupType === 'individual' && (
-                                        <option value="super_admin">Super Admin</option>
+                                    {isBuyerSide ? (
+                                        <>
+                                            {newGroupType === 'individual' && (
+                                                <option value="guest_admin">Guest Admin</option>
+                                            )}
+                                            <option value="guest_lead">Guest Lead</option>
+                                            <option value="external_user">External User</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {newGroupType === 'individual' && (
+                                                <option value="super_admin">Super Admin</option>
+                                            )}
+                                            <option value="admin">Admin</option>
+                                            <option value="sub_admin">Sub Admin</option>
+                                            <option value="internal_user">Internal User</option>
+                                            <option value="external_user">External User</option>
+                                        </>
                                     )}
-                                    <option value="admin">Admin</option>
-                                    <option value="sub_admin">Sub Admin</option>
-                                    <option value="internal_user">Internal User</option>
                                 </select>
                             </div>
                             <div>
@@ -597,7 +639,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => setIsAddGroupModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans">Cancel</button>
-                                <button onClick={handleCreateGroup} disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || isSubmitting} className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50">
+                                <button onClick={handleCreateGroup} disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || isSubmitting} className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50">
                                     {isSubmitting ? "Creating..." : "Create"}
                                 </button>
                             </div>

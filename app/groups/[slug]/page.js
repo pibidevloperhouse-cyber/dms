@@ -151,7 +151,9 @@ export default function DynamicGroupPage() {
             <div className="flex-1 overflow-y-auto px-10 pb-12 mt-2 space-y-8">
                 <div className="bg-white/80 backdrop-blur-xl border border-gray-200/80 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[400px] hover:border-gray-300 transition-all duration-500">
                     <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <h3 className="font-semibold text-sm text-slate-700">Seller Group Members</h3>
+                        <h3 className="font-semibold text-sm text-slate-700">
+                            {(session?.dms_role === 'buyer' || ['guest_admin', 'guest_lead', 'buyer'].includes(session?.role)) ? "Group Members" : "Seller Group Members"}
+                        </h3>
                         <span className="bg-slate-200 text-slate-600 font-medium text-xs px-2.5 py-0.5 rounded-full">{members.length}</span>
                     </div>
 

@@ -30,6 +30,7 @@ export default function DealDashboard() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [activeTab, setActiveTab] = useState('teaser');
   const [userRole, setUserRole] = useState('seller');
+  const [vdrRole, setVdrRole] = useState('external_user');
   
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -71,24 +72,26 @@ export default function DealDashboard() {
 
   useEffect(() => {
     const roleItem = localStorage.getItem('userRole');
+    const vdrRoleItem = localStorage.getItem('vdrRole') || 'external_user';
     if (!roleItem) {
       router.push('/dms/login');
       return;
     }
     const role = roleItem.toLowerCase();
     setUserRole(role);
+    setVdrRole(vdrRoleItem);
     
     if (!projectId) return;
 
     const savedTab = sessionStorage.getItem(`deal_activeTab_${projectId}`);
     if (savedTab) {
       setActiveTab(savedTab);
-    } else if (role === 'buyer' || role.includes('guest')) {
+    } else if (role === 'buyer' || role.includes('guest') || vdrRoleItem !== 'super_admin') {
       setActiveTab('deals');
     }
 
     const userId = localStorage.getItem('userId');
-    let url = `/api/dms/deals?projectId=${projectId}`;
+    let url = `/api/dms/deals?projectId=${projectId}&userId=${userId}&role=${vdrRoleItem}`;
     if ((role === 'buyer' || role.includes('guest')) && userId) {
       url += `&buyerId=${userId}`;
     }
@@ -318,7 +321,7 @@ export default function DealDashboard() {
           </div>
 
           <nav className="flex flex-col gap-2 px-4">
-            {userRole !== 'buyer' && !userRole.includes('guest') && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <button
                 onClick={() => handleTabChange('teaser')}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors ${activeTab === 'teaser' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -335,7 +338,7 @@ export default function DealDashboard() {
               <span>Deals</span>
             </button>
 
-            {userRole !== 'buyer' && !userRole.includes('guest') && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <button
                 onClick={() => handleTabChange('permissions')}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'permissions' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -345,7 +348,7 @@ export default function DealDashboard() {
               </button>
             )}
             
-            {userRole !== 'buyer' && !userRole.includes('guest') && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <>
                 <button
                   onClick={() => handleTabChange('proposals')}
@@ -375,7 +378,7 @@ export default function DealDashboard() {
 
         {/* Bottom Actions */}
         <div className="px-4 flex flex-col gap-2 relative">
-          {userRole !== 'buyer' && !userRole.includes('guest') && (
+          {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
             <button
               onClick={() => handleTabChange('trash')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'trash' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -404,7 +407,7 @@ export default function DealDashboard() {
             Back to Workspace
           </Link>
 
-          {activeTab === 'deals' && userRole !== 'buyer' && (
+          {activeTab === 'deals' && userRole !== 'buyer' && vdrRole === 'super_admin' && (
             <button
               onClick={() => setIsAddDealModalOpen(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#0b1120] hover:bg-gray-800 text-white text-sm font-bold rounded-lg shadow-md transition-all hover:-translate-y-0.5"
@@ -564,17 +567,36 @@ export default function DealDashboard() {
 
             {(activeTab === 'deals' || activeTab === 'trash') && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {/* Existing Deals */}
-                {deals.filter(d => activeTab === 'trash' ? d.status === 'trashed' : d.status !== 'trashed').map((deal) => (
+                {/* Empty State */}
+                {deals.filter(d => activeTab === 'trash' ? d.status === 'trashed' : d.status !== 'trashed').length === 0 ? (
+                  <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-4 border border-gray-100 shadow-2xs">
+                      <FaDatabase className="text-2xl text-gray-300" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-800 mb-1">
+                      {activeTab === 'trash' ? 'No Trashed Deals' : 'No Deals Found'}
+                    </h3>
+                    <p className="text-xs text-gray-400 max-w-sm">
+                      {activeTab === 'trash'
+                        ? 'No deals are currently in the trash.'
+                        : (userRole === 'buyer' || userRole.includes('guest')
+                          ? 'No active deals are available for your account in this project yet.'
+                          : 'No deals have been created for this project yet. Click "+ Create Deal" above to get started.')}
+                    </p>
+                  </div>
+                ) : (
+                  /* Existing Deals */
+                  deals.filter(d => activeTab === 'trash' ? d.status === 'trashed' : d.status !== 'trashed').map((deal) => (
                   <div
                     key={deal.id}
                     onClick={() => {
                       const dmsRole = localStorage.getItem('userRole');
-                      const vdrRole = dmsRole === 'seller' ? 'super_admin' : 'guest_admin';
+                      // Fix: Use the actual role from the database that we saved on login!
+                      const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
                       
                       const vdrSession = {
                         id: localStorage.getItem('userId'),
-                        role: vdrRole,
+                        role: actualVdrRole,
                         dms_role: dmsRole,
                         name: localStorage.getItem('userName') || 'User',
                         company_id: localStorage.getItem('companyId') || '',
@@ -591,7 +613,7 @@ export default function DealDashboard() {
                       </span>
 
                       <div className="relative">
-                        {userRole !== 'buyer' && activeTab !== 'trash' && (
+                        {userRole !== 'buyer' && activeTab !== 'trash' && vdrRole === 'super_admin' && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -626,7 +648,7 @@ export default function DealDashboard() {
                       <span className="font-bold text-gray-800 text-sm">{deal.name || 'Unnamed Deal'}</span>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
             )}
 

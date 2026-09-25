@@ -13,16 +13,20 @@ export default function WorkspaceDashboard() {
   const [projectDesc, setProjectDesc] = useState("");
   const [dealType, setDealType] = useState("Merge");
   const [userRole, setUserRole] = useState('seller');
+  const [vdrRole, setVdrRole] = useState('external_user');
   const router = useRouter();
 
   useEffect(() => {
     const roleItem = localStorage.getItem('userRole');
+    const vdrRoleItem = localStorage.getItem('vdrRole') || 'external_user';
+    
     if (!roleItem) {
       router.push('/dms/login');
       return;
     }
     const role = roleItem.toLowerCase();
     setUserRole(role);
+    setVdrRole(vdrRoleItem);
 
     const fetchData = async () => {
       if (role === 'buyer') {
@@ -42,7 +46,8 @@ export default function WorkspaceDashboard() {
         if (!companyId) return;
 
         try {
-          const res = await fetch(`/api/dms/projects?companyId=${companyId}`);
+          const userId = localStorage.getItem('userId');
+          const res = await fetch(`/api/dms/projects?companyId=${companyId}&userId=${userId}&role=${vdrRoleItem}`);
           if (res.ok) {
             const data = await res.json();
             setWorkspaces(data.projects || []);
@@ -90,14 +95,20 @@ export default function WorkspaceDashboard() {
     }
   };
 
-  const handleDeleteProject = (name) => {
-    const updatedWorkspaces = workspaces.filter(ws => ws.name !== name);
-    setWorkspaces(updatedWorkspaces);
-    localStorage.setItem('dms_projects', JSON.stringify(updatedWorkspaces));
-
-    // Related teasers are automatically deleted via DB cascade constraint
-    // No local storage cleanup needed anymore
-
+  const handleDeleteProject = async (id, name) => {
+    try {
+      const res = await fetch(`/api/dms/projects?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        const updatedWorkspaces = workspaces.filter(ws => ws.id !== id);
+        setWorkspaces(updatedWorkspaces);
+        localStorage.setItem('dms_projects', JSON.stringify(updatedWorkspaces));
+      } else {
+        alert("Failed to delete project");
+      }
+    } catch (error) {
+      console.error("Error deleting project", error);
+      alert("Error deleting project");
+    }
     setOpenDropdownId(null);
   };
 
@@ -172,7 +183,7 @@ export default function WorkspaceDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
             {/* Add New Workspace Card - Sellers Only */}
-            {userRole !== 'buyer' && !userRole.includes('guest') && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="h-44 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:border-gray-400 hover:bg-gray-50 transition-all group"
@@ -208,24 +219,24 @@ export default function WorkspaceDashboard() {
                       )}
                     </div>
 
-                    {userRole !== 'buyer' && !userRole.includes('guest') && (
+                    {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
                       <div className="relative">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenDropdownId(openDropdownId === workspace.name ? null : workspace.name);
+                            setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
                           }}
                           className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
                         >
                           <FaEllipsisV className="text-[11px]" />
                         </button>
 
-                        {openDropdownId === workspace.name && (
+                        {openDropdownId === workspace.id && (
                           <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteProject(workspace.name);
+                                handleDeleteProject(workspace.id, workspace.name);
                               }}
                               className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
                             >

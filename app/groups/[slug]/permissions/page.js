@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/utils/supabase/client";
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FaArrowLeft, FaShieldAlt } from "react-icons/fa";
@@ -15,6 +16,7 @@ const PERMISSION_SECTIONS = [
             { key: "can_access_tasks", label: "Tasks & Workflow", desc: "Can access the Tasks & Workflow module" },
             { key: "can_access_communication", label: "Communication", desc: "Can access the Communication module" },
             { key: "can_access_control_audits", label: "Control & Audits", desc: "Can access the Control & Audits module" },
+            { key: "can_redaction", label: "Redaction", desc: "Can access the Redaction module" },
         ],
     },
 ];
@@ -27,6 +29,8 @@ export default function PermissionsPage() {
     const groupSlug = params.slug;
 
     const [groupData, setGroupData] = useState(null);
+    const [companyUsers, setCompanyUsers] = useState([]);
+    const [companyGroups, setCompanyGroups] = useState([]);
     const [perms, setPerms] = useState({});
     const [permsLoading, setPermsLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -50,6 +54,22 @@ export default function PermissionsPage() {
             }
         }
     }, []);
+
+    useEffect(() => {
+        if (!session?.company_id) return;
+        const fetchCompanyData = async () => {
+            const { data: users } = await supabase.from('users').select('id, name, email, role').eq('company_id', session.company_id);
+            if (users) setCompanyUsers(users.filter(u => ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user'].includes(u.role)));
+            
+            let groupQuery = supabase.from('groups').select('id, name, role, type, description, created_at').eq('company_id', session.company_id).eq('type', 'group');
+            if (session.active_workspace_id) {
+                groupQuery = groupQuery.eq('workspace_id', session.active_workspace_id);
+            }
+            const { data: groups } = await groupQuery;
+            if (groups) setCompanyGroups(groups);
+        };
+        fetchCompanyData();
+    }, [session]);
 
     // ── HITS DETAILS API JUST FOR GROUP INFO ──
     useEffect(() => {
@@ -101,6 +121,10 @@ export default function PermissionsPage() {
                         can_access_tasks: row?.can_access_tasks ?? false,
                         can_access_communication: row?.can_access_communication ?? false,
                         can_access_control_audits: row?.can_access_control_audits ?? false,
+                        can_view_buyer: row?.can_view_buyer ?? false,
+                        can_view_seller_members: row?.can_view_seller_members ?? false,
+                        can_view_seller_groups: row?.can_view_seller_groups ?? false,
+                        can_redaction: row?.can_redaction ?? false,
                         existingId: row?.id ?? null,
                     };
                 });
@@ -131,6 +155,12 @@ export default function PermissionsPage() {
 
     const toggleSubPerm = (scope, key) => setPerms((prev) => ({ ...prev, [scope]: { ...prev[scope], [key]: !prev[scope]?.[key] } }));
 
+    const toggleArraySubPerm = (scope, key, id) => setPerms((prev) => {
+        const currentArr = prev[scope]?.[key] || [];
+        const newArr = currentArr.includes(id) ? currentArr.filter(x => x !== id) : [...currentArr, id];
+        return { ...prev, [scope]: { ...prev[scope], [key]: newArr } };
+    });
+
     // ── SAVES VIA PERMISSIONS API ──
     const handleSubmitPermissions = async () => {
         if (!groupData) return;
@@ -158,6 +188,7 @@ export default function PermissionsPage() {
                     can_access_branding: s.can_access_branding || false, can_access_watermarks: s.can_access_watermarks || false, can_access_nda: s.can_access_nda || false,
                     can_access_qa: s.can_access_qa || false, can_ask_qa: s.can_ask_qa || false, can_answer_qa: s.can_answer_qa || false,
                     can_access_deals: s.can_access_deals || false, can_access_tasks: s.can_access_tasks || false, can_access_communication: s.can_access_communication || false, can_access_control_audits: s.can_access_control_audits || false,
+                    can_view_buyer: s.can_view_buyer || false, can_view_seller_members: s.can_view_seller_members || false, can_view_seller_groups: s.can_view_seller_groups || false,
                     folder_id: null, document_id: null, can_create_folder: s.can_create_folder || false, can_merge_folder: s.can_merge_folder || false, can_delete_folder: s.can_delete_folder || false,
                 };
                 if (s.existingId) { payload.id = s.existingId; payload.updated_at = new Date().toISOString(); }
@@ -300,6 +331,94 @@ export default function PermissionsPage() {
                                                                                 </div>
                                                                             </label>
                                                                         ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {isModuleOn && sub.key === "can_access_groups" && (
+                                                                <div className="border-t border-slate-100 bg-white p-6 animate-in fade-in duration-300">
+                                                                    <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-5">Advanced Group Visibility</h5>
+                                                                    <div className="space-y-6">
+                                                                        {/* Buyer Member Toggle */}
+                                                                        <div className="flex items-center justify-between border border-slate-200 p-4 rounded-xl">
+                                                                            <div>
+                                                                                <h4 className="font-semibold text-slate-800">Buyer Member</h4>
+                                                                                <p className="text-sm text-slate-500 mt-1">Allow this group to view the Buyer Member</p>
+                                                                            </div>
+                                                                            <button onClick={() => toggleSubPerm(scope, 'can_view_buyer')} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${s.can_view_buyer ? "bg-[var(--brand)]" : "bg-slate-300"}`}>
+                                                                                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${s.can_view_buyer ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                                            </button>
+                                                                        </div>
+
+                                                                        {/* Seller Members Toggle */}
+                                                                        <div className="border border-slate-200 rounded-xl overflow-hidden transition-all duration-200">
+                                                                            <div className="p-4 flex items-center justify-between bg-white">
+                                                                                <div>
+                                                                                    <h4 className="font-semibold text-slate-800">Seller Members</h4>
+                                                                                    <p className="text-sm text-slate-500 mt-1">Allow this group to view Seller Members</p>
+                                                                                </div>
+                                                                                <button onClick={() => toggleSubPerm(scope, 'can_view_seller_members')} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${s.can_view_seller_members ? "bg-[var(--brand)]" : "bg-slate-300"}`}>
+                                                                                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${s.can_view_seller_members ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                                                </button>
+                                                                            </div>
+                                                                            {s.can_view_seller_members && (
+                                                                                <div className="border-t border-slate-100 bg-slate-50/60 p-4 animate-in fade-in duration-200">
+                                                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Visible Seller Members ({companyUsers.length})</p>
+                                                                                    {companyUsers.length === 0 ? (
+                                                                                        <p className="text-xs text-slate-400 italic">No seller members found.</p>
+                                                                                    ) : (
+                                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto">
+                                                                                            {companyUsers.map((user) => (
+                                                                                                <div key={user.id} className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-2xs">
+                                                                                                    <div className="w-7 h-7 rounded-full bg-[var(--brand-50)] text-[var(--brand)] flex items-center justify-center font-bold text-xs shrink-0">
+                                                                                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                                                                                    </div>
+                                                                                                    <div className="truncate flex-1">
+                                                                                                        <span className="font-medium text-slate-800 block truncate">{user.name || 'Unnamed User'}</span>
+                                                                                                        <span className="text-[10px] text-slate-400 capitalize">{user.role?.replace('_', ' ') || user.email}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* Seller Group Members Toggle */}
+                                                                        <div className="border border-slate-200 rounded-xl overflow-hidden transition-all duration-200">
+                                                                            <div className="p-4 flex items-center justify-between bg-white">
+                                                                                <div>
+                                                                                    <h4 className="font-semibold text-slate-800">Seller Group Members</h4>
+                                                                                    <p className="text-sm text-slate-500 mt-1">Allow this group to view Seller Group Members</p>
+                                                                                </div>
+                                                                                <button onClick={() => toggleSubPerm(scope, 'can_view_seller_groups')} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${s.can_view_seller_groups ? "bg-[var(--brand)]" : "bg-slate-300"}`}>
+                                                                                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${s.can_view_seller_groups ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                                                </button>
+                                                                            </div>
+                                                                            {s.can_view_seller_groups && (
+                                                                                <div className="border-t border-slate-100 bg-slate-50/60 p-4 animate-in fade-in duration-200">
+                                                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Visible Seller Groups ({companyGroups.length})</p>
+                                                                                    {companyGroups.length === 0 ? (
+                                                                                        <p className="text-xs text-slate-400 italic">No seller groups available in this workspace.</p>
+                                                                                    ) : (
+                                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto">
+                                                                                            {companyGroups.map((grp) => (
+                                                                                                <div key={grp.id} className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-2xs">
+                                                                                                    <div className="w-7 h-7 rounded-lg bg-[var(--brand-50)] text-[var(--brand)] flex items-center justify-center font-bold text-xs shrink-0">
+                                                                                                        {grp.name ? grp.name.charAt(0).toUpperCase() : 'G'}
+                                                                                                    </div>
+                                                                                                    <div className="truncate flex-1">
+                                                                                                        <span className="font-medium text-slate-800 block truncate">{grp.name}</span>
+                                                                                                        <span className="text-[10px] text-slate-400 capitalize">{grp.role?.replace('_', ' ') || 'Group'}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             )}

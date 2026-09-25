@@ -23,9 +23,11 @@ export default function GroupsPage() {
         const userId = session?.id;
         const companyId = session?.company_id;
 
-        let groups = [];
+        let localCanViewSellerGroups = false;
 
-        if (userRole === "external_user") {
+        if (userRole === "super_admin") {
+          localCanViewSellerGroups = true;
+        } else {
           const { data: ugRows } = await supabase
             .from("user_groups")
             .select("group_id")
@@ -33,76 +35,59 @@ export default function GroupsPage() {
 
           const groupIds = ugRows?.map((r) => r.group_id) || [];
           if (groupIds.length > 0) {
-            let query = supabase
-              .from("groups")
-              .select("id, role, created_at")
-              .in("id", groupIds)
-              .eq("company_id", companyId);
-              
-            if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
-            else query = query.is('workspace_id', null);
-            
-            const { data } = await query;
-            groups = data || [];
-          }
-        } else {
-          let query = supabase
-            .from("groups")
-            .select("id, role, created_at")
-            .eq("company_id", companyId)
-            .order("created_at", { ascending: false });
-
-          if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
-          else query = query.is('workspace_id', null);
-          
-          const { data } = await query;
-
-          groups = data || [];
-
-          if (userRole === "admin") {
-            // Show groups that have admin, sub_admin or external_user members
-            const { data: targetUsers } = await supabase
-                .from('users')
-                .select('id')
-                .eq('company_id', companyId)
-                .in('role', ['admin', 'sub_admin', 'external_user']);
-
-            const targetUserIds = (targetUsers || []).map(u => u.id);
-
-            if (targetUserIds.length > 0) {
-                const { data: ugRows } = await supabase
-                    .from('user_groups')
-                    .select('group_id')
-                    .in('user_id', targetUserIds);
-
-                const validGroupIds = new Set((ugRows || []).map(r => r.group_id));
-                groups = groups.filter(g => validGroupIds.has(g.id));
-            } else {
-                groups = [];
-            }
-          } else if (userRole === "sub_admin") {
-            const { data: extUsers } = await supabase
-              .from("users")
-              .select("id")
+            const { data: perms } = await supabase
+              .from("permissions")
+              .select("can_view_seller_groups")
               .eq("company_id", companyId)
-              .eq("role", "external_user");
+              .eq("scope", "workspace")
+              .in("group_id", groupIds);
 
-            const extUserIds = (extUsers || []).map((u) => u.id);
-            if (extUserIds.length > 0) {
-              const { data: ugExt } = await supabase
-                .from("user_groups")
-                .select("group_id")
-                .in("user_id", extUserIds);
-
-              const validGroupIds = new Set((ugExt || []).map((r) => r.group_id));
-              groups = groups.filter((g) => validGroupIds.has(g.id));
-            } else {
-              groups = [];
+            if (perms && perms.length > 0) {
+              localCanViewSellerGroups = perms.some((p) => p.can_view_seller_groups);
             }
           }
         }
 
-        const roleOrder = { 'admin': 1, 'sub_admin': 2, 'external_user': 3 };
+        let query = supabase
+          .from("groups")
+          .select("id, role, created_at, type, created_by")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false });
+
+        if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
+        else query = query.is('workspace_id', null);
+
+        const { data } = await query;
+        let allGroups = data || [];
+        let groups = allGroups.filter((g) => g.type !== 'individual');
+
+        const isBuyer = session?.dms_role === 'buyer' || ['guest_admin', 'guest_lead', 'buyer'].includes(userRole);
+
+        if (userRole !== 'super_admin' && !localCanViewSellerGroups) {
+          const { data: ugRows } = await supabase
+            .from("user_groups")
+            .select("group_id")
+            .eq("user_id", userId);
+
+          const myGroupIds = new Set((ugRows || []).map((r) => r.group_id));
+
+          if (isBuyer) {
+            groups = groups.filter((g) => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user'].includes(g.role));
+          } else if (userRole === "admin") {
+            groups = groups.filter((g) => myGroupIds.has(g.id) || g.role === "admin");
+          } else {
+            groups = groups.filter((g) => myGroupIds.has(g.id));
+          }
+        }
+
+        const roleOrder = {
+          'admin': 1,
+          'sub_admin': 2,
+          'internal_user': 3,
+          'guest_admin': 4,
+          'guest_lead': 5,
+          'external_user': 6
+        };
         groups.sort((a, b) => {
             const orderA = roleOrder[a.role] || 99;
             const orderB = roleOrder[b.role] || 99;
