@@ -304,12 +304,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     await supabase.from('permissions').insert([workspacePerms]);
                 }
 
-                if (session?.id && data?.id) {
-                    await supabase.from('user_groups').insert({
-                        user_id: session.id,
-                        group_id: data.id
-                    });
-                }
+
                 if (newGroupType === 'individual' && newGroupEmail.trim()) {
                     try {
                         const inviteRes = await fetch('/api/invite', {
