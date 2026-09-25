@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FaUserPlus, FaCog } from "react-icons/fa";
+import { FaUserPlus, FaCog, FaEllipsisV, FaTrash } from "react-icons/fa";
 
 export default function DynamicGroupPage() {
     const params = useParams();
@@ -26,6 +26,7 @@ export default function DynamicGroupPage() {
     const [canEditPermissions, setCanEditPermissions] = useState(false);
 
     const [session, setSession] = useState(null);
+    const [openDropdownId, setOpenDropdownId] = useState(null);
 
     useEffect(() => {
         const rawSession = localStorage.getItem("vdr_session");
@@ -194,22 +195,45 @@ export default function DynamicGroupPage() {
                                                 </span>
                                             </td>
                                             {(canRemoveMembers || canEditPermissions) && (
-                                                <td className="py-4 px-6">
-                                                    <div className="flex items-center justify-end gap-3">
-                                                        {canEditPermissions && (
-                                                            <button 
-                                                                onClick={() => router.push(`/groups/${groupSlug}/user-permissions/${member.id}`)}
-                                                                className="flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-teal-600 transition-colors shadow-sm"
-                                                            >
-                                                                <FaCog size={14} />
-                                                                <span>Edit Permissions</span>
-                                                            </button>
-                                                        )}
-                                                        {canRemoveMembers && groupData?.type !== 'individual' && member.id !== session?.id && (
-                                                            <button onClick={() => handleRemoveMember(member.id)}
-                                                                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition-all" title="Remove member">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                                                            </button>
+                                                <td className="py-4 px-6 relative">
+                                                    <div className="flex items-center justify-end">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenDropdownId(openDropdownId === member.id ? null : member.id);
+                                                            }}
+                                                            className="text-slate-400 hover:text-slate-600 p-2 opacity-60 hover:opacity-100 focus:outline-none"
+                                                        >
+                                                            <FaEllipsisV />
+                                                        </button>
+
+                                                        {openDropdownId === member.id && (
+                                                            <div className="absolute right-8 top-10 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-100 z-50 overflow-hidden py-1">
+                                                                {canEditPermissions && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setOpenDropdownId(null);
+                                                                            router.push(`/groups/${groupSlug}/user-permissions/${member.id}`);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium"
+                                                                    >
+                                                                        <FaCog className="text-slate-400" />
+                                                                        Edit Permissions
+                                                                    </button>
+                                                                )}
+                                                                {canRemoveMembers && groupData?.type !== 'individual' && member.id !== session?.id && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setOpenDropdownId(null);
+                                                                            handleRemoveMember(member.id);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 font-medium"
+                                                                    >
+                                                                        <FaTrash className="text-rose-400" />
+                                                                        Delete
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </td>

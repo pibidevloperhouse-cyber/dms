@@ -206,9 +206,6 @@ export default function DMSRegister() {
                     value={participantType}
                     onChange={(e) => {
                       setParticipantType(e.target.value);
-                      if (e.target.value === 'Buyer') {
-                        setCompanyName(""); // Clear company name if switching to Buyer
-                      }
                     }}
                     required
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none"
@@ -221,10 +218,10 @@ export default function DMSRegister() {
               )}
 
               {/* 4. Conditional Fields */}
-              {participantType === "Seller" && (
+              {(participantType === "Seller" || participantType === "Buyer") && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
-                  <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="Vishwa Tech" required />
+                  <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="Company Name" required />
                 </div>
               )}
 

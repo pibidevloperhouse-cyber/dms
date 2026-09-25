@@ -273,9 +273,9 @@ export default function GroupsSidebar({ isOpen = true }) {
                 description: newGroupDescription.trim() || null,
                 role: newGroupRole,
                 type: newGroupType,
-                company_id: session?.company_id,
-                workspace_id: session?.active_workspace_id || null,
-                created_by: session?.id
+                company_id: (session?.company_id && session?.company_id !== 'null') ? session?.company_id : null,
+                workspace_id: (session?.active_workspace_id && session?.active_workspace_id !== 'null') ? session?.active_workspace_id : null,
+                created_by: (session?.id && session?.id !== 'null') ? session?.id : null
             }).select().single();
 
             if (!error && data) {
@@ -628,7 +628,6 @@ export default function GroupsSidebar({ isOpen = true }) {
                                             <option value="admin">Admin</option>
                                             <option value="sub_admin">Sub Admin</option>
                                             <option value="internal_user">Internal User</option>
-                                            <option value="external_user">External User</option>
                                         </>
                                     )}
                                 </select>

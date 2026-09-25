@@ -27,11 +27,11 @@ export async function POST(req) {
 
     let finalCompanyId = null;
 
-    if (roleToSet === 'Seller' && companyName) {
-      // Create a new Company profile for the Seller
+    if (companyName) {
+      // Create a new Company profile for the user
       const [newCompany] = await db.insert(companies).values({
         name: companyName,
-        email: email, // use seller's email for the company for now
+        email: email, // use user's email for the company for now
         status: 'active'
       }).returning({ id: companies.id });
       
