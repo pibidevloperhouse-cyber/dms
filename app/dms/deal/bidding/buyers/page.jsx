@@ -19,7 +19,6 @@ export default function SellerBuyersPage() {
           <h1 className="text-[22px] font-serif font-medium m-0">Buyers</h1>
           <div className="text-[13px] text-slate-500 mt-1">Invite, manage access, and track every buyer's progress through the process</div>
         </div>
-        <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity" onClick={() => setShowInviteForm(true)}>Invite buyer</button>
       </div>
 
       <div className="flex gap-3.5 mt-4 px-7">

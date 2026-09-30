@@ -54,7 +54,6 @@ export default function SellerBiddingPage() {
             </div>
             <div className="flex gap-2.5 items-start">
               <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-white hover:text-slate-900 transition-colors">Export ledger</button>
-              <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-white hover:text-slate-900 transition-colors">Invite buyer</button>
               <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity">Close bidding round</button>
             </div>
           </div>
