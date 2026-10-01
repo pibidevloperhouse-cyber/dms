@@ -140,7 +140,7 @@ export default function MainSidebar() {
             if (item.key === 'settings' && !hasSettingsAccess) return null;
             if (item.key === 'analytics' && !isSuperAdmin) return null;
             if (item.key === 'qa' && !hasQaAccess) return null;
-            if (item.key === 'tasks' && !hasTasksAccess) return null;
+            if ((item.key === 'tasks' || item.key === 'deal_workflow') && !hasTasksAccess) return null;
             if (item.key === 'bidding' && !hasBiddingAccess) return null;
             if (item.key === 'communication' && !hasCommunicationAccess) return null;
             if (item.key === 'control_audits' && !hasControlAuditsAccess) return null;
