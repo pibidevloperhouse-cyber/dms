@@ -10,6 +10,12 @@ export const permissionScopeEnum = pgEnum('permission_scope', ['group', 'documen
 export const channelTypeEnum = pgEnum('channel_type', ['public', 'private', 'direct_message']);
 export const visibilityEnum = pgEnum('visibility', ['internal', 'external', 'all']);
 
+// DMS New Enums (Gap Analysis)
+export const sellerTypeEnum = pgEnum('seller_type', ['individual', 'company']);
+export const verificationStatusEnum = pgEnum('verification_status', ['unverified', 'pending', 'processing', 'verified', 'failed']);
+export const pipelineStageEnum = pgEnum('pipeline_stage', ['evaluating', 'invited_to_intro', 'intro_scheduled', 'top_contender', 'initial_offer', 'due_diligence', 'apa', 'escrow', 'closed']);
+export const taskStatusEnum = pgEnum('task_status', ['todo', 'in_progress', 'completed', 'blocked']);
+
 // TABLES
 
 export const companies = pgTable('companies', {
@@ -75,8 +81,14 @@ export const users = pgTable('users', {
   ndaSignatureType: varchar('nda_signature_type'),
   ndaIpAddress: text('nda_ip_address'),
   ndaUserId: text('nda_user_id'),
+  // DMS Gap Analysis added fields
+  sellerType: sellerTypeEnum('seller_type'),
+  isBroker: boolean('is_broker').default(false),
+  referralSource: text('referral_source'),
+  linkedinUrl: text('linkedin_url'),
+  verificationStatus: verificationStatusEnum('verification_status').default('unverified'),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
 });
-
 export const folders = pgTable('folders', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').notNull(),
@@ -97,20 +109,6 @@ export const folders = pgTable('folders', {
 
 export const documents = pgTable('documents', {
   id: uuid('id').defaultRandom().primaryKey(),
-  companyId: uuid('company_id').notNull(),
-  folderId: uuid('folder_id'),
-  uploadedBy: uuid('uploaded_by'),
-  name: text('name').notNull(),
-  filePath: text('file_path').notNull(),
-  mimeType: text('mime_type').notNull(),
-  fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }).notNull(),
-  version: integer('version').default(1).notNull(),
-  isDeleted: boolean('is_deleted').default(false).notNull(),
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  dekRef: text('dek_ref'),
-  index: text('index'),
   dealStage: text('deal_stage').default('Preparation'),
   security: text('security'),
   isBookmarked: boolean('is_bookmarked'),
@@ -125,8 +123,8 @@ export const documents = pgTable('documents', {
   uploadComment: text('upload_comment'),
   indexingStatus: text('indexing_status').default('not_indexed'),
   indexingError: text('indexing_error'),
+  isPublic: boolean('is_public').default(false), // Added for public teaser documents
 });
-
 export const groups = pgTable('groups', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').notNull(),
@@ -578,8 +576,14 @@ export const dmsTeasers = pgTable('dms_teasers', {
   status: text('status').default('draft'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // New fields from spec
+  publicHeadline: text('public_headline'),
+  publicDesc: text('public_desc'),
+  publicKeywords: jsonb('public_keywords').default('[]'),
+  showTtmRev: boolean('show_ttm_rev').default(true),
+  showTtmProfit: boolean('show_ttm_profit').default(true),
+  showAskingPrice: boolean('show_asking_price').default(true),
 });
-
 export const dmsDealProposals = pgTable('dms_deal_proposals', {
   id: uuid('id').defaultRandom().primaryKey(),
   teaserId: uuid('teaser_id').references(() => dmsTeasers.id).notNull(),
@@ -613,4 +617,96 @@ export const dmsDeals = pgTable('dms_deals', {
   status: text('status').default('active'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // CRM Pipeline fields
+  pipelineStage: pipelineStageEnum('pipeline_stage').default('evaluating'),
+  autoSigned: boolean('auto_signed').default(false),
+});
+
+// --- NEW DMS TABLES FROM GAP ANALYSIS ---
+
+export const identityVerifications = pgTable('identity_verifications', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull().unique(),
+  provider: text('provider').default('PERSONA'),
+  country: text('country').notNull(),
+  documentType: text('document_type').notNull(),
+  documentUrl: text('document_url').notNull(),
+  status: verificationStatusEnum('status').default('pending'),
+  personaInquiryId: text('persona_inquiry_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const companyProfiles = pgTable('company_profiles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull().unique(),
+  companyName: text('company_name').notNull(),
+  websiteUrl: text('website_url'),
+  country: text('country'),
+  businessModel: jsonb('business_model').default('[]'),
+  technologies: jsonb('technologies').default('[]'),
+  teamSize: text('team_size'),
+  launchDate: timestamp('launch_date', { withTimezone: true }),
+  ttmRevenue: doublePrecision('ttm_revenue'),
+  ttmProfit: doublePrecision('ttm_profit'),
+  lastMonthRev: doublePrecision('last_month_rev'),
+  lastMonthProfit: doublePrecision('last_month_profit'),
+  annualGrowth: doublePrecision('annual_growth'),
+  arr: doublePrecision('arr'),
+  customerCount: text('customer_count'),
+  churnRate: text('churn_rate'),
+  churnTrend: text('churn_trend'),
+  askingPrice: doublePrecision('asking_price'),
+  priceJustification: text('price_justification'),
+});
+
+export const investorProfiles = pgTable('investor_profiles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull().unique(),
+  investorType: text('investor_type'),
+  investmentRangeMin: doublePrecision('investment_range_min'),
+  investmentRangeMax: doublePrecision('investment_range_max'),
+  preferredIndustries: jsonb('preferred_industries').default('[]'),
+});
+
+export const startupViews = pgTable('startup_views', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => dmsProjects.id).notNull(), // Links to the deal/project
+  viewerIp: text('viewer_ip'),
+  viewedAt: timestamp('viewed_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workflowTasks = pgTable('workflow_tasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => dmsProjects.id).notNull(),
+  phase: text('phase').notNull(),
+  taskName: text('task_name').notNull(),
+  status: taskStatusEnum('status').default('todo'),
+  assignedTo: uuid('assigned_to').references(() => users.id),
+  dueDate: timestamp('due_date', { withTimezone: true }),
+});
+
+export const riskIssues = pgTable('risk_issues', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => dmsProjects.id).notNull(),
+  title: text('title').notNull(),
+  severity: text('severity').notNull(),
+  status: text('status').notNull(),
+});
+
+export const approvals = pgTable('approvals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => dmsProjects.id).notNull(),
+  requestedBy: uuid('requested_by').references(() => users.id).notNull(),
+  approverId: uuid('approver_id').references(() => users.id).notNull(),
+  status: text('status').notNull(),
+  comments: text('comments'),
+});
+
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => dmsProjects.id).notNull(),
+  action: text('action').notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
 });

@@ -14,6 +14,7 @@ export default function WorkspaceDashboard() {
   const [dealType, setDealType] = useState("Merge");
   const [userRole, setUserRole] = useState('seller');
   const [vdrRole, setVdrRole] = useState('external_user');
+  const [companyName, setCompanyName] = useState('Vishwa Tech');
   const router = useRouter();
 
   useEffect(() => {
@@ -44,6 +45,25 @@ export default function WorkspaceDashboard() {
       } else {
         const companyId = localStorage.getItem('companyId');
         if (!companyId) return;
+
+        // Fetch company name
+        const storedCompanyName = localStorage.getItem('companyName');
+        if (storedCompanyName) {
+          setCompanyName(storedCompanyName);
+        } else {
+          try {
+            const compRes = await fetch(`/api/companies/${companyId}`);
+            if (compRes.ok) {
+              const compData = await compRes.json();
+              if (compData.company && compData.company.name) {
+                setCompanyName(compData.company.name);
+                localStorage.setItem('companyName', compData.company.name);
+              }
+            }
+          } catch (err) {
+            console.error("Failed to fetch company name", err);
+          }
+        }
 
         try {
           const userId = localStorage.getItem('userId');
@@ -143,7 +163,7 @@ export default function WorkspaceDashboard() {
         {/* Header Row */}
         <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900">{userRole.toLowerCase() === 'buyer' ? 'Buyer Workspace' : 'Vishwa Tech'}</h1>
+            <h1 className="text-xl font-bold text-gray-900">{userRole.toLowerCase() === 'buyer' ? 'Buyer Workspace' : companyName}</h1>
             <span className="px-3 py-1 bg-[#e6fbf2] text-[#00c875] text-xs font-bold rounded-full tracking-wide capitalize">{userRole}</span>
           </div>
 
@@ -182,10 +202,9 @@ export default function WorkspaceDashboard() {
         <div className="p-8 pb-12">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-            {/* Add New Workspace Card - Sellers Only */}
             {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/onboarding')}
                 className="h-44 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:border-gray-400 hover:bg-gray-50 transition-all group"
               >
                 <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform">
