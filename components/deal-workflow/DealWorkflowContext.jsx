@@ -121,6 +121,11 @@ const INITIAL_DEMO_TASKS = [
       { id: 'c1', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Auditor sign-off certificate verified against ledger entries.', timestamp: '2026-09-19 02:45 PM' },
       { id: 'c2', author: 'Ravi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Checked. Ready for VDR indexing when requested.', timestamp: '2026-09-20 04:14 PM' },
     ],
+    subtasks: [
+      { id: 'st_101', title: 'Verify Balance Sheet & P&L notes', assignedMember: 'Lakshmi', priority: 'High', dueDate: '2026-09-18', status: 'DONE' },
+      { id: 'st_102', title: 'Reconcile Cash Flow ledger items', assignedMember: 'Ravi', priority: 'Medium', dueDate: '2026-09-19', status: 'DONE' },
+      { id: 'st_103', title: 'Obtain statutory auditor signature certification', assignedMember: 'Lakshmi', priority: 'High', dueDate: '2026-09-20', status: 'DONE' },
+    ],
   },
   {
     task_id: 'TSK-1002',
@@ -155,6 +160,10 @@ const INITIAL_DEMO_TASKS = [
     comments: [
       { id: 'c3', author: 'Priya Sharma', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Flagged Note 14 on litigation risks regarding effluent treatment plant. Need to verify state environmental clearance.', timestamp: '2026-09-24 09:35 AM' },
       { id: 'c4', author: 'Arjun', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Important observation. Do not disclose this inquiry until we finalize the Q&A schedule.', timestamp: '2026-09-24 10:00 AM' },
+    ],
+    subtasks: [
+      { id: 'st_104', title: 'Check contingent tax liabilities', assignedMember: 'Priya Sharma', priority: 'High', dueDate: '2026-09-25', status: 'DONE' },
+      { id: 'st_105', title: 'Review effluent plant environmental litigation note', assignedMember: 'Priya Sharma', priority: 'High', dueDate: '2026-09-27', status: 'TO_DO' },
     ],
   },
   {
@@ -223,7 +232,7 @@ const INITIAL_DEMO_TASKS = [
   {
     task_id: 'TSK-1005',
     title: 'Q2 Tax Return Compliance & Schedule Verification',
-    description: 'Reconcile GST and Corporate Income Tax return filings for the trailing 2 quarters against general ledger accruals.',
+    description: 'Verify Q2 returns against the filing schedule.',
     created_by: 'Ravi',
     creator_role: 'Seller Admin',
     creator_company: 'ABC Textiles',
@@ -245,6 +254,10 @@ const INITIAL_DEMO_TASKS = [
     completed_at: null,
     completed_by: null,
     digital_signature: null,
+    subtasks: [
+      { id: 'st_201', title: 'Match returns to ledger', assignedMember: 'Ravi', priority: 'Medium', dueDate: '2026-10-02', status: 'DONE' },
+      { id: 'st_202', title: 'Reconcile GST challan filings', assignedMember: 'Arun', priority: 'Medium', dueDate: '2026-10-02', status: 'DONE' },
+    ],
     audit_trail: [
       { action: 'Task Created', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-21 10:00 AM', ip: '192.168.1.12' },
       { action: 'Claimed by Assignee', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-22 11:30 AM', ip: '192.168.1.45' },
@@ -357,15 +370,15 @@ export function DealWorkflowProvider({ children }) {
   // Load persisted state from localStorage on client mount
   useEffect(() => {
     try {
-      const storedTasks = localStorage.getItem('dms_deal_workflow_tasks_v2');
+      const storedTasks = localStorage.getItem('dms_deal_workflow_tasks_v4');
       if (storedTasks) {
         setTasks(JSON.parse(storedTasks));
       }
-      const storedUser = localStorage.getItem('dms_deal_workflow_user_v2');
+      const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
       if (storedUser && DEMO_USERS[storedUser]) {
         setCurrentUserId(storedUser);
       }
-      const storedAudit = localStorage.getItem('dms_deal_workflow_audit_mode_v2');
+      const storedAudit = localStorage.getItem('dms_deal_workflow_audit_mode_v4');
       if (storedAudit !== null) {
         setIsAuditModeActive(JSON.parse(storedAudit));
       }
@@ -377,7 +390,7 @@ export function DealWorkflowProvider({ children }) {
   // Save tasks on changes
   useEffect(() => {
     try {
-      localStorage.setItem('dms_deal_workflow_tasks_v2', JSON.stringify(tasks));
+      localStorage.setItem('dms_deal_workflow_tasks_v4', JSON.stringify(tasks));
     } catch (e) {
       console.error('Error saving deal workflow tasks:', e);
     }
@@ -387,14 +400,14 @@ export function DealWorkflowProvider({ children }) {
   const switchUser = (userId) => {
     if (DEMO_USERS[userId]) {
       setCurrentUserId(userId);
-      localStorage.setItem('dms_deal_workflow_user_v2', userId);
+      localStorage.setItem('dms_deal_workflow_user_v4', userId);
     }
   };
 
   const toggleAuditMode = () => {
     setIsAuditModeActive((prev) => {
       const next = !prev;
-      localStorage.setItem('dms_deal_workflow_audit_mode_v2', JSON.stringify(next));
+      localStorage.setItem('dms_deal_workflow_audit_mode_v4', JSON.stringify(next));
       return next;
     });
   };
@@ -668,6 +681,33 @@ export function DealWorkflowProvider({ children }) {
     );
   };
 
+  // Action: Send Back to In Progress (revisions requested)
+  const sendBack = (taskId, reason = 'Revisions requested by reviewer') => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const now = new Date();
+        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        return {
+          ...t,
+          status: 'IN_PROGRESS',
+          updated_at: formattedDate,
+          audit_trail: [
+            ...t.audit_trail,
+            {
+              action: 'Task Sent Back for Revisions',
+              performed_by: currentUser.name,
+              role: currentUser.role,
+              timestamp: formattedDate,
+              ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+              details: reason,
+            },
+          ],
+        };
+      })
+    );
+  };
+
   // Action: Digital Document Sign & Complete (specifically used for NDA and signed covenants)
   const signDocumentAndComplete = (taskId, signaturePayload) => {
     setTasks((prev) =>
@@ -755,6 +795,7 @@ export function DealWorkflowProvider({ children }) {
       due_date: formData.due_date || '2026-10-15',
       linked_document: formData.linked_document || null,
       claimable_by_role: formData.claimable_by_role ?? true,
+      subtasks: formData.subtasks || [],
       created_at: formattedDate,
       updated_at: formattedDate,
       completed_at: null,
@@ -775,6 +816,31 @@ export function DealWorkflowProvider({ children }) {
     setTasks((prev) => [newTask, ...prev]);
     setIsCreateModalOpen(false);
     return newTask;
+  };
+
+  // Action: Toggle Subtask Status
+  const toggleSubtask = (taskId, subtaskId) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const currentSubtasks = t.subtasks || [];
+        const updatedSubtasks = currentSubtasks.map((st) => {
+          if (st.id === subtaskId) {
+            const nextStatus = st.status === 'DONE' ? 'TO_DO' : 'DONE';
+            return {
+              ...st,
+              status: nextStatus,
+              completed_at: nextStatus === 'DONE' ? new Date().toISOString() : null,
+            };
+          }
+          return st;
+        });
+        return {
+          ...t,
+          subtasks: updatedSubtasks,
+        };
+      })
+    );
   };
 
   // Action: Add Scoped Comment
@@ -876,8 +942,10 @@ export function DealWorkflowProvider({ children }) {
         claimTask,
         submitForReview,
         approveAndComplete,
+        sendBack,
         signDocumentAndComplete,
         createTask,
+        toggleSubtask,
         addComment,
         resetToDemo,
         // Filters

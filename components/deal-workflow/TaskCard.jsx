@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   Building2,
   FileCheck2,
-  AlertCircle
+  AlertCircle,
+  CheckSquare
 } from 'lucide-react';
 
 export default function TaskCard({ task, onCardClick }) {
@@ -167,6 +168,19 @@ export default function TaskCard({ task, onCardClick }) {
             </span>
           </div>
         </div>
+
+        {/* Subtasks Count Pill if present */}
+        {task.subtasks && task.subtasks.length > 0 && (
+          <div className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-md bg-teal-50/70 border border-teal-100 text-[11px] text-[#006666] mb-3">
+            <div className="flex items-center gap-1.5">
+              <CheckSquare className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+              <span className="font-semibold">Subtasks</span>
+            </div>
+            <span className="font-bold text-[10px] bg-white px-1.5 py-0.2 rounded border border-teal-200">
+              {task.subtasks.filter((s) => s.status === 'DONE').length}/{task.subtasks.length}
+            </span>
+          </div>
+        )}
 
         {/* Linked Document Pill if present */}
         {task.linked_document && (
