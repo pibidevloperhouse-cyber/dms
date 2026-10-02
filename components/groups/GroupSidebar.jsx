@@ -492,7 +492,13 @@ export default function GroupsSidebar({ isOpen = true }) {
     return (
         <>
             <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
-                <div className="flex-1 overflow-y-auto pb-6">
+                <div
+                    className="flex-1 overflow-y-auto pb-6 white-scrollbar"
+                    style={{
+                        scrollbarColor: '#ffffff transparent',
+                        scrollbarWidth: 'thin'
+                    }}
+                >
                     {guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
                         <>
                             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
@@ -600,7 +606,7 @@ export default function GroupsSidebar({ isOpen = true }) {
 
                                 return allKnownDepts.map((deptName) => {
                                     const deptGroups = navItems.filter(g => (g.department || 'General').toLowerCase() === deptName.toLowerCase());
-                                    const isExpanded = expandedDepts[deptName] !== false; // expanded by default
+                                    const isExpanded = !!expandedDepts[deptName]; // collapsed by default, expands only on click
 
                                     return (
                                         <div key={deptName} className="mx-2 mb-1">
@@ -642,7 +648,13 @@ export default function GroupsSidebar({ isOpen = true }) {
 
                                             {/* Expanded Groups list in a scroll manner */}
                                             {isExpanded && (
-                                                <div className="mt-1 ml-3.5 pl-2.5 border-l-2 border-gray-100 max-h-48 overflow-y-auto space-y-1 py-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                                                <div
+                                                    className="mt-1 ml-3.5 pl-2.5 border-l-2 border-white max-h-48 overflow-y-auto space-y-1 py-1 pr-1 white-scrollbar"
+                                                    style={{
+                                                        scrollbarColor: '#ffffff transparent',
+                                                        scrollbarWidth: 'thin'
+                                                    }}
+                                                >
                                                     {deptGroups.length === 0 ? (
                                                         <div className="py-2 px-3 text-xs text-gray-400 italic">
                                                             Empty
