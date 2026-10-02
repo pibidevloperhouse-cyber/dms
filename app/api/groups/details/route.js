@@ -50,6 +50,7 @@ export async function POST(req) {
             company_id: fetchedGroups[0].companyId,
             name: fetchedGroups[0].name,
             description: fetchedGroups[0].description,
+            department: fetchedGroups[0].department || null,
             created_by: fetchedGroups[0].createdBy,
             created_at: fetchedGroups[0].createdAt,
             updated_at: fetchedGroups[0].updatedAt,

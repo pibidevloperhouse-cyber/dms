@@ -3,12 +3,31 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 const GROUP_ICON = (
     <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>
 );
+
+const DEPT_ICON = (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+    </svg>
+);
+
+const ROLE_LABELS = {
+    super_admin:   'Super Admin',
+    admin:         'Admin',
+    sub_admin:     'Sub Admin',
+    internal_user: 'Internal User',
+    user:          'User',
+    guest_admin:   'Guest Admin',
+    guest_lead:    'Guest Lead',
+    external_user: 'External User',
+    buyer:         'Buyer',
+};
 
 const TRASH_ICON = (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -18,6 +37,8 @@ const TRASH_ICON = (
         <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
 );
+
+const DEFAULT_DEPARTMENTS = [];
 
 export default function GroupsSidebar({ isOpen = true }) {
     const pathname = usePathname();
@@ -34,6 +55,15 @@ export default function GroupsSidebar({ isOpen = true }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [guestLead, setGuestLead] = useState(null);
     const [sellerMembers, setSellerMembers] = useState([]);
+
+    // Department States for Form & Sidebar (Simple select dropdown like other fields)
+    const [departments, setDepartments] = useState([]);
+    const [newGroupDepartment, setNewGroupDepartment] = useState('');
+    const [isCreatingNewDept, setIsCreatingNewDept] = useState(false);
+    const [customDeptInput, setCustomDeptInput] = useState('');
+
+    // Accordion expand/collapse state for departments in sidebar
+    const [expandedDepts, setExpandedDepts] = useState({});
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -170,9 +200,40 @@ export default function GroupsSidebar({ isOpen = true }) {
                 return new Date(b.created_at || 0) - new Date(a.created_at || 0);
             });
 
-            setNavItems(groups.map(g => ({
-                id: g.id, name: g.name, href: `/groups/${g.id}`, role: g.role || ''
-            })));
+            // Read persisted custom departments
+            try {
+                const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
+                if (Array.isArray(savedCustom) && savedCustom.length > 0) {
+                    const valid = savedCustom.filter(d => typeof d === 'string' && d.trim());
+                    if (valid.length > 0) {
+                        setDepartments(prev => Array.from(new Set([...prev, ...valid])));
+                    }
+                }
+            } catch (e) {}
+
+            // Read persisted group department mappings
+            const savedGroupDepts = (() => {
+                try {
+                    return JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
+                } catch (e) {
+                    return {};
+                }
+            })();
+
+            const loadedGroups = groups.map(g => ({
+                id: g.id,
+                name: g.name,
+                href: `/groups/${g.id}`,
+                role: g.role || '',
+                department: g.department || savedGroupDepts[g.id] || null
+            }));
+
+            setNavItems(loadedGroups);
+
+            const existingGroupDepts = loadedGroups.map(g => g.department).filter(Boolean);
+            if (existingGroupDepts.length > 0) {
+                setDepartments(prev => Array.from(new Set([...prev, ...existingGroupDepts])));
+            }
 
             // Fetch Guest Lead if in a workspace
             if (session?.active_workspace_id) {
@@ -228,6 +289,41 @@ export default function GroupsSidebar({ isOpen = true }) {
         fetchGroups();
     }, []);
 
+    const handleCreateNewDepartment = (nameToCreate) => {
+        const query = (nameToCreate || newGroupDepartment || customDeptInput || '').trim();
+        if (!query) return;
+        const formatted = query.charAt(0).toUpperCase() + query.slice(1);
+
+        setDepartments(prev => {
+            const next = Array.from(new Set([...prev, formatted]));
+            try {
+                const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
+                if (!savedCustom.includes(formatted)) {
+                    localStorage.setItem('dms_custom_departments', JSON.stringify([...savedCustom, formatted]));
+                }
+            } catch (e) {}
+            return next;
+        });
+
+        setNewGroupDepartment(formatted);
+        setIsCreatingNewDept(false);
+        setCustomDeptInput('');
+        setExpandedDepts(prev => ({ ...prev, [formatted]: true }));
+    };
+
+    const handleConfirmNewDept = () => {
+        const trimmed = customDeptInput.trim();
+        if (!trimmed) return;
+        handleCreateNewDepartment(trimmed);
+    };
+
+    const toggleDept = (dept) => {
+        setExpandedDepts(prev => ({
+            ...prev,
+            [dept]: !prev[dept]
+        }));
+    };
+
     const handleDeleteGroup = async () => {
         if (!deleteTarget) return;
         setIsDeleting(true);
@@ -247,6 +343,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                     setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
                 } else {
                     setNavItems(prev => prev.filter(g => g.id !== deleteTarget.id));
+                    try {
+                        const savedGroupDepts = JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
+                        delete savedGroupDepts[deleteTarget.id];
+                        localStorage.setItem('dms_group_departments', JSON.stringify(savedGroupDepts));
+                    } catch (e) {}
                 }
             }
         } catch (err) {
@@ -264,21 +365,41 @@ export default function GroupsSidebar({ isOpen = true }) {
         if (isIndividual && !newGroupEmail.trim()) return;
         if (!isIndividual && !newGroupName.trim()) return;
 
+        // Resolve final department from user input / selection
+        let finalDept = (newGroupDepartment || customDeptInput || '').trim();
+        if (finalDept) {
+            finalDept = finalDept.charAt(0).toUpperCase() + finalDept.slice(1);
+            handleCreateNewDepartment(finalDept);
+        } else {
+            finalDept = 'General';
+        }
+
         setIsSubmitting(true);
         try {
             const session = JSON.parse(localStorage.getItem('vdr_session'));
             const finalGroupName = isIndividual ? newGroupEmail.trim() : newGroupName.trim();
-            const { data, error } = await supabase.from('groups').insert({
+            
+            const insertPayload = {
                 name: finalGroupName,
                 description: newGroupDescription.trim() || null,
+                department: finalDept || null,
                 role: newGroupRole,
                 type: newGroupType,
                 company_id: (session?.company_id && session?.company_id !== 'null') ? session?.company_id : null,
                 workspace_id: (session?.active_workspace_id && session?.active_workspace_id !== 'null') ? session?.active_workspace_id : null,
                 created_by: (session?.id && session?.id !== 'null') ? session?.id : null
-            }).select().single();
+            };
+
+            const { data, error } = await supabase.from('groups').insert(insertPayload).select().single();
 
             if (!error && data) {
+                // Save department mapping to localStorage
+                try {
+                    const savedGroupDepts = JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
+                    savedGroupDepts[data.id] = finalDept;
+                    localStorage.setItem('dms_group_departments', JSON.stringify(savedGroupDepts));
+                } catch (e) {}
+
                 // Insert Default Permissions based on Role
                 let workspacePerms = {
                     company_id: session?.company_id,
@@ -303,7 +424,6 @@ export default function GroupsSidebar({ isOpen = true }) {
                 if (['admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
                     await supabase.from('permissions').insert([workspacePerms]);
                 }
-
 
                 if (newGroupType === 'individual' && newGroupEmail.trim()) {
                     try {
@@ -343,8 +463,12 @@ export default function GroupsSidebar({ isOpen = true }) {
                         id: data.id,
                         name: data.name,
                         href: `/groups/${data.id}`,
-                        role: data.role || ''
+                        role: data.role || '',
+                        department: finalDept
                     }, ...prev]);
+
+                    // Automatically expand this department so the new group is immediately visible
+                    setExpandedDepts(prev => ({ ...prev, [finalDept]: true }));
                 }
                 
                 setIsAddGroupModalOpen(false);
@@ -353,6 +477,9 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setNewGroupRole('');
                 setNewGroupType('group');
                 setNewGroupEmail('');
+                setNewGroupDepartment('');
+                setCustomDeptInput('');
+                setIsCreatingNewDept(false);
             } else {
                 alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
                 console.error("Group creation error:", error);
@@ -458,70 +585,139 @@ export default function GroupsSidebar({ isOpen = true }) {
                     <nav className="py-3 space-y-1">
                         {isLoading ? (
                             <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-100 rounded w-full"></div></div>
-                        ) : navItems.length === 0 ? (
-                            <div className="px-5 py-4 text-xs text-gray-400 italic">No groups available</div>
                         ) : (
-                            navItems.map((item) => {
-                                const active = pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.id}
-                                        href={item.href}
-                                        className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${active
-                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>
-                                                {GROUP_ICON}
-                                            </svg>
-                                            <span className="text-[14px] font-sans truncate max-w-[120px]">{item.name}</span>
-                                        </div>
+                            (() => {
+                                const allKnownDepts = Array.from(new Set([
+                                    ...departments,
+                                    ...navItems.map(g => g.department || 'General').filter(Boolean)
+                                ]));
 
-                                        <div className="flex flex-col items-end gap-1 shrink-0">
-                                            {canDeleteGroup && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setDeleteTarget({ id: item.id, name: item.name });
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                                    title="Delete group"
-                                                >
-                                                    {TRASH_ICON}
-                                                </button>
-                                            )}
-                                            {item.role && (() => {
-                                                const roleLabels = {
-                                                    super_admin:   'Super Admin',
-                                                    admin:         'Admin',
-                                                    sub_admin:     'Sub Admin',
-                                                    internal_user: 'Internal User',
-                                                    user:          'User',
-                                                    guest_admin:   'Guest Admin',
-                                                    guest_lead:    'Guest Lead',
-                                                    external_user: 'External User',
-                                                    buyer:         'Buyer',
-                                                };
-                                                return (
-                                                    <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">
-                                                        {roleLabels[item.role] || item.role.replace('_', ' ')}
+                                if (allKnownDepts.length === 0) {
+                                    return (
+                                        <div className="px-5 py-4 text-xs text-gray-400 italic">Empty</div>
+                                    );
+                                }
+
+                                return allKnownDepts.map((deptName) => {
+                                    const deptGroups = navItems.filter(g => (g.department || 'General').toLowerCase() === deptName.toLowerCase());
+                                    const isExpanded = expandedDepts[deptName] !== false; // expanded by default
+
+                                    return (
+                                        <div key={deptName} className="mx-2 mb-1">
+                                            {/* Department Header Button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleDept(deptName)}
+                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${
+                                                    isExpanded 
+                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold' 
+                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center truncate">
+                                                    <span className="font-sans text-[13px] tracking-tight truncate capitalize font-medium">{deptName}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                        deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
+                                                    }`}>
+                                                        {deptGroups.length}
                                                     </span>
-                                                );
-                                            })()}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="14"
+                                                        height="14"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2.5"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-gray-700' : ''}`}
+                                                    >
+                                                        <polyline points="9 18 15 12 9 6" />
+                                                    </svg>
+                                                </div>
+                                            </button>
+
+                                            {/* Expanded Groups list in a scroll manner */}
+                                            {isExpanded && (
+                                                <div className="mt-1 ml-3.5 pl-2.5 border-l-2 border-gray-100 max-h-48 overflow-y-auto space-y-1 py-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                                                    {deptGroups.length === 0 ? (
+                                                        <div className="py-2 px-3 text-xs text-gray-400 italic">
+                                                            Empty
+                                                        </div>
+                                                    ) : (
+                                                        deptGroups.map((item) => {
+                                                            const active = pathname === item.href;
+                                                            return (
+                                                                <Link
+                                                                    key={item.id}
+                                                                    href={item.href}
+                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${
+                                                                        active
+                                                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                                            : 'text-gray-600 hover:bg-gray-50'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center gap-2 truncate">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>
+                                                                            {GROUP_ICON}
+                                                                        </svg>
+                                                                        <span className="text-[13px] font-sans truncate max-w-[115px]">{item.name}</span>
+                                                                    </div>
+
+                                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                                        {canDeleteGroup && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                    setDeleteTarget({ id: item.id, name: item.name });
+                                                                                }}
+                                                                                className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
+                                                                                title="Delete group"
+                                                                            >
+                                                                                {TRASH_ICON}
+                                                                            </button>
+                                                                        )}
+                                                                        {item.role && (
+                                                                            <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">
+                                                                                {ROLE_LABELS[item.role] || item.role.replace('_', ' ')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </Link>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                    </Link>
-                                );
-                            })
+                                    );
+                                });
+                            })()
                         )}
                     </nav>
                 </div>
 
                 {canCreateGroup && (
                     <div className="p-5 border-t border-gray-100 bg-gray-50/30">
-                        <button onClick={() => setIsAddGroupModalOpen(true)} className="w-full py-2.5 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-[13px] hover:bg-[var(--brand-dark)] transition-all flex items-center justify-center gap-2 shadow-sm">
+                        <button
+                            onClick={() => {
+                                if (departments.length === 0) {
+                                    setIsCreatingNewDept(true);
+                                    setCustomDeptInput('');
+                                    setNewGroupDepartment('');
+                                } else {
+                                    setIsCreatingNewDept(false);
+                                    setCustomDeptInput('');
+                                    setNewGroupDepartment(departments[0] || '');
+                                }
+                                setIsAddGroupModalOpen(true);
+                            }}
+                            className="w-full py-2.5 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-[13px] hover:bg-[var(--brand-dark)] transition-all flex items-center justify-center gap-2 shadow-sm"
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                             Add Groups
                         </button>
@@ -567,21 +763,98 @@ export default function GroupsSidebar({ isOpen = true }) {
                 </div>
             )}
 
-            {/* ── Add Group Modal ───────────────────────────────────────── */}
+            {/* ── Add Group Modal (img1) ────────────────────────────────── */}
             {isAddGroupModalOpen && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
-                    <div className="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 font-sans">
+                    <div className="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 font-sans max-h-[92vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold font-sans text-gray-800 uppercase ">Create New Group</h3>
-                            <button onClick={() => setIsAddGroupModalOpen(false)} className="text-gray-400 hover:text-black font-sans">✕</button>
+                            <h3 className="text-lg font-bold font-sans text-gray-800 uppercase">Create New Group</h3>
+                            <button
+                                onClick={() => {
+                                    setIsAddGroupModalOpen(false);
+                                    setIsCreatingNewDept(false);
+                                    setCustomDeptInput('');
+                                    setNewGroupDepartment('');
+                                }}
+                                className="text-gray-400 hover:text-black font-sans"
+                            >
+                                ✕
+                            </button>
                         </div>
                         <div className="space-y-4">
+                            {/* 1st Field: Department */}
+                            <div>
+                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">
+                                    Department
+                                </label>
+                                {!isCreatingNewDept ? (
+                                    <select
+                                        value={newGroupDepartment || ''}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__new__') {
+                                                setIsCreatingNewDept(true);
+                                                setCustomDeptInput('');
+                                            } else {
+                                                setNewGroupDepartment(e.target.value);
+                                            }
+                                        }}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                    >
+                                        <option value="" disabled>Select Department</option>
+                                        {departments.map((dept) => (
+                                            <option key={dept} value={dept}>
+                                                {dept}
+                                            </option>
+                                        ))}
+                                        <option value="__new__">+ Create New Department...</option>
+                                    </select>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={customDeptInput}
+                                            onChange={(e) => setCustomDeptInput(e.target.value)}
+                                            placeholder="Enter department name..."
+                                            autoFocus
+                                            className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleConfirmNewDept();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleConfirmNewDept}
+                                            disabled={!customDeptInput.trim()}
+                                            className="px-4 py-3 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-xs hover:bg-[var(--brand-dark)] transition-all disabled:opacity-50 shrink-0"
+                                        >
+                                            Create
+                                        </button>
+                                        {departments.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsCreatingNewDept(false);
+                                                    setCustomDeptInput('');
+                                                }}
+                                                className="px-3 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold font-sans text-xs hover:bg-gray-200 transition-all shrink-0"
+                                                title="Back to dropdown"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Type</label>
                                 <select
                                     value={newGroupType}
                                     onChange={e => setNewGroupType(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
                                 >
                                     <option value="group">Group</option>
                                     <option value="individual">Individual</option>
@@ -590,13 +863,13 @@ export default function GroupsSidebar({ isOpen = true }) {
                             {newGroupType !== 'individual' && (
                                 <div>
                                     <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
-                                    <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans" />
+                                    <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
                                 </div>
                             )}
                             {newGroupType === 'individual' && (
                                 <div>
                                     <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Email Address</label>
-                                    <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans" />
+                                    <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
                                 </div>
                             )}
                             <div>
@@ -604,7 +877,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                 <select
                                     value={newGroupRole}
                                     onChange={e => setNewGroupRole(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
                                 >
                                     <option value="" disabled>Select Role</option>
                                     {isBuyerSide ? (
@@ -629,11 +902,25 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </div>
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Description</label>
-                                <textarea value={newGroupDescription} onChange={e => setNewGroupDescription(e.target.value)} placeholder="Description (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] resize-none text-black font-sans" rows="3" />
+                                <textarea value={newGroupDescription} onChange={e => setNewGroupDescription(e.target.value)} placeholder="Description (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] resize-none text-black font-sans text-sm" rows="3" />
                             </div>
                             <div className="flex gap-3 pt-2">
-                                <button onClick={() => setIsAddGroupModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans">Cancel</button>
-                                <button onClick={handleCreateGroup} disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || isSubmitting} className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50">
+                                <button
+                                    onClick={() => {
+                                        setIsAddGroupModalOpen(false);
+                                        setIsCreatingNewDept(false);
+                                        setCustomDeptInput('');
+                                        setNewGroupDepartment('');
+                                    }}
+                                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleCreateGroup}
+                                    disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || !(newGroupDepartment.trim() || customDeptInput.trim()) || isSubmitting}
+                                    className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50"
+                                >
                                     {isSubmitting ? "Creating..." : "Create"}
                                 </button>
                             </div>
