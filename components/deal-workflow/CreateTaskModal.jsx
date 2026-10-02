@@ -105,8 +105,8 @@ export default function CreateTaskModal() {
     if (!e.target.files || e.target.files.length === 0) return;
     const newFiles = Array.from(e.target.files).map((f) => ({
       name: f.name,
-      size: f.size > 1024 * 1024 
-        ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` 
+      size: f.size > 1024 * 1024
+        ? `${(f.size / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.round(f.size / 1024)} KB`,
     }));
     setSubtaskAttachments((prev) => [...prev, ...newFiles]);
@@ -150,11 +150,11 @@ export default function CreateTaskModal() {
       {/* ========================================================================= */}
       {/* IMAGE 2: CREATE NEW TASK MODAL */}
       {/* ========================================================================= */}
-      <div 
+      <div
         className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
         onClick={handleClose}
       >
-        <div 
+        <div
           className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[490px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[94vh]"
           onClick={(e) => e.stopPropagation()}
         >
@@ -215,6 +215,28 @@ export default function CreateTaskModal() {
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Workstream
+                </label>
+                <div className="relative">
+                  <select
+                    value={workstream}
+                    onChange={(e) => setWorkstream(e.target.value)}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
+                  >
+                    {WORKSTREAMS.map((w) => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Row: Workstream & Priority */}
+            <div className="grid grid-cols-2 gap-3.5">
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -228,27 +250,6 @@ export default function CreateTaskModal() {
                   >
                     {availableGroups.map((g) => (
                       <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Row: Workstream & Priority */}
-            <div className="grid grid-cols-2 gap-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Workstream
-                </label>
-                <div className="relative">
-                  <select
-                    value={workstream}
-                    onChange={(e) => setWorkstream(e.target.value)}
-                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
-                  >
-                    {WORKSTREAMS.map((w) => (
-                      <option key={w} value={w}>{w}</option>
                     ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -352,13 +353,12 @@ export default function CreateTaskModal() {
                             </span>
                           )}
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                              st.priority === 'High'
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${st.priority === 'High'
                                 ? 'bg-rose-50 text-rose-700 border-rose-200'
                                 : st.priority === 'Medium'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-200'
-                            }`}
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
                           >
                             {st.priority}
                           </span>
@@ -414,11 +414,11 @@ export default function CreateTaskModal() {
       {/* IMAGE 3: ADD SUBTASK MODAL */}
       {/* ========================================================================= */}
       {isAddSubtaskModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => setIsAddSubtaskModalOpen(false)}
         >
-          <div 
+          <div
             className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[480px] p-5 sm:p-6 space-y-3.5 overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >

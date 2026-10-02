@@ -2,17 +2,17 @@
 
 import React from 'react';
 import { useDealWorkflow } from './DealWorkflowContext';
-import { 
-  Lock, 
-  Globe, 
-  FileText, 
-  Calendar, 
-  User, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
-  ArrowRight, 
-  ShieldCheck, 
+import {
+  Lock,
+  Globe,
+  FileText,
+  Calendar,
+  User,
+  Users,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
   Building2,
   FileCheck2,
   AlertCircle,
@@ -42,9 +42,9 @@ export default function TaskCard({ task, onCardClick }) {
   const canApprove = canUserApproveTask(task);
 
   // Special case: If task has linked document requiring signature (like NDA) and is in progress for the buyer legal assignee
-  const isSigningEligible = 
-    task.linked_document && 
-    task.status === 'IN_PROGRESS' && 
+  const isSigningEligible =
+    task.linked_document &&
+    task.status === 'IN_PROGRESS' &&
     (task.assigned_to_user === currentUser.name || currentUser.role.includes('Admin')) &&
     isTargetParty &&
     !task.digital_signature;
@@ -58,7 +58,7 @@ export default function TaskCard({ task, onCardClick }) {
 
   // Visibility explanation label based on prompt UX rule #18
   const visibilityBadge = isInternal ? (
-    <span 
+    <span
       className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
       title={`Visible only to ${task.creator_company}. Hidden from opposite party.`}
     >
@@ -66,7 +66,7 @@ export default function TaskCard({ task, onCardClick }) {
       <span>Internal — {task.creator_company}</span>
     </span>
   ) : (
-    <span 
+    <span
       className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200"
       title={`Shared between ${task.creator_company} and ${task.target_company}.`}
     >
@@ -81,16 +81,15 @@ export default function TaskCard({ task, onCardClick }) {
       className="group bg-white rounded-xl border border-slate-200/90 hover:border-blue-400/80 shadow-xs hover:shadow-md transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden"
     >
       {/* Top Accent Stripe based on status and side */}
-      <div 
-        className={`absolute top-0 left-0 right-0 h-[2.5px] ${
-          task.status === 'DONE' 
-            ? 'bg-emerald-500' 
-            : task.status === 'REVIEW'
+      <div
+        className={`absolute top-0 left-0 right-0 h-[2.5px] ${task.status === 'DONE'
+          ? 'bg-emerald-500'
+          : task.status === 'REVIEW'
             ? 'bg-amber-500'
             : task.status === 'IN_PROGRESS'
-            ? 'bg-blue-600'
-            : 'bg-slate-300'
-        }`} 
+              ? 'bg-blue-600'
+              : 'bg-slate-300'
+          }`}
       />
 
       {/* Header: ID, Badges */}
@@ -108,7 +107,7 @@ export default function TaskCard({ task, onCardClick }) {
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1.5">
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${priorityStyles[task.priority] || priorityStyles.Medium}`}>
               {task.priority}
@@ -153,7 +152,7 @@ export default function TaskCard({ task, onCardClick }) {
               {task.assigned_to_user ? (
                 <span className="font-semibold text-slate-900">{task.assigned_to_user}</span>
               ) : (
-                <span className="italic text-slate-400">Unassigned (Claimable)</span>
+                <span className="text-slate-400">Unassigned (Claimable)</span>
               )}
             </span>
           </div>
@@ -226,7 +225,7 @@ export default function TaskCard({ task, onCardClick }) {
       </div>
 
       {/* Footer & Dynamic Status Actions */}
-      <div 
+      <div
         className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto"
         onClick={(e) => e.stopPropagation()} // Prevent card click when clicking action button
       >
@@ -240,7 +239,7 @@ export default function TaskCard({ task, onCardClick }) {
           ) : task.status === 'REVIEW' ? (
             <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
               <Clock className="w-3.5 h-3.5 text-amber-500" />
-              Under Review
+              Waiting for Review
             </span>
           ) : task.status === 'IN_PROGRESS' ? (
             <span className="inline-flex items-center gap-1 font-semibold text-blue-600">
@@ -277,17 +276,16 @@ export default function TaskCard({ task, onCardClick }) {
             isSigningEligible ? (
               <button
                 onClick={() => setSigningModalTask(task)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#008060] hover:bg-[#006e52] text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
               >
-                <FileCheck2 className="w-3 h-3" />
-                <span>Sign NDA</span>
+                <span>Submit Review</span>
               </button>
             ) : canSubmit ? (
               <button
                 onClick={() => submitForReview(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#008060] hover:bg-[#006e52] text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
               >
-                <span>Submit for Review</span>
+                <span>Submit Review</span>
               </button>
             ) : (
               <span className="text-[10px] text-slate-400 font-medium italic">
@@ -296,31 +294,12 @@ export default function TaskCard({ task, onCardClick }) {
             )
           )}
 
-          {task.status === 'REVIEW' && (
-            canApprove ? (
-              <button
-                onClick={() => approveAndComplete(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
-              >
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Approve & Complete</span>
-              </button>
-            ) : (
-              <span className="text-[10px] text-amber-600 font-medium italic">
-                Awaiting Admin Approval
-              </span>
-            )
-          )}
 
           {task.status === 'DONE' && (
-            <button
-              onClick={() => setCertificateModalTask(task)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition-colors"
-              title="View M&A Compliance Certificate"
-            >
-              <FileCheck2 className="w-3 h-3 text-emerald-600" />
-              <span>Certificate</span>
-            </button>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              <span>Marked as Done</span>
+            </span>
           )}
         </div>
       </div>

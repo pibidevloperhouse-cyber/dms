@@ -83,274 +83,17 @@ export const DEAL_STAGES = [
   'Post-Closing',
 ];
 
-// Initial demo tasks matching user specifications exactly
-const INITIAL_DEMO_TASKS = [
-  {
-    task_id: 'TSK-1001',
-    title: 'Upload 2023-24 Audited Financial Statements',
-    description: 'Provide certified full-year audited financial statements including Balance Sheet, P&L, Cash Flow, and Auditor Notes for FY23-24.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Finance',
-    priority: 'High',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'DONE',
-    due_date: '2026-09-20',
-    linked_document: 'Audited_Financial_Statements_FY24.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-15 09:30 AM',
-    updated_at: '2026-09-20 04:15 PM',
-    completed_at: '20-Sep-2026 4:15 PM',
-    completed_by: 'Lakshmi',
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-15 09:30 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Assignee', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-16 10:15 AM', ip: '192.168.1.45' },
-      { action: 'Document Uploaded', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-19 02:40 PM', ip: '192.168.1.45', doc: 'Audited_Financial_Statements_FY24.pdf' },
-      { action: 'Submitted for Review', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-19 03:00 PM', ip: '192.168.1.45' },
-      { action: 'Approved & Completed', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '20-Sep-2026 4:15 PM', ip: '192.168.1.12' },
-    ],
-    comments: [
-      { id: 'c1', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Auditor sign-off certificate verified against ledger entries.', timestamp: '2026-09-19 02:45 PM' },
-      { id: 'c2', author: 'Ravi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Checked. Ready for VDR indexing when requested.', timestamp: '2026-09-20 04:14 PM' },
-    ],
-    subtasks: [
-      { id: 'st_101', title: 'Verify Balance Sheet & P&L notes', assignedMember: 'Lakshmi', priority: 'High', dueDate: '2026-09-18', status: 'DONE' },
-      { id: 'st_102', title: 'Reconcile Cash Flow ledger items', assignedMember: 'Ravi', priority: 'Medium', dueDate: '2026-09-19', status: 'DONE' },
-      { id: 'st_103', title: 'Obtain statutory auditor signature certification', assignedMember: 'Lakshmi', priority: 'High', dueDate: '2026-09-20', status: 'DONE' },
-    ],
-  },
-  {
-    task_id: 'TSK-1002',
-    title: "Review Seller's Financial Statements for red flags",
-    description: 'Conduct forensic review of ABC Textiles FY23-24 financial statements. Check for revenue recognition consistency, contingent tax liabilities, and inventory valuation adjustments.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: 'Priya Sharma',
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Legal',
-    priority: 'High',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'IN_PROGRESS',
-    due_date: '2026-09-28',
-    linked_document: 'Financial_Risk_Assessment_Checklist.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-22 11:00 AM',
-    updated_at: '2026-09-24 09:30 AM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-22 11:00 AM', ip: '10.0.4.18' },
-      { action: 'Claimed by Assignee', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-23 09:15 AM', ip: '10.0.4.92' },
-      { action: 'Private Legal Notes Added', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-24 09:30 AM', ip: '10.0.4.92' },
-    ],
-    comments: [
-      { id: 'c3', author: 'Priya Sharma', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Flagged Note 14 on litigation risks regarding effluent treatment plant. Need to verify state environmental clearance.', timestamp: '2026-09-24 09:35 AM' },
-      { id: 'c4', author: 'Arjun', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Important observation. Do not disclose this inquiry until we finalize the Q&A schedule.', timestamp: '2026-09-24 10:00 AM' },
-    ],
-    subtasks: [
-      { id: 'st_104', title: 'Check contingent tax liabilities', assignedMember: 'Priya Sharma', priority: 'High', dueDate: '2026-09-25', status: 'DONE' },
-      { id: 'st_105', title: 'Review effluent plant environmental litigation note', assignedMember: 'Priya Sharma', priority: 'High', dueDate: '2026-09-27', status: 'TO_DO' },
-    ],
-  },
-  {
-    task_id: 'TSK-1003',
-    title: 'Sign the NDA document',
-    description: 'Please review and digitally sign the attached bilateral Mutual Non-Disclosure Agreement for Project Titan. Required prior to granting clean data room access.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: null,
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Legal',
-    priority: 'High',
-    deal_stage: 'Preparation',
-    visibility: 'EXTERNAL',
-    status: 'TO_DO',
-    due_date: '2026-09-30',
-    linked_document: 'NDA_Draft.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-24 02:00 PM',
-    updated_at: '2026-09-24 02:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created & Dispatched', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-24 02:00 PM', ip: '192.168.1.12' },
-      { action: 'Queued to Target Group', performed_by: 'System Workflow Engine', role: 'System', timestamp: '2026-09-24 02:00 PM', ip: '127.0.0.1' },
-    ],
-    comments: [
-      { id: 'c5', author: 'Ravi', company: 'ABC Textiles', scope: 'EXTERNAL', text: 'Draft NDA is attached with standard 24-month confidentiality clause. Please review and countersign.', timestamp: '2026-09-24 02:05 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1004',
-    title: 'Review Material Contracts & Customer Concentration',
-    description: 'Examine top 10 commercial contracts of ABC Textiles representing 68% of revenues. Check for change-of-control termination triggers.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: null,
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Commercial',
-    priority: 'Medium',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'TO_DO',
-    due_date: '2026-10-05',
-    linked_document: 'Material_Contracts_Summary.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-23 04:00 PM',
-    updated_at: '2026-09-23 04:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-23 04:00 PM', ip: '10.0.4.18' },
-    ],
-    comments: [],
-  },
-  {
-    task_id: 'TSK-1005',
-    title: 'Q2 Tax Return Compliance & Schedule Verification',
-    description: 'Verify Q2 returns against the filing schedule.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Tax',
-    priority: 'Medium',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'REVIEW',
-    due_date: '2026-10-02',
-    linked_document: 'Q2_Tax_Compliance_Certificates.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-21 10:00 AM',
-    updated_at: '2026-09-25 03:20 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    subtasks: [
-      { id: 'st_201', title: 'Match returns to ledger', assignedMember: 'Ravi', priority: 'Medium', dueDate: '2026-10-02', status: 'DONE' },
-      { id: 'st_202', title: 'Reconcile GST challan filings', assignedMember: 'Arun', priority: 'Medium', dueDate: '2026-10-02', status: 'DONE' },
-    ],
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-21 10:00 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Assignee', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-22 11:30 AM', ip: '192.168.1.45' },
-      { action: 'Submitted for Review', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-25 03:20 PM', ip: '192.168.1.45' },
-    ],
-    comments: [
-      { id: 'c6', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'All challans matched with zero outstanding penalty demands.', timestamp: '2026-09-25 03:15 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1006',
-    title: 'Provide Target Working Capital Benchmark Calculation',
-    description: 'Buyer requests 12-month rolling average normalized working capital bridge and peg formula for the definitive agreement.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Finance',
-    priority: 'High',
-    deal_stage: 'Negotiation',
-    visibility: 'EXTERNAL',
-    status: 'IN_PROGRESS',
-    due_date: '2026-10-08',
-    linked_document: 'Working_Capital_Model_v3.xlsx',
-    claimable_by_role: true,
-    created_at: '2026-09-25 11:30 AM',
-    updated_at: '2026-09-26 02:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created & Sent to Seller', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-25 11:30 AM', ip: '10.0.4.18' },
-      { action: 'Claimed by Seller Lead', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-26 02:00 PM', ip: '192.168.1.45' },
-    ],
-    comments: [
-      { id: 'c7', author: 'Arjun', company: 'XYZ Capital', scope: 'EXTERNAL', text: 'Please ensure seasonal cotton inventory peaks in Q3 are smoothed out.', timestamp: '2026-09-25 11:32 AM' },
-      { id: 'c8', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Working with CFO on the inventory exclusion schedule first.', timestamp: '2026-09-26 02:05 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1007',
-    title: 'D&O Insurance Policy & Pending Litigation Disclosure',
-    description: 'Provide Director & Officer liability insurance policy schedules and formal certificate of no undisclosed litigation.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: 'Priya Sharma',
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Compliance',
-    priority: 'Medium',
-    deal_stage: 'Preparation',
-    visibility: 'EXTERNAL',
-    status: 'DONE',
-    due_date: '2026-09-22',
-    linked_document: 'DO_Policy_Certificate_Signed.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-18 09:00 AM',
-    updated_at: '2026-09-22 03:45 PM',
-    completed_at: '22-Sep-2026 3:45 PM',
-    completed_by: 'Priya Sharma',
-    digital_signature: {
-      signer: 'Priya Sharma',
-      role: 'Buyer Legal Counsel',
-      timestamp: '2026-09-22 15:45:12 UTC',
-      ip: '198.51.100.42',
-      hash: 'SHA256:d8a57e3f890b0e25b341aa9d91f28b4c2b9a712f840939529b533dc270bcfe30',
-      document: 'DO_Policy_Certificate_Signed.pdf',
-    },
-    audit_trail: [
-      { action: 'Task Created by Seller', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-18 09:00 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Buyer Legal', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-19 10:15 AM', ip: '198.51.100.42' },
-      { action: 'Document Signed & Verified', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-22 03:45 PM', ip: '198.51.100.42' },
-      { action: 'Completed & Certified', performed_by: 'System Workflow Engine', role: 'System', timestamp: '22-Sep-2026 3:45 PM', ip: '127.0.0.1' },
-    ],
-    comments: [
-      { id: 'c9', author: 'Priya Sharma', company: 'XYZ Capital', scope: 'EXTERNAL', text: 'Reviewed and countersigned for buyer transaction records.', timestamp: '2026-09-22 03:46 PM' },
-    ],
-  },
-];
+// Tasks are loaded dynamically from the backend PostgreSQL database
+const INITIAL_DEMO_TASKS = [];
+
 
 const DealWorkflowContext = createContext(null);
 
 export function DealWorkflowProvider({ children }) {
   // Current logged in persona (default to Ravi - Seller Admin)
   const [currentUserId, setCurrentUserId] = useState('ravi');
-  const [tasks, setTasks] = useState(INITIAL_DEMO_TASKS);
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -367,13 +110,26 @@ export function DealWorkflowProvider({ children }) {
   const [teamFilter, setTeamFilter] = useState('ALL'); // 'ALL' or 'MY_TEAM'
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
-  // Load persisted state from localStorage on client mount
+  // Fetch real deal tasks from PostgreSQL API
+  const fetchTasks = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/deal-tasks');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tasks)) {
+        setTasks(data.tasks);
+      }
+    } catch (err) {
+      console.error('Error fetching deal tasks from API:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     try {
-      const storedTasks = localStorage.getItem('dms_deal_workflow_tasks_v4');
-      if (storedTasks) {
-        setTasks(JSON.parse(storedTasks));
-      }
+      // Clear legacy dummy tasks from localStorage
+      localStorage.removeItem('dms_deal_workflow_tasks_v4');
       const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
       if (storedUser && DEMO_USERS[storedUser]) {
         setCurrentUserId(storedUser);
@@ -385,16 +141,9 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {
       console.error('Error loading deal workflow storage:', e);
     }
-  }, []);
 
-  // Save tasks on changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('dms_deal_workflow_tasks_v4', JSON.stringify(tasks));
-    } catch (e) {
-      console.error('Error saving deal workflow tasks:', e);
-    }
-  }, [tasks]);
+    fetchTasks();
+  }, []);
 
   // Save user on switch
   const switchUser = (userId) => {
@@ -601,19 +350,19 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Action: Claim Task
-  const claimTask = (taskId) => {
+  const claimTask = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'IN_PROGRESS',
           assigned_to_user: currentUser.name,
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Task Claimed',
               performed_by: currentUser.name,
@@ -625,21 +374,34 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'claim',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+        }),
+      });
+    } catch (e) {
+      console.error('Claim task API error:', e);
+    }
   };
 
   // Action: Submit for Review
-  const submitForReview = (taskId) => {
+  const submitForReview = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'REVIEW',
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Submitted for Review',
               performed_by: currentUser.name,
@@ -651,15 +413,28 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_review',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+        }),
+      });
+    } catch (e) {
+      console.error('Submit review API error:', e);
+    }
   };
 
   // Action: Approve & Complete
-  const approveAndComplete = (taskId) => {
+  const approveAndComplete = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'DONE',
@@ -667,7 +442,7 @@ export function DealWorkflowProvider({ children }) {
           completed_by: currentUser.name,
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Approved & Completed',
               performed_by: currentUser.name,
@@ -679,21 +454,34 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
+    } catch (e) {
+      console.error('Approve task API error:', e);
+    }
   };
 
   // Action: Send Back to In Progress (revisions requested)
-  const sendBack = (taskId, reason = 'Revisions requested by reviewer') => {
+  const sendBack = async (taskId, reason = 'Revisions requested by reviewer') => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'IN_PROGRESS',
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Task Sent Back for Revisions',
               performed_by: currentUser.name,
@@ -706,27 +494,41 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_back',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          reason,
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
+    } catch (e) {
+      console.error('Send back API error:', e);
+    }
   };
 
   // Action: Digital Document Sign & Complete (specifically used for NDA and signed covenants)
-  const signDocumentAndComplete = (taskId, signaturePayload) => {
+  const signDocumentAndComplete = async (taskId, signaturePayload) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const isoString = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+    const digitalSignature = {
+      signer: currentUser.name,
+      role: currentUser.role,
+      timestamp: isoString,
+      ip: currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55',
+      hash: signaturePayload?.hash || `SHA256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+      document: 'NDA_Draft.pdf',
+      signatureDataUrl: signaturePayload?.dataUrl || null,
+    };
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        const isoString = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-
-        const digitalSignature = {
-          signer: currentUser.name,
-          role: currentUser.role,
-          timestamp: isoString,
-          ip: currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55',
-          hash: signaturePayload?.hash || `SHA256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-          document: t.linked_document || 'NDA_Draft.pdf',
-          signatureDataUrl: signaturePayload?.dataUrl || null,
-        };
-
         return {
           ...t,
           status: 'DONE',
@@ -736,7 +538,7 @@ export function DealWorkflowProvider({ children }) {
           updated_at: formattedDate,
           digital_signature: digitalSignature,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: `${t.linked_document || 'Document'} Opened & Reviewed`,
               performed_by: currentUser.name,
@@ -763,63 +565,57 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign_document',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          signature: digitalSignature,
+          ipAddress: digitalSignature.ip,
+        }),
+      });
+    } catch (e) {
+      console.error('Sign document API error:', e);
+    }
   };
 
   // Action: Create New Task
-  const createTask = (formData) => {
-    const nextIndex = tasks.length + 1;
-    const taskId = `TSK-${1000 + nextIndex}`;
-    const now = new Date();
-    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const createTask = async (formData) => {
+    try {
+      const targetSide = getTargetSideForVisibility(formData.visibility, currentUser);
+      const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
 
-    const targetSide = getTargetSideForVisibility(formData.visibility, currentUser);
-    const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
+      const res = await fetch('/api/deal-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          creator_side: currentUser.side,
+          creator_company: currentUser.company,
+          target_side: targetSide,
+          target_company: targetCompany,
+          created_by: currentUser.name,
+          creator_role: currentUser.role,
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
 
-    const newTask = {
-      task_id: taskId,
-      title: formData.title,
-      description: formData.description || '',
-      created_by: currentUser.name,
-      creator_role: currentUser.role,
-      creator_company: currentUser.company,
-      creator_side: currentUser.side,
-      assigned_to_group: formData.assigned_to_group,
-      assigned_to_user: null,
-      target_company: targetCompany,
-      target_side: targetSide,
-      workstream: formData.workstream || 'General',
-      priority: formData.priority || 'Medium',
-      deal_stage: formData.deal_stage || 'Preparation',
-      visibility: formData.visibility, // 'INTERNAL' or 'EXTERNAL'
-      status: 'TO_DO',
-      due_date: formData.due_date || '2026-10-15',
-      linked_document: formData.linked_document || null,
-      claimable_by_role: formData.claimable_by_role ?? true,
-      subtasks: formData.subtasks || [],
-      created_at: formattedDate,
-      updated_at: formattedDate,
-      completed_at: null,
-      completed_by: null,
-      digital_signature: null,
-      audit_trail: [
-        {
-          action: formData.visibility === 'EXTERNAL' ? 'External Task Created & Dispatched' : 'Internal Task Created',
-          performed_by: currentUser.name,
-          role: currentUser.role,
-          timestamp: formattedDate,
-          ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
-        },
-      ],
-      comments: [],
-    };
-
-    setTasks((prev) => [newTask, ...prev]);
-    setIsCreateModalOpen(false);
-    return newTask;
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => [data.task, ...prev]);
+        setIsCreateModalOpen(false);
+        return data.task;
+      }
+    } catch (err) {
+      console.error('Error creating task via API:', err);
+    }
   };
 
   // Action: Toggle Subtask Status
-  const toggleSubtask = (taskId, subtaskId) => {
+  const toggleSubtask = async (taskId, subtaskId) => {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -841,7 +637,21 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_subtask',
+          subtaskId,
+        }),
+      });
+    } catch (e) {
+      console.error('Toggle subtask API error:', e);
+    }
   };
+
 
   // Action: Add Scoped Comment
   const addComment = (taskId, text, scope = 'INTERNAL') => {
@@ -880,11 +690,6 @@ export function DealWorkflowProvider({ children }) {
     );
   };
 
-  // Action: Reset Demo
-  const resetToDemo = () => {
-    setTasks(INITIAL_DEMO_TASKS);
-    localStorage.removeItem('dms_deal_workflow_tasks_v2');
-  };
 
   // Clear all filters
   const clearFilters = () => {
@@ -947,7 +752,8 @@ export function DealWorkflowProvider({ children }) {
         createTask,
         toggleSubtask,
         addComment,
-        resetToDemo,
+        refreshTasks: fetchTasks,
+        isLoading,
         // Filters
         searchQuery,
         setSearchQuery,
