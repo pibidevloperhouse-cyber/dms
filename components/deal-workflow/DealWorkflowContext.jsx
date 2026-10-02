@@ -426,32 +426,45 @@ export function DealWorkflowProvider({ children }) {
   // ============================================================================
   const canUserClaimTask = (task, user = currentUser) => {
     if (!task || task.status !== 'TO_DO') return false;
-    // User must be on the receiving/target side of the task
-    if (user.side !== task.target_side) return false;
-    // If assigned to a group, user must belong to group OR be Admin of that company
-    const isAdmin = user.role.includes('Admin');
+
+    // RULE 1: Creator / Assigner CANNOT claim their own task!
+    const isCreator =
+      (user.name && task.created_by && user.name.trim().toLowerCase() === task.created_by.trim().toLowerCase()) ||
+      (user.id && task.created_by && user.id === task.created_by);
+    if (isCreator) return false;
+
+    // Target side check
+    const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
+    const isAdmin = user.role.includes('Admin') || user.role === 'super_admin';
     const isGroupMember = user.group === task.assigned_to_group;
+
+    if (!isTargetSide && !isAdmin) return false;
+
     return isAdmin || isGroupMember;
   };
 
   const canUserSubmitForReview = (task, user = currentUser) => {
     if (!task || task.status !== 'IN_PROGRESS') return false;
-    // Assignee, team member, or admin on target side
-    if (user.side !== task.target_side) return false;
-    const isAssignee = task.assigned_to_user === user.name;
+    
+    // Assignee (doer/worker who claimed or is assigned) or group member or admin
+    const isAssignee = task.assigned_to_user && user.name && task.assigned_to_user.trim().toLowerCase() === user.name.trim().toLowerCase();
     const isGroupMember = user.group === task.assigned_to_group;
-    const isAdmin = user.role.includes('Admin');
+    const isAdmin = user.role.includes('Admin') || user.role === 'super_admin';
+
     return isAssignee || isGroupMember || isAdmin;
   };
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-    // Company admin on the side that owns/oversees review
-    // For internal tasks: creator company admin
-    // For external tasks: creator company admin or team reviewer
-    const isCreatorSide = user.side === task.creator_side;
-    const isAdmin = user.role.includes('Admin');
-    return isCreatorSide && isAdmin;
+    
+    // Creator of the task or Creator-side Admin (the supervisor/tracker)
+    const isCreator =
+      (user.name && task.created_by && user.name.trim().toLowerCase() === task.created_by.trim().toLowerCase()) ||
+      (user.id && task.created_by && user.id === task.created_by);
+    const isCreatorAdmin = user.side === task.creator_side && user.role.includes('Admin');
+    const isSuperAdmin = user.role === 'super_admin';
+
+    return isCreator || isCreatorAdmin || isSuperAdmin;
   };
 
   // Action: Claim Task

@@ -712,13 +712,15 @@ export default function TaskDetailDrawer() {
                 <button
                   type="button"
                   onClick={() => claimTask(selectedTask.task_id)}
-                  className="px-4 py-2 rounded-lg bg-[#006666] hover:bg-[#005555] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-[#1C7F9F] hover:bg-[#166882] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
                 >
                   Claim Task
                 </button>
               ) : (
-                <span className="text-xs text-slate-500 italic">
-                  Assigned to {selectedTask.assigned_to_group}
+                <span className="text-xs text-slate-600 font-medium px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
+                  {(currentUser.name && selectedTask.created_by && currentUser.name.trim().toLowerCase() === selectedTask.created_by.trim().toLowerCase())
+                    ? `Tracking Mode · Assigned to ${selectedTask.assigned_to_group}`
+                    : `Assigned to ${selectedTask.assigned_to_group}`}
                 </span>
               )
             )}
@@ -729,7 +731,7 @@ export default function TaskDetailDrawer() {
                 <button
                   type="button"
                   onClick={() => setSigningModalTask(selectedTask)}
-                  className="px-4 py-2 rounded-lg bg-[#008060] hover:bg-[#006e52] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-lg bg-[#1C7F9F] hover:bg-[#166882] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <FileCheck2 className="w-4 h-4" />
                   <span>Review & Sign Document</span>
@@ -738,13 +740,14 @@ export default function TaskDetailDrawer() {
                 <button
                   type="button"
                   onClick={() => submitForReview(selectedTask.task_id)}
-                  className="px-4 py-2 rounded-lg bg-[#008060] hover:bg-[#006e52] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-[#1C7F9F] hover:bg-[#166882] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
                 >
                   Submit Review
                 </button>
               ) : (
-                <span className="text-xs text-slate-500 italic">
-                  Work in progress by {selectedTask.assigned_to_user || selectedTask.assigned_to_group}
+                <span className="text-xs text-blue-800 font-medium px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 inline-flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Work in progress by {selectedTask.assigned_to_user || selectedTask.assigned_to_group}</span>
                 </span>
               )
             )}
@@ -781,19 +784,9 @@ export default function TaskDetailDrawer() {
 
             {/* If task is DONE */}
             {selectedTask.status === 'DONE' && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Marked as Done</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCertificateModalTask(selectedTask)}
-                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>View Certificate</span>
-                </button>
+              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Marked as Done</span>
               </div>
             )}
           </div>

@@ -260,14 +260,16 @@ export default function TaskCard({ task, onCardClick }) {
             canClaim ? (
               <button
                 onClick={() => claimTask(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <span>Claim Task</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             ) : (
-              <span className="text-[10px] text-slate-400 font-medium italic">
-                {isTargetParty ? 'Assigned to other group' : 'Awaiting counterparty claim'}
+              <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
+                {(currentUser.name && task.created_by && currentUser.name.trim().toLowerCase() === task.created_by.trim().toLowerCase())
+                  ? `Tracking · Assigned to ${task.assigned_to_group}`
+                  : `Assigned to ${task.assigned_to_group}`}
               </span>
             )
           )}
@@ -276,24 +278,41 @@ export default function TaskCard({ task, onCardClick }) {
             isSigningEligible ? (
               <button
                 onClick={() => setSigningModalTask(task)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#008060] hover:bg-[#006e52] text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <span>Submit Review</span>
               </button>
             ) : canSubmit ? (
               <button
                 onClick={() => submitForReview(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#008060] hover:bg-[#006e52] text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <span>Submit Review</span>
               </button>
             ) : (
-              <span className="text-[10px] text-slate-400 font-medium italic">
-                Work in progress
+              <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-blue-500" />
+                <span>In Motion: {task.assigned_to_user || task.assigned_to_group}</span>
               </span>
             )
           )}
 
+          {task.status === 'REVIEW' && (
+            canApprove ? (
+              <button
+                onClick={() => approveAndComplete(task.task_id)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Approve & Complete</span>
+              </button>
+            ) : (
+              <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-500" />
+                <span>Awaiting Review</span>
+              </span>
+            )
+          )}
 
           {task.status === 'DONE' && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
