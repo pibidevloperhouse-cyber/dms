@@ -1,18 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDealWorkflow } from './DealWorkflowContext';
-import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X } from 'lucide-react';
-import { WORKSTREAMS, PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
-
-const GROUP_MEMBERS = {
-  'Seller Finance Team': ['Ravi', 'Lakshmi'],
-  'Seller Legal Team': ['Ravi', 'Seller Legal Counsel'],
-  'Seller Operations Team': ['Ravi', 'Operations Lead'],
-  'Buyer Legal Team': ['Arjun', 'Priya Sharma'],
-  'Buyer Finance Team': ['Arjun', 'Buyer Finance Lead'],
-  'Buyer Operations Team': ['Arjun', 'Buyer Operations Lead'],
-};
+import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X, Users } from 'lucide-react';
+import { PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
 
 export default function CreateTaskModal() {
   const {
@@ -20,58 +11,90 @@ export default function CreateTaskModal() {
     isCreateModalOpen,
     setIsCreateModalOpen,
     createTask,
-    getSmartGroupsForVisibility,
+    departments,
+    getGroupsForDepartment,
+    getMembersForGroup,
   } = useDealWorkflow();
 
-  // Main task fields matching Image 2
+  // Main task fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState('INTERNAL');
-  const [assignedGroup, setAssignedGroup] = useState('Seller Finance Team');
-  const [workstream, setWorkstream] = useState('Finance');
+  const [department, setDepartment] = useState('');
+  const [assignedGroup, setAssignedGroup] = useState('');
   const [priority, setPriority] = useState('High');
   const [dealStage, setDealStage] = useState('Due Diligence');
   const [dueDate, setDueDate] = useState('');
   const [subtasks, setSubtasks] = useState([]);
 
-  // Subtask modal state matching Image 3
+  // Subtask modal state
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [subtaskDescription, setSubtaskDescription] = useState('');
-  const [subtaskMember, setSubtaskMember] = useState('Ravi');
+  const [subtaskGroup, setSubtaskGroup] = useState('');
+  const [subtaskMember, setSubtaskMember] = useState('');
   const [subtaskPriority, setSubtaskPriority] = useState('High');
   const [subtaskDueDate, setSubtaskDueDate] = useState('');
   const [subtaskAttachments, setSubtaskAttachments] = useState([]);
 
-  // Available groups dynamically computed based on currentUser + visibility
-  const availableGroups = getSmartGroupsForVisibility(visibility, currentUser);
+  // Available groups for the selected department
+  const availableGroups = useMemo(() => {
+    return getGroupsForDepartment(department);
+  }, [department, getGroupsForDepartment]);
 
-  // Members list for the currently assigned group
-  const membersForGroup = GROUP_MEMBERS[assignedGroup] || [currentUser.name, 'Team Member'];
+  // Available members for the subtask group
+  const membersForSubtaskGroup = useMemo(() => {
+    const grp = subtaskGroup || assignedGroup;
+    return getMembersForGroup(grp);
+  }, [subtaskGroup, assignedGroup, getMembersForGroup]);
 
+  // Sync default department when departments load
   useEffect(() => {
-    if (availableGroups.length > 0 && (!assignedGroup || !availableGroups.includes(assignedGroup))) {
-      setAssignedGroup(availableGroups[0]);
+    if (departments.length > 0 && (!department || !departments.includes(department))) {
+      setDepartment(departments[0]);
     }
-  }, [visibility, currentUser, availableGroups, assignedGroup]);
+  }, [departments, department]);
 
-  // Keep subtask member in sync with the assigned group
+  // Sync assigned group when availableGroups change
   useEffect(() => {
-    if (membersForGroup.length > 0 && !membersForGroup.includes(subtaskMember)) {
-      setSubtaskMember(membersForGroup[0]);
+    if (availableGroups.length > 0) {
+      if (!assignedGroup || !availableGroups.includes(assignedGroup)) {
+        setAssignedGroup(availableGroups[0]);
+      }
+    } else {
+      setAssignedGroup('');
     }
-  }, [assignedGroup, membersForGroup, subtaskMember]);
+  }, [availableGroups, assignedGroup]);
+
+  // Sync subtask group when opening subtask modal
+  useEffect(() => {
+    if (isAddSubtaskModalOpen) {
+      const initialGroup = assignedGroup || (availableGroups.length > 0 ? availableGroups[0] : '');
+      setSubtaskGroup(initialGroup);
+    }
+  }, [isAddSubtaskModalOpen, assignedGroup, availableGroups]);
+
+  // Sync subtask member when subtask group changes
+  useEffect(() => {
+    if (membersForSubtaskGroup.length > 0) {
+      if (!subtaskMember || !membersForSubtaskGroup.includes(subtaskMember)) {
+        setSubtaskMember(membersForSubtaskGroup[0]);
+      }
+    } else {
+      setSubtaskMember('');
+    }
+  }, [membersForSubtaskGroup, subtaskMember]);
 
   if (!isCreateModalOpen) return null;
 
-  const isSeller = currentUser.side === 'seller';
+  const isSeller = currentUser?.side === 'seller';
 
   const handleClose = () => {
     setTitle('');
     setDescription('');
     setVisibility('INTERNAL');
-    setAssignedGroup(availableGroups[0] || 'Seller Finance Team');
-    setWorkstream('Finance');
+    setDepartment(departments[0] || '');
+    setAssignedGroup(availableGroups[0] || '');
     setPriority('High');
     setDealStage('Due Diligence');
     setDueDate('');
@@ -89,11 +112,13 @@ export default function CreateTaskModal() {
       title: title.trim(),
       description: description.trim(),
       visibility,
-      assigned_to_group: assignedGroup || availableGroups[0],
-      workstream,
+      department: department || 'General',
+      workstream: department || 'General',
+      assigned_to_group: assignedGroup || '',
+      assigned_to_user: subtasks.length > 0 && subtasks[0].assignedMember ? subtasks[0].assignedMember : null,
       priority,
       deal_stage: dealStage,
-      due_date: dueDate || '2026-10-15',
+      due_date: dueDate || null,
       subtasks: subtasks,
       claimable_by_role: true,
     });
@@ -125,7 +150,8 @@ export default function CreateTaskModal() {
       id: `sub_${Date.now()}`,
       title: subtaskTitle.trim(),
       description: subtaskDescription.trim(),
-      assignedMember: subtaskMember || membersForGroup[0] || currentUser.name,
+      assignedGroup: subtaskGroup || assignedGroup || '',
+      assignedMember: subtaskMember || (membersForSubtaskGroup.length > 0 ? membersForSubtaskGroup[0] : currentUser?.name || 'Unassigned'),
       priority: subtaskPriority,
       dueDate: subtaskDueDate,
       attachments: subtaskAttachments,
@@ -148,24 +174,24 @@ export default function CreateTaskModal() {
   return (
     <>
       {/* ========================================================================= */}
-      {/* IMAGE 2: CREATE NEW TASK MODAL */}
+      {/* MAIN CREATE NEW TASK MODAL */}
       {/* ========================================================================= */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
         onClick={handleClose}
       >
         <div
-          className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[490px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[94vh]"
+          className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[500px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[94vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-3">
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-3.5">
             {/* Modal Title & Subtitle */}
             <div>
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 Create New Task
               </h2>
               <div className="text-xs text-slate-500 mt-0.5">
-                Creating as <span className="font-semibold text-slate-700">{currentUser.name}</span> · {currentUser.company} ({isSeller ? 'Seller' : 'Buyer'})
+                Creating as <span className="font-semibold text-slate-700">{currentUser?.name || 'User'}</span> · {currentUser?.company || 'Company'} ({isSeller ? 'Seller' : 'Buyer'})
               </div>
             </div>
 
@@ -179,7 +205,7 @@ export default function CreateTaskModal() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Complete Financial Due Diligence"
-                className="w-full px-3 py-1.5 text-sm text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all placeholder:text-slate-400 bg-white"
+                className="w-full px-3 py-2 text-sm text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all placeholder:text-slate-400 bg-white"
                 required
               />
             </div>
@@ -193,11 +219,12 @@ export default function CreateTaskModal() {
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add task details, requirements, or links..."
                 className="w-full px-3 py-1.5 text-sm text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all resize-y bg-white min-h-[58px]"
               />
             </div>
 
-            {/* Row: Visibility & Assign to group */}
+            {/* Row: Visibility & Department */}
             <div className="grid grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -215,42 +242,53 @@ export default function CreateTaskModal() {
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+
+              {/* Department Field (Replaces Workstream) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Workstream
+                  Department *
                 </label>
                 <div className="relative">
                   <select
-                    value={workstream}
-                    onChange={(e) => setWorkstream(e.target.value)}
-                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
+                    required
                   >
-                    {WORKSTREAMS.map((w) => (
-                      <option key={w} value={w}>{w}</option>
-                    ))}
+                    {departments.length === 0 ? (
+                      <option value="">No departments found</option>
+                    ) : (
+                      departments.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))
+                    )}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-
             </div>
 
-            {/* Row: Workstream & Priority */}
+            {/* Row: Assign to group & Priority */}
             <div className="grid grid-cols-2 gap-3.5">
-
+              {/* Dynamic Group List based on chosen Department */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Assign to group
+                  Assign to group *
                 </label>
                 <div className="relative">
                   <select
                     value={assignedGroup}
                     onChange={(e) => setAssignedGroup(e.target.value)}
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
+                    required
                   >
-                    {availableGroups.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
+                    {availableGroups.length === 0 ? (
+                      <option value="">No groups in this department</option>
+                    ) : (
+                      availableGroups.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))
+                    )}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -346,19 +384,26 @@ export default function CreateTaskModal() {
                           {st.title}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
+                          {st.assignedGroup && (
+                            <span className="inline-flex items-center gap-1 text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                              <Users className="w-3 h-3 text-slate-400" />
+                              {st.assignedGroup}
+                            </span>
+                          )}
                           {st.assignedMember && (
-                            <span className="inline-flex items-center gap-1 text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                              <User className="w-3 h-3 text-slate-400" />
+                            <span className="inline-flex items-center gap-1 text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
+                              <User className="w-3 h-3 text-teal-600" />
                               {st.assignedMember}
                             </span>
                           )}
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${st.priority === 'High'
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                              st.priority === 'High'
                                 ? 'bg-rose-50 text-rose-700 border-rose-200'
                                 : st.priority === 'Medium'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-slate-100 text-slate-700 border-slate-200'
-                              }`}
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
                           >
                             {st.priority}
                           </span>
@@ -411,7 +456,7 @@ export default function CreateTaskModal() {
       </div>
 
       {/* ========================================================================= */}
-      {/* IMAGE 3: ADD SUBTASK MODAL */}
+      {/* ADD SUBTASK MODAL - DYNAMIC GROUP -> MEMBERS CASCADE */}
       {/* ========================================================================= */}
       {isAddSubtaskModalOpen && (
         <div
@@ -419,7 +464,7 @@ export default function CreateTaskModal() {
           onClick={() => setIsAddSubtaskModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[480px] p-5 sm:p-6 space-y-3.5 overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[92vh] flex flex-col"
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-[490px] p-5 sm:p-6 space-y-3.5 overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5">
@@ -429,7 +474,7 @@ export default function CreateTaskModal() {
                   Add Subtask
                 </h2>
                 <div className="text-xs text-slate-500 mt-1">
-                  Parent task: {title.trim() || 'New task'}
+                  Parent task: <span className="font-semibold text-slate-700">{title.trim() || 'New task'}</span> ({department || 'General'})
                 </div>
               </div>
 
@@ -442,6 +487,7 @@ export default function CreateTaskModal() {
                   type="text"
                   value={subtaskTitle}
                   onChange={(e) => setSubtaskTitle(e.target.value)}
+                  placeholder="e.g. Prepare financial statement reconciliation"
                   className="w-full px-3 py-2 text-sm text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all placeholder:text-slate-400 bg-white"
                   required
                 />
@@ -456,24 +502,60 @@ export default function CreateTaskModal() {
                   rows={2}
                   value={subtaskDescription}
                   onChange={(e) => setSubtaskDescription(e.target.value)}
+                  placeholder="Add specific instructions for this subtask..."
                   className="w-full px-3 py-2 text-sm text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all resize-y bg-white min-h-[58px]"
                 />
               </div>
 
-              {/* Assign Member */}
+              {/* Select Group for Subtask */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Assign member * <span className="font-normal text-slate-500">(members of {assignedGroup} only)</span>
+                  Select Group *
+                </label>
+                <div className="relative">
+                  <select
+                    value={subtaskGroup}
+                    onChange={(e) => {
+                      setSubtaskGroup(e.target.value);
+                      const members = getMembersForGroup(e.target.value);
+                      setSubtaskMember(members.length > 0 ? members[0] : '');
+                    }}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
+                    required
+                  >
+                    {availableGroups.length === 0 ? (
+                      <option value="">No groups available</option>
+                    ) : (
+                      availableGroups.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))
+                    )}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Assign Member (Dynamically populated from selected group) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Assign member * <span className="font-normal text-slate-500">
+                    {subtaskGroup ? `(members of ${subtaskGroup})` : ''}
+                  </span>
                 </label>
                 <div className="relative">
                   <select
                     value={subtaskMember}
                     onChange={(e) => setSubtaskMember(e.target.value)}
-                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
+                    required
                   >
-                    {membersForGroup.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
+                    {membersForSubtaskGroup.length === 0 ? (
+                      <option value="">No members in this group</option>
+                    ) : (
+                      membersForSubtaskGroup.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))
+                    )}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>

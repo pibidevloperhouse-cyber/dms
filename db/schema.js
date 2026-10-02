@@ -637,6 +637,7 @@ export const dealTasks = pgTable('deal_tasks', {
 
   // Workflow attributes
   workstream: text('workstream').default('General'),
+  department: text('department').default('General'),
   priority: text('priority').default('Medium'),
   dealStage: text('deal_stage').default('Preparation'),
   visibility: text('visibility').default('INTERNAL'),

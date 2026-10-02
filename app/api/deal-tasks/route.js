@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { dealTasks } from '@/db/schema';
 import { eq, desc, and, or, ilike } from 'drizzle-orm';
+import { formatTask } from '@/lib/dealTasksHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,9 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const dealId = searchParams.get('dealId');
+    const workspaceId = searchParams.get('workspaceId');
     const status = searchParams.get('status');
-    const workstream = searchParams.get('workstream');
+    const department = searchParams.get('department') || searchParams.get('workstream');
     const priority = searchParams.get('priority');
     const visibility = searchParams.get('visibility');
     const dealStage = searchParams.get('dealStage');
@@ -23,12 +25,21 @@ export async function GET(req) {
       conditions.push(eq(dealTasks.dealId, dealId));
     }
 
+    if (workspaceId) {
+      conditions.push(eq(dealTasks.workspaceId, workspaceId));
+    }
+
     if (status && status !== 'ALL') {
       conditions.push(eq(dealTasks.status, status));
     }
 
-    if (workstream && workstream !== 'ALL') {
-      conditions.push(eq(dealTasks.workstream, workstream));
+    if (department && department !== 'ALL') {
+      conditions.push(
+        or(
+          eq(dealTasks.department, department),
+          eq(dealTasks.workstream, department)
+        )
+      );
     }
 
     if (priority && priority !== 'ALL') {
@@ -75,39 +86,7 @@ export async function GET(req) {
     }
 
     const rows = await query;
-
-    const tasks = rows.map((t) => ({
-      id: t.id,
-      task_id: t.taskId,
-      deal_id: t.dealId,
-      workspace_id: t.workspaceId,
-      title: t.title,
-      description: t.description,
-      status: t.status,
-      priority: t.priority,
-      workstream: t.workstream,
-      deal_stage: t.dealStage,
-      due_date: t.dueDate,
-      visibility: t.visibility,
-      creator_side: t.creatorSide,
-      target_side: t.targetSide,
-      target_company: t.targetCompany,
-      assigned_to_group: t.assignedToGroup,
-      assigned_to_user: t.assignedToUser,
-      claimable_by_role: t.claimableByRole,
-      linked_document: t.linkedDocument,
-      digital_signature: t.digitalSignature,
-      created_by: t.createdBy,
-      creator_role: t.creatorRole,
-      creator_company: t.creatorCompany,
-      completed_by: t.completedBy,
-      completed_at: t.completedAt,
-      created_at: t.createdAt,
-      updated_at: t.updatedAt,
-      subtasks: t.subtasks || [],
-      audit_trail: t.auditTrail || [],
-      comments: t.comments || [],
-    }));
+    const tasks = rows.map((t) => formatTask(t));
 
     return NextResponse.json({ success: true, tasks });
   } catch (error) {
@@ -126,6 +105,7 @@ export async function POST(req) {
       workspaceId,
       visibility = 'INTERNAL',
       assigned_to_group,
+      department,
       workstream = 'General',
       priority = 'Medium',
       deal_stage = 'Preparation',
@@ -145,14 +125,23 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
+    const resolvedDept = department || workstream || 'General';
     const resolvedCreatorSide = creator_side || 'seller';
     const resolvedTargetSide = target_side || (visibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
     const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? 'ABC Textiles' : 'XYZ Capital');
     const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : 'Buyer Legal Team');
     const resolvedCreatedBy = created_by || 'Admin';
 
-    const existingCount = await db.select().from(dealTasks);
-    const taskId = `TSK-${1000 + existingCount.length + 1}`;
+    const existingTasks = await db.select({ taskId: dealTasks.taskId }).from(dealTasks);
+    let maxNum = 1000;
+    for (const row of existingTasks) {
+      const match = row.taskId?.match(/TSK-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    const taskId = `TSK-${maxNum + 1}`;
 
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -177,7 +166,8 @@ export async function POST(req) {
         description: description ? description.trim() : null,
         status: 'TO_DO',
         priority,
-        workstream,
+        department: resolvedDept,
+        workstream: resolvedDept,
         dealStage: deal_stage,
         dueDate: due_date || null,
         visibility,
@@ -196,28 +186,9 @@ export async function POST(req) {
       })
       .returning();
 
-
     return NextResponse.json({
       success: true,
-      task: {
-        id: newTask.id,
-        task_id: newTask.taskId,
-        title: newTask.title,
-        description: newTask.description,
-        status: newTask.status,
-        priority: newTask.priority,
-        workstream: newTask.workstream,
-        deal_stage: newTask.dealStage,
-        due_date: newTask.dueDate,
-        visibility: newTask.visibility,
-        creator_side: newTask.creatorSide,
-        target_side: newTask.targetSide,
-        assigned_to_group: newTask.assignedToGroup,
-        assigned_to_user: null,
-        subtasks: newTask.subtasks,
-        audit_trail: newTask.auditTrail,
-        comments: [],
-      },
+      task: formatTask(newTask),
     });
   } catch (error) {
     console.error('Create deal task error:', error);

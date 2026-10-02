@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   Plus
 } from 'lucide-react';
-import { WORKSTREAMS, PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
+import { PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
 
 export default function TaskBoardView() {
   const {
@@ -27,8 +27,13 @@ export default function TaskBoardView() {
     isAuditModeActive,
     searchQuery,
     setSearchQuery,
-    selectedWorkstream,
-    setSelectedWorkstream,
+    departments,
+    selectedDepartment,
+    setSelectedDepartment,
+    memberFilter,
+    setMemberFilter,
+    allUsers,
+    currentUser,
     selectedStatus,
     setSelectedStatus,
     selectedPriority,
@@ -149,15 +154,28 @@ export default function TaskBoardView() {
               Filters:
             </span>
 
-            {/* Workstream Filter */}
+            {/* Department Filter */}
             <select
-              value={selectedWorkstream}
-              onChange={(e) => setSelectedWorkstream(e.target.value)}
-              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500"
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
             >
-              <option value="ALL">All Workstreams</option>
-              {WORKSTREAMS.map((w) => (
-                <option key={w} value={w}>{w}</option>
+              <option value="ALL">All Departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+
+            {/* Assignee / Member Filter */}
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="ALL">All Assignees</option>
+              <option value="MY_TASKS">Assigned to Me {currentUser?.name ? `(${currentUser.name})` : ''}</option>
+              {allUsers.map((u) => (
+                <option key={u.id} value={u.name}>{u.name}</option>
               ))}
             </select>
 

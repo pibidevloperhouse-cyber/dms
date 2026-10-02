@@ -120,11 +120,11 @@ export default function TaskCard({ task, onCardClick }) {
           {task.title}
         </h3>
 
-        {/* Visibility Badge & Workstream */}
+        {/* Visibility Badge & Department */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
           {visibilityBadge}
-          <span className="text-[11px] font-medium text-slate-500 px-2 py-0.5 rounded bg-slate-50 border border-slate-200/60">
-            {task.workstream}
+          <span className="text-[11px] font-medium text-slate-600 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+            {task.department || task.workstream}
           </span>
           <span className="text-[11px] font-medium text-slate-500 px-2 py-0.5 rounded bg-slate-50 border border-slate-200/60">
             {task.deal_stage}

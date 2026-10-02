@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { supabase } from '@/utils/supabase/client';
 
 // ============================================================================
 // DEMO PERSONAS & CORPORATE ENTITIES
@@ -52,26 +53,11 @@ export const DEMO_USERS = {
   },
 };
 
-export const SELLER_GROUPS = [
-  'Seller Finance Team',
-  'Seller Legal Team',
-  'Seller Operations Team',
-];
-
-export const BUYER_GROUPS = [
-  'Buyer Legal Team',
-  'Buyer Finance Team',
-  'Buyer Operations Team',
-];
-
-export const WORKSTREAMS = [
-  'Legal',
-  'Finance',
-  'Operations',
-  'Tax',
-  'Commercial',
-  'Compliance',
-];
+export const SELLER_GROUPS = [];
+export const BUYER_GROUPS = [];
+export const DEFAULT_DEPARTMENTS = [];
+export const DEPARTMENTS = DEFAULT_DEPARTMENTS;
+export const WORKSTREAMS = DEPARTMENTS; // Alias for backward compatibility
 
 export const PRIORITIES = ['High', 'Medium', 'Low'];
 
@@ -90,9 +76,16 @@ const INITIAL_DEMO_TASKS = [];
 const DealWorkflowContext = createContext(null);
 
 export function DealWorkflowProvider({ children }) {
-  // Current logged in persona (default to Ravi - Seller Admin)
+  // Current logged in persona (default to Ravi - Seller Admin or active session)
   const [currentUserId, setCurrentUserId] = useState('ravi');
+  const [sessionUser, setSessionUser] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [dbGroups, setDbGroups] = useState([]);
+  const [workflowGroups, setWorkflowGroups] = useState([]);
+  const [groupMembersMap, setGroupMembersMap] = useState({});
+  const [allUsers, setAllUsers] = useState([]);
+  const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -102,15 +95,16 @@ export function DealWorkflowProvider({ children }) {
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWorkstream, setSelectedWorkstream] = useState('ALL');
+  const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
   const [selectedDealStage, setSelectedDealStage] = useState('ALL');
   const [teamFilter, setTeamFilter] = useState('ALL'); // 'ALL' or 'MY_TEAM'
+  const [memberFilter, setMemberFilter] = useState('ALL'); // 'ALL', 'MY_TASKS', or specific member name
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
-  // Fetch real deal tasks from PostgreSQL API
+  // Fetch real deal tasks and dynamic department/group structure
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
@@ -126,10 +120,58 @@ export function DealWorkflowProvider({ children }) {
     }
   };
 
+  const fetchDepartmentsAndGroups = async () => {
+    try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const companyId = session?.company_id || '';
+
+      const res = await fetch(`/api/deal-workflow/departments-groups?companyId=${companyId}`);
+      const data = await res.json();
+      if (data.success) {
+        setWorkflowGroups(data.groups || []);
+        setGroupMembersMap(data.groupMembersMap || {});
+        setAllUsers(data.users || []);
+
+        // Read local custom departments if any
+        let localDepts = [];
+        try {
+          const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
+          if (Array.isArray(savedCustom)) localDepts = savedCustom.filter(Boolean);
+        } catch (e) {}
+
+        const mergedDepts = Array.from(
+          new Set([...(data.departments || []), ...localDepts])
+        );
+        setDepartments(mergedDepts);
+        setDbGroups((data.groups || []).map((g) => g.name));
+      }
+    } catch (err) {
+      console.error('Error loading departments and groups:', err);
+    }
+  };
+
   useEffect(() => {
     try {
       // Clear legacy dummy tasks from localStorage
       localStorage.removeItem('dms_deal_workflow_tasks_v4');
+      const rawSession = localStorage.getItem('vdr_session');
+      if (rawSession) {
+        const s = JSON.parse(rawSession);
+        if (s && s.name) {
+          setSessionUser({
+            id: s.id || 'session_user',
+            name: s.name,
+            role: s.role === 'super_admin' ? 'Super Admin' : (s.role === 'admin' ? 'Admin' : (s.role || 'Member')),
+            side: s.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(s.role) ? 'buyer' : 'seller'),
+            company: s.company_name || (s.dms_role === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+            group: s.role || 'Admin',
+            avatar: (s.name || 'U')[0].toUpperCase(),
+            color: 'from-blue-600 to-indigo-700',
+          });
+        }
+      }
+
       const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
       if (storedUser && DEMO_USERS[storedUser]) {
         setCurrentUserId(storedUser);
@@ -143,6 +185,7 @@ export function DealWorkflowProvider({ children }) {
     }
 
     fetchTasks();
+    fetchDepartmentsAndGroups();
   }, []);
 
   // Save user on switch
@@ -161,24 +204,81 @@ export function DealWorkflowProvider({ children }) {
     });
   };
 
-  const currentUser = DEMO_USERS[currentUserId] || DEMO_USERS.ravi;
+  const defaultFallbackUser = allUsers.length > 0 ? {
+    id: allUsers[0].id,
+    name: allUsers[0].name,
+    role: allUsers[0].role === 'super_admin' ? 'Super Admin' : (allUsers[0].role || 'Admin'),
+    side: 'seller',
+    company: 'Company',
+    group: 'Admin',
+    avatar: (allUsers[0].name || 'U')[0].toUpperCase(),
+    color: 'from-blue-600 to-indigo-700',
+  } : DEMO_USERS[currentUserId] || DEMO_USERS.ravi;
+
+  const currentUser = sessionUser || defaultFallbackUser;
 
   // ============================================================================
-  // STRICT DATA-LEVEL VISIBILITY ENFORCEMENT
+  // TASK VISIBILITY PERMISSION LOGIC
   // ============================================================================
-  // Rules:
-  // 1. INTERNAL: Visible ONLY if creator_side === currentUser.side.
-  //    (Seller internal task is NEVER visible to Buyer. Buyer internal task is NEVER visible to Seller!)
-  // 2. EXTERNAL: Visible if creator_side === currentUser.side OR target_side === currentUser.side.
   const isTaskVisibleToUser = (task, user = currentUser) => {
     if (!task) return false;
-    if (task.visibility === 'INTERNAL') {
-      return task.creator_side === user.side;
+    if (!user) return true;
+
+    const role = (user.role || '').toLowerCase();
+    // Admins and Super Admins see all tasks
+    if (role.includes('admin') || role.includes('super')) return true;
+
+    const userName = (user.name || '').trim().toLowerCase();
+    // If task directly assigned to user
+    if (task.assigned_to_user && task.assigned_to_user.trim().toLowerCase() === userName) return true;
+    // If any subtask assigned to user
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
     }
-    if (task.visibility === 'EXTERNAL') {
-      return task.creator_side === user.side || task.target_side === user.side;
+
+    // If user belongs to the assigned group
+    if (user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
+      return true;
     }
+
+    // External tasks are visible across parties
+    if (task.visibility === 'EXTERNAL') return true;
+
+    // Internal tasks visible to same side
+    const userSide = user.side || (role.includes('buyer') ? 'buyer' : 'seller');
+    if (task.creator_side === userSide || task.target_side === userSide) return true;
+
     return false;
+  };
+
+  // ============================================================================
+  // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
+  // ============================================================================
+  const getGroupsForDepartment = (deptName) => {
+    if (!deptName || deptName === 'ALL') {
+      return Array.from(new Set(workflowGroups.map((g) => g.name)));
+    }
+    const matched = workflowGroups
+      .filter((g) => (g.department || '').trim().toLowerCase() === deptName.trim().toLowerCase())
+      .map((g) => g.name);
+    return Array.from(new Set(matched));
+  };
+
+  const getMembersForGroup = (groupName) => {
+    if (!groupName) {
+      return allUsers.length > 0 ? allUsers.map((u) => u.name) : (currentUser ? [currentUser.name] : []);
+    }
+    if (groupMembersMap[groupName] && groupMembersMap[groupName].length > 0) {
+      return groupMembersMap[groupName];
+    }
+    const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
+    if (found && found.members && found.members.length > 0) {
+      return found.members;
+    }
+    return [];
   };
 
   // Base tasks permitted for the current user
@@ -189,7 +289,7 @@ export function DealWorkflowProvider({ children }) {
   // Filtered tasks based on active filters
   const visibleTasks = useMemo(() => {
     return permittedTasks.filter((task) => {
-      // Search query filter (title, ID, description, document)
+      // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -203,9 +303,12 @@ export function DealWorkflowProvider({ children }) {
         }
       }
 
-      // Workstream
-      if (selectedWorkstream !== 'ALL' && task.workstream !== selectedWorkstream) {
-        return false;
+      // Department filter
+      if (selectedDepartment !== 'ALL') {
+        const taskDept = task.department || task.workstream || '';
+        if (taskDept.toLowerCase() !== selectedDepartment.toLowerCase()) {
+          return false;
+        }
       }
 
       // Status
@@ -235,9 +338,23 @@ export function DealWorkflowProvider({ children }) {
         if (!isMyTeamGroup && !isAssignedToMe) return false;
       }
 
+      // Assignee / Member filter
+      if (memberFilter === 'MY_TASKS') {
+        const isTaskAssignee = task.assigned_to_user === currentUser.name;
+        const isSubtaskAssignee = (task.subtasks || []).some(
+          (st) => st.assignedMember === currentUser.name || st.assigned_to_user === currentUser.name
+        );
+        if (!isTaskAssignee && !isSubtaskAssignee) return false;
+      } else if (memberFilter !== 'ALL') {
+        const isTaskAssignee = task.assigned_to_user === memberFilter;
+        const isSubtaskAssignee = (task.subtasks || []).some(
+          (st) => st.assignedMember === memberFilter || st.assigned_to_user === memberFilter
+        );
+        if (!isTaskAssignee && !isSubtaskAssignee) return false;
+      }
+
       // Due Date Filter
       if (dateFilter === 'TODAY') {
-        // demo date check
         if (!task.due_date) return false;
       } else if (dateFilter === 'OVERDUE') {
         if (task.status !== 'DONE' && task.due_date && new Date(task.due_date) < new Date('2026-09-28')) {
@@ -251,12 +368,13 @@ export function DealWorkflowProvider({ children }) {
   }, [
     permittedTasks,
     searchQuery,
-    selectedWorkstream,
+    selectedDepartment,
     selectedStatus,
     selectedPriority,
     selectedVisibility,
     selectedDealStage,
     teamFilter,
+    memberFilter,
     dateFilter,
     currentUser,
   ]);
@@ -285,27 +403,14 @@ export function DealWorkflowProvider({ children }) {
   }, [permittedTasks]);
 
   // ============================================================================
-  // SMART GROUP DROPDOWN HELPER
+  // SMART GROUP DROPDOWN HELPER (Includes dynamic DB groups from Groups page)
   // ============================================================================
-  // Rules from specification:
-  // SELLER + INTERNAL -> show only Seller groups
-  // SELLER + EXTERNAL -> show Buyer groups
-  // BUYER + INTERNAL  -> show only Buyer groups
-  // BUYER + EXTERNAL  -> show Seller groups
   const getSmartGroupsForVisibility = (visibility, user = currentUser) => {
-    if (user.side === 'seller') {
-      return visibility === 'INTERNAL' ? SELLER_GROUPS : BUYER_GROUPS;
-    } else {
-      return visibility === 'INTERNAL' ? BUYER_GROUPS : SELLER_GROUPS;
-    }
+    return Array.from(new Set(workflowGroups.map((g) => g.name)));
   };
 
   const getTargetCompanyForVisibility = (visibility, user = currentUser) => {
-    if (user.side === 'seller') {
-      return visibility === 'INTERNAL' ? 'ABC Textiles' : 'XYZ Capital';
-    } else {
-      return visibility === 'INTERNAL' ? 'XYZ Capital' : 'ABC Textiles';
-    }
+    return user?.company || 'Company';
   };
 
   const getTargetSideForVisibility = (visibility, user = currentUser) => {
@@ -353,6 +458,8 @@ export function DealWorkflowProvider({ children }) {
   const claimTask = async (taskId) => {
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -368,22 +475,29 @@ export function DealWorkflowProvider({ children }) {
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'claim',
-          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
-          ipAddress: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Claim task API error:', e);
     }
@@ -393,6 +507,8 @@ export function DealWorkflowProvider({ children }) {
   const submitForReview = async (taskId) => {
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -407,22 +523,29 @@ export function DealWorkflowProvider({ children }) {
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'submit_review',
-          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
-          ipAddress: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Submit review API error:', e);
     }
@@ -432,6 +555,8 @@ export function DealWorkflowProvider({ children }) {
   const approveAndComplete = async (taskId) => {
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -448,22 +573,29 @@ export function DealWorkflowProvider({ children }) {
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+              ip,
             },
           ],
         };
       })
     );
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
-          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
-          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Approve task API error:', e);
     }
@@ -473,6 +605,8 @@ export function DealWorkflowProvider({ children }) {
   const sendBack = async (taskId, reason = 'Revisions requested by reviewer') => {
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -487,7 +621,7 @@ export function DealWorkflowProvider({ children }) {
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+              ip,
               details: reason,
             },
           ],
@@ -495,32 +629,40 @@ export function DealWorkflowProvider({ children }) {
       })
     );
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send_back',
-          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
           reason,
-          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+          ipAddress: ip,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Send back API error:', e);
     }
   };
 
-  // Action: Digital Document Sign & Complete (specifically used for NDA and signed covenants)
+  // Action: Digital Document Sign & Complete
   const signDocumentAndComplete = async (taskId, signaturePayload) => {
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const isoString = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const ip = currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55';
 
     const digitalSignature = {
       signer: currentUser.name,
       role: currentUser.role,
       timestamp: isoString,
-      ip: currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55',
+      ip,
       hash: signaturePayload?.hash || `SHA256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       document: 'NDA_Draft.pdf',
       signatureDataUrl: signaturePayload?.dataUrl || null,
@@ -567,16 +709,23 @@ export function DealWorkflowProvider({ children }) {
     );
 
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'sign_document',
-          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side },
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
           signature: digitalSignature,
           ipAddress: digitalSignature.ip,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Sign document API error:', e);
     }
@@ -585,14 +734,23 @@ export function DealWorkflowProvider({ children }) {
   // Action: Create New Task
   const createTask = async (formData) => {
     try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const workspaceId = session?.active_workspace_id || null;
+
       const targetSide = getTargetSideForVisibility(formData.visibility, currentUser);
       const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
+
+      const resolvedDept = formData.department || formData.workstream || 'General';
 
       const res = await fetch('/api/deal-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          department: resolvedDept,
+          workstream: resolvedDept,
+          workspaceId,
           creator_side: currentUser.side,
           creator_company: currentUser.company,
           target_side: targetSide,
@@ -605,7 +763,7 @@ export function DealWorkflowProvider({ children }) {
 
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => [data.task, ...prev]);
+        setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
         setIsCreateModalOpen(false);
         return data.task;
       }
@@ -639,7 +797,7 @@ export function DealWorkflowProvider({ children }) {
     );
 
     try {
-      await fetch(`/api/deal-tasks/${taskId}`, {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -647,17 +805,24 @@ export function DealWorkflowProvider({ children }) {
           subtaskId,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
     } catch (e) {
       console.error('Toggle subtask API error:', e);
     }
   };
 
-
-  // Action: Add Scoped Comment
-  const addComment = (taskId, text, scope = 'INTERNAL') => {
-    if (!text.trim()) return;
+  // Action: Add Scoped Comment (fully persisted to PostgreSQL backend)
+  const addComment = async (taskId, text, scope = 'INTERNAL') => {
+    if (!text || !text.trim()) return;
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
 
     const newComment = {
       id: `comm_${Date.now()}`,
@@ -668,49 +833,101 @@ export function DealWorkflowProvider({ children }) {
       timestamp: formattedDate,
     };
 
+    // Optimistic update
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
         return {
           ...t,
-          comments: [...t.comments, newComment],
+          comments: [...(t.comments || []), newComment],
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
-              action: `Added ${scope} comment`,
+              action: `${scope} Note Added`,
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
+
+    // Persist to PostgreSQL backend via PATCH API
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_comment',
+          text,
+          scope,
+          user: {
+            name: currentUser.name,
+            role: currentUser.role,
+            side: currentUser.side,
+            company: currentUser.company,
+          },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Add comment API error:', e);
+    }
+  };
+
+  // Action: Delete Task (persisted to PostgreSQL backend)
+  const deleteTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTasks((prev) => prev.filter((t) => t.task_id !== taskId && t.id !== taskId));
+        if (selectedTask?.task_id === taskId || selectedTask?.id === taskId) {
+          setSelectedTask(null);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Delete task API error:', e);
+    }
+    return false;
   };
 
 
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedWorkstream('ALL');
+    setSelectedDepartment('ALL');
     setSelectedStatus('ALL');
     setSelectedPriority('ALL');
     setSelectedVisibility('ALL');
     setSelectedDealStage('ALL');
     setTeamFilter('ALL');
+    setMemberFilter('ALL');
     setDateFilter('ALL');
   };
 
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
-    selectedWorkstream !== 'ALL' ||
+    selectedDepartment !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPriority !== 'ALL' ||
     selectedVisibility !== 'ALL' ||
     selectedDealStage !== 'ALL' ||
     teamFilter !== 'ALL' ||
+    memberFilter !== 'ALL' ||
     dateFilter !== 'ALL'
   );
 
@@ -739,6 +956,8 @@ export function DealWorkflowProvider({ children }) {
         getSmartGroupsForVisibility,
         getTargetCompanyForVisibility,
         getTargetSideForVisibility,
+        getGroupsForDepartment,
+        getMembersForGroup,
         isTaskVisibleToUser,
         canUserClaimTask,
         canUserSubmitForReview,
@@ -752,13 +971,20 @@ export function DealWorkflowProvider({ children }) {
         createTask,
         toggleSubtask,
         addComment,
+        deleteTask,
+        departments,
+        workflowGroups,
+        allUsers,
+        dbGroups,
         refreshTasks: fetchTasks,
         isLoading,
         // Filters
         searchQuery,
         setSearchQuery,
-        selectedWorkstream,
-        setSelectedWorkstream,
+        selectedDepartment,
+        setSelectedDepartment,
+        selectedWorkstream: selectedDepartment,
+        setSelectedWorkstream: setSelectedDepartment,
         selectedStatus,
         setSelectedStatus,
         selectedPriority,
@@ -769,6 +995,8 @@ export function DealWorkflowProvider({ children }) {
         setSelectedDealStage,
         teamFilter,
         setTeamFilter,
+        memberFilter,
+        setMemberFilter,
         dateFilter,
         setDateFilter,
         clearFilters,

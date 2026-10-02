@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { dealTasks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { formatTask } from '@/lib/dealTasksHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,38 +28,7 @@ export async function GET(req, { params }) {
 
     return NextResponse.json({
       success: true,
-      task: {
-        id: task.id,
-        task_id: task.taskId,
-        deal_id: task.dealId,
-        workspace_id: task.workspaceId,
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        workstream: task.workstream,
-        deal_stage: task.dealStage,
-        due_date: task.dueDate,
-        visibility: task.visibility,
-        creator_side: task.creatorSide,
-        target_side: task.targetSide,
-        target_company: task.targetCompany,
-        assigned_to_group: task.assignedToGroup,
-        assigned_to_user: task.assignedToUser,
-        claimable_by_role: task.claimableByRole,
-        linked_document: task.linkedDocument,
-        digital_signature: task.digitalSignature,
-        created_by: task.createdBy,
-        creator_role: task.creatorRole,
-        creator_company: task.creatorCompany,
-        completed_by: task.completedBy,
-        completed_at: task.completedAt,
-        created_at: task.createdAt,
-        updated_at: task.updatedAt,
-        subtasks: task.subtasks || [],
-        audit_trail: task.auditTrail || [],
-        comments: task.comments || [],
-      },
+      task: formatTask(task),
     });
   } catch (error) {
     console.error('Fetch task detail error:', error);
@@ -281,30 +251,7 @@ export async function PATCH(req, { params }) {
 
     return NextResponse.json({
       success: true,
-      task: {
-        id: updatedTask.id,
-        task_id: updatedTask.taskId,
-        deal_id: updatedTask.dealId,
-        title: updatedTask.title,
-        description: updatedTask.description,
-        status: updatedTask.status,
-        priority: updatedTask.priority,
-        workstream: updatedTask.workstream,
-        deal_stage: updatedTask.dealStage,
-        due_date: updatedTask.dueDate,
-        visibility: updatedTask.visibility,
-        creator_side: updatedTask.creatorSide,
-        target_side: updatedTask.targetSide,
-        assigned_to_group: updatedTask.assignedToGroup,
-        assigned_to_user: updatedTask.assignedToUser,
-        completed_by: updatedTask.completedBy,
-        completed_at: updatedTask.completedAt,
-        digital_signature: updatedTask.digitalSignature,
-        subtasks: updatedTask.subtasks || [],
-        audit_trail: updatedTask.auditTrail || [],
-        comments: updatedTask.comments || [],
-        updated_at: updatedTask.updatedAt,
-      },
+      task: formatTask(updatedTask),
     });
   } catch (error) {
     console.error('Update deal task error:', error);
