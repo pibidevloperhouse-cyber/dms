@@ -153,8 +153,6 @@ export const DEAL_STAGES = [
   'Preparation',
   'Due Diligence',
   'Negotiation',
-  'Closing',
-  'Post-Closing',
 ];
 
 // Tasks are loaded dynamically from the backend PostgreSQL database
@@ -270,7 +268,7 @@ export function DealWorkflowProvider({ children }) {
         try {
           const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
           if (Array.isArray(savedCustom)) localDepts = savedCustom.filter(Boolean);
-        } catch (e) {}
+        } catch (e) { }
 
         const mergedDepts = Array.from(
           new Set([...(data.departments || []), ...localDepts])
