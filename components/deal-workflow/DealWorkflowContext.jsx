@@ -163,10 +163,40 @@ const INITIAL_DEMO_TASKS = [];
 
 const DealWorkflowContext = createContext(null);
 
+// ============================================================================
+// HELPER: Read authenticated user from vdr_session
+// ============================================================================
+export const readSessionUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawSession = localStorage.getItem('vdr_session');
+    if (!rawSession) return null;
+    const s = JSON.parse(rawSession);
+    if (s && (s.name || s.id || s.email)) {
+      const roleStr = s.role || 'internal_user';
+      return {
+        id: s.id || 'session_user',
+        name: (s.name || s.email?.split('@')[0] || 'User').trim(),
+        email: s.email || '',
+        role: roleStr,
+        roleLabel: getRoleLabel(roleStr),
+        side: s.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(s.role) ? 'buyer' : 'seller'),
+        company: s.company_name || (s.dms_role === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+        group: s.group || s.role || 'General',
+        avatar: (s.name || s.email || 'U')[0].toUpperCase(),
+        color: 'from-blue-600 to-indigo-700',
+      };
+    }
+  } catch (e) {
+    console.error('Error reading session user:', e);
+  }
+  return null;
+};
+
 export function DealWorkflowProvider({ children }) {
-  // Current logged in persona (default to Ravi - Seller Admin or active session)
-  const [currentUserId, setCurrentUserId] = useState('ravi');
-  const [sessionUser, setSessionUser] = useState(null);
+  // Current logged in user: Always prioritize the authenticated session
+  const [sessionUser, setSessionUser] = useState(readSessionUser);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [dbGroups, setDbGroups] = useState([]);
   const [workflowGroups, setWorkflowGroups] = useState([]);
@@ -257,27 +287,18 @@ export function DealWorkflowProvider({ children }) {
     try {
       // Clear legacy dummy tasks from localStorage
       localStorage.removeItem('dms_deal_workflow_tasks_v4');
-      const rawSession = localStorage.getItem('vdr_session');
-      if (rawSession) {
-        const s = JSON.parse(rawSession);
-        if (s && s.name) {
-          setSessionUser({
-            id: s.id || 'session_user',
-            name: s.name,
-            role: s.role === 'super_admin' ? 'Super Admin' : (s.role === 'admin' ? 'Admin' : (s.role || 'Member')),
-            side: s.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(s.role) ? 'buyer' : 'seller'),
-            company: s.company_name || (s.dms_role === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
-            group: s.role || 'Admin',
-            avatar: (s.name || 'U')[0].toUpperCase(),
-            color: 'from-blue-600 to-indigo-700',
-          });
+
+      // Sync active session user immediately
+      const activeUser = readSessionUser();
+      if (activeUser) {
+        setSessionUser(activeUser);
+      } else {
+        const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
+        if (storedUser && DEMO_USERS[storedUser]) {
+          setCurrentUserId(storedUser);
         }
       }
 
-      const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
-      if (storedUser && DEMO_USERS[storedUser]) {
-        setCurrentUserId(storedUser);
-      }
       const storedAudit = localStorage.getItem('dms_deal_workflow_audit_mode_v4');
       if (storedAudit !== null) {
         setIsAuditModeActive(JSON.parse(storedAudit));
@@ -288,9 +309,19 @@ export function DealWorkflowProvider({ children }) {
 
     fetchTasks();
     fetchDepartmentsAndGroups();
+
+    // Listen to storage events so when another user logs in, state updates immediately
+    const handleStorageChange = (e) => {
+      if (!e || e.key === 'vdr_session') {
+        const freshUser = readSessionUser();
+        setSessionUser(freshUser);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Save user on switch
+  // Save user on switch (for testing demo personas)
   const switchUser = (userId) => {
     if (DEMO_USERS[userId]) {
       setCurrentUserId(userId);
@@ -306,13 +337,31 @@ export function DealWorkflowProvider({ children }) {
     });
   };
 
+  // Logged-in session user takes absolute priority over demo fallback
   const currentUser = useMemo(() => {
-    if (DEMO_USERS[currentUserId]) {
+    if (sessionUser && sessionUser.name) {
+      return sessionUser;
+    }
+    if (currentUserId && DEMO_USERS[currentUserId]) {
       return DEMO_USERS[currentUserId];
     }
-    if (sessionUser) return sessionUser;
     return DEMO_USERS.ravi;
-  }, [currentUserId, sessionUser]);
+  }, [sessionUser, currentUserId]);
+
+  // Enrich sessionUser with group if known from groupMembersMap
+  useEffect(() => {
+    if (sessionUser?.name && groupMembersMap && Object.keys(groupMembersMap).length > 0) {
+      const sName = sessionUser.name.trim().toLowerCase();
+      for (const [gName, members] of Object.entries(groupMembersMap)) {
+        if (Array.isArray(members) && members.some((m) => (typeof m === 'string' ? m : m.name || '').trim().toLowerCase() === sName)) {
+          if (sessionUser.group !== gName) {
+            setSessionUser((prev) => (prev ? { ...prev, group: gName } : prev));
+          }
+          break;
+        }
+      }
+    }
+  }, [groupMembersMap, sessionUser?.name]);
 
   // ============================================================================
   // TASK CREATOR & ASSIGNEE RECOGNITION HELPERS
@@ -320,21 +369,31 @@ export function DealWorkflowProvider({ children }) {
   const isTaskCreator = (task, user = currentUser) => {
     if (!task || !user) return false;
     const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
     const createdBy = (task.created_by || '').trim().toLowerCase();
-    return Boolean(
-      (userName && createdBy && userName === createdBy) ||
-      (user.id && task.created_by && user.id === task.created_by)
-    );
+
+    if (!createdBy) return false;
+    if (userName && createdBy === userName) return true;
+    if (userId && userId !== 'session_user' && createdBy === userId) return true;
+    if (userEmail && createdBy === userEmail) return true;
+    return false;
   };
 
   const isTaskAssignee = (task, user = currentUser) => {
     if (!task || !user) return false;
     const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
+
     const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
-    if (assignedToUser && userName && assignedToUser === userName) return true;
+    if (assignedToUser && (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId))) {
+      return true;
+    }
+
     if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
       const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
-      return stMember === userName;
+      return stMember && (stMember === userName || stMember === userEmail || (userId !== 'session_user' && stMember === userId));
     })) {
       return true;
     }
@@ -569,31 +628,42 @@ export function DealWorkflowProvider({ children }) {
     if (isTaskCreator(task, user)) return false;
 
     const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
     const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
 
-    // If task was assigned to a specific user, ONLY that user can claim it
+    // If task was assigned to a specific user, that user can claim it
     if (assignedToUser) {
-      return assignedToUser === userName;
+      if (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId)) {
+        return true;
+      }
     }
 
     // Check if user is assigned to any subtask
     if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
       const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
-      return stMember === userName;
+      return stMember && (stMember === userName || stMember === userEmail || (userId !== 'session_user' && stMember === userId));
     })) {
       return true;
     }
 
     // If task has no specific assignee assigned yet:
     // Group members or same-side admin can claim
-    const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
-    const isGroupMember =
-      Boolean(user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) ||
-      Boolean(task.assigned_to_group && getMembersForGroup(task.assigned_to_group).some((m) => (typeof m === 'string' ? m : m.name).trim().toLowerCase() === userName));
-    const normRole = normalizeRole(user.role);
-    const isAdmin = normRole === 'admin' || normRole === 'super_admin';
+    if (!assignedToUser) {
+      const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
+      const isGroupMember =
+        Boolean(user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) ||
+        Boolean(task.assigned_to_group && getMembersForGroup(task.assigned_to_group).some((m) => {
+          const mStr = (typeof m === 'string' ? m : m.name || '').trim().toLowerCase();
+          return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
+        }));
+      const normRole = normalizeRole(user.role);
+      const isAdmin = normRole === 'admin' || normRole === 'super_admin';
 
-    return Boolean(isGroupMember || (isTargetSide && isAdmin));
+      return Boolean(isGroupMember || (isTargetSide && isAdmin));
+    }
+
+    return false;
   };
 
   const canUserSubmitForReview = (task, user = currentUser) => {

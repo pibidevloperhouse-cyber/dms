@@ -102,9 +102,9 @@ export default function TaskDetailDrawer() {
     isTargetSide &&
     !selectedTask.digital_signature;
 
-  const canClaim = canUserClaimTask(selectedTask);
-  const canSubmit = canUserSubmitForReview(selectedTask);
-  const canApprove = canUserApproveTask(selectedTask);
+  const canClaim = canUserClaimTask ? canUserClaimTask(selectedTask, currentUser) : false;
+  const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(selectedTask, currentUser) : false;
+  const canApprove = canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : false;
 
   const handlePostComment = async (e) => {
     e.preventDefault();

@@ -42,9 +42,9 @@ export default function TaskCard({ task, onCardClick }) {
   const isCreator = isTaskCreator ? isTaskCreator(task, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(task, currentUser) : (task.assigned_to_user === currentUser.name);
 
-  const canClaim = canUserClaimTask(task);
-  const canSubmit = canUserSubmitForReview(task);
-  const canApprove = canUserApproveTask(task);
+  const canClaim = canUserClaimTask ? canUserClaimTask(task, currentUser) : false;
+  const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(task, currentUser) : false;
+  const canApprove = canUserApproveTask ? canUserApproveTask(task, currentUser) : false;
 
   // Special case: If task has linked document requiring signature (like NDA) and is in progress for the buyer legal assignee
   const isSigningEligible =
