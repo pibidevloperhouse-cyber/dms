@@ -783,12 +783,7 @@ export default function TaskDetailDrawer() {
           <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50/50 flex items-center justify-end gap-2.5">
             {/* If task is TO_DO */}
             {selectedTask.status === 'TO_DO' && (
-              isCreator ? (
-                <span className="text-xs text-slate-700 font-medium px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Created by You (Tracking Mode · Cannot Claim)</span>
-                </span>
-              ) : canClaim ? (
+              canClaim ? (
                 <button
                   type="button"
                   onClick={() => claimTask(selectedTask.task_id)}
@@ -797,6 +792,11 @@ export default function TaskDetailDrawer() {
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Claim Task</span>
                 </button>
+              ) : isCreator ? (
+                <span className="text-xs text-slate-700 font-medium px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Created by You (Tracking Mode · Cannot Claim)</span>
+                </span>
               ) : (
                 <span className="text-xs text-slate-600 font-medium px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
                   <span>Assigned to {selectedTask.assigned_to_user || selectedTask.assigned_to_group}</span>

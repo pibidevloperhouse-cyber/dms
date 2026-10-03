@@ -161,7 +161,7 @@ export default function TaskBoardView() {
               className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="ALL">All Assignees</option>
-              <option value="MY_TASKS">Assigned to Me {currentUser?.name ? `(${currentUser.name})` : ''}</option>
+              <option value="MY_TASKS">Assigned to Me</option>
               {allUsers.map((u) => (
                 <option key={u.id} value={u.name}>{u.name}</option>
               ))}

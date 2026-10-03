@@ -195,7 +195,7 @@ export const readSessionUser = () => {
 
 export function DealWorkflowProvider({ children }) {
   // Current logged in user: Always prioritize the authenticated session
-  const [sessionUser, setSessionUser] = useState(readSessionUser);
+  const [sessionUser, setSessionUser] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [dbGroups, setDbGroups] = useState([]);
@@ -310,7 +310,7 @@ export function DealWorkflowProvider({ children }) {
     fetchTasks();
     fetchDepartmentsAndGroups();
 
-    // Listen to storage events so when another user logs in, state updates immediately
+    // Listen to storage and focus events so when another user logs in, state updates immediately
     const handleStorageChange = (e) => {
       if (!e || e.key === 'vdr_session') {
         const freshUser = readSessionUser();
@@ -318,7 +318,11 @@ export function DealWorkflowProvider({ children }) {
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+    };
   }, []);
 
   // Save user on switch (for testing demo personas)
