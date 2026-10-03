@@ -26,6 +26,8 @@ export default function TaskCard({ task, onCardClick }) {
     canUserClaimTask,
     canUserSubmitForReview,
     canUserApproveTask,
+    isTaskCreator,
+    isTaskAssignee,
     claimTask,
     submitForReview,
     approveAndComplete,
@@ -37,6 +39,9 @@ export default function TaskCard({ task, onCardClick }) {
   const isCreatorParty = currentUser.side === task.creator_side;
   const isTargetParty = currentUser.side === task.target_side;
 
+  const isCreator = isTaskCreator ? isTaskCreator(task, currentUser) : false;
+  const isAssignee = isTaskAssignee ? isTaskAssignee(task, currentUser) : (task.assigned_to_user === currentUser.name);
+
   const canClaim = canUserClaimTask(task);
   const canSubmit = canUserSubmitForReview(task);
   const canApprove = canUserApproveTask(task);
@@ -45,7 +50,7 @@ export default function TaskCard({ task, onCardClick }) {
   const isSigningEligible =
     task.linked_document &&
     task.status === 'IN_PROGRESS' &&
-    (task.assigned_to_user === currentUser.name || currentUser.role.includes('Admin')) &&
+    (task.assigned_to_user === currentUser.name || currentUser.role?.includes('admin')) &&
     isTargetParty &&
     !task.digital_signature;
 
@@ -78,7 +83,7 @@ export default function TaskCard({ task, onCardClick }) {
   return (
     <div
       onClick={() => onCardClick?.(task)}
-      className="group bg-white rounded-xl border border-slate-200/90 hover:border-blue-400/80 shadow-xs hover:shadow-md transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden"
+      className="group bg-white rounded-xl border border-slate-200/90 hover:border-teal-400/80 shadow-xs hover:shadow-md transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden"
     >
       {/* Top Accent Stripe based on status and side */}
       <div
@@ -95,10 +100,23 @@ export default function TaskCard({ task, onCardClick }) {
       {/* Header: ID, Badges */}
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-mono font-bold text-slate-400">
               {task.task_id}
             </span>
+
+            {/* Role Association Badge: Creator vs Assignee */}
+            {isCreator && (
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">
+                You Created
+              </span>
+            )}
+            {isAssignee && !isCreator && (
+              <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
+                Assigned to You
+              </span>
+            )}
+
             {/* Origin indicator if external */}
             {!isInternal && (
               <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-100 flex items-center gap-1">
@@ -259,17 +277,25 @@ export default function TaskCard({ task, onCardClick }) {
           {task.status === 'TO_DO' && (
             canClaim ? (
               <button
-                onClick={() => claimTask(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  claimTask(task.task_id);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <span>Claim Task</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
+            ) : isCreator ? (
+              <span
+                className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 inline-flex items-center gap-1"
+                title="You created this task. Task creators cannot claim their own task."
+              >
+                <span>Created by You (Tracking)</span>
+              </span>
             ) : (
               <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
-                {(currentUser.name && task.created_by && currentUser.name.trim().toLowerCase() === task.created_by.trim().toLowerCase())
-                  ? `Tracking · Assigned to ${task.assigned_to_group}`
-                  : `Assigned to ${task.assigned_to_group}`}
+                <span>Assigned to {task.assigned_to_user || task.assigned_to_group}</span>
               </span>
             )
           )}
@@ -277,18 +303,32 @@ export default function TaskCard({ task, onCardClick }) {
           {task.status === 'IN_PROGRESS' && (
             isSigningEligible ? (
               <button
-                onClick={() => setSigningModalTask(task)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSigningModalTask(task);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
-                <span>Submit Review</span>
+                <span>Review & Sign</span>
               </button>
             ) : canSubmit ? (
               <button
-                onClick={() => submitForReview(task.task_id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C7F9F] hover:bg-[#166882] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submitForReview(task.task_id);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <span>Submit Review</span>
               </button>
+            ) : isCreator ? (
+              <span
+                className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-flex items-center gap-1"
+                title="You created this task. You can monitor progress, but only the assignee can submit for review."
+              >
+                <Clock className="w-3 h-3 text-blue-500" />
+                <span>In Progress · {task.assigned_to_user || 'Assignee'} working</span>
+              </span>
             ) : (
               <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
                 <Clock className="w-3 h-3 text-blue-500" />
@@ -300,16 +340,22 @@ export default function TaskCard({ task, onCardClick }) {
           {task.status === 'REVIEW' && (
             canApprove ? (
               <button
-                onClick={() => approveAndComplete(task.task_id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  approveAndComplete(task.task_id);
+                }}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
               >
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Approve & Complete</span>
+                <span>Review & Mark as Done</span>
               </button>
             ) : (
-              <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-500" />
-                <span>Awaiting Review</span>
+              <span
+                className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-flex items-center gap-1.5"
+                title="Task has been submitted for review. Waiting for task creator to review and mark as done."
+              >
+                <Clock className="w-3 h-3 text-amber-600" />
+                <span>Awaiting Review by {task.created_by || 'Creator'}</span>
               </span>
             )
           )}
@@ -317,7 +363,7 @@ export default function TaskCard({ task, onCardClick }) {
           {task.status === 'DONE' && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              <span>Marked as Done</span>
+              <span>Marked as Done ✓</span>
             </span>
           )}
         </div>

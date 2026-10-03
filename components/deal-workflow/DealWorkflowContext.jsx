@@ -4,35 +4,122 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { supabase } from '@/utils/supabase/client';
 
 // ============================================================================
+// ROLE HIERARCHY & TASK DELEGATION PERMISSIONS
+// 1. Super Admin can assign to Admin, Sub Admin, Internal User
+// 2. Admin can assign to Sub Admin, Internal User
+// 3. Sub Admin can assign to Internal User
+// 4. Internal User cannot assign to other roles
+// ============================================================================
+export const ROLE_HIERARCHY = {
+  super_admin: {
+    level: 4,
+    label: 'Super Admin',
+    badge: '👑 Super Admin',
+    canAssignTo: ['admin', 'sub_admin', 'internal_user'],
+    desc: 'Can assign to Admin, Sub Admin, and Internal User',
+  },
+  admin: {
+    level: 3,
+    label: 'Admin',
+    badge: '👔 Admin',
+    canAssignTo: ['sub_admin', 'internal_user'],
+    desc: 'Can assign to Sub Admin and Internal User',
+  },
+  sub_admin: {
+    level: 2,
+    label: 'Sub Admin',
+    badge: '⚡ Sub Admin',
+    canAssignTo: ['internal_user'],
+    desc: 'Can assign to Internal User',
+  },
+  internal_user: {
+    level: 1,
+    label: 'Internal User',
+    badge: '👤 Internal User',
+    canAssignTo: [],
+    desc: 'Task executor (Cannot assign to other roles)',
+  },
+};
+
+export const normalizeRole = (roleStr) => {
+  if (!roleStr) return 'internal_user';
+  const lower = roleStr.toLowerCase().replace(/[\s-_]+/g, '_');
+  if (lower.includes('super')) return 'super_admin';
+  if (lower.includes('sub')) return 'sub_admin';
+  if (lower.includes('admin')) return 'admin';
+  if (lower.includes('internal') || lower.includes('user') || lower.includes('member') || lower.includes('guest')) return 'internal_user';
+  return 'internal_user';
+};
+
+export const getRoleLabel = (roleStr) => {
+  const norm = normalizeRole(roleStr);
+  return ROLE_HIERARCHY[norm]?.label || roleStr;
+};
+
+export const canRoleAssignTo = (creatorRole, targetRole) => {
+  const cNorm = normalizeRole(creatorRole);
+  const tNorm = normalizeRole(targetRole);
+  const allowed = ROLE_HIERARCHY[cNorm]?.canAssignTo || [];
+  return allowed.includes(tNorm);
+};
+
+// ============================================================================
 // DEMO PERSONAS & CORPORATE ENTITIES
 // ============================================================================
 export const DEMO_USERS = {
   ravi: {
     id: 'ravi',
-    name: 'Ravi',
-    role: 'Seller Admin',
+    name: 'Ravi Shankar',
+    role: 'super_admin',
+    roleLabel: 'Super Admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    group: 'Executive Board',
+    email: 'ravi@abctextiles.com',
+    avatar: 'R',
+    color: 'from-indigo-600 to-violet-700',
+  },
+  suresh: {
+    id: 'suresh',
+    name: 'Suresh Kumar',
+    role: 'admin',
+    roleLabel: 'Admin',
     side: 'seller',
     company: 'ABC Textiles',
     group: 'Seller Admin',
-    email: 'ravi@abctextiles.com',
-    avatar: 'R',
-    color: 'from-blue-600 to-indigo-700',
+    email: 'suresh@abctextiles.com',
+    avatar: 'S',
+    color: 'from-blue-600 to-cyan-700',
   },
   lakshmi: {
     id: 'lakshmi',
-    name: 'Lakshmi',
-    role: 'Seller Finance Team',
+    name: 'Lakshmi Narayanan',
+    role: 'sub_admin',
+    roleLabel: 'Sub Admin',
     side: 'seller',
     company: 'ABC Textiles',
     group: 'Seller Finance Team',
     email: 'lakshmi@abctextiles.com',
     avatar: 'L',
-    color: 'from-blue-500 to-cyan-600',
+    color: 'from-teal-600 to-emerald-700',
+  },
+  karthik: {
+    id: 'karthik',
+    name: 'Karthik Raja',
+    role: 'internal_user',
+    roleLabel: 'Internal User',
+    side: 'seller',
+    company: 'ABC Textiles',
+    group: 'Finance Operations',
+    email: 'karthik@abctextiles.com',
+    avatar: 'K',
+    color: 'from-amber-600 to-orange-700',
   },
   arjun: {
     id: 'arjun',
-    name: 'Arjun',
-    role: 'Buyer Admin',
+    name: 'Arjun Mehta',
+    role: 'admin',
+    roleLabel: 'Buyer Admin',
     side: 'buyer',
     company: 'XYZ Capital',
     group: 'Buyer Admin',
@@ -43,13 +130,14 @@ export const DEMO_USERS = {
   priya: {
     id: 'priya',
     name: 'Priya Sharma',
-    role: 'Buyer Legal Team',
+    role: 'sub_admin',
+    roleLabel: 'Buyer Sub Admin',
     side: 'buyer',
     company: 'XYZ Capital',
     group: 'Buyer Legal Team',
     email: 'priya.sharma@xyzcapital.com',
     avatar: 'P',
-    color: 'from-teal-500 to-green-600',
+    color: 'from-purple-600 to-pink-700',
   },
 };
 
@@ -112,6 +200,20 @@ export function DealWorkflowProvider({ children }) {
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
         setTasks(data.tasks);
+
+        if (Array.isArray(data.groups) && data.groups.length > 0) {
+          setWorkflowGroups(data.groups);
+          setDbGroups(data.groups.map((g) => g.name));
+        }
+        if (data.groupMembersMap && Object.keys(data.groupMembersMap).length > 0) {
+          setGroupMembersMap(data.groupMembersMap);
+        }
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          setAllUsers(data.users);
+        }
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setDepartments(data.departments);
+        }
       }
     } catch (err) {
       console.error('Error fetching deal tasks from API:', err);
@@ -204,18 +306,40 @@ export function DealWorkflowProvider({ children }) {
     });
   };
 
-  const defaultFallbackUser = allUsers.length > 0 ? {
-    id: allUsers[0].id,
-    name: allUsers[0].name,
-    role: allUsers[0].role === 'super_admin' ? 'Super Admin' : (allUsers[0].role || 'Admin'),
-    side: 'seller',
-    company: 'Company',
-    group: 'Admin',
-    avatar: (allUsers[0].name || 'U')[0].toUpperCase(),
-    color: 'from-blue-600 to-indigo-700',
-  } : DEMO_USERS[currentUserId] || DEMO_USERS.ravi;
+  const currentUser = useMemo(() => {
+    if (DEMO_USERS[currentUserId]) {
+      return DEMO_USERS[currentUserId];
+    }
+    if (sessionUser) return sessionUser;
+    return DEMO_USERS.ravi;
+  }, [currentUserId, sessionUser]);
 
-  const currentUser = sessionUser || defaultFallbackUser;
+  // ============================================================================
+  // TASK CREATOR & ASSIGNEE RECOGNITION HELPERS
+  // ============================================================================
+  const isTaskCreator = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    const userName = (user.name || '').trim().toLowerCase();
+    const createdBy = (task.created_by || '').trim().toLowerCase();
+    return Boolean(
+      (userName && createdBy && userName === createdBy) ||
+      (user.id && task.created_by && user.id === task.created_by)
+    );
+  };
+
+  const isTaskAssignee = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    const userName = (user.name || '').trim().toLowerCase();
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+    if (assignedToUser && userName && assignedToUser === userName) return true;
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
+    }
+    return false;
+  };
 
   // ============================================================================
   // TASK VISIBILITY PERMISSION LOGIC
@@ -224,9 +348,12 @@ export function DealWorkflowProvider({ children }) {
     if (!task) return false;
     if (!user) return true;
 
-    const role = (user.role || '').toLowerCase();
-    // Admins and Super Admins see all tasks
-    if (role.includes('admin') || role.includes('super')) return true;
+    // Creator always sees their own tasks
+    if (isTaskCreator(task, user)) return true;
+
+    const normRole = normalizeRole(user.role);
+    // Super Admins, Admins, and Sub Admins see all tasks
+    if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
 
     const userName = (user.name || '').trim().toLowerCase();
     // If task directly assigned to user
@@ -248,7 +375,7 @@ export function DealWorkflowProvider({ children }) {
     if (task.visibility === 'EXTERNAL') return true;
 
     // Internal tasks visible to same side
-    const userSide = user.side || (role.includes('buyer') ? 'buyer' : 'seller');
+    const userSide = user.side || (normRole.includes('buyer') ? 'buyer' : 'seller');
     if (task.creator_side === userSide || task.target_side === userSide) return true;
 
     return false;
@@ -271,14 +398,25 @@ export function DealWorkflowProvider({ children }) {
     if (!groupName) {
       return allUsers.length > 0 ? allUsers.map((u) => u.name) : (currentUser ? [currentUser.name] : []);
     }
-    if (groupMembersMap[groupName] && groupMembersMap[groupName].length > 0) {
-      return groupMembersMap[groupName];
+    const membersSet = new Set();
+
+    if (groupMembersMap[groupName] && Array.isArray(groupMembersMap[groupName])) {
+      groupMembersMap[groupName].forEach((m) => membersSet.add(m));
     }
+
     const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
-    if (found && found.members && found.members.length > 0) {
-      return found.members;
+    if (found && Array.isArray(found.members)) {
+      found.members.forEach((m) => membersSet.add(m));
     }
-    return [];
+
+    // Match demo users whose group name matches
+    Object.values(DEMO_USERS).forEach((u) => {
+      if (u.group && u.group.trim().toLowerCase() === groupName.trim().toLowerCase()) {
+        membersSet.add(u.name);
+      }
+    });
+
+    return Array.from(membersSet);
   };
 
   // Base tasks permitted for the current user
@@ -427,44 +565,166 @@ export function DealWorkflowProvider({ children }) {
   const canUserClaimTask = (task, user = currentUser) => {
     if (!task || task.status !== 'TO_DO') return false;
 
-    // RULE 1: Creator / Assigner CANNOT claim their own task!
-    const isCreator =
-      (user.name && task.created_by && user.name.trim().toLowerCase() === task.created_by.trim().toLowerCase()) ||
-      (user.id && task.created_by && user.id === task.created_by);
-    if (isCreator) return false;
+    // RULE 1: Task Creator CANNOT claim their own task!
+    if (isTaskCreator(task, user)) return false;
 
-    // Target side check
+    const userName = (user.name || '').trim().toLowerCase();
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+
+    // If task was assigned to a specific user, ONLY that user can claim it
+    if (assignedToUser) {
+      return assignedToUser === userName;
+    }
+
+    // Check if user is assigned to any subtask
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
+    }
+
+    // If task has no specific assignee assigned yet:
+    // Group members or same-side admin can claim
     const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
-    const isAdmin = user.role.includes('Admin') || user.role === 'super_admin';
-    const isGroupMember = user.group === task.assigned_to_group;
+    const isGroupMember =
+      Boolean(user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) ||
+      Boolean(task.assigned_to_group && getMembersForGroup(task.assigned_to_group).some((m) => (typeof m === 'string' ? m : m.name).trim().toLowerCase() === userName));
+    const normRole = normalizeRole(user.role);
+    const isAdmin = normRole === 'admin' || normRole === 'super_admin';
 
-    if (!isTargetSide && !isAdmin) return false;
-
-    return isAdmin || isGroupMember;
+    return Boolean(isGroupMember || (isTargetSide && isAdmin));
   };
 
   const canUserSubmitForReview = (task, user = currentUser) => {
     if (!task || task.status !== 'IN_PROGRESS') return false;
-    
-    // Assignee (doer/worker who claimed or is assigned) or group member or admin
-    const isAssignee = task.assigned_to_user && user.name && task.assigned_to_user.trim().toLowerCase() === user.name.trim().toLowerCase();
-    const isGroupMember = user.group === task.assigned_to_group;
-    const isAdmin = user.role.includes('Admin') || user.role === 'super_admin';
 
-    return isAssignee || isGroupMember || isAdmin;
+    // RULE 2: Task creator just views the progress, CANNOT submit to review!
+    if (isTaskCreator(task, user)) return false;
+
+    const userName = (user.name || '').trim().toLowerCase();
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+
+    // Direct assignee (the claimed or assigned user)
+    if (assignedToUser && assignedToUser === userName) return true;
+
+    // Subtask assigned member
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
+    }
+
+    // Group member if unassigned
+    if (!assignedToUser && user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
+      return true;
+    }
+
+    return false;
   };
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-    
-    // Creator of the task or Creator-side Admin (the supervisor/tracker)
-    const isCreator =
-      (user.name && task.created_by && user.name.trim().toLowerCase() === task.created_by.trim().toLowerCase()) ||
-      (user.id && task.created_by && user.id === task.created_by);
-    const isCreatorAdmin = user.side === task.creator_side && user.role.includes('Admin');
-    const isSuperAdmin = user.role === 'super_admin';
 
-    return isCreator || isCreatorAdmin || isSuperAdmin;
+    // RULE 3: Assigned person who performed the task CANNOT approve their own work
+    // Task assigned member responsibility: "if task creator reviewed & marked as done,he can see that stage only"
+    if (isTaskAssignee(task, user)) return false;
+
+    // Task creator can review the task and mark the task as done!
+    if (isTaskCreator(task, user)) return true;
+
+    // Super admin oversight (if not the assignee)
+    const normRole = normalizeRole(user.role);
+    if (normRole === 'super_admin') return true;
+
+    return false;
+  };
+
+  // ============================================================================
+  // HIERARCHICAL TASK DELEGATION
+  // Super Admin -> Admin, Sub Admin, Internal User
+  // Admin -> Sub Admin, Internal User
+  // Sub Admin -> Internal User
+  // ============================================================================
+  const getAssignableMembersForUser = (user = currentUser) => {
+    if (!user) return [];
+    const userNormRole = normalizeRole(user.role);
+    const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
+    if (allowedRoles.length === 0) return [];
+
+    const candidates = [];
+    const seen = new Set();
+
+    const addCandidate = (u) => {
+      const name = u.name;
+      if (!name || seen.has(name.toLowerCase())) return;
+      // Do not allow assigning to oneself
+      if (user.name && name.toLowerCase() === user.name.toLowerCase()) return;
+
+      const targetNormRole = normalizeRole(u.role || u.dmsRole || 'internal_user');
+      if (allowedRoles.includes(targetNormRole)) {
+        seen.add(name.toLowerCase());
+        candidates.push({
+          id: u.id,
+          name: u.name,
+          role: targetNormRole,
+          roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || u.role,
+          group: u.group || 'General',
+          email: u.email || '',
+          side: u.side || 'seller',
+        });
+      }
+    };
+
+    allUsers.forEach(addCandidate);
+    Object.values(DEMO_USERS).forEach(addCandidate);
+
+    return candidates.sort((a, b) => (ROLE_HIERARCHY[b.role]?.level || 0) - (ROLE_HIERARCHY[a.role]?.level || 0));
+  };
+
+  // Subordinate members for a SPECIFIC group based on Role Hierarchy (Creator excluded)
+  const getAssignableMembersForGroup = (groupName, user = currentUser) => {
+    if (!user || !groupName) return [];
+    const userNormRole = normalizeRole(user.role);
+    const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
+    if (allowedRoles.length === 0) return [];
+
+    const memberNames = getMembersForGroup(groupName);
+    const currentUserName = (user.name || '').trim().toLowerCase();
+
+    const candidates = [];
+    const seen = new Set();
+
+    memberNames.forEach((mName) => {
+      if (!mName) return;
+      const cleanName = typeof mName === 'string' ? mName.trim() : (mName.name || '').trim();
+      if (!cleanName) return;
+      // Creator cannot assign to themselves
+      if (cleanName.toLowerCase() === currentUserName) return;
+      if (seen.has(cleanName.toLowerCase())) return;
+
+      // Find user details from allUsers or DEMO_USERS
+      const dbUser = allUsers.find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+      const demoUser = Object.values(DEMO_USERS).find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+      const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : 'internal_user');
+      const targetNormRole = normalizeRole(rawRole);
+
+      if (allowedRoles.includes(targetNormRole)) {
+        seen.add(cleanName.toLowerCase());
+        candidates.push({
+          id: dbUser?.id || demoUser?.id || cleanName,
+          name: cleanName,
+          role: targetNormRole,
+          roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || rawRole,
+          email: dbUser?.email || demoUser?.email || '',
+          group: groupName,
+          side: dbUser?.side || demoUser?.side || user.side,
+        });
+      }
+    });
+
+    return candidates.sort((a, b) => (ROLE_HIERARCHY[b.role]?.level || 0) - (ROLE_HIERARCHY[a.role]?.level || 0));
   };
 
   // Action: Claim Task
@@ -972,9 +1232,17 @@ export function DealWorkflowProvider({ children }) {
         getGroupsForDepartment,
         getMembersForGroup,
         isTaskVisibleToUser,
+        isTaskCreator,
+        isTaskAssignee,
         canUserClaimTask,
         canUserSubmitForReview,
         canUserApproveTask,
+        getAssignableMembersForUser,
+        getAssignableMembersForGroup,
+        roleHierarchy: ROLE_HIERARCHY,
+        normalizeRole,
+        getRoleLabel,
+        canRoleAssignTo,
         // Actions
         claimTask,
         submitForReview,

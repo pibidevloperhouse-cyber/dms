@@ -65,60 +65,99 @@ export default function MainSidebar() {
         return;
       }
 
-      // 3. Guest Admin (Buyer Lead) gets features purely from Deal API
-      if (['guest_admin', 'buyer', 'external_user'].includes(role)) {
-        if (dealFeatures) {
-          setHasGroupsAccess(dealFeatures.featureGroups || false);
-          setHasSettingsAccess(false);
-          setHasDealsAccess(false);
-          setHasQaAccess(dealFeatures.featureQa || false);
-          setHasTasksAccess(dealFeatures.featureTasks || false);
-          setHasBiddingAccess(dealFeatures.featureBidding || false);
-          setHasCommunicationAccess(dealFeatures.featureCommunication || false);
-          setHasControlAuditsAccess(false);
-          setHasRedactionAccess(false);
-        }
-        return;
-      }
-
-      // 4. Everyone else checks group permissions in DB
+      // 3. Find all groups this user belongs to
       const { data: ugRows } = await supabase
         .from('user_groups')
         .select('group_id')
         .eq('user_id', sessionObj.id);
 
-      const groupIds = ugRows?.map(r => r.group_id) || [];
-      if (!groupIds.length) return;
+      let groupIds = ugRows?.map(r => r.group_id) || [];
 
-      // 5. Check workspace scope permissions
-      const { data: perms } = await supabase
+      // If user is admin/sub_admin, also include groups matching their company & role
+      if (['admin', 'sub_admin'].includes(role) && sessionObj.company_id) {
+        const { data: roleGroups } = await supabase
+          .from('groups')
+          .select('id')
+          .eq('company_id', sessionObj.company_id)
+          .eq('role', role);
+        if (roleGroups?.length) {
+          groupIds = Array.from(new Set([...groupIds, ...roleGroups.map(g => g.id)]));
+        }
+      }
+
+      // If guest_admin/buyer/external_user, also include groups created by them or matching their role
+      if (['guest_admin', 'buyer', 'external_user', 'guest_lead'].includes(role) && sessionObj.company_id) {
+        const { data: buyerGroups } = await supabase
+          .from('groups')
+          .select('id')
+          .eq('company_id', sessionObj.company_id)
+          .or(`created_by.eq.${sessionObj.id},role.in.(guest_admin,guest_lead,external_user,buyer)`);
+        if (buyerGroups?.length) {
+          groupIds = Array.from(new Set([...groupIds, ...buyerGroups.map(g => g.id)]));
+        }
+      }
+
+      // 4. Fetch workspace scope permissions for groups OR direct user permissions
+      let perms = [];
+      if (groupIds.length > 0) {
+        const { data: groupPerms } = await supabase
+          .from('permissions')
+          .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits, can_redaction, group_id, user_id')
+          .eq('scope', 'workspace')
+          .in('group_id', groupIds);
+        if (groupPerms) perms = [...perms, ...groupPerms];
+      }
+
+      const { data: userPerms } = await supabase
         .from('permissions')
-        .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits, can_redaction')
+        .select('can_access_groups, can_access_settings, can_access_qa, can_access_deals, can_access_tasks, can_access_communication, can_access_control_audits, can_redaction, group_id, user_id')
         .eq('scope', 'workspace')
-        .in('group_id', groupIds);
+        .eq('user_id', sessionObj.id);
+      if (userPerms) perms = [...perms, ...userPerms];
 
-      // 6. Set module access flags (AND with deal features if present)
-      const canAccessGroups = perms?.some(p => p.can_access_groups) && (!dealFeatures || dealFeatures.featureGroups !== false);
-      const canAccessSettings = perms?.some(p => p.can_access_settings); // Settings usually not part of deal features
-      const canAccessQa = perms?.some(p => p.can_access_qa) && (!dealFeatures || dealFeatures.featureQa !== false);
-      const canAccessDeals = perms?.some(p => p.can_access_deals) && (!dealFeatures || dealFeatures.featureBidding !== false);
-      const canAccessTasks = perms?.some(p => p.can_access_tasks) && (!dealFeatures || dealFeatures.featureTasks !== false);
-      const canAccessCommunication = perms?.some(p => p.can_access_communication) && (!dealFeatures || dealFeatures.featureCommunication !== false);
-      const canAccessControlAudits = perms?.some((p) => p.can_access_control_audits);
-      const canAccessRedaction = perms?.some((p) => p.can_redaction);
+      // 5. Tasks & Workflow Access:
+      // If ANY group this user belongs to has can_access_tasks enabled,
+      // OR direct user permission has can_access_tasks enabled,
+      // OR dealFeatures explicitly has featureTasks enabled:
+      const canAccessTasks = 
+        Boolean(perms?.some(p => p.can_access_tasks)) || 
+        dealFeatures?.featureTasks === true;
+
+      const isGuest = ['guest_admin', 'buyer', 'external_user'].includes(role);
+
+      const canAccessGroups = perms?.some(p => p.can_access_groups) || (isGuest && dealFeatures?.featureGroups === true);
+      const canAccessSettings = !isGuest && perms?.some(p => p.can_access_settings);
+      const canAccessQa = perms?.some(p => p.can_access_qa) || dealFeatures?.featureQa === true;
+      const canAccessDeals = !isGuest && (perms?.some(p => p.can_access_deals) || dealFeatures?.featureBidding === true);
+      const canAccessBidding = dealFeatures?.featureBidding || false;
+      const canAccessCommunication = perms?.some(p => p.can_access_communication) || dealFeatures?.featureCommunication === true;
+      const canAccessControlAudits = !isGuest && perms?.some((p) => p.can_access_control_audits);
+      const canAccessRedaction = !isGuest && perms?.some((p) => p.can_redaction);
 
       setHasGroupsAccess(!!canAccessGroups);
       setHasSettingsAccess(!!canAccessSettings);
       setHasQaAccess(!!canAccessQa);
       setHasDealsAccess(!!canAccessDeals);
       setHasTasksAccess(!!canAccessTasks);
+      setHasBiddingAccess(!!canAccessBidding);
       setHasCommunicationAccess(!!canAccessCommunication);
       setHasControlAuditsAccess(!!canAccessControlAudits);
       setHasRedactionAccess(!!canAccessRedaction);
     };
 
     checkModulePermissions();
-  }, []);
+
+    const handlePermissionsUpdated = () => {
+      checkModulePermissions();
+    };
+
+    window.addEventListener('permissions_updated', handlePermissionsUpdated);
+    window.addEventListener('storage', handlePermissionsUpdated);
+    return () => {
+      window.removeEventListener('permissions_updated', handlePermissionsUpdated);
+      window.removeEventListener('storage', handlePermissionsUpdated);
+    };
+  }, [pathname]);
 
   return (
     <>

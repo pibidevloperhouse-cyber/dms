@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dealTasks } from '@/db/schema';
+import { dealTasks, groups, userGroups, users } from '@/db/schema';
 import { eq, desc, and, or, ilike } from 'drizzle-orm';
 import { formatTask } from '@/lib/dealTasksHelper';
 
@@ -88,7 +88,65 @@ export async function GET(req) {
     const rows = await query;
     const tasks = rows.map((t) => formatTask(t));
 
-    return NextResponse.json({ success: true, tasks });
+    // Fetch DB groups, userGroups, and users for dynamic member assignment
+    let dbGroups = [];
+    let groupMembersMap = {};
+    let dbAllUsers = [];
+    let departments = [];
+
+    try {
+      dbGroups = await db.select().from(groups);
+      const dbUserGroups = await db.select().from(userGroups);
+      dbAllUsers = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+          companyId: users.companyId,
+        })
+        .from(users);
+
+      for (const g of dbGroups) {
+        const userIdsInGroup = dbUserGroups
+          .filter((ug) => ug.groupId === g.id)
+          .map((ug) => ug.userId);
+
+        let members = dbAllUsers.filter((u) => userIdsInGroup.includes(u.id));
+        if (members.length === 0 && g.createdBy) {
+          const creator = dbAllUsers.find((u) => u.id === g.createdBy);
+          if (creator) members.push(creator);
+        }
+        if (members.length === 0) {
+          members = dbAllUsers;
+        }
+        const memberNames = Array.from(new Set(members.map((m) => m.name)));
+        groupMembersMap[g.name] = memberNames;
+        groupMembersMap[g.id] = memberNames;
+      }
+
+      departments = Array.from(
+        new Set(dbGroups.map((g) => g.department).filter(Boolean))
+      );
+    } catch (dbErr) {
+      console.error('Error fetching groups/users in deal-tasks:', dbErr);
+    }
+
+    return NextResponse.json({
+      success: true,
+      tasks,
+      groups: dbGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        department: g.department || 'General',
+        role: g.role,
+        type: g.type,
+        members: groupMembersMap[g.name] || [],
+      })),
+      departments: departments.length > 0 ? departments : ['Finance', 'Legal', 'Operations', 'General'],
+      groupMembersMap,
+      users: dbAllUsers,
+    });
   } catch (error) {
     console.error('Fetch deal tasks error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -105,6 +163,7 @@ export async function POST(req) {
       workspaceId,
       visibility = 'INTERNAL',
       assigned_to_group,
+      assigned_to_user = null,
       department,
       workstream = 'General',
       priority = 'Medium',
@@ -176,7 +235,7 @@ export async function POST(req) {
         targetSide: resolvedTargetSide,
         targetCompany: resolvedTargetCompany,
         assignedToGroup: resolvedAssignedGroup,
-        assignedToUser: null,
+        assignedToUser: assigned_to_user || null,
         claimableByRole: claimable_by_role,
         createdBy: resolvedCreatedBy,
         creatorRole: creator_role,

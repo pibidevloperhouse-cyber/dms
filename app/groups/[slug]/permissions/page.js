@@ -204,6 +204,9 @@ export default function PermissionsPage() {
             if (!data.success) throw new Error(data.error);
 
             triggerToast("Permissions saved successfully");
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('permissions_updated'));
+            }
             setTimeout(() => router.push(`/groups/${groupSlug}`), 1200);
         } catch (err) { alert("Failed to save permissions: " + err.message); } finally { setSaving(false); }
     };

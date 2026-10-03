@@ -14,6 +14,9 @@ export default function CreateTaskModal() {
     departments,
     getGroupsForDepartment,
     getMembersForGroup,
+    getAssignableMembersForGroup,
+    roleHierarchy,
+    normalizeRole,
   } = useDealWorkflow();
 
   // Main task fields
@@ -31,7 +34,6 @@ export default function CreateTaskModal() {
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [subtaskDescription, setSubtaskDescription] = useState('');
-  const [subtaskGroup, setSubtaskGroup] = useState('');
   const [subtaskMember, setSubtaskMember] = useState('');
   const [subtaskPriority, setSubtaskPriority] = useState('High');
   const [subtaskDueDate, setSubtaskDueDate] = useState('');
@@ -42,11 +44,14 @@ export default function CreateTaskModal() {
     return getGroupsForDepartment(department);
   }, [department, getGroupsForDepartment]);
 
-  // Available members for the subtask group
-  const membersForSubtaskGroup = useMemo(() => {
-    const grp = subtaskGroup || assignedGroup;
-    return getMembersForGroup(grp);
-  }, [subtaskGroup, assignedGroup, getMembersForGroup]);
+  // Subordinate members available for subtask assignment strictly within assignedGroup
+  const subtaskAssignableMembers = useMemo(() => {
+    if (!assignedGroup) return [];
+    if (getAssignableMembersForGroup) {
+      return getAssignableMembersForGroup(assignedGroup, currentUser);
+    }
+    return [];
+  }, [assignedGroup, getAssignableMembersForGroup, currentUser]);
 
   // Sync default department when departments load
   useEffect(() => {
@@ -66,24 +71,16 @@ export default function CreateTaskModal() {
     }
   }, [availableGroups, assignedGroup]);
 
-  // Sync subtask group when opening subtask modal
+  // Sync subtask member when subtaskAssignableMembers change or subtask modal opens
   useEffect(() => {
-    if (isAddSubtaskModalOpen) {
-      const initialGroup = assignedGroup || (availableGroups.length > 0 ? availableGroups[0] : '');
-      setSubtaskGroup(initialGroup);
-    }
-  }, [isAddSubtaskModalOpen, assignedGroup, availableGroups]);
-
-  // Sync subtask member when subtask group changes
-  useEffect(() => {
-    if (membersForSubtaskGroup.length > 0) {
-      if (!subtaskMember || !membersForSubtaskGroup.includes(subtaskMember)) {
-        setSubtaskMember(membersForSubtaskGroup[0]);
+    if (subtaskAssignableMembers.length > 0) {
+      if (!subtaskMember || !subtaskAssignableMembers.some((m) => m.name === subtaskMember)) {
+        setSubtaskMember(subtaskAssignableMembers[0].name);
       }
     } else {
       setSubtaskMember('');
     }
-  }, [membersForSubtaskGroup, subtaskMember]);
+  }, [subtaskAssignableMembers, subtaskMember, isAddSubtaskModalOpen]);
 
   if (!isCreateModalOpen) return null;
 
@@ -108,6 +105,9 @@ export default function CreateTaskModal() {
     e.preventDefault();
     if (!title.trim()) return;
 
+    // First assigned subordinate from subtasks if available
+    const firstAssigned = subtasks.find((st) => st.assignedMember && st.assignedMember !== 'Unassigned');
+
     createTask({
       title: title.trim(),
       description: description.trim(),
@@ -115,12 +115,14 @@ export default function CreateTaskModal() {
       department: department || 'General',
       workstream: department || 'General',
       assigned_to_group: assignedGroup || '',
-      assigned_to_user: subtasks.length > 0 && subtasks[0].assignedMember ? subtasks[0].assignedMember : null,
+      assigned_to_user: firstAssigned ? firstAssigned.assignedMember : null,
       priority,
       deal_stage: dealStage,
       due_date: dueDate || null,
       subtasks: subtasks,
       claimable_by_role: true,
+      created_by: currentUser?.name || 'Creator',
+      creator_role: currentUser?.role || 'admin',
     });
 
     handleClose();
@@ -150,8 +152,8 @@ export default function CreateTaskModal() {
       id: `sub_${Date.now()}`,
       title: subtaskTitle.trim(),
       description: subtaskDescription.trim(),
-      assignedGroup: subtaskGroup || assignedGroup || '',
-      assignedMember: subtaskMember || (membersForSubtaskGroup.length > 0 ? membersForSubtaskGroup[0] : currentUser?.name || 'Unassigned'),
+      assignedGroup: assignedGroup || '',
+      assignedMember: subtaskMember || (subtaskAssignableMembers.length > 0 ? subtaskAssignableMembers[0].name : 'Unassigned'),
       priority: subtaskPriority,
       dueDate: subtaskDueDate,
       attachments: subtaskAttachments,
@@ -474,7 +476,7 @@ export default function CreateTaskModal() {
                   Add Subtask
                 </h2>
                 <div className="text-xs text-slate-500 mt-1">
-                  Parent task: <span className="font-semibold text-slate-700">{title.trim() || 'New task'}</span> ({department || 'General'})
+                  Parent task: <span className="font-semibold text-slate-700">{title.trim() || 'New task'}</span> · Group: <span className="font-semibold text-[#006666]">{assignedGroup || 'General'}</span>
                 </div>
               </div>
 
@@ -507,13 +509,18 @@ export default function CreateTaskModal() {
                 />
               </div>
 
-              {/* Assign Member (Dynamically populated from selected group) */}
+              {/* Assign Member (Members of selected group according to role hierarchy) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Assign member * <span className="font-normal text-slate-500">
-                    {subtaskGroup ? `(members of ${subtaskGroup})` : ''}
-                  </span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Assign member *
+                  </label>
+                  {assignedGroup && (
+                    <span className="text-[10px] font-medium text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                      {assignedGroup}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <select
                     value={subtaskMember}
@@ -521,16 +528,33 @@ export default function CreateTaskModal() {
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
                     required
                   >
-                    {membersForSubtaskGroup.length === 0 ? (
-                      <option value="">No members in this group</option>
+                    {subtaskAssignableMembers.length === 0 ? (
+                      <option value="">No subordinate members available in {assignedGroup || 'group'}</option>
                     ) : (
-                      membersForSubtaskGroup.map((m) => (
-                        <option key={m} value={m}>{m}</option>
+                      subtaskAssignableMembers.map((m) => (
+                        <option key={m.id || m.name} value={m.name}>
+                          {m.name} ({m.roleLabel || m.role})
+                        </option>
                       ))
                     )}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {subtaskAssignableMembers.length > 0 ? (
+                  <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
+                    <span>
+                      {roleHierarchy?.[normalizeRole(currentUser?.role)]?.desc || 'Select subordinate member in this group'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                    <p className="font-semibold">⚠️ Cannot assign members in {assignedGroup || 'this group'}</p>
+                    <p className="mt-0.5">
+                      {roleHierarchy?.[normalizeRole(currentUser?.role)]?.desc || 'You can only assign to lower roles.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Row: Priority & Due Date */}
