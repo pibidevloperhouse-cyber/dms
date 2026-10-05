@@ -50,7 +50,7 @@ export default function TaskCard({ task, onCardClick }) {
 
   const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
   const displayedSubtasks = useMemo(() => {
-    if (isCreator || isAdmin) {
+    if (isCreator) {
       return task.subtasks || [];
     }
     const myName = (currentUser?.name || '').trim().toLowerCase();
@@ -61,7 +61,7 @@ export default function TaskCard({ task, onCardClick }) {
       const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
       return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
     });
-  }, [task.subtasks, isCreator, isAdmin, currentUser]);
+  }, [task.subtasks, isCreator, currentUser]);
 
   // Special case: If task has linked document requiring signature (like NDA) and is in progress for the buyer legal assignee
   const isSigningEligible =
@@ -184,10 +184,10 @@ export default function TaskCard({ task, onCardClick }) {
               Assignee:
             </span>
             <span className="font-medium text-slate-700 text-[11px] text-right truncate max-w-[140px]">
-              {task.assigned_to_user ? (
-                <span className="font-semibold text-slate-900">{task.assigned_to_user}</span>
-              ) : displayedSubtasks.length > 0 && !isCreator && !isAdmin ? (
+              {!isCreator && displayedSubtasks.length > 0 ? (
                 <span className="font-semibold text-slate-900">{currentUser.name}</span>
+              ) : task.assigned_to_user ? (
+                <span className="font-semibold text-slate-900">{task.assigned_to_user}</span>
               ) : (
                 <span className="text-slate-400">Unassigned (Claimable)</span>
               )}

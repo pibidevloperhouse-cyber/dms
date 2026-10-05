@@ -103,6 +103,7 @@ export default function MarketplaceLayout({ children }) {
   else if (pathname.includes('/inbox')) title = "Inbox";
   else if (pathname.includes('/profile')) title = "Profile";
   else if (pathname.includes('/templates')) title = "Message Templates";
+  else if (pathname.includes('/my_teaser')) title = "My Teaser";
   else if (pathname.includes('/teaser')) title = "Teasers";
 
   return (
@@ -158,6 +159,14 @@ export default function MarketplaceLayout({ children }) {
               {getIsActive('/dms/marketplace/templates') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
               <div className={`\${getIsActive('/dms/marketplace/templates') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
                 <FaFileAlt className={`\${getIsActive('/dms/marketplace/templates') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+              </div>
+            </Link>
+          )}
+          {userRole === 'buyer' && (
+            <Link href="/dms/marketplace/my_teaser" className="relative p-3 w-full flex justify-center text-white group mt-1" title="My Teaser">
+              {getIsActive('/dms/marketplace/my_teaser') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
+              <div className={`\${getIsActive('/dms/marketplace/my_teaser') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+                <FaBriefcase className={`\${getIsActive('/dms/marketplace/my_teaser') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
               </div>
             </Link>
           )}
