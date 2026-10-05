@@ -14,6 +14,7 @@ export default function WorkspaceDashboard() {
   const [dealType, setDealType] = useState("Merge");
   const [userRole, setUserRole] = useState('seller');
   const [vdrRole, setVdrRole] = useState('external_user');
+  const [companyName, setCompanyName] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -44,6 +45,17 @@ export default function WorkspaceDashboard() {
       } else {
         const companyId = localStorage.getItem('companyId');
         if (!companyId) return;
+
+        // Fetch company name from Supabase companies table
+        try {
+          const companyRes = await fetch(`/api/dms/company?companyId=${companyId}`);
+          if (companyRes.ok) {
+            const companyData = await companyRes.json();
+            setCompanyName(companyData.company?.name || '');
+          }
+        } catch (error) {
+          console.error("Failed to fetch company name", error);
+        }
 
         try {
           const userId = localStorage.getItem('userId');
@@ -143,7 +155,7 @@ export default function WorkspaceDashboard() {
         {/* Header Row */}
         <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900">{userRole.toLowerCase() === 'buyer' ? 'Buyer Workspace' : 'Vishwa Tech'}</h1>
+            <h1 className="text-xl font-bold text-gray-900">{userRole.toLowerCase() === 'buyer' ? 'Buyer Workspace' : (companyName || 'My Workspace')}</h1>
             <span className="px-3 py-1 bg-[#e6fbf2] text-[#00c875] text-xs font-bold rounded-full tracking-wide capitalize">{userRole}</span>
           </div>
 
