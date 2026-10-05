@@ -9,9 +9,11 @@ import {
   X,
   Plus,
   Inbox,
-  Send
+  Send,
+  Clock,
+  Lock
 } from 'lucide-react';
-import { PRIORITIES, DEAL_STAGES, normalizeRole } from './DealWorkflowContext';
+import { PRIORITIES, DEAL_STAGES, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import StageTracker from './StageTracker';
 
 export default function TaskBoardView() {
@@ -48,6 +50,7 @@ export default function TaskBoardView() {
     clearFilters,
     hasActiveFilters,
     permittedTasks,
+    stageTrackerInfo,
   } = useDealWorkflow();
 
   // 1. Available groups inside the selected department
@@ -156,6 +159,14 @@ export default function TaskBoardView() {
 
   // Check if current user is super_admin
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
+
+  // Current stage tracking metadata
+  const currentStageObj = useMemo(() => {
+    if (!stageTrackerInfo?.stages) return null;
+    return stageTrackerInfo.stages.find(
+      (s) => normalizeStage(s.name) === normalizeStage(selectedDealStage)
+    );
+  }, [stageTrackerInfo, selectedDealStage]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-2">
@@ -374,6 +385,25 @@ export default function TaskBoardView() {
 
 
 
+
+      {/* Informative Stage Waiting Banner for Assignees */}
+      {trackingSection === 'ASSIGNED_TO_ME' && currentStageObj?.isMyTasksCompleted && !currentStageObj?.isCompleted && (
+        <div className="mx-4 sm:mx-6 lg:mx-8 mb-3 bg-amber-50/90 border border-amber-200/90 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-start sm:items-center gap-2.5 text-amber-900">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="text-xs">
+              <span className="font-bold">Stage Pending:</span> You have completed your task(s) for{' '}
+              <span className="font-semibold">{selectedDealStage}</span>. Waiting for{' '}
+              <span className="font-bold">{currentStageObj.dealPending} remaining task(s)</span> from other team members{' '}
+              ({currentStageObj.dealDone} / {currentStageObj.dealTotal} completed).
+            </div>
+          </div>
+          <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/80 px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1">
+            <Lock className="w-3 h-3 text-amber-700" />
+            Next stage unlocks when all {currentStageObj.dealTotal} tasks are done
+          </span>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* KANBAN TASK BOARD COLUMNS */}

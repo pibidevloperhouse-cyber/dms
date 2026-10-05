@@ -724,3 +724,96 @@ export const dmsInboxMessages = pgTable('dms_inbox_messages', {
   timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
   isRead: boolean('is_read').default(false)
 });
+
+// DEAL TASKS & WORKFLOW TABLES
+
+export const dealTasks = pgTable('deal_tasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  taskId: text('task_id').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+
+  // Role and sides
+  createdBy: text('created_by'),
+  creatorRole: text('creator_role'),
+  creatorCompany: text('creator_company'),
+  creatorSide: text('creator_side').default('seller'),
+
+  assignedToGroup: text('assigned_to_group'),
+  assignedToUser: text('assigned_to_user'),
+  targetCompany: text('target_company'),
+  targetSide: text('target_side').default('seller'),
+
+  // Workflow attributes
+  workstream: text('workstream').default('General'),
+  department: text('department').default('General'),
+  priority: text('priority').default('Medium'),
+  dealStage: text('deal_stage').default('Preparation'),
+  visibility: text('visibility').default('INTERNAL'),
+  status: text('status').default('TO_DO'),
+  dueDate: text('due_date'),
+  linkedDocument: text('linked_document'),
+  claimableByRole: boolean('claimable_by_role').default(true),
+
+  // JSON structures matching frontend
+  subtasks: jsonb('subtasks').default('[]'),
+  auditTrail: jsonb('audit_trail').default('[]'),
+  comments: jsonb('comments').default('[]'),
+  digitalSignature: jsonb('digital_signature'),
+
+  completedAt: text('completed_at'),
+  completedBy: text('completed_by'),
+  workspaceId: uuid('workspace_id'),
+  dealId: uuid('deal_id'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const dealSubtasks = pgTable('deal_subtasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  taskId: uuid('task_id').references(() => dealTasks.id, { onDelete: 'cascade' }).notNull(),
+
+  title: text('title').notNull(),
+  description: text('description'),
+  status: text('status').default('TO_DO').notNull(), // 'TO_DO', 'DONE'
+  priority: text('priority').default('Medium'),
+  dueDate: date('due_date'),
+
+  assignedMemberId: uuid('assigned_member_id').references(() => users.id),
+  assignedMemberName: text('assigned_member_name'),
+
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const dealTaskAttachments = pgTable('deal_task_attachments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  taskId: uuid('task_id').references(() => dealTasks.id, { onDelete: 'cascade' }).notNull(),
+  subtaskId: uuid('subtask_id').references(() => dealSubtasks.id, { onDelete: 'cascade' }),
+
+  name: text('name').notNull(),
+  filePath: text('file_path').notNull(),
+  fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+  fileSizeDisplay: varchar('file_size_display', { length: 50 }),
+  mimeType: text('mime_type'),
+
+  uploadedByUserId: uuid('uploaded_by_user_id').references(() => users.id),
+  uploadedByName: text('uploaded_by_name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const dealTaskAuditTrail = pgTable('deal_task_audit_trail', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  taskId: uuid('task_id').references(() => dealTasks.id, { onDelete: 'cascade' }).notNull(),
+
+  action: text('action').notNull(), // 'Task Created', 'Task Claimed', 'Submitted for Review', etc.
+  performedByUserId: uuid('performed_by_user_id').references(() => users.id),
+  performedByName: text('performed_by_name').notNull(),
+  role: text('role'),
+  ipAddress: varchar('ip_address', { length: 50 }),
+  metadata: jsonb('metadata').default('{}'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

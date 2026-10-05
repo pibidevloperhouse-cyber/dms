@@ -64,18 +64,18 @@ export default function TaskDetailDrawer() {
   const subtasksList = selectedTask.subtasks || [];
   const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
 
-  // If user is creator or admin, they see all subtasks created.
-  // For assigned members (like Lakshmi), ONLY tasks/subtasks assigned to them are shown!
+  // If user is creator, they see all subtasks created.
+  // For assigned members (like Pranav or Lakshmi), ONLY tasks/subtasks assigned to them are shown!
   const myName = (currentUser?.name || '').trim().toLowerCase();
   const myEmail = (currentUser?.email || '').trim().toLowerCase();
   const myId = (currentUser?.id || '').trim().toLowerCase();
 
-  const displayedSubtasks = (isCreator || isAdmin)
+  const displayedSubtasks = isCreator
     ? subtasksList
     : subtasksList.filter((s) => {
-        const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
-        return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
-      });
+      const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
+      return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
+    });
 
   const totalSubtasks = displayedSubtasks.length;
   const completedSubtasks = displayedSubtasks.filter((s) => s.status === 'DONE').length;
@@ -182,8 +182,8 @@ export default function TaskDetailDrawer() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Edit Task Button - allows task creator or admin to edit task after assignment */}
-                {(isCreator || isAdmin) && (
+                {/* Edit Task Button - allows task creator to edit task after assignment */}
+                {isCreator && (
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
@@ -194,15 +194,17 @@ export default function TaskDetailDrawer() {
                   </button>
                 )}
 
-                {/* Delete Task Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  title="Delete Task"
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {/* Delete Task Button - only for creator */}
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    title="Delete Task"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
 
                 <button
                   onClick={() => setSelectedTask(null)}
@@ -610,7 +612,9 @@ export default function TaskDetailDrawer() {
                 <div className="grid grid-cols-3 py-2">
                   <span className="text-slate-500 font-medium">Assignee</span>
                   <span className="col-span-2 text-slate-800 font-semibold">
-                    {selectedTask.assigned_to_user || <span className="text-slate-400">Unassigned (Claimable)</span>}
+                    {!isCreator && displayedSubtasks.length > 0
+                      ? currentUser.name
+                      : (selectedTask.assigned_to_user || <span className="text-slate-400">Unassigned (Claimable)</span>)}
                   </span>
                 </div>
 
@@ -711,8 +715,8 @@ export default function TaskDetailDrawer() {
                       <div
                         key={comm.id}
                         className={`p-3 rounded-xl border text-xs space-y-1 ${isInternal
-                            ? 'bg-slate-50/80 border-slate-200'
-                            : 'bg-purple-50/50 border-purple-200/70'
+                          ? 'bg-slate-50/80 border-slate-200'
+                          : 'bg-purple-50/50 border-purple-200/70'
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -723,8 +727,8 @@ export default function TaskDetailDrawer() {
                           <div className="flex items-center gap-1.5">
                             <span
                               className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border flex items-center gap-1 ${isInternal
-                                  ? 'bg-slate-100 text-slate-600 border-slate-200'
-                                  : 'bg-purple-100/70 text-purple-700 border-purple-200'
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-purple-100/70 text-purple-700 border-purple-200'
                                 }`}
                             >
                               {isInternal ? <Lock className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
