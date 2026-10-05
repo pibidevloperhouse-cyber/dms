@@ -19,7 +19,8 @@ export async function POST(req) {
       dmsRole: users.dmsRole,
       status: users.status,
       nda_status: users.ndaStatus,
-      request_status: users.requestStatus
+      request_status: users.requestStatus,
+      verification_status: users.verificationStatus
     }).from(users).where(eq(users.email, email)).limit(1);
 
     const user = userList[0];
@@ -41,6 +42,13 @@ export async function POST(req) {
 
     if (user.status === 'suspended') {
       return NextResponse.json({ error: 'This account has been suspended. Please contact your VDR Administrator.' }, { status: 403 });
+    }
+
+    // Check verification status for buyers and sellers
+    if (user.dmsRole === 'buyer' || user.dmsRole === 'seller') {
+      if (user.verification_status !== 'verified') {
+        return NextResponse.json({ error: 'Your company is under verification. Please wait for admin approval.' }, { status: 403 });
+      }
     }
 
     // Insert into login_history
