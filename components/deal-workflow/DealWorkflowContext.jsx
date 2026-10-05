@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 // ============================================================================
@@ -474,6 +474,10 @@ export function DealWorkflowProvider({ children }) {
   };
 
   const stageTrackerInfo = useMemo(() => {
+    // 1. Stage Unlocking is a global deal-wide gate:
+    // ALL tasks in a stage across the deal must be completed before the next stage unlocks for assignees!
+    const dealMaxUnlocked = getMaxUnlockedStageIndex(tasks);
+
     // Tasks tracked in the 3 stage boxes based on active tracking section
     let relevantTasks = tasks;
     if (trackingSection === 'ASSIGNED_TO_ME') {
@@ -482,53 +486,71 @@ export function DealWorkflowProvider({ children }) {
       relevantTasks = tasks.filter((t) => isTaskCreator(t, currentUser));
     }
 
-    const maxUnlocked = getMaxUnlockedStageIndex(relevantTasks);
-
     const stages = DEAL_STAGES.map((stageName, idx) => {
+      // Deal-wide statistics for this stage
+      const dealStageTasks = tasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
+      const dealTotal = dealStageTasks.length;
+      const dealDone = dealStageTasks.filter((t) => t.status === 'DONE').length;
+      const dealPending = dealTotal - dealDone;
+      const isDealStageCompleted = dealTotal > 0 && dealDone === dealTotal;
+
+      // Section-specific tasks (e.g. user assigned tasks)
       const stageTasks = relevantTasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
       const total = stageTasks.length;
       const done = stageTasks.filter((t) => t.status === 'DONE').length;
       const inProgress = stageTasks.filter((t) => t.status === 'IN_PROGRESS').length;
       const review = stageTasks.filter((t) => t.status === 'REVIEW').length;
       const todo = stageTasks.filter((t) => t.status === 'TO_DO').length;
-      const isCompleted = total > 0 && done === total;
-
-      const isUnlocked = idx <= maxUnlocked;
-      const isLocked = !isUnlocked;
-      const isActive = idx === maxUnlocked && !isCompleted;
 
       // User specific assigned tasks in this stage
       const myStageTasks = stageTasks.filter((t) => isTaskAssignee(t, currentUser));
       const myTotal = myStageTasks.length;
       const myDone = myStageTasks.filter((t) => t.status === 'DONE').length;
+      const isMyTasksCompleted = myTotal > 0 && myDone === myTotal;
+
+      // Sequential unlock rule:
+      // A stage is ONLY unlocked if ALL tasks in previous stages across the deal are completed!
+      const isUnlocked = idx <= dealMaxUnlocked;
+      const isLocked = !isUnlocked;
+      const isCompleted = isDealStageCompleted;
+      const isActive = idx === dealMaxUnlocked && !isCompleted;
+
+      const displayTotal = dealTotal > 0 ? dealTotal : total;
+      const displayDone = dealTotal > 0 ? dealDone : done;
+      const percent = displayTotal > 0 ? Math.round((displayDone / displayTotal) * 100) : (isCompleted ? 100 : 0);
 
       return {
         name: stageName,
         index: idx,
-        total,
-        done,
+        total: displayTotal,
+        done: displayDone,
+        pending: dealPending,
+        dealTotal,
+        dealDone,
+        dealPending,
         inProgress,
         review,
         todo,
-        percent: total > 0 ? Math.round((done / total) * 100) : (isCompleted ? 100 : 0),
+        percent,
         isCompleted,
         isUnlocked,
         isLocked,
         isActive,
         myTotal,
         myDone,
+        isMyTasksCompleted,
       };
     });
 
-    const activeStage = stages.find((s) => s.isActive) || stages[maxUnlocked] || stages[0];
-    const totalDealTasks = relevantTasks.length;
-    const completedDealTasks = relevantTasks.filter((t) => t.status === 'DONE').length;
+    const activeStage = stages.find((s) => s.isActive) || stages[dealMaxUnlocked] || stages[0];
+    const totalDealTasks = tasks.length;
+    const completedDealTasks = tasks.filter((t) => t.status === 'DONE').length;
     const overallPercent = totalDealTasks > 0 ? Math.round((completedDealTasks / totalDealTasks) * 100) : 0;
     const allStagesComplete = totalDealTasks > 0 && completedDealTasks === totalDealTasks;
 
     return {
       stages,
-      maxUnlockedIndex: maxUnlocked,
+      maxUnlockedIndex: dealMaxUnlocked,
       activeStageName: activeStage.name,
       activeStageIndex: activeStage.index,
       allStagesComplete,
@@ -546,6 +568,53 @@ export function DealWorkflowProvider({ children }) {
     const taskStageIndex = getStageIndex(task.deal_stage);
     return taskStageIndex > stageTrackerInfo.maxUnlockedIndex;
   };
+
+  // ============================================================================
+  // AUTOMATIC STAGE PROGRESSION FOR ASSIGNEES & CREATORS
+  // When tasks of a stage (e.g. Preparation) are completed, automatically advance
+  // selectedDealStage to the next active unlocked stage (e.g. Due Diligence) so
+  // assignees immediately see and can work on their next stage tasks!
+  // ============================================================================
+  const prevActiveStageRef = useRef(null);
+  const initialSyncDoneRef = useRef(false);
+
+  // Reset initial sync flag when user or tracking section changes
+  useEffect(() => {
+    initialSyncDoneRef.current = false;
+  }, [currentUser?.name, currentUser?.id, trackingSection]);
+
+  useEffect(() => {
+    if (!stageTrackerInfo || !stageTrackerInfo.stages || stageTrackerInfo.stages.length === 0) return;
+
+    const activeStageName = stageTrackerInfo.activeStageName || 'Preparation';
+
+    // 1. Initial Load Sync:
+    // If the default stage (Preparation) is completed or has no pending tasks for this user,
+    // and a subsequent stage (like Due Diligence) is active/unlocked, automatically switch to it!
+    if (!initialSyncDoneRef.current) {
+      initialSyncDoneRef.current = true;
+      prevActiveStageRef.current = activeStageName;
+
+      const currentStageObj = stageTrackerInfo.stages.find(
+        (s) => normalizeStage(s.name) === normalizeStage(selectedDealStage)
+      );
+
+      if (currentStageObj && (currentStageObj.isCompleted || currentStageObj.isLocked) && activeStageName !== selectedDealStage) {
+        setSelectedDealStage(activeStageName);
+      }
+      return;
+    }
+
+    // 2. Dynamic Progression:
+    // When one stage's tasks are completed and the active stage advances to the next stage,
+    // automatically update selectedDealStage so the user sees the new stage tasks!
+    if (prevActiveStageRef.current && prevActiveStageRef.current !== activeStageName) {
+      prevActiveStageRef.current = activeStageName;
+      setSelectedDealStage(activeStageName);
+    } else {
+      prevActiveStageRef.current = activeStageName;
+    }
+  }, [stageTrackerInfo, selectedDealStage]);
 
   // ============================================================================
   // TASK VISIBILITY PERMISSION LOGIC
@@ -651,7 +720,7 @@ export function DealWorkflowProvider({ children }) {
   // Base tasks permitted for the current user
   const permittedTasks = useMemo(() => {
     return tasks.filter((t) => isTaskVisibleToUser(t, currentUser));
-  }, [tasks, currentUser]);
+  }, [tasks, currentUser, stageTrackerInfo]);
 
   // Counts for the 2 tracking sections (within current deal stage and search filter)
   const trackingCounts = useMemo(() => {
