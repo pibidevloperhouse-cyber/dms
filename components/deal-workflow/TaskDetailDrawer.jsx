@@ -64,13 +64,13 @@ export default function TaskDetailDrawer() {
   const subtasksList = selectedTask.subtasks || [];
   const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
 
-  // If user is creator or admin, they see all subtasks created.
-  // For assigned members (like Lakshmi), ONLY tasks/subtasks assigned to them are shown!
+  // If user is creator, they see all subtasks created.
+  // For assigned members (like Pranav or Lakshmi), ONLY tasks/subtasks assigned to them are shown!
   const myName = (currentUser?.name || '').trim().toLowerCase();
   const myEmail = (currentUser?.email || '').trim().toLowerCase();
   const myId = (currentUser?.id || '').trim().toLowerCase();
 
-  const displayedSubtasks = (isCreator || isAdmin)
+  const displayedSubtasks = isCreator
     ? subtasksList
     : subtasksList.filter((s) => {
         const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
@@ -182,8 +182,8 @@ export default function TaskDetailDrawer() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Edit Task Button - allows task creator or admin to edit task after assignment */}
-                {(isCreator || isAdmin) && (
+                {/* Edit Task Button - allows task creator to edit task after assignment */}
+                {isCreator && (
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
@@ -194,15 +194,17 @@ export default function TaskDetailDrawer() {
                   </button>
                 )}
 
-                {/* Delete Task Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  title="Delete Task"
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {/* Delete Task Button - only for creator */}
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    title="Delete Task"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
 
                 <button
                   onClick={() => setSelectedTask(null)}
@@ -610,7 +612,9 @@ export default function TaskDetailDrawer() {
                 <div className="grid grid-cols-3 py-2">
                   <span className="text-slate-500 font-medium">Assignee</span>
                   <span className="col-span-2 text-slate-800 font-semibold">
-                    {selectedTask.assigned_to_user || <span className="text-slate-400">Unassigned (Claimable)</span>}
+                    {!isCreator && displayedSubtasks.length > 0
+                      ? currentUser.name
+                      : (selectedTask.assigned_to_user || <span className="text-slate-400">Unassigned (Claimable)</span>)}
                   </span>
                 </div>
 
