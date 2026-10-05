@@ -62,7 +62,9 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const { name, companyId } = await req.json();
+    const { 
+      name, companyId, projectType, dealType, description, industry, revenue, ebitda, mandate 
+    } = await req.json();
 
     if (!name || !companyId) {
       return NextResponse.json({ error: 'Missing name or companyId' }, { status: 400 });
@@ -71,8 +73,26 @@ export async function POST(req) {
     const [newProject] = await db.insert(dmsProjects).values({
       name,
       companyId,
+      projectType,
       status: 'ACTIVE'
     }).returning();
+
+    // Also create a teaser with the collected details
+    try {
+      const { dmsTeasers } = require('@/db/schema');
+      await db.insert(dmsTeasers).values({
+        projectId: newProject.id,
+        dealName: name,
+        sector: industry || '',
+        companyOverview: description || '',
+        revenue: revenue || '',
+        ebitda: ebitda || '',
+        publicDesc: mandate || '',
+        status: 'Active'
+      });
+    } catch(teaserErr) {
+      console.error('Failed to create initial teaser:', teaserErr);
+    }
 
     return NextResponse.json({ project: newProject }, { status: 201 });
   } catch (error) {
@@ -90,6 +110,25 @@ export async function DELETE(req) {
       return NextResponse.json({ error: 'Missing project id' }, { status: 400 });
     }
 
+    // Since there are foreign key constraints, we must delete child records first.
+    // Dynamic import to avoid missing dependencies
+    const { dmsTeasers, dmsDeals, dmsDealProposals, riskIssues, approvals, auditLogs } = require('@/db/schema');
+    
+    // First, find teasers for this project to delete deal proposals attached to them
+    const teasers = await db.select().from(dmsTeasers).where(eq(dmsTeasers.projectId, id));
+    if (teasers.length > 0) {
+      const teaserIds = teasers.map(t => t.id);
+      await db.delete(dmsDealProposals).where(inArray(dmsDealProposals.teaserId, teaserIds));
+    }
+
+    // Now delete all related records that reference projectId
+    if (dmsDeals) await db.delete(dmsDeals).where(eq(dmsDeals.projectId, id));
+    if (riskIssues) await db.delete(riskIssues).where(eq(riskIssues.projectId, id));
+    if (approvals) await db.delete(approvals).where(eq(approvals.projectId, id));
+    if (auditLogs) await db.delete(auditLogs).where(eq(auditLogs.projectId, id));
+    if (dmsTeasers) await db.delete(dmsTeasers).where(eq(dmsTeasers.projectId, id));
+
+    // Finally, delete the project
     await db.delete(dmsProjects).where(eq(dmsProjects.id, id));
 
     return NextResponse.json({ success: true }, { status: 200 });

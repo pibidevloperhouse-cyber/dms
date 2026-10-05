@@ -3,6 +3,7 @@ const nextConfig = {
   allowedDevOrigins: [
     "localhost",
     "192.168.*.*",
+    "10.11.208.137"
   ],
   async redirects() {
     return [

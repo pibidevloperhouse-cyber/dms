@@ -158,7 +158,7 @@ export default function LoginPage() {
                     </div>
                     <h3 className="text-2xl font-black text-slate-800 mb-2">Login Failed</h3>
                     <p className="text-slate-500 font-medium text-[15px]">{error}</p>
-                    <button 
+                    <button
                       onClick={() => setError('')}
                       className="mt-8 w-full py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl transition-colors duration-200"
                     >

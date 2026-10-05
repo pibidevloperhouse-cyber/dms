@@ -28,14 +28,21 @@ export async function POST(req) {
     let finalCompanyId = null;
 
     if (companyName) {
-      // Create a new Company profile for the user
-      const [newCompany] = await db.insert(companies).values({
-        name: companyName,
-        email: email, // use user's email for the company for now
-        status: 'active'
-      }).returning({ id: companies.id });
+      // Check if company already exists
+      const existingCompany = await db.select().from(companies).where(eq(companies.email, email)).limit(1);
       
-      finalCompanyId = newCompany.id;
+      if (existingCompany.length > 0) {
+        finalCompanyId = existingCompany[0].id;
+      } else {
+        // Create a new Company profile for the user
+        const [newCompany] = await db.insert(companies).values({
+          name: companyName,
+          email: email, // use user's email for the company for now
+          status: 'active'
+        }).returning({ id: companies.id });
+        
+        finalCompanyId = newCompany.id;
+      }
     }
 
     // Insert user into database
@@ -45,9 +52,9 @@ export async function POST(req) {
       passwordHash,
       companyType,
       companyName,
-      companyId: finalCompanyId, // Link to the newly created company if seller
+      companyId: finalCompanyId, // Link to the company
       dmsRole: roleToSet.toLowerCase(), // 'buyer' or 'seller'
-      role: roleToSet.toLowerCase() === 'seller' ? 'super_admin' : 'guest_admin', // from userRoleEnum
+      role: roleToSet.toLowerCase() === 'seller' ? 'super_admin' : 'guest_admin',
       status: 'active'
     }).returning({ id: users.id });
 
@@ -83,8 +90,9 @@ export async function POST(req) {
   } catch (error) {
     console.error('Registration Error:', error);
     // Handle unique email constraint error specifically
-    if (error.code === '23505') {
-      return NextResponse.json({ error: 'Email already exists' }, { status: 409 });
+    const errorCode = error.code || (error.cause && error.cause.code);
+    if (errorCode === '23505') {
+      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

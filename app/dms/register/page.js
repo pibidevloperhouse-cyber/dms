@@ -23,6 +23,7 @@ export default function DMSRegister() {
   const [showPassword, setShowPassword] = useState(false);
   const [companyType, setCompanyType] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [buyerType, setBuyerType] = useState("");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -68,11 +69,17 @@ export default function DMSRegister() {
 
       const roleToSet = participantType || 'Buyer';
       localStorage.setItem('userRole', roleToSet);
+      localStorage.setItem('loginTimestamp', Date.now());
+      if (firstName || lastName) {
+        localStorage.setItem('userName', `${firstName} ${lastName}`.trim());
+      }
 
       const timeout = setTimeout(() => {
         if (inviteToken) {
           router.push('/dms/workspace');
         } else if (roleToSet === 'Buyer') {
+          router.push('/dms/onboarding');
+        } else if (roleToSet === 'Seller') {
           router.push('/dms/marketplace');
         } else {
           router.push('/dms/workspace');
@@ -92,7 +99,7 @@ export default function DMSRegister() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName, lastName, email, password, dealType, participantType, companyType, companyName, inviteToken, projectId
+          firstName, lastName, email, password, dealType, participantType, companyType, companyName, inviteToken, projectId, buyerType
         }),
       });
 
@@ -217,15 +224,32 @@ export default function DMSRegister() {
                 </div>
               )}
 
+              {/* 3.5. Buyer Type */}
+              {participantType === "Buyer" && !inviteToken && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Registering as</label>
+                  <select
+                    value={buyerType}
+                    onChange={(e) => setBuyerType(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none"
+                  >
+                    <option value="" disabled>Select Individual or Company...</option>
+                    <option value="Individual">Individual</option>
+                    <option value="Company">Company</option>
+                  </select>
+                </div>
+              )}
+
               {/* 4. Conditional Fields */}
-              {(participantType === "Seller" || participantType === "Buyer") && (
+              {(participantType === "Seller" || (participantType === "Buyer" && buyerType === "Company")) && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
                   <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="Company Name" required />
                 </div>
               )}
 
-              {(participantType === "Seller" || participantType === "Buyer") && (
+              {(participantType === "Seller" || (participantType === "Buyer" && buyerType === "Company")) && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Company Type</label>
                   <select value={companyType} onChange={(e) => setCompanyType(e.target.value)} required className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none">
