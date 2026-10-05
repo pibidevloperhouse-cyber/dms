@@ -17,6 +17,7 @@ export default function CreateTaskModal() {
     getAssignableMembersForGroup,
     roleHierarchy,
     normalizeRole,
+    selectedDealStage,
   } = useDealWorkflow();
 
   // Main task fields
@@ -25,8 +26,9 @@ export default function CreateTaskModal() {
   const [visibility, setVisibility] = useState('INTERNAL');
   const [department, setDepartment] = useState('');
   const [assignedGroup, setAssignedGroup] = useState('');
+  const [assignedMember, setAssignedMember] = useState('');
   const [priority, setPriority] = useState('High');
-  const [dealStage, setDealStage] = useState('Due Diligence');
+  const [dealStage, setDealStage] = useState('Preparation');
   const [dueDate, setDueDate] = useState('');
   const [subtasks, setSubtasks] = useState([]);
 
@@ -60,6 +62,15 @@ export default function CreateTaskModal() {
     }
   }, [departments, department]);
 
+  // Sync default deal stage from currently viewed board stage
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      if (selectedDealStage && selectedDealStage !== 'ALL') {
+        setDealStage(selectedDealStage);
+      }
+    }
+  }, [isCreateModalOpen, selectedDealStage]);
+
   // Sync assigned group when availableGroups change
   useEffect(() => {
     if (availableGroups.length > 0) {
@@ -92,8 +103,9 @@ export default function CreateTaskModal() {
     setVisibility('INTERNAL');
     setDepartment(departments[0] || '');
     setAssignedGroup(availableGroups[0] || '');
+    setAssignedMember('');
     setPriority('High');
-    setDealStage('Due Diligence');
+    setDealStage('Preparation');
     setDueDate('');
     setSubtasks([]);
     setSubtaskAttachments([]);
@@ -107,6 +119,13 @@ export default function CreateTaskModal() {
 
     // First assigned subordinate from subtasks if available
     const firstAssigned = subtasks.find((st) => st.assignedMember && st.assignedMember !== 'Unassigned');
+    const finalAssignee = assignedMember || firstAssigned?.assignedMember || null;
+
+    // RULE: Task creator cannot assign the task to their own
+    if (finalAssignee && currentUser?.name && finalAssignee.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) {
+      alert('Task creator cannot assign tasks to themselves. Please select a subordinate team member.');
+      return;
+    }
 
     createTask({
       title: title.trim(),
@@ -115,7 +134,7 @@ export default function CreateTaskModal() {
       department: department || 'General',
       workstream: department || 'General',
       assigned_to_group: assignedGroup || '',
-      assigned_to_user: firstAssigned ? firstAssigned.assignedMember : null,
+      assigned_to_user: finalAssignee,
       priority,
       deal_stage: dealStage,
       due_date: dueDate || null,
@@ -315,6 +334,9 @@ export default function CreateTaskModal() {
               </div>
             </div>
 
+            {/* Assign to Member (Role Hierarchy Enforced & Creator Excluded) */}
+
+
             {/* Row: Deal stage & Due date */}
             <div className="grid grid-cols-2 gap-3.5">
               <div>
@@ -399,13 +421,12 @@ export default function CreateTaskModal() {
                             </span>
                           )}
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                              st.priority === 'High'
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${st.priority === 'High'
                                 ? 'bg-rose-50 text-rose-700 border-rose-200'
                                 : st.priority === 'Medium'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-200'
-                            }`}
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
                           >
                             {st.priority}
                           </span>

@@ -1,7 +1,7 @@
 "use client";
 
-import React from 'react';
-import { useDealWorkflow } from './DealWorkflowContext';
+import React, { useMemo } from 'react';
+import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
 import {
   Lock,
   Globe,
@@ -28,6 +28,7 @@ export default function TaskCard({ task, onCardClick }) {
     canUserApproveTask,
     isTaskCreator,
     isTaskAssignee,
+    isStageLockedForUser,
     claimTask,
     submitForReview,
     approveAndComplete,
@@ -41,10 +42,26 @@ export default function TaskCard({ task, onCardClick }) {
 
   const isCreator = isTaskCreator ? isTaskCreator(task, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(task, currentUser) : (task.assigned_to_user === currentUser.name);
+  const isStageLocked = isStageLockedForUser ? isStageLockedForUser(task, currentUser) : false;
 
   const canClaim = canUserClaimTask ? canUserClaimTask(task, currentUser) : false;
   const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(task, currentUser) : false;
   const canApprove = canUserApproveTask ? canUserApproveTask(task, currentUser) : false;
+
+  const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
+  const displayedSubtasks = useMemo(() => {
+    if (isCreator || isAdmin) {
+      return task.subtasks || [];
+    }
+    const myName = (currentUser?.name || '').trim().toLowerCase();
+    const myEmail = (currentUser?.email || '').trim().toLowerCase();
+    const myId = (currentUser?.id || '').trim().toLowerCase();
+
+    return (task.subtasks || []).filter((s) => {
+      const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
+      return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
+    });
+  }, [task.subtasks, isCreator, isAdmin, currentUser]);
 
   // Special case: If task has linked document requiring signature (like NDA) and is in progress for the buyer legal assignee
   const isSigningEligible =
@@ -169,6 +186,8 @@ export default function TaskCard({ task, onCardClick }) {
             <span className="font-medium text-slate-700 text-[11px] text-right truncate max-w-[140px]">
               {task.assigned_to_user ? (
                 <span className="font-semibold text-slate-900">{task.assigned_to_user}</span>
+              ) : displayedSubtasks.length > 0 && !isCreator && !isAdmin ? (
+                <span className="font-semibold text-slate-900">{currentUser.name}</span>
               ) : (
                 <span className="text-slate-400">Unassigned (Claimable)</span>
               )}
@@ -187,14 +206,14 @@ export default function TaskCard({ task, onCardClick }) {
         </div>
 
         {/* Subtasks Count Pill if present */}
-        {task.subtasks && task.subtasks.length > 0 && (
+        {displayedSubtasks && displayedSubtasks.length > 0 && (
           <div className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-md bg-teal-50/70 border border-teal-100 text-[11px] text-[#006666] mb-3">
             <div className="flex items-center gap-1.5">
               <CheckSquare className="w-3.5 h-3.5 text-[#006666] shrink-0" />
               <span className="font-semibold">Subtasks</span>
             </div>
             <span className="font-bold text-[10px] bg-white px-1.5 py-0.2 rounded border border-teal-200">
-              {task.subtasks.filter((s) => s.status === 'DONE').length}/{task.subtasks.length}
+              {displayedSubtasks.filter((s) => s.status === 'DONE').length}/{displayedSubtasks.length}
             </span>
           </div>
         )}
@@ -275,7 +294,12 @@ export default function TaskCard({ task, onCardClick }) {
         {/* Action Buttons based on status & role */}
         <div>
           {task.status === 'TO_DO' && (
-            canClaim ? (
+            isStageLocked ? (
+              <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" />
+                <span>Stage Locked</span>
+              </span>
+            ) : canClaim ? (
               <button
                 onClick={(e) => {
                   e.stopPropagation();

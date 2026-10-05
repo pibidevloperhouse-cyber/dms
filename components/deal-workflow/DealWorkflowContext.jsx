@@ -155,6 +155,23 @@ export const DEAL_STAGES = [
   'Negotiation',
 ];
 
+export const normalizeStage = (stage) => {
+  if (!stage) return 'Preparation';
+  const s = stage.trim().toLowerCase();
+  if (s.includes('prep')) return 'Preparation';
+  if (s.includes('due') || s.includes('diligence')) return 'Due Diligence';
+  if (s.includes('neg')) return 'Negotiation';
+  return 'Preparation';
+};
+
+export const getStageIndex = (stage) => {
+  const norm = normalizeStage(stage);
+  if (norm === 'Preparation') return 0;
+  if (norm === 'Due Diligence') return 1;
+  if (norm === 'Negotiation') return 2;
+  return 0;
+};
+
 // Tasks are loaded dynamically from the backend PostgreSQL database
 const INITIAL_DEMO_TASKS = [];
 
@@ -212,10 +229,11 @@ export function DealWorkflowProvider({ children }) {
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+  const [selectedGroup, setSelectedGroup] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
-  const [selectedDealStage, setSelectedDealStage] = useState('ALL');
+  const [selectedDealStage, setSelectedDealStage] = useState('Preparation');
   const [teamFilter, setTeamFilter] = useState('ALL'); // 'ALL' or 'MY_TEAM'
   const [memberFilter, setMemberFilter] = useState('ALL'); // 'ALL', 'MY_TASKS', or specific member name
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
@@ -350,6 +368,18 @@ export function DealWorkflowProvider({ children }) {
     return DEMO_USERS.ravi;
   }, [sessionUser, currentUserId]);
 
+  // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
+  const [trackingSection, setTrackingSection] = useState(() => {
+    return normalizeRole(currentUser?.role) === 'super_admin' ? 'CREATED_BY_ME' : 'ASSIGNED_TO_ME';
+  });
+
+  // Super admin cannot have tasks assigned to them; they only track created tasks
+  useEffect(() => {
+    if (normalizeRole(currentUser?.role) === 'super_admin') {
+      setTrackingSection('CREATED_BY_ME');
+    }
+  }, [currentUser?.role]);
+
   // Enrich sessionUser with group if known from groupMembersMap
   useEffect(() => {
     if (sessionUser?.name && groupMembersMap && Object.keys(groupMembersMap).length > 0) {
@@ -402,6 +432,121 @@ export function DealWorkflowProvider({ children }) {
     return false;
   };
 
+  // Task assigned to user by other users (creator excluded)
+  const isAssignedByOthers = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    if (isTaskCreator(task, user)) return false;
+    return isTaskAssignee(task, user);
+  };
+
+  // ============================================================================
+  // SEQUENTIAL STAGE GATING HELPERS
+  // Rule: Preparation -> Due Diligence -> Negotiation.
+  // 1. Preparation is unlocked initially.
+  // 2. Due Diligence unlocks ONLY when ALL tasks in Preparation are completed (DONE).
+  // 3. Negotiation unlocks ONLY when ALL tasks in Due Diligence are completed (DONE).
+  // Assigned users only see and can only work on tasks for unlocked stages.
+  // Task creators can view and oversee all stages they created to track deal room progress.
+  // ============================================================================
+  const getMaxUnlockedStageIndex = (tasksList = tasks) => {
+    if (!tasksList || tasksList.length === 0) return 0;
+
+    // Check Stage 0: Preparation
+    const prepTasks = tasksList.filter((t) => normalizeStage(t.deal_stage) === 'Preparation');
+    if (prepTasks.length > 0) {
+      const isPrepDone = prepTasks.every((t) => t.status === 'DONE');
+      if (!isPrepDone) {
+        return 0; // Preparation has pending tasks
+      }
+    }
+
+    // Preparation is complete. Check Stage 1: Due Diligence
+    const ddTasks = tasksList.filter((t) => normalizeStage(t.deal_stage) === 'Due Diligence');
+    if (ddTasks.length > 0) {
+      const isDdDone = ddTasks.every((t) => t.status === 'DONE');
+      if (!isDdDone) {
+        return 1; // Due Diligence has pending tasks
+      }
+    }
+
+    // Both Preparation and Due Diligence are completed!
+    return 2;
+  };
+
+  const stageTrackerInfo = useMemo(() => {
+    // Tasks tracked in the 3 stage boxes based on active tracking section
+    let relevantTasks = tasks;
+    if (trackingSection === 'ASSIGNED_TO_ME') {
+      relevantTasks = tasks.filter((t) => isAssignedByOthers(t, currentUser));
+    } else if (trackingSection === 'CREATED_BY_ME') {
+      relevantTasks = tasks.filter((t) => isTaskCreator(t, currentUser));
+    }
+
+    const maxUnlocked = getMaxUnlockedStageIndex(relevantTasks);
+
+    const stages = DEAL_STAGES.map((stageName, idx) => {
+      const stageTasks = relevantTasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
+      const total = stageTasks.length;
+      const done = stageTasks.filter((t) => t.status === 'DONE').length;
+      const inProgress = stageTasks.filter((t) => t.status === 'IN_PROGRESS').length;
+      const review = stageTasks.filter((t) => t.status === 'REVIEW').length;
+      const todo = stageTasks.filter((t) => t.status === 'TO_DO').length;
+      const isCompleted = total > 0 && done === total;
+
+      const isUnlocked = idx <= maxUnlocked;
+      const isLocked = !isUnlocked;
+      const isActive = idx === maxUnlocked && !isCompleted;
+
+      // User specific assigned tasks in this stage
+      const myStageTasks = stageTasks.filter((t) => isTaskAssignee(t, currentUser));
+      const myTotal = myStageTasks.length;
+      const myDone = myStageTasks.filter((t) => t.status === 'DONE').length;
+
+      return {
+        name: stageName,
+        index: idx,
+        total,
+        done,
+        inProgress,
+        review,
+        todo,
+        percent: total > 0 ? Math.round((done / total) * 100) : (isCompleted ? 100 : 0),
+        isCompleted,
+        isUnlocked,
+        isLocked,
+        isActive,
+        myTotal,
+        myDone,
+      };
+    });
+
+    const activeStage = stages.find((s) => s.isActive) || stages[maxUnlocked] || stages[0];
+    const totalDealTasks = relevantTasks.length;
+    const completedDealTasks = relevantTasks.filter((t) => t.status === 'DONE').length;
+    const overallPercent = totalDealTasks > 0 ? Math.round((completedDealTasks / totalDealTasks) * 100) : 0;
+    const allStagesComplete = totalDealTasks > 0 && completedDealTasks === totalDealTasks;
+
+    return {
+      stages,
+      maxUnlockedIndex: maxUnlocked,
+      activeStageName: activeStage.name,
+      activeStageIndex: activeStage.index,
+      allStagesComplete,
+      totalDealTasks,
+      completedDealTasks,
+      overallPercent,
+    };
+  }, [tasks, trackingSection, currentUser]);
+
+  const isStageLockedForUser = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    // Task creator is never locked out of tracking tasks they created
+    if (isTaskCreator(task, user)) return false;
+
+    const taskStageIndex = getStageIndex(task.deal_stage);
+    return taskStageIndex > stageTrackerInfo.maxUnlockedIndex;
+  };
+
   // ============================================================================
   // TASK VISIBILITY PERMISSION LOGIC
   // ============================================================================
@@ -409,11 +554,17 @@ export function DealWorkflowProvider({ children }) {
     if (!task) return false;
     if (!user) return true;
 
-    // Creator always sees their own tasks
+    // Creator always sees their own tasks across all stages
     if (isTaskCreator(task, user)) return true;
 
+    // Sequential stage gating:
+    // If the task belongs to a stage locked for this assigned user, hide it completely!
+    if (isStageLockedForUser(task, user)) {
+      return false;
+    }
+
     const normRole = normalizeRole(user.role);
-    // Super Admins, Admins, and Sub Admins see all tasks
+    // Super Admins, Admins, and Sub Admins see all tasks in unlocked stages
     if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
 
     const userName = (user.name || '').trim().toLowerCase();
@@ -427,17 +578,11 @@ export function DealWorkflowProvider({ children }) {
       return true;
     }
 
-    // If user belongs to the assigned group
-    if (user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
+    // If user belongs to the assigned group ONLY when the task has no specific assignee
+    const hasSpecificAssignee = Boolean(task.assigned_to_user) || (Array.isArray(task.subtasks) && task.subtasks.some((st) => st.assignedMember || st.assigned_to_user));
+    if (!hasSpecificAssignee && user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
       return true;
     }
-
-    // External tasks are visible across parties
-    if (task.visibility === 'EXTERNAL') return true;
-
-    // Internal tasks visible to same side
-    const userSide = user.side || (normRole.includes('buyer') ? 'buyer' : 'seller');
-    if (task.creator_side === userSide || task.target_side === userSide) return true;
 
     return false;
   };
@@ -457,26 +602,49 @@ export function DealWorkflowProvider({ children }) {
 
   const getMembersForGroup = (groupName) => {
     if (!groupName) {
-      return allUsers.length > 0 ? allUsers.map((u) => u.name) : (currentUser ? [currentUser.name] : []);
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
     }
     const membersSet = new Set();
 
     if (groupMembersMap[groupName] && Array.isArray(groupMembersMap[groupName])) {
-      groupMembersMap[groupName].forEach((m) => membersSet.add(m));
+      groupMembersMap[groupName].forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
     }
 
     const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
     if (found && Array.isArray(found.members)) {
-      found.members.forEach((m) => membersSet.add(m));
+      found.members.forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
     }
 
     // Match demo users whose group name matches
     Object.values(DEMO_USERS).forEach((u) => {
       if (u.group && u.group.trim().toLowerCase() === groupName.trim().toLowerCase()) {
-        membersSet.add(u.name);
+        if (u.name) membersSet.add(u.name);
       }
     });
 
+    return Array.from(membersSet);
+  };
+
+  const getMembersForDepartment = (deptName) => {
+    if (!deptName || deptName === 'ALL') {
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
+    }
+    const groupsInDept = getGroupsForDepartment(deptName);
+    const membersSet = new Set();
+    groupsInDept.forEach((g) => {
+      getMembersForGroup(g).forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    });
     return Array.from(membersSet);
   };
 
@@ -485,9 +653,49 @@ export function DealWorkflowProvider({ children }) {
     return tasks.filter((t) => isTaskVisibleToUser(t, currentUser));
   }, [tasks, currentUser]);
 
+  // Counts for the 2 tracking sections (within current deal stage and search filter)
+  const trackingCounts = useMemo(() => {
+    const stagePermitted = permittedTasks.filter((task) => {
+      if (selectedDealStage !== 'ALL') {
+        if (normalizeStage(task.deal_stage) !== normalizeStage(selectedDealStage)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const assignedByOthers = stagePermitted.filter((t) => isAssignedByOthers(t, currentUser)).length;
+    const createdByMe = stagePermitted.filter((t) => isTaskCreator(t, currentUser)).length;
+    const allStage = stagePermitted.length;
+
+    const totalAssignedByOthers = tasks.filter((t) => isAssignedByOthers(t, currentUser)).length;
+    const totalCreatedByMe = tasks.filter((t) => isTaskCreator(t, currentUser)).length;
+    const totalAll = tasks.length;
+
+    return {
+      assignedByOthers,
+      createdByMe,
+      allStage,
+      totalAssignedByOthers,
+      totalCreatedByMe,
+      totalAll,
+    };
+  }, [permittedTasks, tasks, selectedDealStage, currentUser]);
+
   // Filtered tasks based on active filters
   const visibleTasks = useMemo(() => {
     return permittedTasks.filter((task) => {
+      // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
+      if (trackingSection === 'ASSIGNED_TO_ME') {
+        if (!isAssignedByOthers(task, currentUser)) {
+          return false;
+        }
+      } else if (trackingSection === 'CREATED_BY_ME') {
+        if (!isTaskCreator(task, currentUser)) {
+          return false;
+        }
+      }
+
       // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -510,6 +718,14 @@ export function DealWorkflowProvider({ children }) {
         }
       }
 
+      // Group filter
+      if (selectedGroup !== 'ALL') {
+        const taskGroup = task.assigned_to_group || '';
+        if (taskGroup.toLowerCase() !== selectedGroup.toLowerCase()) {
+          return false;
+        }
+      }
+
       // Status
       if (selectedStatus !== 'ALL' && task.status !== selectedStatus) {
         return false;
@@ -526,8 +742,10 @@ export function DealWorkflowProvider({ children }) {
       }
 
       // Deal Stage
-      if (selectedDealStage !== 'ALL' && task.deal_stage !== selectedDealStage) {
-        return false;
+      if (selectedDealStage !== 'ALL') {
+        if (normalizeStage(task.deal_stage) !== normalizeStage(selectedDealStage)) {
+          return false;
+        }
       }
 
       // My Team
@@ -568,10 +786,12 @@ export function DealWorkflowProvider({ children }) {
     permittedTasks,
     searchQuery,
     selectedDepartment,
+    selectedGroup,
     selectedStatus,
     selectedPriority,
     selectedVisibility,
     selectedDealStage,
+    trackingSection,
     teamFilter,
     memberFilter,
     dateFilter,
@@ -626,6 +846,9 @@ export function DealWorkflowProvider({ children }) {
   const canUserClaimTask = (task, user = currentUser) => {
     if (!task || task.status !== 'TO_DO') return false;
 
+    // RULE 0: Stage Gated - Cannot claim if stage is locked for user
+    if (isStageLockedForUser(task, user)) return false;
+
     // RULE 1: Task Creator CANNOT claim their own task!
     if (isTaskCreator(task, user)) return false;
 
@@ -670,6 +893,9 @@ export function DealWorkflowProvider({ children }) {
 
   const canUserSubmitForReview = (task, user = currentUser) => {
     if (!task || task.status !== 'IN_PROGRESS') return false;
+
+    // RULE 0: Stage Gated - Cannot submit if stage is locked for user
+    if (isStageLockedForUser(task, user)) return false;
 
     // RULE 2: Task creator just views the progress, CANNOT submit to review!
     if (isTaskCreator(task, user)) return false;
@@ -728,11 +954,17 @@ export function DealWorkflowProvider({ children }) {
     const candidates = [];
     const seen = new Set();
 
+    const currentUserName = (user.name || '').trim().toLowerCase();
+    const currentUserEmail = (user.email || '').trim().toLowerCase();
+    const currentUserId = (user.id || '').trim().toLowerCase();
+
     const addCandidate = (u) => {
       const name = u.name;
       if (!name || seen.has(name.toLowerCase())) return;
-      // Do not allow assigning to oneself
-      if (user.name && name.toLowerCase() === user.name.toLowerCase()) return;
+      // Task creator cannot assign the task to their own
+      if (currentUserName && name.toLowerCase() === currentUserName) return;
+      if (currentUserEmail && u.email && u.email.toLowerCase() === currentUserEmail) return;
+      if (currentUserId && currentUserId !== 'session_user' && u.id && u.id.toLowerCase() === currentUserId) return;
 
       const targetNormRole = normalizeRole(u.role || u.dmsRole || 'internal_user');
       if (allowedRoles.includes(targetNormRole)) {
@@ -764,6 +996,8 @@ export function DealWorkflowProvider({ children }) {
 
     const memberNames = getMembersForGroup(groupName);
     const currentUserName = (user.name || '').trim().toLowerCase();
+    const currentUserEmail = (user.email || '').trim().toLowerCase();
+    const currentUserId = (user.id || '').trim().toLowerCase();
 
     const candidates = [];
     const seen = new Set();
@@ -772,13 +1006,17 @@ export function DealWorkflowProvider({ children }) {
       if (!mName) return;
       const cleanName = typeof mName === 'string' ? mName.trim() : (mName.name || '').trim();
       if (!cleanName) return;
-      // Creator cannot assign to themselves
-      if (cleanName.toLowerCase() === currentUserName) return;
+      // Task creator cannot assign the task to their own
+      if (currentUserName && cleanName.toLowerCase() === currentUserName) return;
       if (seen.has(cleanName.toLowerCase())) return;
 
       // Find user details from allUsers or DEMO_USERS
       const dbUser = allUsers.find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
       const demoUser = Object.values(DEMO_USERS).find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+
+      if (currentUserEmail && (dbUser?.email?.toLowerCase() === currentUserEmail || demoUser?.email?.toLowerCase() === currentUserEmail)) return;
+      if (currentUserId && currentUserId !== 'session_user' && (dbUser?.id?.toLowerCase() === currentUserId || demoUser?.id?.toLowerCase() === currentUserId)) return;
+
       const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : 'internal_user');
       const targetNormRole = normalizeRole(rawRole);
 
@@ -1110,10 +1348,46 @@ export function DealWorkflowProvider({ children }) {
       if (data.success && data.task) {
         setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
         setIsCreateModalOpen(false);
+        // Switch board to the created task's stage so it is immediately visible in that stage's TO DO
+        if (data.task.deal_stage) {
+          setSelectedDealStage(normalizeStage(data.task.deal_stage));
+        }
         return data.task;
       }
     } catch (err) {
       console.error('Error creating task via API:', err);
+    }
+  };
+
+  // Action: Update / Edit Task by Creator
+  const updateTask = async (taskId, updatedData) => {
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'edit_task',
+          ...updatedData,
+          user: {
+            name: currentUser?.name || 'Creator',
+            role: currentUser?.role || 'admin',
+            side: currentUser?.side || 'seller',
+            company: currentUser?.company || '',
+          },
+          ipAddress: currentUser?.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+        return data.task;
+      }
+    } catch (err) {
+      console.error('Error updating task via API:', err);
     }
   };
 
@@ -1255,10 +1529,10 @@ export function DealWorkflowProvider({ children }) {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedDepartment('ALL');
+    setSelectedGroup('ALL');
     setSelectedStatus('ALL');
     setSelectedPriority('ALL');
     setSelectedVisibility('ALL');
-    setSelectedDealStage('ALL');
     setTeamFilter('ALL');
     setMemberFilter('ALL');
     setDateFilter('ALL');
@@ -1267,10 +1541,10 @@ export function DealWorkflowProvider({ children }) {
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
     selectedDepartment !== 'ALL' ||
+    selectedGroup !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPriority !== 'ALL' ||
     selectedVisibility !== 'ALL' ||
-    selectedDealStage !== 'ALL' ||
     teamFilter !== 'ALL' ||
     memberFilter !== 'ALL' ||
     dateFilter !== 'ALL'
@@ -1315,6 +1589,14 @@ export function DealWorkflowProvider({ children }) {
         normalizeRole,
         getRoleLabel,
         canRoleAssignTo,
+        // Stage Tracker & Progression
+        stageTrackerInfo,
+        isStageLockedForUser,
+        getMaxUnlockedStageIndex,
+        dealStages: DEAL_STAGES,
+        DEAL_STAGES,
+        normalizeStage,
+        getStageIndex,
         // Actions
         claimTask,
         submitForReview,
@@ -1322,6 +1604,7 @@ export function DealWorkflowProvider({ children }) {
         sendBack,
         signDocumentAndComplete,
         createTask,
+        updateTask,
         toggleSubtask,
         addComment,
         deleteTask,
@@ -1336,6 +1619,9 @@ export function DealWorkflowProvider({ children }) {
         setSearchQuery,
         selectedDepartment,
         setSelectedDepartment,
+        selectedGroup,
+        setSelectedGroup,
+        getMembersForDepartment,
         selectedWorkstream: selectedDepartment,
         setSelectedWorkstream: setSelectedDepartment,
         selectedStatus,
@@ -1352,6 +1638,10 @@ export function DealWorkflowProvider({ children }) {
         setMemberFilter,
         dateFilter,
         setDateFilter,
+        trackingSection,
+        setTrackingSection,
+        trackingCounts,
+        isAssignedByOthers,
         clearFilters,
         hasActiveFilters,
       }}
