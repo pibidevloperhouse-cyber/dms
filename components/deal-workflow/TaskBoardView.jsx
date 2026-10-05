@@ -157,8 +157,9 @@ export default function TaskBoardView() {
     },
   ];
 
-  // Check if current user is super_admin
+  // Check if current user is super_admin or internal_user
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
+  const isInternalUser = normalizeRole(currentUser?.role) === 'internal_user';
 
   // Current stage tracking metadata
   const currentStageObj = useMemo(() => {
@@ -198,27 +199,29 @@ export default function TaskBoardView() {
               </button>
             )}
 
-            <button
-              onClick={() => {
-                setTrackingSection('CREATED_BY_ME');
-                if (memberFilter === 'MY_TASKS') setMemberFilter('ALL');
-              }}
-              className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${trackingSection === 'CREATED_BY_ME'
-                  ? 'text-[#006666]'
-                  : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-              <span>Created by You</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${trackingSection === 'CREATED_BY_ME'
-                  ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
-                  : 'bg-slate-100 text-slate-500'
-                }`}>
-                {trackingCounts?.totalCreatedByMe ?? trackingCounts?.createdByMe ?? 0}
-              </span>
-              {trackingSection === 'CREATED_BY_ME' && (
-                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#006666] rounded-t-full"></span>
-              )}
-            </button>
+            {!isInternalUser && (
+              <button
+                onClick={() => {
+                  setTrackingSection('CREATED_BY_ME');
+                  if (memberFilter === 'MY_TASKS') setMemberFilter('ALL');
+                }}
+                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${trackingSection === 'CREATED_BY_ME'
+                    ? 'text-[#006666]'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                <span>Created by You</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${trackingSection === 'CREATED_BY_ME'
+                    ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
+                    : 'bg-slate-100 text-slate-500'
+                  }`}>
+                  {trackingCounts?.totalCreatedByMe ?? trackingCounts?.createdByMe ?? 0}
+                </span>
+                {trackingSection === 'CREATED_BY_ME' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#006666] rounded-t-full"></span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

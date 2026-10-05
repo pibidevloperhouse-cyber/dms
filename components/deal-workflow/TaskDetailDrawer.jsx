@@ -814,8 +814,8 @@ export default function TaskDetailDrawer() {
 
             {/* If task is in REVIEW */}
             {selectedTask.status === 'REVIEW' && (
-              canApprove ? (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {isCreator && (
                   <button
                     type="button"
                     onClick={() => {
@@ -826,21 +826,16 @@ export default function TaskDetailDrawer() {
                   >
                     Request Changes
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => approveAndComplete(selectedTask.task_id)}
-                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Review & Mark as Done</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Waiting for Review by {selectedTask.created_by || 'Task Creator'}</span>
-                </div>
-              )
+                )}
+                <button
+                  type="button"
+                  onClick={() => approveAndComplete(selectedTask.task_id)}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Mark as Done</span>
+                </button>
+              </div>
             )}
 
             {/* If task is DONE */}
