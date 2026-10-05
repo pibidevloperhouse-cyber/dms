@@ -130,6 +130,7 @@ export const groups = pgTable('groups', {
   companyId: uuid('company_id').notNull(),
   name: text('name').notNull(),
   description: text('description'),
+  department: text('department'),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

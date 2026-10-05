@@ -1,6 +1,67 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { supabase } from '@/utils/supabase/client';
+
+// ============================================================================
+// ROLE HIERARCHY & TASK DELEGATION PERMISSIONS
+// 1. Super Admin can assign to Admin, Sub Admin, Internal User
+// 2. Admin can assign to Sub Admin, Internal User
+// 3. Sub Admin can assign to Internal User
+// 4. Internal User cannot assign to other roles
+// ============================================================================
+export const ROLE_HIERARCHY = {
+  super_admin: {
+    level: 4,
+    label: 'Super Admin',
+    badge: '👑 Super Admin',
+    canAssignTo: ['admin', 'sub_admin', 'internal_user'],
+    desc: 'Can assign to Admin, Sub Admin, and Internal User',
+  },
+  admin: {
+    level: 3,
+    label: 'Admin',
+    badge: '👔 Admin',
+    canAssignTo: ['sub_admin', 'internal_user'],
+    desc: 'Can assign to Sub Admin and Internal User',
+  },
+  sub_admin: {
+    level: 2,
+    label: 'Sub Admin',
+    badge: '⚡ Sub Admin',
+    canAssignTo: ['internal_user'],
+    desc: 'Can assign to Internal User',
+  },
+  internal_user: {
+    level: 1,
+    label: 'Internal User',
+    badge: '👤 Internal User',
+    canAssignTo: [],
+    desc: 'Task executor (Cannot assign to other roles)',
+  },
+};
+
+export const normalizeRole = (roleStr) => {
+  if (!roleStr) return 'internal_user';
+  const lower = roleStr.toLowerCase().replace(/[\s-_]+/g, '_');
+  if (lower.includes('super')) return 'super_admin';
+  if (lower.includes('sub')) return 'sub_admin';
+  if (lower.includes('admin')) return 'admin';
+  if (lower.includes('internal') || lower.includes('user') || lower.includes('member') || lower.includes('guest')) return 'internal_user';
+  return 'internal_user';
+};
+
+export const getRoleLabel = (roleStr) => {
+  const norm = normalizeRole(roleStr);
+  return ROLE_HIERARCHY[norm]?.label || roleStr;
+};
+
+export const canRoleAssignTo = (creatorRole, targetRole) => {
+  const cNorm = normalizeRole(creatorRole);
+  const tNorm = normalizeRole(targetRole);
+  const allowed = ROLE_HIERARCHY[cNorm]?.canAssignTo || [];
+  return allowed.includes(tNorm);
+};
 
 // ============================================================================
 // DEMO PERSONAS & CORPORATE ENTITIES
@@ -8,30 +69,57 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 export const DEMO_USERS = {
   ravi: {
     id: 'ravi',
-    name: 'Ravi',
-    role: 'Seller Admin',
+    name: 'Ravi Shankar',
+    role: 'super_admin',
+    roleLabel: 'Super Admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    group: 'Executive Board',
+    email: 'ravi@abctextiles.com',
+    avatar: 'R',
+    color: 'from-indigo-600 to-violet-700',
+  },
+  suresh: {
+    id: 'suresh',
+    name: 'Suresh Kumar',
+    role: 'admin',
+    roleLabel: 'Admin',
     side: 'seller',
     company: 'ABC Textiles',
     group: 'Seller Admin',
-    email: 'ravi@abctextiles.com',
-    avatar: 'R',
-    color: 'from-blue-600 to-indigo-700',
+    email: 'suresh@abctextiles.com',
+    avatar: 'S',
+    color: 'from-blue-600 to-cyan-700',
   },
   lakshmi: {
     id: 'lakshmi',
-    name: 'Lakshmi',
-    role: 'Seller Finance Team',
+    name: 'Lakshmi Narayanan',
+    role: 'sub_admin',
+    roleLabel: 'Sub Admin',
     side: 'seller',
     company: 'ABC Textiles',
     group: 'Seller Finance Team',
     email: 'lakshmi@abctextiles.com',
     avatar: 'L',
-    color: 'from-blue-500 to-cyan-600',
+    color: 'from-teal-600 to-emerald-700',
+  },
+  karthik: {
+    id: 'karthik',
+    name: 'Karthik Raja',
+    role: 'internal_user',
+    roleLabel: 'Internal User',
+    side: 'seller',
+    company: 'ABC Textiles',
+    group: 'Finance Operations',
+    email: 'karthik@abctextiles.com',
+    avatar: 'K',
+    color: 'from-amber-600 to-orange-700',
   },
   arjun: {
     id: 'arjun',
-    name: 'Arjun',
-    role: 'Buyer Admin',
+    name: 'Arjun Mehta',
+    role: 'admin',
+    roleLabel: 'Buyer Admin',
     side: 'buyer',
     company: 'XYZ Capital',
     group: 'Buyer Admin',
@@ -42,36 +130,22 @@ export const DEMO_USERS = {
   priya: {
     id: 'priya',
     name: 'Priya Sharma',
-    role: 'Buyer Legal Team',
+    role: 'sub_admin',
+    roleLabel: 'Buyer Sub Admin',
     side: 'buyer',
     company: 'XYZ Capital',
     group: 'Buyer Legal Team',
     email: 'priya.sharma@xyzcapital.com',
     avatar: 'P',
-    color: 'from-teal-500 to-green-600',
+    color: 'from-purple-600 to-pink-700',
   },
 };
 
-export const SELLER_GROUPS = [
-  'Seller Finance Team',
-  'Seller Legal Team',
-  'Seller Operations Team',
-];
-
-export const BUYER_GROUPS = [
-  'Buyer Legal Team',
-  'Buyer Finance Team',
-  'Buyer Operations Team',
-];
-
-export const WORKSTREAMS = [
-  'Legal',
-  'Finance',
-  'Operations',
-  'Tax',
-  'Commercial',
-  'Compliance',
-];
+export const SELLER_GROUPS = [];
+export const BUYER_GROUPS = [];
+export const DEFAULT_DEPARTMENTS = [];
+export const DEPARTMENTS = DEFAULT_DEPARTMENTS;
+export const WORKSTREAMS = DEPARTMENTS; // Alias for backward compatibility
 
 export const PRIORITIES = ['High', 'Medium', 'Low'];
 
@@ -79,265 +153,56 @@ export const DEAL_STAGES = [
   'Preparation',
   'Due Diligence',
   'Negotiation',
-  'Closing',
-  'Post-Closing',
 ];
 
-// Initial demo tasks matching user specifications exactly
-const INITIAL_DEMO_TASKS = [
-  {
-    task_id: 'TSK-1001',
-    title: 'Upload 2023-24 Audited Financial Statements',
-    description: 'Provide certified full-year audited financial statements including Balance Sheet, P&L, Cash Flow, and Auditor Notes for FY23-24.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Finance',
-    priority: 'High',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'DONE',
-    due_date: '2026-09-20',
-    linked_document: 'Audited_Financial_Statements_FY24.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-15 09:30 AM',
-    updated_at: '2026-09-20 04:15 PM',
-    completed_at: '20-Sep-2026 4:15 PM',
-    completed_by: 'Lakshmi',
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-15 09:30 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Assignee', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-16 10:15 AM', ip: '192.168.1.45' },
-      { action: 'Document Uploaded', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-19 02:40 PM', ip: '192.168.1.45', doc: 'Audited_Financial_Statements_FY24.pdf' },
-      { action: 'Submitted for Review', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-19 03:00 PM', ip: '192.168.1.45' },
-      { action: 'Approved & Completed', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '20-Sep-2026 4:15 PM', ip: '192.168.1.12' },
-    ],
-    comments: [
-      { id: 'c1', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Auditor sign-off certificate verified against ledger entries.', timestamp: '2026-09-19 02:45 PM' },
-      { id: 'c2', author: 'Ravi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Checked. Ready for VDR indexing when requested.', timestamp: '2026-09-20 04:14 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1002',
-    title: "Review Seller's Financial Statements for red flags",
-    description: 'Conduct forensic review of ABC Textiles FY23-24 financial statements. Check for revenue recognition consistency, contingent tax liabilities, and inventory valuation adjustments.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: 'Priya Sharma',
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Legal',
-    priority: 'High',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'IN_PROGRESS',
-    due_date: '2026-09-28',
-    linked_document: 'Financial_Risk_Assessment_Checklist.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-22 11:00 AM',
-    updated_at: '2026-09-24 09:30 AM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-22 11:00 AM', ip: '10.0.4.18' },
-      { action: 'Claimed by Assignee', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-23 09:15 AM', ip: '10.0.4.92' },
-      { action: 'Private Legal Notes Added', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-24 09:30 AM', ip: '10.0.4.92' },
-    ],
-    comments: [
-      { id: 'c3', author: 'Priya Sharma', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Flagged Note 14 on litigation risks regarding effluent treatment plant. Need to verify state environmental clearance.', timestamp: '2026-09-24 09:35 AM' },
-      { id: 'c4', author: 'Arjun', company: 'XYZ Capital', scope: 'INTERNAL', text: 'Important observation. Do not disclose this inquiry until we finalize the Q&A schedule.', timestamp: '2026-09-24 10:00 AM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1003',
-    title: 'Sign the NDA document',
-    description: 'Please review and digitally sign the attached bilateral Mutual Non-Disclosure Agreement for Project Titan. Required prior to granting clean data room access.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: null,
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Legal',
-    priority: 'High',
-    deal_stage: 'Preparation',
-    visibility: 'EXTERNAL',
-    status: 'TO_DO',
-    due_date: '2026-09-30',
-    linked_document: 'NDA_Draft.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-24 02:00 PM',
-    updated_at: '2026-09-24 02:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created & Dispatched', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-24 02:00 PM', ip: '192.168.1.12' },
-      { action: 'Queued to Target Group', performed_by: 'System Workflow Engine', role: 'System', timestamp: '2026-09-24 02:00 PM', ip: '127.0.0.1' },
-    ],
-    comments: [
-      { id: 'c5', author: 'Ravi', company: 'ABC Textiles', scope: 'EXTERNAL', text: 'Draft NDA is attached with standard 24-month confidentiality clause. Please review and countersign.', timestamp: '2026-09-24 02:05 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1004',
-    title: 'Review Material Contracts & Customer Concentration',
-    description: 'Examine top 10 commercial contracts of ABC Textiles representing 68% of revenues. Check for change-of-control termination triggers.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: null,
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Commercial',
-    priority: 'Medium',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'TO_DO',
-    due_date: '2026-10-05',
-    linked_document: 'Material_Contracts_Summary.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-23 04:00 PM',
-    updated_at: '2026-09-23 04:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-23 04:00 PM', ip: '10.0.4.18' },
-    ],
-    comments: [],
-  },
-  {
-    task_id: 'TSK-1005',
-    title: 'Q2 Tax Return Compliance & Schedule Verification',
-    description: 'Reconcile GST and Corporate Income Tax return filings for the trailing 2 quarters against general ledger accruals.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Tax',
-    priority: 'Medium',
-    deal_stage: 'Due Diligence',
-    visibility: 'INTERNAL',
-    status: 'REVIEW',
-    due_date: '2026-10-02',
-    linked_document: 'Q2_Tax_Compliance_Certificates.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-21 10:00 AM',
-    updated_at: '2026-09-25 03:20 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-21 10:00 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Assignee', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-22 11:30 AM', ip: '192.168.1.45' },
-      { action: 'Submitted for Review', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-25 03:20 PM', ip: '192.168.1.45' },
-    ],
-    comments: [
-      { id: 'c6', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'All challans matched with zero outstanding penalty demands.', timestamp: '2026-09-25 03:15 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1006',
-    title: 'Provide Target Working Capital Benchmark Calculation',
-    description: 'Buyer requests 12-month rolling average normalized working capital bridge and peg formula for the definitive agreement.',
-    created_by: 'Arjun',
-    creator_role: 'Buyer Admin',
-    creator_company: 'XYZ Capital',
-    creator_side: 'buyer',
-    assigned_to_group: 'Seller Finance Team',
-    assigned_to_user: 'Lakshmi',
-    target_company: 'ABC Textiles',
-    target_side: 'seller',
-    workstream: 'Finance',
-    priority: 'High',
-    deal_stage: 'Negotiation',
-    visibility: 'EXTERNAL',
-    status: 'IN_PROGRESS',
-    due_date: '2026-10-08',
-    linked_document: 'Working_Capital_Model_v3.xlsx',
-    claimable_by_role: true,
-    created_at: '2026-09-25 11:30 AM',
-    updated_at: '2026-09-26 02:00 PM',
-    completed_at: null,
-    completed_by: null,
-    digital_signature: null,
-    audit_trail: [
-      { action: 'Task Created & Sent to Seller', performed_by: 'Arjun', role: 'Buyer Admin', timestamp: '2026-09-25 11:30 AM', ip: '10.0.4.18' },
-      { action: 'Claimed by Seller Lead', performed_by: 'Lakshmi', role: 'Seller Finance Team', timestamp: '2026-09-26 02:00 PM', ip: '192.168.1.45' },
-    ],
-    comments: [
-      { id: 'c7', author: 'Arjun', company: 'XYZ Capital', scope: 'EXTERNAL', text: 'Please ensure seasonal cotton inventory peaks in Q3 are smoothed out.', timestamp: '2026-09-25 11:32 AM' },
-      { id: 'c8', author: 'Lakshmi', company: 'ABC Textiles', scope: 'INTERNAL', text: 'Working with CFO on the inventory exclusion schedule first.', timestamp: '2026-09-26 02:05 PM' },
-    ],
-  },
-  {
-    task_id: 'TSK-1007',
-    title: 'D&O Insurance Policy & Pending Litigation Disclosure',
-    description: 'Provide Director & Officer liability insurance policy schedules and formal certificate of no undisclosed litigation.',
-    created_by: 'Ravi',
-    creator_role: 'Seller Admin',
-    creator_company: 'ABC Textiles',
-    creator_side: 'seller',
-    assigned_to_group: 'Buyer Legal Team',
-    assigned_to_user: 'Priya Sharma',
-    target_company: 'XYZ Capital',
-    target_side: 'buyer',
-    workstream: 'Compliance',
-    priority: 'Medium',
-    deal_stage: 'Preparation',
-    visibility: 'EXTERNAL',
-    status: 'DONE',
-    due_date: '2026-09-22',
-    linked_document: 'DO_Policy_Certificate_Signed.pdf',
-    claimable_by_role: true,
-    created_at: '2026-09-18 09:00 AM',
-    updated_at: '2026-09-22 03:45 PM',
-    completed_at: '22-Sep-2026 3:45 PM',
-    completed_by: 'Priya Sharma',
-    digital_signature: {
-      signer: 'Priya Sharma',
-      role: 'Buyer Legal Counsel',
-      timestamp: '2026-09-22 15:45:12 UTC',
-      ip: '198.51.100.42',
-      hash: 'SHA256:d8a57e3f890b0e25b341aa9d91f28b4c2b9a712f840939529b533dc270bcfe30',
-      document: 'DO_Policy_Certificate_Signed.pdf',
-    },
-    audit_trail: [
-      { action: 'Task Created by Seller', performed_by: 'Ravi', role: 'Seller Admin', timestamp: '2026-09-18 09:00 AM', ip: '192.168.1.12' },
-      { action: 'Claimed by Buyer Legal', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-19 10:15 AM', ip: '198.51.100.42' },
-      { action: 'Document Signed & Verified', performed_by: 'Priya Sharma', role: 'Buyer Legal Team', timestamp: '2026-09-22 03:45 PM', ip: '198.51.100.42' },
-      { action: 'Completed & Certified', performed_by: 'System Workflow Engine', role: 'System', timestamp: '22-Sep-2026 3:45 PM', ip: '127.0.0.1' },
-    ],
-    comments: [
-      { id: 'c9', author: 'Priya Sharma', company: 'XYZ Capital', scope: 'EXTERNAL', text: 'Reviewed and countersigned for buyer transaction records.', timestamp: '2026-09-22 03:46 PM' },
-    ],
-  },
-];
+// Tasks are loaded dynamically from the backend PostgreSQL database
+const INITIAL_DEMO_TASKS = [];
+
 
 const DealWorkflowContext = createContext(null);
 
+// ============================================================================
+// HELPER: Read authenticated user from vdr_session
+// ============================================================================
+export const readSessionUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawSession = localStorage.getItem('vdr_session');
+    if (!rawSession) return null;
+    const s = JSON.parse(rawSession);
+    if (s && (s.name || s.id || s.email)) {
+      const roleStr = s.role || 'internal_user';
+      return {
+        id: s.id || 'session_user',
+        name: (s.name || s.email?.split('@')[0] || 'User').trim(),
+        email: s.email || '',
+        role: roleStr,
+        roleLabel: getRoleLabel(roleStr),
+        side: s.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(s.role) ? 'buyer' : 'seller'),
+        company: s.company_name || (s.dms_role === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+        group: s.group || s.role || 'General',
+        avatar: (s.name || s.email || 'U')[0].toUpperCase(),
+        color: 'from-blue-600 to-indigo-700',
+      };
+    }
+  } catch (e) {
+    console.error('Error reading session user:', e);
+  }
+  return null;
+};
+
 export function DealWorkflowProvider({ children }) {
-  // Current logged in persona (default to Ravi - Seller Admin)
-  const [currentUserId, setCurrentUserId] = useState('ravi');
-  const [tasks, setTasks] = useState(INITIAL_DEMO_TASKS);
+  // Current logged in user: Always prioritize the authenticated session
+  const [sessionUser, setSessionUser] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [dbGroups, setDbGroups] = useState([]);
+  const [workflowGroups, setWorkflowGroups] = useState([]);
+  const [groupMembersMap, setGroupMembersMap] = useState({});
+  const [allUsers, setAllUsers] = useState([]);
+  const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
+
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -346,77 +211,273 @@ export function DealWorkflowProvider({ children }) {
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWorkstream, setSelectedWorkstream] = useState('ALL');
+  const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
   const [selectedDealStage, setSelectedDealStage] = useState('ALL');
   const [teamFilter, setTeamFilter] = useState('ALL'); // 'ALL' or 'MY_TEAM'
+  const [memberFilter, setMemberFilter] = useState('ALL'); // 'ALL', 'MY_TASKS', or specific member name
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
-  // Load persisted state from localStorage on client mount
+  // Fetch real deal tasks and dynamic department/group structure
+  const fetchTasks = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/deal-tasks');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tasks)) {
+        setTasks(data.tasks);
+
+        if (Array.isArray(data.groups) && data.groups.length > 0) {
+          setWorkflowGroups(data.groups);
+          setDbGroups(data.groups.map((g) => g.name));
+        }
+        if (data.groupMembersMap && Object.keys(data.groupMembersMap).length > 0) {
+          setGroupMembersMap(data.groupMembersMap);
+        }
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          setAllUsers(data.users);
+        }
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setDepartments(data.departments);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching deal tasks from API:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDepartmentsAndGroups = async () => {
+    try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const companyId = session?.company_id || '';
+
+      const res = await fetch(`/api/deal-workflow/departments-groups?companyId=${companyId}`);
+      const data = await res.json();
+      if (data.success) {
+        setWorkflowGroups(data.groups || []);
+        setGroupMembersMap(data.groupMembersMap || {});
+        setAllUsers(data.users || []);
+
+        // Read local custom departments if any
+        let localDepts = [];
+        try {
+          const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
+          if (Array.isArray(savedCustom)) localDepts = savedCustom.filter(Boolean);
+        } catch (e) { }
+
+        const mergedDepts = Array.from(
+          new Set([...(data.departments || []), ...localDepts])
+        );
+        setDepartments(mergedDepts);
+        setDbGroups((data.groups || []).map((g) => g.name));
+      }
+    } catch (err) {
+      console.error('Error loading departments and groups:', err);
+    }
+  };
+
   useEffect(() => {
     try {
-      const storedTasks = localStorage.getItem('dms_deal_workflow_tasks_v2');
-      if (storedTasks) {
-        setTasks(JSON.parse(storedTasks));
+      // Clear legacy dummy tasks from localStorage
+      localStorage.removeItem('dms_deal_workflow_tasks_v4');
+
+      // Sync active session user immediately
+      const activeUser = readSessionUser();
+      if (activeUser) {
+        setSessionUser(activeUser);
+      } else {
+        const storedUser = localStorage.getItem('dms_deal_workflow_user_v4');
+        if (storedUser && DEMO_USERS[storedUser]) {
+          setCurrentUserId(storedUser);
+        }
       }
-      const storedUser = localStorage.getItem('dms_deal_workflow_user_v2');
-      if (storedUser && DEMO_USERS[storedUser]) {
-        setCurrentUserId(storedUser);
-      }
-      const storedAudit = localStorage.getItem('dms_deal_workflow_audit_mode_v2');
+
+      const storedAudit = localStorage.getItem('dms_deal_workflow_audit_mode_v4');
       if (storedAudit !== null) {
         setIsAuditModeActive(JSON.parse(storedAudit));
       }
     } catch (e) {
       console.error('Error loading deal workflow storage:', e);
     }
+
+    fetchTasks();
+    fetchDepartmentsAndGroups();
+
+    // Listen to storage and focus events so when another user logs in, state updates immediately
+    const handleStorageChange = (e) => {
+      if (!e || e.key === 'vdr_session') {
+        const freshUser = readSessionUser();
+        setSessionUser(freshUser);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+    };
   }, []);
 
-  // Save tasks on changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('dms_deal_workflow_tasks_v2', JSON.stringify(tasks));
-    } catch (e) {
-      console.error('Error saving deal workflow tasks:', e);
-    }
-  }, [tasks]);
-
-  // Save user on switch
+  // Save user on switch (for testing demo personas)
   const switchUser = (userId) => {
     if (DEMO_USERS[userId]) {
       setCurrentUserId(userId);
-      localStorage.setItem('dms_deal_workflow_user_v2', userId);
+      localStorage.setItem('dms_deal_workflow_user_v4', userId);
     }
   };
 
   const toggleAuditMode = () => {
     setIsAuditModeActive((prev) => {
       const next = !prev;
-      localStorage.setItem('dms_deal_workflow_audit_mode_v2', JSON.stringify(next));
+      localStorage.setItem('dms_deal_workflow_audit_mode_v4', JSON.stringify(next));
       return next;
     });
   };
 
-  const currentUser = DEMO_USERS[currentUserId] || DEMO_USERS.ravi;
+  // Logged-in session user takes absolute priority over demo fallback
+  const currentUser = useMemo(() => {
+    if (sessionUser && sessionUser.name) {
+      return sessionUser;
+    }
+    if (currentUserId && DEMO_USERS[currentUserId]) {
+      return DEMO_USERS[currentUserId];
+    }
+    return DEMO_USERS.ravi;
+  }, [sessionUser, currentUserId]);
+
+  // Enrich sessionUser with group if known from groupMembersMap
+  useEffect(() => {
+    if (sessionUser?.name && groupMembersMap && Object.keys(groupMembersMap).length > 0) {
+      const sName = sessionUser.name.trim().toLowerCase();
+      for (const [gName, members] of Object.entries(groupMembersMap)) {
+        if (Array.isArray(members) && members.some((m) => (typeof m === 'string' ? m : m.name || '').trim().toLowerCase() === sName)) {
+          if (sessionUser.group !== gName) {
+            setSessionUser((prev) => (prev ? { ...prev, group: gName } : prev));
+          }
+          break;
+        }
+      }
+    }
+  }, [groupMembersMap, sessionUser?.name]);
 
   // ============================================================================
-  // STRICT DATA-LEVEL VISIBILITY ENFORCEMENT
+  // TASK CREATOR & ASSIGNEE RECOGNITION HELPERS
   // ============================================================================
-  // Rules:
-  // 1. INTERNAL: Visible ONLY if creator_side === currentUser.side.
-  //    (Seller internal task is NEVER visible to Buyer. Buyer internal task is NEVER visible to Seller!)
-  // 2. EXTERNAL: Visible if creator_side === currentUser.side OR target_side === currentUser.side.
-  const isTaskVisibleToUser = (task, user = currentUser) => {
-    if (!task) return false;
-    if (task.visibility === 'INTERNAL') {
-      return task.creator_side === user.side;
+  const isTaskCreator = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
+    const createdBy = (task.created_by || '').trim().toLowerCase();
+
+    if (!createdBy) return false;
+    if (userName && createdBy === userName) return true;
+    if (userId && userId !== 'session_user' && createdBy === userId) return true;
+    if (userEmail && createdBy === userEmail) return true;
+    return false;
+  };
+
+  const isTaskAssignee = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
+
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+    if (assignedToUser && (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId))) {
+      return true;
     }
-    if (task.visibility === 'EXTERNAL') {
-      return task.creator_side === user.side || task.target_side === user.side;
+
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember && (stMember === userName || stMember === userEmail || (userId !== 'session_user' && stMember === userId));
+    })) {
+      return true;
     }
     return false;
+  };
+
+  // ============================================================================
+  // TASK VISIBILITY PERMISSION LOGIC
+  // ============================================================================
+  const isTaskVisibleToUser = (task, user = currentUser) => {
+    if (!task) return false;
+    if (!user) return true;
+
+    // Creator always sees their own tasks
+    if (isTaskCreator(task, user)) return true;
+
+    const normRole = normalizeRole(user.role);
+    // Super Admins, Admins, and Sub Admins see all tasks
+    if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
+
+    const userName = (user.name || '').trim().toLowerCase();
+    // If task directly assigned to user
+    if (task.assigned_to_user && task.assigned_to_user.trim().toLowerCase() === userName) return true;
+    // If any subtask assigned to user
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
+    }
+
+    // If user belongs to the assigned group
+    if (user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
+      return true;
+    }
+
+    // External tasks are visible across parties
+    if (task.visibility === 'EXTERNAL') return true;
+
+    // Internal tasks visible to same side
+    const userSide = user.side || (normRole.includes('buyer') ? 'buyer' : 'seller');
+    if (task.creator_side === userSide || task.target_side === userSide) return true;
+
+    return false;
+  };
+
+  // ============================================================================
+  // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
+  // ============================================================================
+  const getGroupsForDepartment = (deptName) => {
+    if (!deptName || deptName === 'ALL') {
+      return Array.from(new Set(workflowGroups.map((g) => g.name)));
+    }
+    const matched = workflowGroups
+      .filter((g) => (g.department || '').trim().toLowerCase() === deptName.trim().toLowerCase())
+      .map((g) => g.name);
+    return Array.from(new Set(matched));
+  };
+
+  const getMembersForGroup = (groupName) => {
+    if (!groupName) {
+      return allUsers.length > 0 ? allUsers.map((u) => u.name) : (currentUser ? [currentUser.name] : []);
+    }
+    const membersSet = new Set();
+
+    if (groupMembersMap[groupName] && Array.isArray(groupMembersMap[groupName])) {
+      groupMembersMap[groupName].forEach((m) => membersSet.add(m));
+    }
+
+    const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
+    if (found && Array.isArray(found.members)) {
+      found.members.forEach((m) => membersSet.add(m));
+    }
+
+    // Match demo users whose group name matches
+    Object.values(DEMO_USERS).forEach((u) => {
+      if (u.group && u.group.trim().toLowerCase() === groupName.trim().toLowerCase()) {
+        membersSet.add(u.name);
+      }
+    });
+
+    return Array.from(membersSet);
   };
 
   // Base tasks permitted for the current user
@@ -427,7 +488,7 @@ export function DealWorkflowProvider({ children }) {
   // Filtered tasks based on active filters
   const visibleTasks = useMemo(() => {
     return permittedTasks.filter((task) => {
-      // Search query filter (title, ID, description, document)
+      // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -441,9 +502,12 @@ export function DealWorkflowProvider({ children }) {
         }
       }
 
-      // Workstream
-      if (selectedWorkstream !== 'ALL' && task.workstream !== selectedWorkstream) {
-        return false;
+      // Department filter
+      if (selectedDepartment !== 'ALL') {
+        const taskDept = task.department || task.workstream || '';
+        if (taskDept.toLowerCase() !== selectedDepartment.toLowerCase()) {
+          return false;
+        }
       }
 
       // Status
@@ -473,9 +537,23 @@ export function DealWorkflowProvider({ children }) {
         if (!isMyTeamGroup && !isAssignedToMe) return false;
       }
 
+      // Assignee / Member filter
+      if (memberFilter === 'MY_TASKS') {
+        const isTaskAssignee = task.assigned_to_user === currentUser.name;
+        const isSubtaskAssignee = (task.subtasks || []).some(
+          (st) => st.assignedMember === currentUser.name || st.assigned_to_user === currentUser.name
+        );
+        if (!isTaskAssignee && !isSubtaskAssignee) return false;
+      } else if (memberFilter !== 'ALL') {
+        const isTaskAssignee = task.assigned_to_user === memberFilter;
+        const isSubtaskAssignee = (task.subtasks || []).some(
+          (st) => st.assignedMember === memberFilter || st.assigned_to_user === memberFilter
+        );
+        if (!isTaskAssignee && !isSubtaskAssignee) return false;
+      }
+
       // Due Date Filter
       if (dateFilter === 'TODAY') {
-        // demo date check
         if (!task.due_date) return false;
       } else if (dateFilter === 'OVERDUE') {
         if (task.status !== 'DONE' && task.due_date && new Date(task.due_date) < new Date('2026-09-28')) {
@@ -489,12 +567,13 @@ export function DealWorkflowProvider({ children }) {
   }, [
     permittedTasks,
     searchQuery,
-    selectedWorkstream,
+    selectedDepartment,
     selectedStatus,
     selectedPriority,
     selectedVisibility,
     selectedDealStage,
     teamFilter,
+    memberFilter,
     dateFilter,
     currentUser,
   ]);
@@ -523,27 +602,14 @@ export function DealWorkflowProvider({ children }) {
   }, [permittedTasks]);
 
   // ============================================================================
-  // SMART GROUP DROPDOWN HELPER
+  // SMART GROUP DROPDOWN HELPER (Includes dynamic DB groups from Groups page)
   // ============================================================================
-  // Rules from specification:
-  // SELLER + INTERNAL -> show only Seller groups
-  // SELLER + EXTERNAL -> show Buyer groups
-  // BUYER + INTERNAL  -> show only Buyer groups
-  // BUYER + EXTERNAL  -> show Seller groups
   const getSmartGroupsForVisibility = (visibility, user = currentUser) => {
-    if (user.side === 'seller') {
-      return visibility === 'INTERNAL' ? SELLER_GROUPS : BUYER_GROUPS;
-    } else {
-      return visibility === 'INTERNAL' ? BUYER_GROUPS : SELLER_GROUPS;
-    }
+    return Array.from(new Set(workflowGroups.map((g) => g.name)));
   };
 
   const getTargetCompanyForVisibility = (visibility, user = currentUser) => {
-    if (user.side === 'seller') {
-      return visibility === 'INTERNAL' ? 'ABC Textiles' : 'XYZ Capital';
-    } else {
-      return visibility === 'INTERNAL' ? 'XYZ Capital' : 'ABC Textiles';
-    }
+    return user?.company || 'Company';
   };
 
   const getTargetSideForVisibility = (visibility, user = currentUser) => {
@@ -559,94 +625,286 @@ export function DealWorkflowProvider({ children }) {
   // ============================================================================
   const canUserClaimTask = (task, user = currentUser) => {
     if (!task || task.status !== 'TO_DO') return false;
-    // User must be on the receiving/target side of the task
-    if (user.side !== task.target_side) return false;
-    // If assigned to a group, user must belong to group OR be Admin of that company
-    const isAdmin = user.role.includes('Admin');
-    const isGroupMember = user.group === task.assigned_to_group;
-    return isAdmin || isGroupMember;
+
+    // RULE 1: Task Creator CANNOT claim their own task!
+    if (isTaskCreator(task, user)) return false;
+
+    const userName = (user.name || '').trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = (user.id || '').trim().toLowerCase();
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+
+    // If task was assigned to a specific user, that user can claim it
+    if (assignedToUser) {
+      if (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId)) {
+        return true;
+      }
+    }
+
+    // Check if user is assigned to any subtask
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember && (stMember === userName || stMember === userEmail || (userId !== 'session_user' && stMember === userId));
+    })) {
+      return true;
+    }
+
+    // If task has no specific assignee assigned yet:
+    // Group members or same-side admin can claim
+    if (!assignedToUser) {
+      const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
+      const isGroupMember =
+        Boolean(user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) ||
+        Boolean(task.assigned_to_group && getMembersForGroup(task.assigned_to_group).some((m) => {
+          const mStr = (typeof m === 'string' ? m : m.name || '').trim().toLowerCase();
+          return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
+        }));
+      const normRole = normalizeRole(user.role);
+      const isAdmin = normRole === 'admin' || normRole === 'super_admin';
+
+      return Boolean(isGroupMember || (isTargetSide && isAdmin));
+    }
+
+    return false;
   };
 
   const canUserSubmitForReview = (task, user = currentUser) => {
     if (!task || task.status !== 'IN_PROGRESS') return false;
-    // Assignee, team member, or admin on target side
-    if (user.side !== task.target_side) return false;
-    const isAssignee = task.assigned_to_user === user.name;
-    const isGroupMember = user.group === task.assigned_to_group;
-    const isAdmin = user.role.includes('Admin');
-    return isAssignee || isGroupMember || isAdmin;
+
+    // RULE 2: Task creator just views the progress, CANNOT submit to review!
+    if (isTaskCreator(task, user)) return false;
+
+    const userName = (user.name || '').trim().toLowerCase();
+    const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
+
+    // Direct assignee (the claimed or assigned user)
+    if (assignedToUser && assignedToUser === userName) return true;
+
+    // Subtask assigned member
+    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
+      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
+      return stMember === userName;
+    })) {
+      return true;
+    }
+
+    // Group member if unassigned
+    if (!assignedToUser && user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
+      return true;
+    }
+
+    return false;
   };
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-    // Company admin on the side that owns/oversees review
-    // For internal tasks: creator company admin
-    // For external tasks: creator company admin or team reviewer
-    const isCreatorSide = user.side === task.creator_side;
-    const isAdmin = user.role.includes('Admin');
-    return isCreatorSide && isAdmin;
+
+    // RULE 3: Assigned person who performed the task CANNOT approve their own work
+    // Task assigned member responsibility: "if task creator reviewed & marked as done,he can see that stage only"
+    if (isTaskAssignee(task, user)) return false;
+
+    // Task creator can review the task and mark the task as done!
+    if (isTaskCreator(task, user)) return true;
+
+    // Super admin oversight (if not the assignee)
+    const normRole = normalizeRole(user.role);
+    if (normRole === 'super_admin') return true;
+
+    return false;
+  };
+
+  // ============================================================================
+  // HIERARCHICAL TASK DELEGATION
+  // Super Admin -> Admin, Sub Admin, Internal User
+  // Admin -> Sub Admin, Internal User
+  // Sub Admin -> Internal User
+  // ============================================================================
+  const getAssignableMembersForUser = (user = currentUser) => {
+    if (!user) return [];
+    const userNormRole = normalizeRole(user.role);
+    const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
+    if (allowedRoles.length === 0) return [];
+
+    const candidates = [];
+    const seen = new Set();
+
+    const addCandidate = (u) => {
+      const name = u.name;
+      if (!name || seen.has(name.toLowerCase())) return;
+      // Do not allow assigning to oneself
+      if (user.name && name.toLowerCase() === user.name.toLowerCase()) return;
+
+      const targetNormRole = normalizeRole(u.role || u.dmsRole || 'internal_user');
+      if (allowedRoles.includes(targetNormRole)) {
+        seen.add(name.toLowerCase());
+        candidates.push({
+          id: u.id,
+          name: u.name,
+          role: targetNormRole,
+          roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || u.role,
+          group: u.group || 'General',
+          email: u.email || '',
+          side: u.side || 'seller',
+        });
+      }
+    };
+
+    allUsers.forEach(addCandidate);
+    Object.values(DEMO_USERS).forEach(addCandidate);
+
+    return candidates.sort((a, b) => (ROLE_HIERARCHY[b.role]?.level || 0) - (ROLE_HIERARCHY[a.role]?.level || 0));
+  };
+
+  // Subordinate members for a SPECIFIC group based on Role Hierarchy (Creator excluded)
+  const getAssignableMembersForGroup = (groupName, user = currentUser) => {
+    if (!user || !groupName) return [];
+    const userNormRole = normalizeRole(user.role);
+    const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
+    if (allowedRoles.length === 0) return [];
+
+    const memberNames = getMembersForGroup(groupName);
+    const currentUserName = (user.name || '').trim().toLowerCase();
+
+    const candidates = [];
+    const seen = new Set();
+
+    memberNames.forEach((mName) => {
+      if (!mName) return;
+      const cleanName = typeof mName === 'string' ? mName.trim() : (mName.name || '').trim();
+      if (!cleanName) return;
+      // Creator cannot assign to themselves
+      if (cleanName.toLowerCase() === currentUserName) return;
+      if (seen.has(cleanName.toLowerCase())) return;
+
+      // Find user details from allUsers or DEMO_USERS
+      const dbUser = allUsers.find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+      const demoUser = Object.values(DEMO_USERS).find((u) => (u.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+      const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : 'internal_user');
+      const targetNormRole = normalizeRole(rawRole);
+
+      if (allowedRoles.includes(targetNormRole)) {
+        seen.add(cleanName.toLowerCase());
+        candidates.push({
+          id: dbUser?.id || demoUser?.id || cleanName,
+          name: cleanName,
+          role: targetNormRole,
+          roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || rawRole,
+          email: dbUser?.email || demoUser?.email || '',
+          group: groupName,
+          side: dbUser?.side || demoUser?.side || user.side,
+        });
+      }
+    });
+
+    return candidates.sort((a, b) => (ROLE_HIERARCHY[b.role]?.level || 0) - (ROLE_HIERARCHY[a.role]?.level || 0));
   };
 
   // Action: Claim Task
-  const claimTask = (taskId) => {
+  const claimTask = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'IN_PROGRESS',
           assigned_to_user: currentUser.name,
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Task Claimed',
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'claim',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Claim task API error:', e);
+    }
   };
 
   // Action: Submit for Review
-  const submitForReview = (taskId) => {
+  const submitForReview = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'REVIEW',
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Submitted for Review',
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_review',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Submit review API error:', e);
+    }
   };
 
   // Action: Approve & Complete
-  const approveAndComplete = (taskId) => {
+  const approveAndComplete = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         return {
           ...t,
           status: 'DONE',
@@ -654,39 +912,110 @@ export function DealWorkflowProvider({ children }) {
           completed_by: currentUser.name,
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: 'Approved & Completed',
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+              ip,
             },
           ],
         };
       })
     );
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Approve task API error:', e);
+    }
   };
 
-  // Action: Digital Document Sign & Complete (specifically used for NDA and signed covenants)
-  const signDocumentAndComplete = (taskId, signaturePayload) => {
+  // Action: Send Back to In Progress (revisions requested)
+  const sendBack = async (taskId, reason = 'Revisions requested by reviewer') => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
-        const now = new Date();
-        const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        const isoString = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-
-        const digitalSignature = {
-          signer: currentUser.name,
-          role: currentUser.role,
-          timestamp: isoString,
-          ip: currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55',
-          hash: signaturePayload?.hash || `SHA256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-          document: t.linked_document || 'NDA_Draft.pdf',
-          signatureDataUrl: signaturePayload?.dataUrl || null,
+        return {
+          ...t,
+          status: 'IN_PROGRESS',
+          updated_at: formattedDate,
+          audit_trail: [
+            ...(t.audit_trail || []),
+            {
+              action: 'Task Sent Back for Revisions',
+              performed_by: currentUser.name,
+              role: currentUser.role,
+              timestamp: formattedDate,
+              ip,
+              details: reason,
+            },
+          ],
         };
+      })
+    );
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_back',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          reason,
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Send back API error:', e);
+    }
+  };
 
+  // Action: Digital Document Sign & Complete
+  const signDocumentAndComplete = async (taskId, signaturePayload) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const isoString = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const ip = currentUser.side === 'buyer' ? '198.51.100.42' : '192.168.1.55';
+
+    const digitalSignature = {
+      signer: currentUser.name,
+      role: currentUser.role,
+      timestamp: isoString,
+      ip,
+      hash: signaturePayload?.hash || `SHA256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+      document: 'NDA_Draft.pdf',
+      signatureDataUrl: signaturePayload?.dataUrl || null,
+    };
+
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
         return {
           ...t,
           status: 'DONE',
@@ -696,7 +1025,7 @@ export function DealWorkflowProvider({ children }) {
           updated_at: formattedDate,
           digital_signature: digitalSignature,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
               action: `${t.linked_document || 'Document'} Opened & Reviewed`,
               performed_by: currentUser.name,
@@ -723,65 +1052,122 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign_document',
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          signature: digitalSignature,
+          ipAddress: digitalSignature.ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Sign document API error:', e);
+    }
   };
 
   // Action: Create New Task
-  const createTask = (formData) => {
-    const nextIndex = tasks.length + 1;
-    const taskId = `TSK-${1000 + nextIndex}`;
-    const now = new Date();
-    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const createTask = async (formData) => {
+    try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const workspaceId = session?.active_workspace_id || null;
 
-    const targetSide = getTargetSideForVisibility(formData.visibility, currentUser);
-    const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
+      const targetSide = getTargetSideForVisibility(formData.visibility, currentUser);
+      const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
 
-    const newTask = {
-      task_id: taskId,
-      title: formData.title,
-      description: formData.description || '',
-      created_by: currentUser.name,
-      creator_role: currentUser.role,
-      creator_company: currentUser.company,
-      creator_side: currentUser.side,
-      assigned_to_group: formData.assigned_to_group,
-      assigned_to_user: null,
-      target_company: targetCompany,
-      target_side: targetSide,
-      workstream: formData.workstream || 'General',
-      priority: formData.priority || 'Medium',
-      deal_stage: formData.deal_stage || 'Preparation',
-      visibility: formData.visibility, // 'INTERNAL' or 'EXTERNAL'
-      status: 'TO_DO',
-      due_date: formData.due_date || '2026-10-15',
-      linked_document: formData.linked_document || null,
-      claimable_by_role: formData.claimable_by_role ?? true,
-      created_at: formattedDate,
-      updated_at: formattedDate,
-      completed_at: null,
-      completed_by: null,
-      digital_signature: null,
-      audit_trail: [
-        {
-          action: formData.visibility === 'EXTERNAL' ? 'External Task Created & Dispatched' : 'Internal Task Created',
-          performed_by: currentUser.name,
-          role: currentUser.role,
-          timestamp: formattedDate,
-          ip: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
-        },
-      ],
-      comments: [],
-    };
+      const resolvedDept = formData.department || formData.workstream || 'General';
 
-    setTasks((prev) => [newTask, ...prev]);
-    setIsCreateModalOpen(false);
-    return newTask;
+      const res = await fetch('/api/deal-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          department: resolvedDept,
+          workstream: resolvedDept,
+          workspaceId,
+          creator_side: currentUser.side,
+          creator_company: currentUser.company,
+          target_side: targetSide,
+          target_company: targetCompany,
+          created_by: currentUser.name,
+          creator_role: currentUser.role,
+          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
+        setIsCreateModalOpen(false);
+        return data.task;
+      }
+    } catch (err) {
+      console.error('Error creating task via API:', err);
+    }
   };
 
-  // Action: Add Scoped Comment
-  const addComment = (taskId, text, scope = 'INTERNAL') => {
-    if (!text.trim()) return;
+  // Action: Toggle Subtask Status
+  const toggleSubtask = async (taskId, subtaskId) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const currentSubtasks = t.subtasks || [];
+        const updatedSubtasks = currentSubtasks.map((st) => {
+          if (st.id === subtaskId) {
+            const nextStatus = st.status === 'DONE' ? 'TO_DO' : 'DONE';
+            return {
+              ...st,
+              status: nextStatus,
+              completed_at: nextStatus === 'DONE' ? new Date().toISOString() : null,
+            };
+          }
+          return st;
+        });
+        return {
+          ...t,
+          subtasks: updatedSubtasks,
+        };
+      })
+    );
+
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_subtask',
+          subtaskId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Toggle subtask API error:', e);
+    }
+  };
+
+  // Action: Add Scoped Comment (fully persisted to PostgreSQL backend)
+  const addComment = async (taskId, text, scope = 'INTERNAL') => {
+    if (!text || !text.trim()) return;
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
 
     const newComment = {
       id: `comm_${Date.now()}`,
@@ -792,54 +1178,101 @@ export function DealWorkflowProvider({ children }) {
       timestamp: formattedDate,
     };
 
+    // Optimistic update
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
         return {
           ...t,
-          comments: [...t.comments, newComment],
+          comments: [...(t.comments || []), newComment],
           updated_at: formattedDate,
           audit_trail: [
-            ...t.audit_trail,
+            ...(t.audit_trail || []),
             {
-              action: `Added ${scope} comment`,
+              action: `${scope} Note Added`,
               performed_by: currentUser.name,
               role: currentUser.role,
               timestamp: formattedDate,
-              ip: currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+              ip,
             },
           ],
         };
       })
     );
+
+    // Persist to PostgreSQL backend via PATCH API
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_comment',
+          text,
+          scope,
+          user: {
+            name: currentUser.name,
+            role: currentUser.role,
+            side: currentUser.side,
+            company: currentUser.company,
+          },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (e) {
+      console.error('Add comment API error:', e);
+    }
   };
 
-  // Action: Reset Demo
-  const resetToDemo = () => {
-    setTasks(INITIAL_DEMO_TASKS);
-    localStorage.removeItem('dms_deal_workflow_tasks_v2');
+  // Action: Delete Task (persisted to PostgreSQL backend)
+  const deleteTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTasks((prev) => prev.filter((t) => t.task_id !== taskId && t.id !== taskId));
+        if (selectedTask?.task_id === taskId || selectedTask?.id === taskId) {
+          setSelectedTask(null);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Delete task API error:', e);
+    }
+    return false;
   };
+
 
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedWorkstream('ALL');
+    setSelectedDepartment('ALL');
     setSelectedStatus('ALL');
     setSelectedPriority('ALL');
     setSelectedVisibility('ALL');
     setSelectedDealStage('ALL');
     setTeamFilter('ALL');
+    setMemberFilter('ALL');
     setDateFilter('ALL');
   };
 
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
-    selectedWorkstream !== 'ALL' ||
+    selectedDepartment !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPriority !== 'ALL' ||
     selectedVisibility !== 'ALL' ||
     selectedDealStage !== 'ALL' ||
     teamFilter !== 'ALL' ||
+    memberFilter !== 'ALL' ||
     dateFilter !== 'ALL'
   );
 
@@ -868,23 +1301,43 @@ export function DealWorkflowProvider({ children }) {
         getSmartGroupsForVisibility,
         getTargetCompanyForVisibility,
         getTargetSideForVisibility,
+        getGroupsForDepartment,
+        getMembersForGroup,
         isTaskVisibleToUser,
+        isTaskCreator,
+        isTaskAssignee,
         canUserClaimTask,
         canUserSubmitForReview,
         canUserApproveTask,
+        getAssignableMembersForUser,
+        getAssignableMembersForGroup,
+        roleHierarchy: ROLE_HIERARCHY,
+        normalizeRole,
+        getRoleLabel,
+        canRoleAssignTo,
         // Actions
         claimTask,
         submitForReview,
         approveAndComplete,
+        sendBack,
         signDocumentAndComplete,
         createTask,
+        toggleSubtask,
         addComment,
-        resetToDemo,
+        deleteTask,
+        departments,
+        workflowGroups,
+        allUsers,
+        dbGroups,
+        refreshTasks: fetchTasks,
+        isLoading,
         // Filters
         searchQuery,
         setSearchQuery,
-        selectedWorkstream,
-        setSelectedWorkstream,
+        selectedDepartment,
+        setSelectedDepartment,
+        selectedWorkstream: selectedDepartment,
+        setSelectedWorkstream: setSelectedDepartment,
         selectedStatus,
         setSelectedStatus,
         selectedPriority,
@@ -895,6 +1348,8 @@ export function DealWorkflowProvider({ children }) {
         setSelectedDealStage,
         teamFilter,
         setTeamFilter,
+        memberFilter,
+        setMemberFilter,
         dateFilter,
         setDateFilter,
         clearFilters,

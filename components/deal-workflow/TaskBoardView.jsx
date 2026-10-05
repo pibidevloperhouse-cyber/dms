@@ -7,16 +7,9 @@ import {
   Search, 
   Filter, 
   X, 
-  Layers, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle,
-  FileCheck2,
-  ChevronRight,
-  ShieldCheck,
   Plus
 } from 'lucide-react';
-import { WORKSTREAMS, PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
+import { PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
 
 export default function TaskBoardView() {
   const {
@@ -24,11 +17,15 @@ export default function TaskBoardView() {
     kpiCounts,
     setSelectedTask,
     setIsCreateModalOpen,
-    isAuditModeActive,
     searchQuery,
     setSearchQuery,
-    selectedWorkstream,
-    setSelectedWorkstream,
+    departments,
+    selectedDepartment,
+    setSelectedDepartment,
+    memberFilter,
+    setMemberFilter,
+    allUsers,
+    currentUser,
     selectedStatus,
     setSelectedStatus,
     selectedPriority,
@@ -37,10 +34,6 @@ export default function TaskBoardView() {
     setSelectedVisibility,
     selectedDealStage,
     setSelectedDealStage,
-    teamFilter,
-    setTeamFilter,
-    dateFilter,
-    setDateFilter,
     clearFilters,
     hasActiveFilters,
   } = useDealWorkflow();
@@ -91,7 +84,7 @@ export default function TaskBoardView() {
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-4">
 
       {/* ========================================================================= */}
-      {/* 14. FILTERS & SEARCH BAR */}
+      {/* FILTERS & SEARCH BAR */}
       {/* ========================================================================= */}
       <div className="px-4 sm:px-6 lg:px-8 py-2">
         <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex flex-col gap-2.5">
@@ -131,7 +124,7 @@ export default function TaskBoardView() {
                   Clear Filters
                 </button>
               )}
-              {/* Moved Create Task Button */}
+              {/* Create Task Button */}
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
@@ -149,15 +142,28 @@ export default function TaskBoardView() {
               Filters:
             </span>
 
-            {/* Workstream Filter */}
+            {/* Department Filter */}
             <select
-              value={selectedWorkstream}
-              onChange={(e) => setSelectedWorkstream(e.target.value)}
-              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500"
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
             >
-              <option value="ALL">All Workstreams</option>
-              {WORKSTREAMS.map((w) => (
-                <option key={w} value={w}>{w}</option>
+              <option value="ALL">All Departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+
+            {/* Assignee / Member Filter */}
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="ALL">All Assignees</option>
+              <option value="MY_TASKS">Assigned to Me</option>
+              {allUsers.map((u) => (
+                <option key={u.id} value={u.name}>{u.name}</option>
               ))}
             </select>
 
@@ -201,7 +207,7 @@ export default function TaskBoardView() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 19. MOBILE STATUS TABS SWITCHER */}
+      {/* MOBILE STATUS TABS SWITCHER */}
       {/* ========================================================================= */}
       <div className="md:hidden px-4 pt-2">
         <div className="grid grid-cols-4 bg-slate-200 p-1 rounded-xl text-xs font-bold text-center">
@@ -223,7 +229,7 @@ export default function TaskBoardView() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 6. KANBAN TASK BOARD COLUMNS */}
+      {/* KANBAN TASK BOARD COLUMNS */}
       {/* ========================================================================= */}
       <div className="px-4 sm:px-6 lg:px-8 pt-4 flex-1">
         
