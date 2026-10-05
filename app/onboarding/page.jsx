@@ -42,8 +42,8 @@ export default function OnboardingWizard() {
       });
 
       if (response.ok) {
-        alert("Deal Draft Saved! Redirecting to Identity Verification...");
-        // router.push('/onboarding/verification');
+        alert("Profile Saved! Redirecting to Marketplace...");
+        router.push('/dms/marketplace');
       } else {
         alert("Failed to save data. Check console.");
       }

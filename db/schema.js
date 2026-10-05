@@ -558,6 +558,7 @@ export const dmsProjects = pgTable('dms_projects', {
   companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
   name: text('name').notNull(),
   status: text('status').default('active'),
+  projectType: text('project_type'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -709,4 +710,16 @@ export const auditLogs = pgTable('audit_logs', {
   action: text('action').notNull(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const dmsInboxMessages = pgTable('dms_inbox_messages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  senderId: uuid('sender_id').references(() => users.id).notNull(),
+  senderName: text('sender_name'),
+  senderRole: text('sender_role'),
+  recipientId: uuid('recipient_id').references(() => users.id).notNull(),
+  recipientName: text('recipient_name'),
+  text: text('text').notNull(),
+  timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+  isRead: boolean('is_read').default(false)
 });

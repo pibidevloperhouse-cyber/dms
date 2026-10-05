@@ -28,10 +28,10 @@ export default function DealDashboard() {
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [activeTab, setActiveTab] = useState('teaser');
+  const [activeTab, setActiveTab] = useState('deals');
   const [userRole, setUserRole] = useState('seller');
   const [vdrRole, setVdrRole] = useState('external_user');
-  
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (projectId) {
@@ -80,13 +80,13 @@ export default function DealDashboard() {
     const role = roleItem.toLowerCase();
     setUserRole(role);
     setVdrRole(vdrRoleItem);
-    
+
     if (!projectId) return;
 
     const savedTab = sessionStorage.getItem(`deal_activeTab_${projectId}`);
-    if (savedTab) {
+    if (savedTab && savedTab !== 'teaser') {
       setActiveTab(savedTab);
-    } else if (role === 'buyer' || role.includes('guest') || vdrRoleItem !== 'super_admin') {
+    } else {
       setActiveTab('deals');
     }
 
@@ -286,7 +286,7 @@ export default function DealDashboard() {
     setIsSavingPermissions(true);
     try {
       await Promise.all(
-        deals.filter(d => d.status !== 'trashed').map(deal => 
+        deals.filter(d => d.status !== 'trashed').map(deal =>
           fetch('/api/dms/deals/features', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -321,15 +321,6 @@ export default function DealDashboard() {
           </div>
 
           <nav className="flex flex-col gap-2 px-4">
-            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-              <button
-                onClick={() => handleTabChange('teaser')}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors ${activeTab === 'teaser' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
-                <FaShieldAlt className="text-lg" />
-                <span>Teaser</span>
-              </button>
-            )}
             <button
               onClick={() => handleTabChange('deals')}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'deals' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -347,7 +338,7 @@ export default function DealDashboard() {
                 <span>Deal Permissions</span>
               </button>
             )}
-            
+
             {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
               <>
                 <button
@@ -387,7 +378,7 @@ export default function DealDashboard() {
               <span>Trash</span>
             </button>
           )}
-          
+
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 font-medium transition-colors">
             <FaPowerOff className="text-lg" />
             <span>Logout</span>
@@ -400,7 +391,7 @@ export default function DealDashboard() {
 
         {/* Top Header outside card */}
         <div className="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 mt-2">
-          <Link href="/dms/workspace" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-medium group">
+          <Link href="/dms/marketplace/workspace" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-medium group">
             <div className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm group-hover:-translate-x-1 transition-transform">
               <FaArrowLeft className="text-sm" />
             </div>
@@ -587,68 +578,68 @@ export default function DealDashboard() {
                 ) : (
                   /* Existing Deals */
                   deals.filter(d => activeTab === 'trash' ? d.status === 'trashed' : d.status !== 'trashed').map((deal) => (
-                  <div
-                    key={deal.id}
-                    onClick={() => {
-                      const dmsRole = localStorage.getItem('userRole');
-                      // Fix: Use the actual role from the database that we saved on login!
-                      const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
-                      
-                      const vdrSession = {
-                        id: localStorage.getItem('userId'),
-                        role: actualVdrRole,
-                        dms_role: dmsRole,
-                        name: localStorage.getItem('userName') || 'User',
-                        company_id: localStorage.getItem('companyId') || '',
-                        active_workspace_id: deal.id
-                      };
-                      localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
-                      router.push('/documents');
-                    }}
-                    className="h-44 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] transition-all cursor-pointer group"
-                  >
-                    <div className="flex justify-between items-start mb-auto">
-                      <span className="px-2 py-0.5 bg-[#fff8e6] text-[#b48629] text-[9px] font-bold rounded">
-                        {deal.status}
-                      </span>
+                    <div
+                      key={deal.id}
+                      onClick={() => {
+                        const dmsRole = localStorage.getItem('userRole');
+                        // Fix: Use the actual role from the database that we saved on login!
+                        const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
 
-                      <div className="relative">
-                        {userRole !== 'buyer' && activeTab !== 'trash' && vdrRole === 'super_admin' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenDropdownId(openDropdownId === deal.id ? null : deal.id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
-                          >
-                            <FaEllipsisV className="text-[11px]" />
-                          </button>
-                        )}
+                        const vdrSession = {
+                          id: localStorage.getItem('userId'),
+                          role: actualVdrRole,
+                          dms_role: dmsRole,
+                          name: localStorage.getItem('userName') || 'User',
+                          company_id: localStorage.getItem('companyId') || '',
+                          active_workspace_id: deal.id
+                        };
+                        localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
+                        router.push('/documents');
+                      }}
+                      className="h-44 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] transition-all cursor-pointer group"
+                    >
+                      <div className="flex justify-between items-start mb-auto">
+                        <span className="px-2 py-0.5 bg-[#fff8e6] text-[#b48629] text-[9px] font-bold rounded">
+                          {deal.status}
+                        </span>
 
-                        {openDropdownId === deal.id && activeTab !== 'trash' && (
-                          <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
+                        <div className="relative">
+                          {userRole !== 'buyer' && activeTab !== 'trash' && vdrRole === 'super_admin' && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteDeal(deal.id);
+                                setOpenDropdownId(openDropdownId === deal.id ? null : deal.id);
                               }}
-                              className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                              className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
                             >
-                              Delete
+                              <FaEllipsisV className="text-[11px]" />
                             </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                          )}
 
-                    <div className="flex flex-col items-center justify-center flex-1 gap-2 pb-2">
-                      <div className="w-12 h-12 rounded-full bg-[#f4f7f9] flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
-                        <FaShieldAlt className="text-2xl text-[#b48629]" />
+                          {openDropdownId === deal.id && activeTab !== 'trash' && (
+                            <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDeal(deal.id);
+                                }}
+                                className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="font-bold text-gray-800 text-sm">{deal.name || 'Unnamed Deal'}</span>
+
+                      <div className="flex flex-col items-center justify-center flex-1 gap-2 pb-2">
+                        <div className="w-12 h-12 rounded-full bg-[#f4f7f9] flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
+                          <FaShieldAlt className="text-2xl text-[#b48629]" />
+                        </div>
+                        <span className="font-bold text-gray-800 text-sm">{deal.name || 'Unnamed Deal'}</span>
+                      </div>
                     </div>
-                  </div>
-                )))}
+                  )))}
               </div>
             )}
 
@@ -660,7 +651,7 @@ export default function DealDashboard() {
                     <p className="text-sm text-gray-500 mt-1">Manage module access and granular guest permissions for each deal workspace.</p>
                   </div>
                 </div>
-                
+
                 <div className="bg-white rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[800px] text-left border-collapse">
@@ -711,7 +702,7 @@ export default function DealDashboard() {
                     <h2 className="text-2xl font-bold text-gray-900">Deal Proposals</h2>
                     <p className="text-sm text-gray-500 mt-1">Review and manage access requests for this deal.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       setInviteEmail("");
                       setInviteLink("");
@@ -747,11 +738,10 @@ export default function DealDashboard() {
                           <td className="py-5 px-6 text-base text-gray-500">{req.jobTitle}</td>
                           <td className="py-5 px-6 text-base text-gray-500">{req.investorType}</td>
                           <td className="py-5 px-6">
-                            <span className={`px-3 py-1.5 text-xs font-bold rounded-md tracking-wide capitalize ${
-                                req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? 'bg-[#e6fbf2] text-[#00c875]' :
+                            <span className={`px-3 py-1.5 text-xs font-bold rounded-md tracking-wide capitalize ${req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? 'bg-[#e6fbf2] text-[#00c875]' :
                                 req.status?.toLowerCase() === 'rejected' ? 'bg-red-50 text-red-600' :
-                                req.status?.toLowerCase() === 'revoked' ? 'bg-orange-50 text-orange-600' :
-                                'bg-blue-50 text-blue-600' // default for pending, etc
+                                  req.status?.toLowerCase() === 'revoked' ? 'bg-orange-50 text-orange-600' :
+                                    'bg-blue-50 text-blue-600' // default for pending, etc
                               }`}>
                               {req.status?.toLowerCase() === 'accepted' ? 'Approved' : req.status}
                             </span>
@@ -769,50 +759,50 @@ export default function DealDashboard() {
                               </button>
 
                               {openProposalDropdownId === req.id && (
-                                  <div className="absolute right-0 top-full mt-2 w-32 bg-white rounded-md shadow-lg border border-gray-100 z-50 overflow-hidden">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedRequest(req);
-                                        setOpenProposalDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 text-sm text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-colors font-medium"
-                                    >
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedRequest(req);
-                                        setOpenProposalDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium border-t border-gray-100"
-                                    >
-                                      Reject
-                                    </button>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          const res = await fetch('/api/dms/proposals', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ proposalId: req.id, action: 'revoke', projectId })
-                                          });
-                                          if (res.ok) {
-                                            const updatedReqs = requests.map(r => r.id === req.id ? { ...r, status: 'revoked' } : r);
-                                            setRequests(updatedReqs);
-                                          }
-                                        } catch (err) {
-                                          console.error("Failed to revoke proposal", err);
+                                <div className="absolute right-0 top-full mt-2 w-32 bg-white rounded-md shadow-lg border border-gray-100 z-50 overflow-hidden">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRequest(req);
+                                      setOpenProposalDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-colors font-medium"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRequest(req);
+                                      setOpenProposalDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium border-t border-gray-100"
+                                  >
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const res = await fetch('/api/dms/proposals', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ proposalId: req.id, action: 'revoke', projectId })
+                                        });
+                                        if (res.ok) {
+                                          const updatedReqs = requests.map(r => r.id === req.id ? { ...r, status: 'revoked' } : r);
+                                          setRequests(updatedReqs);
                                         }
-                                        setOpenProposalDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium border-t border-gray-100"
-                                    >
-                                      Revoke Access
-                                    </button>
-                                  </div>
+                                      } catch (err) {
+                                        console.error("Failed to revoke proposal", err);
+                                      }
+                                      setOpenProposalDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium border-t border-gray-100"
+                                  >
+                                    Revoke Access
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </td>
@@ -950,7 +940,7 @@ export default function DealDashboard() {
                           const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
                           const dealsData = await dealsRes.json();
                           setDeals(dealsData.deals || []);
-                          
+
                           setSelectedRequest(null);
                           alert(`Deal created automatically for ${selectedRequest.company}.`);
                         }
@@ -1047,7 +1037,7 @@ export default function DealDashboard() {
                 <FaTimes />
               </button>
             </div>
-            
+
             <div className="p-6">
               {!inviteLink ? (
                 <form onSubmit={handleInviteBuyer}>
@@ -1092,13 +1082,13 @@ export default function DealDashboard() {
                     An email has been sent to <strong>{inviteEmail}</strong> (if email is configured). You can also copy the direct link below:
                   </p>
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-6 relative">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={inviteLink} 
+                    <input
+                      type="text"
+                      readOnly
+                      value={inviteLink}
                       className="w-full bg-transparent text-sm text-gray-600 outline-none pr-16"
                     />
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(inviteLink);
                         alert("Link copied to clipboard!");
@@ -1122,7 +1112,7 @@ export default function DealDashboard() {
       )}
 
       {/* NDA Modal */}
-      <NDAModal 
+      <NDAModal
         isOpen={showNDAModal}
         onClose={() => setShowNDAModal(false)}
         projectName={ndaTarget?.projectName}
@@ -1205,7 +1195,7 @@ export default function DealDashboard() {
                         featureCommunication: selectedDealForPermissions.featureCommunication
                       })
                     });
-                    
+
                     if (res.ok) {
                       setDeals(deals.map(d => d.id === selectedDealForPermissions.id ? selectedDealForPermissions : d));
                       setSelectedDealForPermissions(null);

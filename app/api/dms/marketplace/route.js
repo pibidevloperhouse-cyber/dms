@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
-import { dmsTeasers, dmsProjects } from '../../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { dmsTeasers, dmsProjects, users } from '../../../../db/schema';
+import { eq, or } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
@@ -24,9 +24,22 @@ export async function GET(req) {
       .innerJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
       .where(eq(dmsTeasers.status, 'Active'));
 
-    return NextResponse.json({ teasers: activeTeasers }, { status: 200 });
+    const activeBuyers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        companyName: users.companyName,
+        investorType: users.investorType,
+        investmentRange: users.investmentRange,
+        companyType: users.companyType,
+        jobTitle: users.jobTitle,
+      })
+      .from(users)
+      .where(or(eq(users.dmsRole, 'buyer'), eq(users.dmsRole, 'Buyer')));
+
+    return NextResponse.json({ teasers: activeTeasers, buyers: activeBuyers }, { status: 200 });
   } catch (error) {
-    console.error('Failed to fetch marketplace teasers:', error);
+    console.error('Failed to fetch marketplace deals:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

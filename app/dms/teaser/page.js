@@ -182,15 +182,16 @@ function TeaserContent() {
       <div className="bg-[#f8fafc]">
         <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12 pt-8 pb-12">
           {/* Back Button */}
-          {/* {isApproved ? (
-            <Link href="/dms/workspace" className="inline-flex items-center text-sm font-medium text-[#008f70] hover:text-[#007058] transition-colors mb-12">
-              <FaArrowLeft className="mr-2" /> Back to workspace
+          {/* Dynamic Back Button */}
+          {userRole === 'seller' ? (
+            <Link href="/dms/marketplace/teaser" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-8">
+              <FaArrowLeft className="mr-2" /> Back to Teasers
             </Link>
           ) : (
-            <Link href="/dms/marketplace" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-12">
-              <FaArrowLeft className="mr-2" /> Back to marketplace
+            <Link href="/dms/marketplace/find_deal" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-8">
+              <FaArrowLeft className="mr-2" /> Back to Marketplace
             </Link>
-          )} */}
+          )}
 
           {/* Top Badges */}
           <div className="flex items-center gap-4 mb-6">
