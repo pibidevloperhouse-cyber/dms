@@ -37,6 +37,7 @@ yarn-error.log*
 .vdr_*.json
 check_tables.js
 check_otps.js
+check_tokens.js
 verify_debug.js
 AUDIT_REPORT.md
 build_output.txt
