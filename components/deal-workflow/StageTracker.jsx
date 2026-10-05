@@ -49,8 +49,10 @@ export default function StageTracker() {
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
                     stage.isCompleted
                       ? 'bg-emerald-600 text-white shadow-xs'
-                      : stage.isActive || isSelected
+                      : (stage.isActive || isSelected) && stage.total > 0
                       ? 'bg-[#11707E] text-white shadow-xs'
+                      : isSelected
+                      ? 'bg-slate-700 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-500 font-semibold'
                   }`}
                 >
@@ -69,7 +71,11 @@ export default function StageTracker() {
 
               {/* Status Badge Pill */}
               <div className="shrink-0">
-                {stage.isCompleted ? (
+                {stage.total === 0 ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    No Tasks
+                  </span>
+                ) : stage.isCompleted ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                     Completed ✓
                   </span>
@@ -113,7 +119,11 @@ export default function StageTracker() {
             <div className="flex items-center justify-between text-[11px] sm:text-xs pt-0.5">
               {/* Left description */}
               <div>
-                {stage.isLocked ? (
+                {stage.total === 0 ? (
+                  <div className="text-slate-400 text-[11px] sm:text-xs">
+                    {trackingSection === 'CREATED_BY_ME' ? 'No tasks created by you' : 'No tasks yet'}
+                  </div>
+                ) : stage.isLocked ? (
                   <div className="flex items-center gap-1 text-slate-400 text-[11px] sm:text-xs">
                     <Lock className="w-3 h-3 shrink-0" />
                     <span>
@@ -127,7 +137,7 @@ export default function StageTracker() {
                 ) : stage.isCompleted ? (
                   <div className="flex items-center gap-1 text-emerald-700 font-semibold text-[11px] sm:text-xs">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                    <span>All stage tasks completed ✓</span>
+                    <span>{trackingSection === 'CREATED_BY_ME' ? 'All your tasks completed ✓' : 'All stage tasks completed ✓'}</span>
                   </div>
                 ) : stage.isMyTasksCompleted && trackingSection === 'ASSIGNED_TO_ME' ? (
                   <div className="text-teal-700 font-semibold text-[11px] sm:text-xs flex items-center gap-1">

@@ -73,9 +73,9 @@ export default function TaskDetailDrawer() {
   const displayedSubtasks = isCreator
     ? subtasksList
     : subtasksList.filter((s) => {
-        const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
-        return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
-      });
+      const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
+      return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
+    });
 
   const totalSubtasks = displayedSubtasks.length;
   const completedSubtasks = displayedSubtasks.filter((s) => s.status === 'DONE').length;
@@ -715,8 +715,8 @@ export default function TaskDetailDrawer() {
                       <div
                         key={comm.id}
                         className={`p-3 rounded-xl border text-xs space-y-1 ${isInternal
-                            ? 'bg-slate-50/80 border-slate-200'
-                            : 'bg-purple-50/50 border-purple-200/70'
+                          ? 'bg-slate-50/80 border-slate-200'
+                          : 'bg-purple-50/50 border-purple-200/70'
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -727,8 +727,8 @@ export default function TaskDetailDrawer() {
                           <div className="flex items-center gap-1.5">
                             <span
                               className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border flex items-center gap-1 ${isInternal
-                                  ? 'bg-slate-100 text-slate-600 border-slate-200'
-                                  : 'bg-purple-100/70 text-purple-700 border-purple-200'
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-purple-100/70 text-purple-700 border-purple-200'
                                 }`}
                             >
                               {isInternal ? <Lock className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}

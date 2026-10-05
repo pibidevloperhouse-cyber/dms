@@ -512,19 +512,24 @@ export function DealWorkflowProvider({ children }) {
       // A stage is ONLY unlocked if ALL tasks in previous stages across the deal are completed!
       const isUnlocked = idx <= dealMaxUnlocked;
       const isLocked = !isUnlocked;
-      const isCompleted = isDealStageCompleted;
-      const isActive = idx === dealMaxUnlocked && !isCompleted;
 
-      const displayTotal = dealTotal > 0 ? dealTotal : total;
-      const displayDone = dealTotal > 0 ? dealDone : done;
-      const percent = displayTotal > 0 ? Math.round((displayDone / displayTotal) * 100) : (isCompleted ? 100 : 0);
+      // Section-aware display:
+      // In 'CREATED_BY_ME': show strictly tasks created by this user in this stage!
+      // In 'ASSIGNED_TO_ME': show overall deal stage progress so assignees know the stage completion & gating status.
+      const isCreatedByMe = trackingSection === 'CREATED_BY_ME';
+      const displayTotal = isCreatedByMe ? total : (dealTotal > 0 ? dealTotal : total);
+      const displayDone = isCreatedByMe ? done : (dealTotal > 0 ? dealDone : done);
+      const displayPending = Math.max(0, displayTotal - displayDone);
+      const isCompleted = isCreatedByMe ? (total > 0 && done === total) : isDealStageCompleted;
+      const isActive = isCreatedByMe ? (total > 0 && !isCompleted) : (idx === dealMaxUnlocked && !isCompleted);
+      const percent = displayTotal > 0 ? Math.round((displayDone / displayTotal) * 100) : 0;
 
       return {
         name: stageName,
         index: idx,
         total: displayTotal,
         done: displayDone,
-        pending: dealPending,
+        pending: displayPending,
         dealTotal,
         dealDone,
         dealPending,
@@ -533,8 +538,8 @@ export function DealWorkflowProvider({ children }) {
         todo,
         percent,
         isCompleted,
-        isUnlocked,
-        isLocked,
+        isUnlocked: isCreatedByMe ? true : isUnlocked,
+        isLocked: isCreatedByMe ? false : isLocked,
         isActive,
         myTotal,
         myDone,
