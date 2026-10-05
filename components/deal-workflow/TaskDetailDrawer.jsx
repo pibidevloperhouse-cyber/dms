@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useDealWorkflow } from './DealWorkflowContext';
+import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
 import {
   FileText,
   Paperclip,
@@ -18,8 +18,10 @@ import {
   FileCheck2,
   AlertTriangle,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Edit3
 } from 'lucide-react';
+import EditTaskModal from './EditTaskModal';
 
 export default function TaskDetailDrawer() {
   const {
@@ -38,6 +40,7 @@ export default function TaskDetailDrawer() {
     canUserApproveTask,
     isTaskCreator,
     isTaskAssignee,
+    isStageLockedForUser,
     setSigningModalTask,
     setCertificateModalTask,
   } = useDealWorkflow();
@@ -47,22 +50,35 @@ export default function TaskDetailDrawer() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   if (!selectedTask) return null;
 
   const isCreator = isTaskCreator ? isTaskCreator(selectedTask, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(selectedTask, currentUser) : (selectedTask.assigned_to_user === currentUser.name);
+  const isStageLocked = isStageLockedForUser ? isStageLockedForUser(selectedTask, currentUser) : false;
 
   const isCreatorSide = currentUser.side === selectedTask.creator_side;
   const isTargetSide = currentUser.side === selectedTask.target_side;
 
   const subtasksList = selectedTask.subtasks || [];
-  const totalSubtasks = subtasksList.length;
-  const completedSubtasks = subtasksList.filter((s) => s.status === 'DONE').length;
+  const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
 
-  const mySubtasks = subtasksList.filter(
-    (s) => s.assignedMember === currentUser.name || s.assigned_to_user === currentUser.name
-  );
+  // If user is creator or admin, they see all subtasks created.
+  // For assigned members (like Lakshmi), ONLY tasks/subtasks assigned to them are shown!
+  const myName = (currentUser?.name || '').trim().toLowerCase();
+  const myEmail = (currentUser?.email || '').trim().toLowerCase();
+  const myId = (currentUser?.id || '').trim().toLowerCase();
+
+  const displayedSubtasks = (isCreator || isAdmin)
+    ? subtasksList
+    : subtasksList.filter((s) => {
+        const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
+        return member && (member === myName || member === myEmail || (myId !== 'session_user' && member === myId));
+      });
+
+  const totalSubtasks = displayedSubtasks.length;
+  const completedSubtasks = displayedSubtasks.filter((s) => s.status === 'DONE').length;
 
   const statusSteps = [
     { key: 'TO_DO', label: 'To Do' },
@@ -82,7 +98,7 @@ export default function TaskDetailDrawer() {
       signed: Boolean(selectedTask.digital_signature),
     });
   }
-  subtasksList.forEach((st) => {
+  displayedSubtasks.forEach((st) => {
     (st.attachments || []).forEach((att) => {
       allAttachments.push({
         name: att.name || att,
@@ -156,16 +172,28 @@ export default function TaskDetailDrawer() {
                   {selectedTask.task_id}
                 </span>
                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${selectedTask.priority === 'High'
-                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                    : selectedTask.priority === 'Medium'
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : selectedTask.priority === 'Medium'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}>
                   {selectedTask.priority}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Edit Task Button - allows task creator or admin to edit task after assignment */}
+                {(isCreator || isAdmin) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    title="Edit Task"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#006666] hover:bg-teal-50 hover:border-teal-200 transition-colors cursor-pointer flex items-center justify-center"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+
                 {/* Delete Task Button */}
                 <button
                   type="button"
@@ -275,13 +303,13 @@ export default function TaskDetailDrawer() {
                     <span>Assigned Tasks & Subtasks</span>
                   </h4>
                   <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    {subtasksList.length > 0 ? `${subtasksList.length} items` : '1 item'}
+                    {displayedSubtasks.length > 0 ? `${displayedSubtasks.length} item${displayedSubtasks.length > 1 ? 's' : ''}` : '1 item'}
                   </span>
                 </div>
 
-                {subtasksList.length > 0 ? (
+                {displayedSubtasks.length > 0 ? (
                   <div className="space-y-2">
-                    {subtasksList.map((st) => (
+                    {displayedSubtasks.map((st) => (
                       <div
                         key={st.id}
                         className="p-3 rounded-lg bg-white/90 border border-teal-100/80 shadow-2xs space-y-1.5"
@@ -379,13 +407,13 @@ export default function TaskDetailDrawer() {
                     Subtasks
                   </h4>
                   <span className="text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    {subtasksList.length > 0 ? `${completedSubtasks}/${totalSubtasks} completed` : 'In Progress'}
+                    {displayedSubtasks.length > 0 ? `${completedSubtasks}/${totalSubtasks} completed` : 'In Progress'}
                   </span>
                 </div>
 
-                {subtasksList.length > 0 ? (
+                {displayedSubtasks.length > 0 ? (
                   <div className="space-y-2">
-                    {subtasksList.map((st) => {
+                    {displayedSubtasks.map((st) => {
                       const isDone = st.status === 'DONE';
                       const isMine = st.assignedMember === currentUser.name || st.assigned_to_user === currentUser.name;
                       return (
@@ -394,9 +422,8 @@ export default function TaskDetailDrawer() {
                           onClick={() => {
                             if (!isCreator) toggleSubtask(selectedTask.task_id, st.id);
                           }}
-                          className={`flex items-start justify-between gap-2 p-2.5 rounded-lg bg-white/80 border border-teal-100/70 transition-colors ${
-                            isCreator ? 'cursor-default' : 'hover:bg-white hover:border-teal-200 cursor-pointer'
-                          }`}
+                          className={`flex items-start justify-between gap-2 p-2.5 rounded-lg bg-white/80 border border-teal-100/70 transition-colors ${isCreator ? 'cursor-default' : 'hover:bg-white hover:border-teal-200 cursor-pointer'
+                            }`}
                         >
                           <div className="flex items-start gap-2.5 min-w-0 flex-1">
                             <input
@@ -473,8 +500,8 @@ export default function TaskDetailDrawer() {
                     {selectedTask.status === 'REVIEW' ? 'Task Under Review' : 'Completed Task'}
                   </h4>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${selectedTask.status === 'DONE'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
                     }`}>
                     {selectedTask.status === 'DONE' ? 'Done' : 'Review'}
                   </span>
@@ -506,7 +533,7 @@ export default function TaskDetailDrawer() {
                 )}
 
                 {(() => {
-                  const singleItem = subtasksList.length > 0 ? subtasksList[0] : null;
+                  const singleItem = displayedSubtasks.length > 0 ? displayedSubtasks[0] : (subtasksList.length > 0 ? subtasksList[0] : null);
                   const itemTitle = singleItem ? singleItem.title : selectedTask.title;
                   const itemAssignee = singleItem ? (singleItem.assignedMember || singleItem.assigned_to_user || 'Assigned') : (selectedTask.assigned_to_user || 'Assigned');
                   const itemDueDate = singleItem?.dueDate || selectedTask.due_date;
@@ -522,8 +549,8 @@ export default function TaskDetailDrawer() {
                           </span>
                         </div>
                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded shrink-0 ${selectedTask.status === 'DONE'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}>
                           {selectedTask.status === 'DONE' ? 'Done' : 'Under Review'}
                         </span>
@@ -683,11 +710,10 @@ export default function TaskDetailDrawer() {
                     return (
                       <div
                         key={comm.id}
-                        className={`p-3 rounded-xl border text-xs space-y-1 ${
-                          isInternal
+                        className={`p-3 rounded-xl border text-xs space-y-1 ${isInternal
                             ? 'bg-slate-50/80 border-slate-200'
                             : 'bg-purple-50/50 border-purple-200/70'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
@@ -696,11 +722,10 @@ export default function TaskDetailDrawer() {
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span
-                              className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border flex items-center gap-1 ${
-                                isInternal
+                              className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border flex items-center gap-1 ${isInternal
                                   ? 'bg-slate-100 text-slate-600 border-slate-200'
                                   : 'bg-purple-100/70 text-purple-700 border-purple-200'
-                              }`}
+                                }`}
                             >
                               {isInternal ? <Lock className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
                               <span>{isInternal ? 'Internal' : 'External'}</span>
@@ -714,65 +739,6 @@ export default function TaskDetailDrawer() {
                   })
                 )}
               </div>
-
-              {/* Add Comment Input Form */}
-              <form onSubmit={handlePostComment} className="space-y-2 bg-slate-50/70 p-3 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-600">Add Note:</span>
-                  <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setCommentScope('INTERNAL')}
-                      className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
-                        commentScope === 'INTERNAL'
-                          ? 'bg-[#006666] text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <Lock className="w-2.5 h-2.5" />
-                      <span>Internal (My Team)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCommentScope('EXTERNAL')}
-                      className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
-                        commentScope === 'EXTERNAL'
-                          ? 'bg-purple-600 text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <Globe className="w-2.5 h-2.5" />
-                      <span>External (Shared)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder={
-                      commentScope === 'INTERNAL'
-                        ? 'Write an internal note for your team...'
-                        : 'Write a note visible to counterparty...'
-                    }
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#006666]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || isSubmittingComment}
-                    className={`px-3 py-1.5 rounded-lg font-semibold text-xs flex items-center gap-1 text-white transition-all ${
-                      commentText.trim() && !isSubmittingComment
-                        ? 'bg-[#006666] hover:bg-[#005555] shadow-xs cursor-pointer'
-                        : 'bg-slate-300 cursor-not-allowed'
-                    }`}
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>{isSubmittingComment ? 'Posting...' : 'Post'}</span>
-                  </button>
-                </div>
-              </form>
             </div>
 
           </div>
@@ -783,7 +749,12 @@ export default function TaskDetailDrawer() {
           <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50/50 flex items-center justify-end gap-2.5">
             {/* If task is TO_DO */}
             {selectedTask.status === 'TO_DO' && (
-              canClaim ? (
+              isStageLocked ? (
+                <span className="text-xs text-slate-500 font-medium px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 inline-flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Stage Locked · Complete previous stage first</span>
+                </span>
+              ) : canClaim ? (
                 <button
                   type="button"
                   onClick={() => claimTask(selectedTask.task_id)}
@@ -879,6 +850,15 @@ export default function TaskDetailDrawer() {
 
         </div>
       </div>
+
+      {/* Edit Task Modal */}
+      {isEditModalOpen && (
+        <EditTaskModal
+          task={selectedTask}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

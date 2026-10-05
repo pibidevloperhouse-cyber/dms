@@ -231,14 +231,39 @@ export async function PATCH(req, { params }) {
         break;
       }
 
+      case 'edit_task':
+      case 'update_task':
       default: {
         // Generic fields update
-        if (payload.title) updatedFields.title = payload.title.trim();
+        if (payload.title !== undefined) updatedFields.title = payload.title.trim();
         if (payload.description !== undefined) updatedFields.description = payload.description;
-        if (payload.priority) updatedFields.priority = payload.priority;
-        if (payload.dueDate) updatedFields.dueDate = payload.dueDate;
-        if (payload.status) updatedFields.status = payload.status;
-        if (payload.subtasks) updatedFields.subtasks = payload.subtasks;
+        if (payload.priority !== undefined) updatedFields.priority = payload.priority;
+        if (payload.dueDate !== undefined) updatedFields.dueDate = payload.dueDate;
+        if (payload.due_date !== undefined) updatedFields.dueDate = payload.due_date;
+        if (payload.department !== undefined) updatedFields.department = payload.department;
+        if (payload.assignedToGroup !== undefined) updatedFields.assignedToGroup = payload.assignedToGroup;
+        if (payload.assigned_to_group !== undefined) updatedFields.assignedToGroup = payload.assigned_to_group;
+        if (payload.assignedToUser !== undefined) updatedFields.assignedToUser = payload.assignedToUser;
+        if (payload.assigned_to_user !== undefined) updatedFields.assignedToUser = payload.assigned_to_user;
+        if (payload.dealStage !== undefined) updatedFields.dealStage = payload.dealStage;
+        if (payload.deal_stage !== undefined) updatedFields.dealStage = payload.deal_stage;
+        if (payload.visibility !== undefined) updatedFields.visibility = payload.visibility;
+        if (payload.status !== undefined) updatedFields.status = payload.status;
+        if (payload.subtasks !== undefined) updatedFields.subtasks = payload.subtasks;
+
+        if (action === 'edit_task' || action === 'update_task') {
+          const userName = user.name || 'Task Creator';
+          updatedFields.auditTrail = [
+            ...currentAudit,
+            {
+              action: 'Task Details Updated by Creator',
+              performed_by: userName,
+              role: user.role || 'Creator',
+              timestamp: formattedDate,
+              ip: ipAddress,
+            },
+          ];
+        }
         break;
       }
     }
