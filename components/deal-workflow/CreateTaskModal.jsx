@@ -192,6 +192,9 @@ export default function CreateTaskModal() {
     setSubtasks((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  if (!isCreateModalOpen) return null;
+  if (normalizeRole(currentUser?.role) === 'internal_user') return null;
+
   return (
     <>
       {/* ========================================================================= */}

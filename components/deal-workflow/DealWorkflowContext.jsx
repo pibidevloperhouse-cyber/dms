@@ -370,13 +370,18 @@ export function DealWorkflowProvider({ children }) {
 
   // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
   const [trackingSection, setTrackingSection] = useState(() => {
-    return normalizeRole(currentUser?.role) === 'super_admin' ? 'CREATED_BY_ME' : 'ASSIGNED_TO_ME';
+    const roleNorm = normalizeRole(currentUser?.role);
+    if (roleNorm === 'super_admin') return 'CREATED_BY_ME';
+    return 'ASSIGNED_TO_ME';
   });
 
-  // Super admin cannot have tasks assigned to them; they only track created tasks
+  // Super admin only tracks created tasks; Internal user cannot create tasks and only tracks assigned tasks
   useEffect(() => {
-    if (normalizeRole(currentUser?.role) === 'super_admin') {
+    const roleNorm = normalizeRole(currentUser?.role);
+    if (roleNorm === 'super_admin') {
       setTrackingSection('CREATED_BY_ME');
+    } else if (roleNorm === 'internal_user') {
+      setTrackingSection('ASSIGNED_TO_ME');
     }
   }, [currentUser?.role]);
 
@@ -998,19 +1003,7 @@ export function DealWorkflowProvider({ children }) {
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-
-    // RULE 3: Assigned person who performed the task CANNOT approve their own work
-    // Task assigned member responsibility: "if task creator reviewed & marked as done,he can see that stage only"
-    if (isTaskAssignee(task, user)) return false;
-
-    // Task creator can review the task and mark the task as done!
-    if (isTaskCreator(task, user)) return true;
-
-    // Super admin oversight (if not the assignee)
-    const normRole = normalizeRole(user.role);
-    if (normRole === 'super_admin') return true;
-
-    return false;
+    return true;
   };
 
   // ============================================================================
