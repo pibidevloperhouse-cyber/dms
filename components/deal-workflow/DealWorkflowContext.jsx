@@ -229,6 +229,7 @@ export function DealWorkflowProvider({ children }) {
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+  const [selectedGroup, setSelectedGroup] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
@@ -601,26 +602,49 @@ export function DealWorkflowProvider({ children }) {
 
   const getMembersForGroup = (groupName) => {
     if (!groupName) {
-      return allUsers.length > 0 ? allUsers.map((u) => u.name) : (currentUser ? [currentUser.name] : []);
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
     }
     const membersSet = new Set();
 
     if (groupMembersMap[groupName] && Array.isArray(groupMembersMap[groupName])) {
-      groupMembersMap[groupName].forEach((m) => membersSet.add(m));
+      groupMembersMap[groupName].forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
     }
 
     const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
     if (found && Array.isArray(found.members)) {
-      found.members.forEach((m) => membersSet.add(m));
+      found.members.forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
     }
 
     // Match demo users whose group name matches
     Object.values(DEMO_USERS).forEach((u) => {
       if (u.group && u.group.trim().toLowerCase() === groupName.trim().toLowerCase()) {
-        membersSet.add(u.name);
+        if (u.name) membersSet.add(u.name);
       }
     });
 
+    return Array.from(membersSet);
+  };
+
+  const getMembersForDepartment = (deptName) => {
+    if (!deptName || deptName === 'ALL') {
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
+    }
+    const groupsInDept = getGroupsForDepartment(deptName);
+    const membersSet = new Set();
+    groupsInDept.forEach((g) => {
+      getMembersForGroup(g).forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    });
     return Array.from(membersSet);
   };
 
@@ -694,6 +718,14 @@ export function DealWorkflowProvider({ children }) {
         }
       }
 
+      // Group filter
+      if (selectedGroup !== 'ALL') {
+        const taskGroup = task.assigned_to_group || '';
+        if (taskGroup.toLowerCase() !== selectedGroup.toLowerCase()) {
+          return false;
+        }
+      }
+
       // Status
       if (selectedStatus !== 'ALL' && task.status !== selectedStatus) {
         return false;
@@ -754,6 +786,7 @@ export function DealWorkflowProvider({ children }) {
     permittedTasks,
     searchQuery,
     selectedDepartment,
+    selectedGroup,
     selectedStatus,
     selectedPriority,
     selectedVisibility,
@@ -1496,6 +1529,7 @@ export function DealWorkflowProvider({ children }) {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedDepartment('ALL');
+    setSelectedGroup('ALL');
     setSelectedStatus('ALL');
     setSelectedPriority('ALL');
     setSelectedVisibility('ALL');
@@ -1507,6 +1541,7 @@ export function DealWorkflowProvider({ children }) {
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
     selectedDepartment !== 'ALL' ||
+    selectedGroup !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPriority !== 'ALL' ||
     selectedVisibility !== 'ALL' ||
@@ -1584,6 +1619,9 @@ export function DealWorkflowProvider({ children }) {
         setSearchQuery,
         selectedDepartment,
         setSelectedDepartment,
+        selectedGroup,
+        setSelectedGroup,
+        getMembersForDepartment,
         selectedWorkstream: selectedDepartment,
         setSelectedWorkstream: setSelectedDepartment,
         selectedStatus,
