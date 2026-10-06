@@ -366,16 +366,23 @@ export default function TaskCard({ task, onCardClick }) {
           )}
 
           {task.status === 'REVIEW' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                approveAndComplete(task.task_id);
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Mark as Done</span>
-            </button>
+            canApprove ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  approveAndComplete(task.task_id);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Mark as Done</span>
+              </button>
+            ) : (
+              <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-600" />
+                <span>Pending Creator Approval</span>
+              </span>
+            )
           )}
 
           {task.status === 'DONE' && (

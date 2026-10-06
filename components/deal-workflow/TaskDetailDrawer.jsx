@@ -57,6 +57,7 @@ export default function TaskDetailDrawer() {
   const isCreator = isTaskCreator ? isTaskCreator(selectedTask, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(selectedTask, currentUser) : (selectedTask.assigned_to_user === currentUser.name);
   const isStageLocked = isStageLockedForUser ? isStageLockedForUser(selectedTask, currentUser) : false;
+  const canApprove = canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : isCreator;
 
   const isCreatorSide = currentUser.side === selectedTask.creator_side;
   const isTargetSide = currentUser.side === selectedTask.target_side;
@@ -120,7 +121,6 @@ export default function TaskDetailDrawer() {
 
   const canClaim = canUserClaimTask ? canUserClaimTask(selectedTask, currentUser) : false;
   const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(selectedTask, currentUser) : false;
-  const canApprove = canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : false;
 
   const handlePostComment = async (e) => {
     e.preventDefault();
@@ -834,28 +834,35 @@ export default function TaskDetailDrawer() {
 
             {/* If task is in REVIEW */}
             {selectedTask.status === 'REVIEW' && (
-              <div className="flex items-center gap-2">
-                {isCreator && (
+              canApprove ? (
+                <div className="flex items-center gap-2">
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const reason = window.prompt('Specify revisions required:', 'Revisions requested by reviewer') || 'Revisions requested by reviewer';
+                        sendBack(selectedTask.task_id, reason);
+                      }}
+                      className="px-3.5 py-2 rounded-lg border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      Request Changes
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => {
-                      const reason = window.prompt('Specify revisions required:', 'Revisions requested by reviewer') || 'Revisions requested by reviewer';
-                      sendBack(selectedTask.task_id, reason);
-                    }}
-                    className="px-3.5 py-2 rounded-lg border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                    onClick={() => approveAndComplete(selectedTask.task_id)}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    Request Changes
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Mark as Done</span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => approveAndComplete(selectedTask.task_id)}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Mark as Done</span>
-                </button>
-              </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Pending Creator Approval & Sign-off</span>
+                </div>
+              )
             )}
 
             {/* If task is DONE */}

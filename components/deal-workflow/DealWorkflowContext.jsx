@@ -1148,7 +1148,10 @@ export function DealWorkflowProvider({ children }) {
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-    return true;
+    // Only task creator or Super Admin can approve task & mark as done
+    const isCreator = isTaskCreator ? isTaskCreator(task, user) : false;
+    const isSuperAdmin = normalizeRole(user?.role) === 'super_admin';
+    return isCreator || isSuperAdmin;
   };
 
   // ============================================================================
