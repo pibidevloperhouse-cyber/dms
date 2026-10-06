@@ -253,8 +253,37 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {}
   }, []);
 
+  // Fetch active stage from server backend
+  const fetchActiveStage = async () => {
+    try {
+      const res = await fetch('/api/deal-workflow/active-stage');
+      const data = await res.json();
+      if (data.success && data.activeStage) {
+        const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(data.activeStage)) || data.activeStage;
+        setActiveDealStage((prev) => {
+          if (normalizeStage(prev) !== normalizeStage(matched)) {
+            setSelectedDealStage(matched);
+            return matched;
+          }
+          return prev;
+        });
+
+        if (data.notificationPayload) {
+          const isDismissed = typeof window !== 'undefined'
+            ? localStorage.getItem(`dms_stage_dismissed_${data.notificationPayload.id}`)
+            : false;
+          if (!isDismissed) {
+            setStageNotification(data.notificationPayload);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching active stage from server:', e);
+    }
+  };
+
   // Super Admin stage activation handler
-  const activateStage = (stageName) => {
+  const activateStage = async (stageName) => {
     const normRole = normalizeRole(currentUser?.role);
     if (normRole !== 'super_admin') {
       console.warn('Only Super Admin can activate stages.');
@@ -279,6 +308,19 @@ export function DealWorkflowProvider({ children }) {
       localStorage.setItem('dms_stage_notification', JSON.stringify(notificationPayload));
       window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
       window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
+    }
+
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: matched,
+          notificationPayload,
+        }),
+      });
+    } catch (err) {
+      console.error('Error saving active stage to server:', err);
     }
   };
 
@@ -353,8 +395,8 @@ export function DealWorkflowProvider({ children }) {
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
   // Fetch real deal tasks and dynamic department/group structure
-  const fetchTasks = async () => {
-    setIsLoading(true);
+  const fetchTasks = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     try {
       const res = await fetch('/api/deal-tasks');
       const data = await res.json();
@@ -378,7 +420,7 @@ export function DealWorkflowProvider({ children }) {
     } catch (err) {
       console.error('Error fetching deal tasks from API:', err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
@@ -437,8 +479,15 @@ export function DealWorkflowProvider({ children }) {
       console.error('Error loading deal workflow storage:', e);
     }
 
-    fetchTasks();
+    fetchTasks(true);
     fetchDepartmentsAndGroups();
+    fetchActiveStage();
+
+    // Poll active stage and tasks every 3 seconds for seamless cross-user/session synchronization
+    const syncInterval = setInterval(() => {
+      fetchActiveStage();
+      fetchTasks(false);
+    }, 3000);
 
     // Listen to storage and focus events so when another user logs in, state updates immediately
     const handleStorageChange = (e) => {
@@ -450,6 +499,7 @@ export function DealWorkflowProvider({ children }) {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleStorageChange);
     return () => {
+      clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleStorageChange);
     };
@@ -558,6 +608,7 @@ export function DealWorkflowProvider({ children }) {
     const userName = (user.name || '').trim().toLowerCase();
     const userEmail = (user.email || '').trim().toLowerCase();
     const userId = (user.id || '').trim().toLowerCase();
+    const userGroup = (user.group || '').trim().toLowerCase();
 
     const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
     if (assignedToUser && (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId))) {
@@ -570,6 +621,12 @@ export function DealWorkflowProvider({ children }) {
     })) {
       return true;
     }
+
+    const assignedToGroup = (task.assigned_to_group || '').trim().toLowerCase();
+    if (userGroup && assignedToGroup && userGroup === assignedToGroup) {
+      return true;
+    }
+
     return false;
   };
 
@@ -727,22 +784,8 @@ export function DealWorkflowProvider({ children }) {
     // Super Admins, Admins, and Sub Admins see all tasks in active stage
     if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
 
-    const userName = (user.name || '').trim().toLowerCase();
-    // If task directly assigned to user
-    if (task.assigned_to_user && task.assigned_to_user.trim().toLowerCase() === userName) return true;
-    // If any subtask assigned to user
-    if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
-      const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
-      return stMember === userName;
-    })) {
-      return true;
-    }
-
-    // If user belongs to the assigned group ONLY when the task has no specific assignee
-    const hasSpecificAssignee = Boolean(task.assigned_to_user) || (Array.isArray(task.subtasks) && task.subtasks.some((st) => st.assignedMember || st.assigned_to_user));
-    if (!hasSpecificAssignee && user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) {
-      return true;
-    }
+    // Assignees see tasks assigned to them or their group in active stage
+    if (isTaskAssignee(task, user)) return true;
 
     return false;
   };
