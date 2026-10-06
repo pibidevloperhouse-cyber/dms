@@ -44,24 +44,11 @@ export default function TaskCreationStudio() {
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
 
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState('box'); // 'box' | 'list'
+  const [viewMode] = useState('list'); // Fixed to list view only
 
   React.useEffect(() => {
     setMounted(true);
-    try {
-      const saved = localStorage.getItem('dms_studio_view_mode');
-      if (saved === 'box' || saved === 'list') {
-        setViewMode(saved);
-      }
-    } catch (e) {}
   }, []);
-
-  const handleViewModeChange = (mode) => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem('dms_studio_view_mode', mode);
-    } catch (e) {}
-  };
 
   // Filters state
   const [selectedStageTab, setSelectedStageTab] = useState('ALL'); // 'ALL' | 'Preparation' | 'Due Diligence' | 'Negotiation'
@@ -72,14 +59,21 @@ export default function TaskCreationStudio() {
 
   // 3-dots action menu state & edit modal state
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  const [actionMenuPos, setActionMenuPos] = useState({ top: 0, right: 0 });
   const [editingTask, setEditingTask] = useState(null);
 
-  // Close 3-dots action menu on outside click
+  // Close 3-dots action menu on outside click, scroll, or window resize
   React.useEffect(() => {
-    const handleDocClick = () => setOpenActionMenuId(null);
+    const handleClose = () => setOpenActionMenuId(null);
     if (openActionMenuId) {
-      document.addEventListener('click', handleDocClick);
-      return () => document.removeEventListener('click', handleDocClick);
+      document.addEventListener('click', handleClose);
+      window.addEventListener('scroll', handleClose, true);
+      window.addEventListener('resize', handleClose);
+      return () => {
+        document.removeEventListener('click', handleClose);
+        window.removeEventListener('scroll', handleClose, true);
+        window.removeEventListener('resize', handleClose);
+      };
     }
   }, [openActionMenuId]);
 
@@ -237,31 +231,7 @@ export default function TaskCreationStudio() {
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
-            {/* Box | List segmented toggle (matches img 4) */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-2xs shrink-0">
-              <button
-                type="button"
-                onClick={() => handleViewModeChange('box')}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'box'
-                    ? 'bg-slate-100 text-slate-900 font-bold shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800 font-medium'
-                }`}
-              >
-                Box
-              </button>
-              <button
-                type="button"
-                onClick={() => handleViewModeChange('list')}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-slate-100 text-slate-900 font-bold shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800 font-medium'
-                }`}
-              >
-                List
-              </button>
-            </div>
+
 
             {/* Create New Task Button */}
             <button
@@ -424,14 +394,29 @@ export default function TaskCreationStudio() {
                           )}
                         </td>
 
-                        {/* Action Menu (matches img 2) */}
+                        {/* Action Menu (Fixed Viewport Position to avoid overflow/scroll clipping) */}
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="relative inline-block text-left">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenActionMenuId(openActionMenuId === task.task_id ? null : task.task_id);
+                                if (openActionMenuId === task.task_id) {
+                                  setOpenActionMenuId(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const menuHeight = 160;
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  let topPos = rect.bottom + 6;
+                                  if (spaceBelow < menuHeight && rect.top > menuHeight) {
+                                    topPos = rect.top - menuHeight - 6;
+                                  }
+                                  setActionMenuPos({
+                                    top: topPos,
+                                    right: window.innerWidth - rect.right,
+                                  });
+                                  setOpenActionMenuId(task.task_id);
+                                }
                               }}
                               className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer ml-auto"
                               title="Actions"
@@ -441,11 +426,13 @@ export default function TaskCreationStudio() {
 
                             {openActionMenuId === task.task_id && (
                               <div
-                                className={`absolute right-0 ${
-                                  index >= filteredTasks.length - 2 && filteredTasks.length > 2
-                                    ? 'bottom-full mb-1.5'
-                                    : 'top-full mt-1.5'
-                                } w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50 text-left`}
+                                style={{
+                                  position: 'fixed',
+                                  top: `${actionMenuPos.top}px`,
+                                  right: `${actionMenuPos.right}px`,
+                                }}
+                                className="w-40 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[9999] text-left animate-in fade-in zoom-in-95 duration-100"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {isTaskStageActive ? (
                                   isEnabled ? (
