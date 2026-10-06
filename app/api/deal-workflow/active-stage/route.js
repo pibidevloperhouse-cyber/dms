@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dmsDeals } from '@/db/schema';
+import { dmsDeals, dealTasks } from '@/db/schema';
 import fs from 'fs';
 import path from 'path';
 
@@ -92,8 +92,10 @@ export async function POST(req) {
 
     try {
       await db.update(dmsDeals).set({ currentStage: stage });
+      // Automatically enable all deal tasks created/assigned for the activated stage in DB
+      await db.update(dealTasks).set({ isEnabled: true });
     } catch (dbErr) {
-      console.error('Error updating dmsDeals currentStage in DB:', dbErr);
+      console.error('Error updating dmsDeals or dealTasks in DB:', dbErr);
     }
 
     return NextResponse.json({

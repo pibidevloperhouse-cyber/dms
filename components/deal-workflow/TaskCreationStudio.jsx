@@ -83,16 +83,10 @@ export default function TaskCreationStudio() {
     }
   }, [openActionMenuId]);
 
-  // All tasks accessible in Task Creation Studio
+  // All tasks created by the logged-in user in Task Creation Studio
   const relevantTasks = useMemo(() => {
-    if (canManageTaskInStudio) {
-      return tasks.filter((t) => canManageTaskInStudio(t, currentUser));
-    }
-    const isSuper = normalizeRole(currentUser?.role) === 'super_admin';
-    const isAdmin = normalizeRole(currentUser?.role) === 'admin';
-    if (isSuper || isAdmin) return tasks;
     return tasks.filter((t) => isTaskCreator(t, currentUser));
-  }, [tasks, currentUser, canManageTaskInStudio, isTaskCreator]);
+  }, [tasks, currentUser, isTaskCreator]);
 
   // When a new task is created, automatically switch filters so it is immediately visible!
   const prevTasksCountRef = React.useRef(tasks.length);

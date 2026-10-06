@@ -293,12 +293,21 @@ export function DealWorkflowProvider({ children }) {
     setActiveDealStage(matched);
     setSelectedDealStage(matched);
 
+    // Automatically enable all tasks belonging to the newly activated stage in state
+    setTasks((prev) =>
+      prev.map((t) =>
+        normalizeStage(t.deal_stage) === normalizeStage(matched)
+          ? { ...t, is_enabled: true }
+          : t
+      )
+    );
+
     const notificationPayload = {
       id: `stage-activate-${matched}-${Date.now()}`,
       stage: matched,
       activatedBy: currentUser?.name || 'Super Admin',
       timestamp: Date.now(),
-      message: `Super Admin has activated the ${matched} stage! You can now enable the tasks you created for ${matched} stage in Task Creation.`,
+      message: `Super Admin has activated the ${matched} stage! Tasks created for ${matched} stage are now active.`,
     };
 
     setStageNotification(notificationPayload);
@@ -591,16 +600,10 @@ export function DealWorkflowProvider({ children }) {
     return false;
   };
 
-  // Helper for tasks accessible/manageable in Task Creation Studio
+  // Helper for tasks accessible/manageable in Task Creation Studio (Only tasks created by that user)
   const canManageTaskInStudio = (task, user = currentUser) => {
     if (!task || !user) return false;
-    const role = normalizeRole(user.role);
-    if (role === 'super_admin' || role === 'admin') return true;
-    if (isTaskCreator(task, user)) return true;
-    if (user.side && task.creator_side && user.side.toLowerCase() === task.creator_side.toLowerCase()) {
-      return true;
-    }
-    return false;
+    return isTaskCreator(task, user);
   };
 
   const isTaskAssignee = (task, user = currentUser) => {
@@ -861,13 +864,13 @@ export function DealWorkflowProvider({ children }) {
 
   // Counts for tracking sections: Assigned to You, Created by You, Task Creation
   const trackingCounts = useMemo(() => {
-    // Only active stage tasks that are enabled are counted for live board sections
-    const activeStageEnabled = tasks.filter((t) =>
-      normalizeStage(t.deal_stage) === normalizeStage(activeDealStage) && t.is_enabled !== false
+    // All tasks belonging to the active deal stage are automatically enabled
+    const activeStageTasks = tasks.filter((t) =>
+      normalizeStage(t.deal_stage) === normalizeStage(activeDealStage)
     );
 
-    const totalAssignedByOthers = activeStageEnabled.filter((t) => isAssignedByOthers(t, currentUser)).length;
-    const totalCreatedByMe = activeStageEnabled.filter((t) => isTaskCreator(t, currentUser)).length;
+    const totalAssignedByOthers = activeStageTasks.filter((t) => isAssignedByOthers(t, currentUser)).length;
+    const totalCreatedByMe = activeStageTasks.filter((t) => isTaskCreator(t, currentUser)).length;
 
     // Task Creation section: all tasks manageable in studio across all stages
     const taskCreationTasks = tasks.filter((t) => canManageTaskInStudio(t, currentUser));
@@ -876,7 +879,7 @@ export function DealWorkflowProvider({ children }) {
     return {
       assignedByOthers: totalAssignedByOthers,
       createdByMe: totalCreatedByMe,
-      allStage: activeStageEnabled.length,
+      allStage: activeStageTasks.length,
       totalAssignedByOthers,
       totalCreatedByMe,
       totalTaskCreation,
@@ -892,17 +895,11 @@ export function DealWorkflowProvider({ children }) {
         if (!isAssignedByOthers(task, currentUser)) {
           return false;
         }
-        if (task.is_enabled === false) {
-          return false;
-        }
         if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
           return false;
         }
       } else if (trackingSection === 'CREATED_BY_ME') {
         if (!isTaskCreator(task, currentUser)) {
-          return false;
-        }
-        if (task.is_enabled === false) {
           return false;
         }
         if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
