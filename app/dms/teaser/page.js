@@ -13,11 +13,13 @@ function TeaserContent() {
   const isApproved = searchParams.get('approved') === 'true';
 
   const [userRole, setUserRole] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
     setUserRole(localStorage.getItem('userRole'));
+    setVerificationStatus(localStorage.getItem('verificationStatus') || 'unverified');
   }, []);
 
   const handleLogout = () => {
@@ -344,10 +346,13 @@ function TeaserContent() {
                 {!isApproved && (
                   <>
                     <button
+                      disabled={verificationStatus !== 'verified'}
                       onClick={() => setIsModalOpen(true)}
-                      className="w-full py-3 bg-[#0b1120] hover:bg-gray-800 text-white text-sm font-bold rounded transition-colors mb-4"
+                      className={`w-full py-3 text-white text-sm font-bold rounded transition-colors mb-4 ${
+                        verificationStatus !== 'verified' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#0b1120] hover:bg-gray-800'
+                      }`}
                     >
-                      Request Access
+                      {verificationStatus !== 'verified' ? 'Verification Required' : 'Request Access'}
                     </button>
 
                     <div className="flex items-center justify-center gap-2 text-xs text-gray-500">

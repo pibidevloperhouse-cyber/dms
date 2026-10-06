@@ -11,10 +11,12 @@ export default function DMSLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMsg("");
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -25,7 +27,9 @@ export default function DMSLogin() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Login failed');
+        setErrorMsg(errorData.error || 'Login failed');
+        setIsSubmitting(false);
+        return;
       }
 
       const { data } = await res.json();
@@ -35,6 +39,7 @@ export default function DMSLogin() {
       localStorage.setItem('companyId', data.company_id);
       localStorage.setItem('userId', data.id);
       localStorage.setItem('userName', data.name || 'User');
+      localStorage.setItem('verificationStatus', data.verification_status || 'unverified');
       localStorage.setItem('loginTimestamp', Date.now().toString());
 
       if (data.dmsRole === 'buyer') {
@@ -61,7 +66,7 @@ export default function DMSLogin() {
       }
     } catch (error) {
       console.error(error);
-      alert(error.message);
+      setErrorMsg(error.message);
       setIsSubmitting(false);
     }
   };
@@ -91,6 +96,21 @@ export default function DMSLogin() {
               <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">Sign in</h2>
               <p className="text-gray-500 text-lg">Don't have an account? <Link href="/dms/register" className="text-[#3b82f6] font-semibold hover:underline">Create one</Link></p>
             </div>
+
+            {errorMsg && (
+              <div className={`mb-6 p-4 rounded-lg border text-sm flex items-start gap-3 ${
+                errorMsg.includes('verification') 
+                  ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {errorMsg.includes('verification') ? (
+                  <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                ) : (
+                  <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                )}
+                <p className="font-medium">{errorMsg}</p>
+              </div>
+            )}
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>

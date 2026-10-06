@@ -23,6 +23,7 @@ export default function MarketplacePage() {
   const [sentInterests, setSentInterests] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [vdrRole, setVdrRole] = useState('external_user');
+  const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [isMounted, setIsMounted] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isViewMoreModalOpen, setIsViewMoreModalOpen] = useState(false);
@@ -63,6 +64,7 @@ export default function MarketplacePage() {
     const lowerRole = role.toLowerCase();
     setUserRole(lowerRole);
     setUserName(localStorage.getItem('userName') || 'bala kumar');
+    setVerificationStatus(localStorage.getItem('verificationStatus') || 'unverified');
 
     // Fetch active data from the database
     const fetchData = async () => {
@@ -151,12 +153,14 @@ export default function MarketplacePage() {
 
       {/* Main Content Area */}
       <div className="w-full">
-
-
-
-
-
-        {/* Hero Section */}
+        {userRole && verificationStatus !== 'verified' && (
+          <div className="bg-amber-50 border-b border-amber-200 px-8 py-3 flex items-center justify-center gap-3">
+            <FaShieldAlt className="text-amber-500 text-lg" />
+            <p className="text-amber-800 text-sm font-medium">
+              Your account is currently <strong>{verificationStatus}</strong>. You must be verified by a Business Owner to submit proposals or list deals.
+            </p>
+          </div>
+        )}        {/* Hero Section */}
         {!userRole && (
           <section className="pt-40 pb-20 px-8 md:px-24">
             <div className="max-w-4xl">
@@ -1251,6 +1255,7 @@ export default function MarketplacePage() {
                   </button>
                 ) : (
                   <button
+                    disabled={verificationStatus !== 'verified'}
                     onClick={() => {
                       const buyerId = selectedBuyer.id || buyerProfiles.findIndex(b => b === selectedBuyer);
                       setSentInterests([...sentInterests, buyerId]);
@@ -1284,9 +1289,13 @@ export default function MarketplacePage() {
 
                       setIsViewMoreModalOpen(false);
                     }}
-                    className="text-sm font-bold text-white bg-[#008f70] hover:bg-[#007058] px-6 py-2.5 rounded-full transition-colors flex items-center gap-2 shadow-sm"
+                    className={`text-sm font-bold text-white px-6 py-2.5 rounded-full transition-colors flex items-center gap-2 shadow-sm ${
+                      verificationStatus !== 'verified' 
+                        ? 'bg-gray-400 cursor-not-allowed opacity-50' 
+                        : 'bg-[#008f70] hover:bg-[#007058]'
+                    }`}
                   >
-                    Send Interest <FaArrowRight className="text-xs" />
+                    {verificationStatus !== 'verified' ? 'Verification Required' : 'Send Interest'} <FaArrowRight className="text-xs" />
                   </button>
                 )}
               </div>

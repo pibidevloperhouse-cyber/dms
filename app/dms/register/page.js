@@ -65,30 +65,15 @@ export default function DMSRegister() {
     } else if (progress >= 90 && progress < 100) {
       setLoadingText("Ready your account...");
     } else if (progress === 100) {
-      setLoadingText("Account created! Redirecting...");
-
-      const roleToSet = participantType || 'Buyer';
-      localStorage.setItem('userRole', roleToSet);
-      localStorage.setItem('loginTimestamp', Date.now());
-      if (firstName || lastName) {
-        localStorage.setItem('userName', `${firstName} ${lastName}`.trim());
-      }
+      setLoadingText("Your company is under verification. Redirecting to login...");
 
       const timeout = setTimeout(() => {
-        if (inviteToken) {
-          router.push('/dms/workspace');
-        } else if (roleToSet === 'Buyer') {
-          router.push('/dms/onboarding');
-        } else if (roleToSet === 'Seller') {
-          router.push('/dms/marketplace');
-        } else {
-          router.push('/dms/workspace');
-        }
-      }, 5000);
+        router.push('/dms/login');
+      }, 4000);
 
       return () => clearTimeout(timeout);
     }
-  }, [progress, router, inviteToken, participantType]);
+  }, [progress, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,8 +94,7 @@ export default function DMSRegister() {
       }
       
       const data = await res.json();
-      if (data.userId) localStorage.setItem('userId', data.userId);
-      if (data.companyId) localStorage.setItem('companyId', data.companyId);
+      // Do not store session variables since they are under verification
       
       // The progress effect will handle the loading bar and redirect
     } catch (error) {
