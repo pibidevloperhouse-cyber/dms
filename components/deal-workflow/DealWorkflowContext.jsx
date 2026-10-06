@@ -761,20 +761,23 @@ export function DealWorkflowProvider({ children }) {
   };
 
   const getMembersForGroup = (groupName) => {
-    if (!groupName) {
+    // Ensure groupName is a non-empty string before using string methods
+    const resolvedGroupName = typeof groupName === 'string' ? groupName : (Array.isArray(groupName) ? groupName[0] : null);
+    if (!resolvedGroupName) {
       const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
       return Array.from(new Set(raw.filter(Boolean)));
     }
+    const groupName_ = resolvedGroupName;
     const membersSet = new Set();
 
-    if (groupMembersMap[groupName] && Array.isArray(groupMembersMap[groupName])) {
-      groupMembersMap[groupName].forEach((m) => {
+    if (groupMembersMap[groupName_] && Array.isArray(groupMembersMap[groupName_])) {
+      groupMembersMap[groupName_].forEach((m) => {
         const name = typeof m === 'string' ? m : m?.name;
         if (name) membersSet.add(name);
       });
     }
 
-    const found = workflowGroups.find((g) => g.name === groupName || g.id === groupName);
+    const found = workflowGroups.find((g) => g.name === groupName_ || g.id === groupName_);
     if (found && Array.isArray(found.members)) {
       found.members.forEach((m) => {
         const name = typeof m === 'string' ? m : m?.name;
@@ -784,7 +787,7 @@ export function DealWorkflowProvider({ children }) {
 
     // Match demo users whose group name matches
     Object.values(DEMO_USERS).forEach((u) => {
-      if (u.group && u.group.trim().toLowerCase() === groupName.trim().toLowerCase()) {
+      if (u.group && typeof u.group === 'string' && u.group.trim().toLowerCase() === groupName_.trim().toLowerCase()) {
         if (u.name) membersSet.add(u.name);
       }
     });
