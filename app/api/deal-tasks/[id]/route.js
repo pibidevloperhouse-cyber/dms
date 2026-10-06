@@ -78,6 +78,12 @@ export async function PATCH(req, { params }) {
       }
 
       case 'submit_review': {
+        if (currentSubtasks.length > 0 && currentSubtasks.some((st) => st.status !== 'DONE')) {
+          return NextResponse.json({
+            success: false,
+            error: 'All subtasks must be completed before submitting the task for review.',
+          }, { status: 400 });
+        }
         const userName = user.name || 'Assignee';
         updatedFields = {
           ...updatedFields,
@@ -97,6 +103,12 @@ export async function PATCH(req, { params }) {
       }
 
       case 'approve': {
+        if (currentSubtasks.length > 0 && currentSubtasks.some((st) => st.status !== 'DONE')) {
+          return NextResponse.json({
+            success: false,
+            error: 'All subtasks must be completed before marking the task as Done.',
+          }, { status: 400 });
+        }
         const userName = user.name || 'Admin';
         updatedFields = {
           ...updatedFields,
@@ -192,9 +204,38 @@ export async function PATCH(req, { params }) {
           return st;
         });
 
+        // RULE: Only when ALL subtasks are complete does the main task advance to REVIEW
+        const allCompleted = updatedSubtasksList.length > 0 && updatedSubtasksList.every((st) => st.status === 'DONE');
+        const hasIncomplete = updatedSubtasksList.some((st) => st.status !== 'DONE');
+
+        let nextStatus = task.status;
+        const auditEntries = [...currentAudit];
+
+        if (allCompleted && task.status === 'IN_PROGRESS') {
+          nextStatus = 'REVIEW';
+          auditEntries.push({
+            action: 'All Subtasks Completed — Main Task Advanced to Review',
+            performed_by: user.name || 'Assignees',
+            role: user.role || 'Member',
+            timestamp: formattedDate,
+            ip: ipAddress,
+          });
+        } else if (hasIncomplete && task.status === 'REVIEW') {
+          nextStatus = 'IN_PROGRESS';
+          auditEntries.push({
+            action: 'Subtask Reopened — Main Task Returned to In Progress',
+            performed_by: user.name || 'Assignee',
+            role: user.role || 'Member',
+            timestamp: formattedDate,
+            ip: ipAddress,
+          });
+        }
+
         updatedFields = {
           ...updatedFields,
           subtasks: updatedSubtasksList,
+          status: nextStatus,
+          auditTrail: auditEntries,
         };
         break;
       }
@@ -231,10 +272,29 @@ export async function PATCH(req, { params }) {
         break;
       }
 
+      case 'toggle_enable': {
+        const nextEnabled = payload.isEnabled !== undefined ? payload.isEnabled : !task.isEnabled;
+        updatedFields.isEnabled = nextEnabled;
+        const userName = user.name || 'Task Creator';
+        updatedFields.auditTrail = [
+          ...currentAudit,
+          {
+            action: nextEnabled ? `Task Enabled for Active ${task.dealStage || ''} Stage` : `Task Disabled / Staged`,
+            performed_by: userName,
+            role: user.role || 'Creator',
+            timestamp: formattedDate,
+            ip: ipAddress,
+          },
+        ];
+        break;
+      }
+
       case 'edit_task':
       case 'update_task':
       default: {
         // Generic fields update
+        if (payload.isEnabled !== undefined) updatedFields.isEnabled = payload.isEnabled;
+        if (payload.is_enabled !== undefined) updatedFields.isEnabled = payload.is_enabled;
         if (payload.title !== undefined) updatedFields.title = payload.title.trim();
         if (payload.description !== undefined) updatedFields.description = payload.description;
         if (payload.priority !== undefined) updatedFields.priority = payload.priority;

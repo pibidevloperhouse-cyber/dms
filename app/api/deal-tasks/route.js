@@ -178,7 +178,15 @@ export async function POST(req) {
       creator_role = 'Admin',
       subtasks = [],
       ipAddress = '127.0.0.1',
+      is_enabled,
+      isEnabled,
     } = payload;
+
+    const finalIsEnabled = is_enabled !== undefined
+      ? Boolean(is_enabled)
+      : isEnabled !== undefined
+      ? Boolean(isEnabled)
+      : true;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -237,6 +245,7 @@ export async function POST(req) {
         assignedToGroup: resolvedAssignedGroup,
         assignedToUser: assigned_to_user || null,
         claimableByRole: claimable_by_role,
+        isEnabled: finalIsEnabled,
         createdBy: resolvedCreatedBy,
         creatorRole: creator_role,
         subtasks: subtasks || [],

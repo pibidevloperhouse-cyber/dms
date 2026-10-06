@@ -804,6 +804,26 @@ export default function TaskDetailDrawer() {
                   <ArrowRight className="w-4 h-4" />
                   <span>Submit Review</span>
                 </button>
+              ) : selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
+                (() => {
+                  const totalSub = selectedTask.subtasks.length;
+                  const doneSub = selectedTask.subtasks.filter((s) => s.status === 'DONE').length;
+                  const mySubDone = displayedSubtasks.length > 0 && displayedSubtasks.every((s) => s.status === 'DONE');
+                  return (
+                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5 ${
+                      mySubDone
+                        ? 'text-teal-800 bg-teal-50 border-teal-200'
+                        : 'text-amber-800 bg-amber-50 border-amber-200'
+                    }`}>
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        {mySubDone
+                          ? `Your deliverable completed ✓ (${doneSub}/${totalSub} Done · Waiting for remaining assignees)`
+                          : `In Progress (${doneSub}/${totalSub} Subtasks Completed)`}
+                      </span>
+                    </span>
+                  );
+                })()
               ) : (
                 <span className="text-xs text-blue-800 font-medium px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 inline-flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-blue-600" />

@@ -234,6 +234,120 @@ export function DealWorkflowProvider({ children }) {
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
   const [selectedDealStage, setSelectedDealStage] = useState('Preparation');
+
+  // ============================================================================
+  // ACTIVE DEAL STAGE: Exclusively activated by Super Admin
+  // (Preparation, Due Diligence, Negotiation). Default: Preparation
+  // ============================================================================
+  const [activeDealStage, setActiveDealStage] = useState('Preparation');
+  const [stageNotification, setStageNotification] = useState(null);
+
+  // Load saved stage on client mount after hydration
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dms_active_deal_stage');
+      if (saved && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(saved))) {
+        setActiveDealStage(saved);
+        setSelectedDealStage(saved);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Super Admin stage activation handler
+  const activateStage = (stageName) => {
+    const normRole = normalizeRole(currentUser?.role);
+    if (normRole !== 'super_admin') {
+      console.warn('Only Super Admin can activate stages.');
+      return;
+    }
+    const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(stageName)) || stageName;
+    setActiveDealStage(matched);
+    setSelectedDealStage(matched);
+
+    const notificationPayload = {
+      id: `stage-activate-${matched}-${Date.now()}`,
+      stage: matched,
+      activatedBy: currentUser?.name || 'Super Admin',
+      timestamp: Date.now(),
+      message: `Super Admin has activated the ${matched} stage! You can now enable the tasks you created for ${matched} stage in Task Creation.`,
+    };
+
+    setStageNotification(notificationPayload);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dms_active_deal_stage', matched);
+      localStorage.setItem('dms_stage_notification', JSON.stringify(notificationPayload));
+      window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
+      window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
+    }
+  };
+
+  const dismissStageNotification = () => {
+    if (stageNotification?.id && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`dms_stage_dismissed_${stageNotification.id}`, 'true');
+      } catch (e) {}
+    }
+    setStageNotification(null);
+  };
+
+  // Sync active deal stage changes and notifications across tabs / storage events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Restore un-dismissed stage notification on mount
+    try {
+      const storedNotice = localStorage.getItem('dms_stage_notification');
+      if (storedNotice) {
+        const parsed = JSON.parse(storedNotice);
+        const isDismissed = localStorage.getItem(`dms_stage_dismissed_${parsed.id}`);
+        // Show if not dismissed and within the last 48 hours
+        if (!isDismissed && parsed.timestamp && (Date.now() - parsed.timestamp < 48 * 60 * 60 * 1000)) {
+          setStageNotification(parsed);
+        }
+      }
+    } catch (e) {}
+
+    const handleStageEvent = (e) => {
+      const stage = e.detail?.stage || localStorage.getItem('dms_active_deal_stage');
+      if (stage && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(stage))) {
+        setActiveDealStage(stage);
+        setSelectedDealStage(stage);
+      }
+    };
+
+    const handleNoticeEvent = (e) => {
+      if (e.detail) {
+        setStageNotification(e.detail);
+      }
+    };
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'dms_active_deal_stage' && e.newValue) {
+        setActiveDealStage(e.newValue);
+        setSelectedDealStage(e.newValue);
+      }
+      if (e.key === 'dms_stage_notification' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          const isDismissed = localStorage.getItem(`dms_stage_dismissed_${parsed.id}`);
+          if (!isDismissed) {
+            setStageNotification(parsed);
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener('dms_active_stage_changed', handleStageEvent);
+    window.addEventListener('dms_stage_notification_event', handleNoticeEvent);
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      window.removeEventListener('dms_active_stage_changed', handleStageEvent);
+      window.removeEventListener('dms_stage_notification_event', handleNoticeEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
   const [teamFilter, setTeamFilter] = useState('ALL'); // 'ALL' or 'MY_TEAM'
   const [memberFilter, setMemberFilter] = useState('ALL'); // 'ALL', 'MY_TASKS', or specific member name
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
@@ -412,8 +526,30 @@ export function DealWorkflowProvider({ children }) {
 
     if (!createdBy) return false;
     if (userName && createdBy === userName) return true;
-    if (userId && userId !== 'session_user' && createdBy === userId) return true;
+    if (userId && createdBy === userId) return true;
     if (userEmail && createdBy === userEmail) return true;
+
+    // Fuzzy & partial name matches (e.g. 'lakshmi' in 'Lakshmi Narayanan' or vice versa)
+    const firstUserName = userName.split(' ')[0];
+    const firstCreatedBy = createdBy.split(' ')[0];
+    if (firstUserName && firstCreatedBy && firstUserName === firstCreatedBy) return true;
+    if (userName && createdBy && (userName.includes(createdBy) || createdBy.includes(userName))) return true;
+
+    // Email username match (e.g. 'suresh' from 'suresh@abctextiles.com' matching 'suresh')
+    if (userEmail && userEmail.split('@')[0] === createdBy) return true;
+
+    return false;
+  };
+
+  // Helper for tasks accessible/manageable in Task Creation Studio
+  const canManageTaskInStudio = (task, user = currentUser) => {
+    if (!task || !user) return false;
+    const role = normalizeRole(user.role);
+    if (role === 'super_admin' || role === 'admin') return true;
+    if (isTaskCreator(task, user)) return true;
+    if (user.side && task.creator_side && user.side.toLowerCase() === task.creator_side.toLowerCase()) {
+      return true;
+    }
     return false;
   };
 
@@ -479,62 +615,36 @@ export function DealWorkflowProvider({ children }) {
   };
 
   const stageTrackerInfo = useMemo(() => {
-    // 1. Stage Unlocking is a global deal-wide gate:
-    // ALL tasks in a stage across the deal must be completed before the next stage unlocks for assignees!
-    const dealMaxUnlocked = getMaxUnlockedStageIndex(tasks);
-
-    // Tasks tracked in the 3 stage boxes based on active tracking section
-    let relevantTasks = tasks;
-    if (trackingSection === 'ASSIGNED_TO_ME') {
-      relevantTasks = tasks.filter((t) => isAssignedByOthers(t, currentUser));
-    } else if (trackingSection === 'CREATED_BY_ME') {
-      relevantTasks = tasks.filter((t) => isTaskCreator(t, currentUser));
-    }
-
     const stages = DEAL_STAGES.map((stageName, idx) => {
-      // Deal-wide statistics for this stage
+      // Deal-wide statistics for this stage (used for analysis shown to Super Admin)
+      // Calculates all tasks created by all users for this stage across the deal room
       const dealStageTasks = tasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
       const dealTotal = dealStageTasks.length;
       const dealDone = dealStageTasks.filter((t) => t.status === 'DONE').length;
-      const dealPending = dealTotal - dealDone;
+      const dealPending = Math.max(0, dealTotal - dealDone);
       const isDealStageCompleted = dealTotal > 0 && dealDone === dealTotal;
+      const percent = dealTotal > 0 ? Math.round((dealDone / dealTotal) * 100) : 0;
 
-      // Section-specific tasks (e.g. user assigned tasks)
-      const stageTasks = relevantTasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
-      const total = stageTasks.length;
-      const done = stageTasks.filter((t) => t.status === 'DONE').length;
-      const inProgress = stageTasks.filter((t) => t.status === 'IN_PROGRESS').length;
-      const review = stageTasks.filter((t) => t.status === 'REVIEW').length;
-      const todo = stageTasks.filter((t) => t.status === 'TO_DO').length;
+      const inProgress = dealStageTasks.filter((t) => t.status === 'IN_PROGRESS').length;
+      const review = dealStageTasks.filter((t) => t.status === 'REVIEW').length;
+      const todo = dealStageTasks.filter((t) => t.status === 'TO_DO').length;
 
       // User specific assigned tasks in this stage
-      const myStageTasks = stageTasks.filter((t) => isTaskAssignee(t, currentUser));
+      const myStageTasks = dealStageTasks.filter((t) => isTaskAssignee(t, currentUser));
       const myTotal = myStageTasks.length;
       const myDone = myStageTasks.filter((t) => t.status === 'DONE').length;
       const isMyTasksCompleted = myTotal > 0 && myDone === myTotal;
 
-      // Sequential unlock rule:
-      // A stage is ONLY unlocked if ALL tasks in previous stages across the deal are completed!
-      const isUnlocked = idx <= dealMaxUnlocked;
-      const isLocked = !isUnlocked;
-
-      // Section-aware display:
-      // In 'CREATED_BY_ME': show strictly tasks created by this user in this stage!
-      // In 'ASSIGNED_TO_ME': show overall deal stage progress so assignees know the stage completion & gating status.
-      const isCreatedByMe = trackingSection === 'CREATED_BY_ME';
-      const displayTotal = isCreatedByMe ? total : (dealTotal > 0 ? dealTotal : total);
-      const displayDone = isCreatedByMe ? done : (dealTotal > 0 ? dealDone : done);
-      const displayPending = Math.max(0, displayTotal - displayDone);
-      const isCompleted = isCreatedByMe ? (total > 0 && done === total) : isDealStageCompleted;
-      const isActive = isCreatedByMe ? (total > 0 && !isCompleted) : (idx === dealMaxUnlocked && !isCompleted);
-      const percent = displayTotal > 0 ? Math.round((displayDone / displayTotal) * 100) : 0;
+      // Stage status based on Super Admin's active stage
+      const isActive = normalizeStage(stageName) === normalizeStage(activeDealStage);
+      const isDisabled = !isActive;
 
       return {
         name: stageName,
         index: idx,
-        total: displayTotal,
-        done: displayDone,
-        pending: displayPending,
+        total: dealTotal,
+        done: dealDone,
+        pending: dealPending,
         dealTotal,
         dealDone,
         dealPending,
@@ -542,17 +652,18 @@ export function DealWorkflowProvider({ children }) {
         review,
         todo,
         percent,
-        isCompleted,
-        isUnlocked: isCreatedByMe ? true : isUnlocked,
-        isLocked: isCreatedByMe ? false : isLocked,
+        isCompleted: isDealStageCompleted,
+        isUnlocked: isActive,
+        isLocked: isDisabled,
         isActive,
+        isDisabled,
         myTotal,
         myDone,
         isMyTasksCompleted,
       };
     });
 
-    const activeStage = stages.find((s) => s.isActive) || stages[dealMaxUnlocked] || stages[0];
+    const activeStage = stages.find((s) => s.isActive) || stages[0];
     const totalDealTasks = tasks.length;
     const completedDealTasks = tasks.filter((t) => t.status === 'DONE').length;
     const overallPercent = totalDealTasks > 0 ? Math.round((completedDealTasks / totalDealTasks) * 100) : 0;
@@ -560,7 +671,7 @@ export function DealWorkflowProvider({ children }) {
 
     return {
       stages,
-      maxUnlockedIndex: dealMaxUnlocked,
+      activeDealStage,
       activeStageName: activeStage.name,
       activeStageIndex: activeStage.index,
       allStagesComplete,
@@ -568,63 +679,23 @@ export function DealWorkflowProvider({ children }) {
       completedDealTasks,
       overallPercent,
     };
-  }, [tasks, trackingSection, currentUser]);
+  }, [tasks, activeDealStage, currentUser]);
 
   const isStageLockedForUser = (task, user = currentUser) => {
     if (!task || !user) return false;
-    // Task creator is never locked out of tracking tasks they created
-    if (isTaskCreator(task, user)) return false;
+    // Task creator is never locked out of tracking tasks they created in Task Creation
+    if (isTaskCreator(task, user) && trackingSection === 'TASK_CREATION') return false;
 
-    const taskStageIndex = getStageIndex(task.deal_stage);
-    return taskStageIndex > stageTrackerInfo.maxUnlockedIndex;
+    // A task is locked if its stage is not the currently active stage activated by Super Admin
+    return normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage);
   };
 
-  // ============================================================================
-  // AUTOMATIC STAGE PROGRESSION FOR ASSIGNEES & CREATORS
-  // When tasks of a stage (e.g. Preparation) are completed, automatically advance
-  // selectedDealStage to the next active unlocked stage (e.g. Due Diligence) so
-  // assignees immediately see and can work on their next stage tasks!
-  // ============================================================================
-  const prevActiveStageRef = useRef(null);
-  const initialSyncDoneRef = useRef(false);
-
-  // Reset initial sync flag when user or tracking section changes
+  // Keep selectedDealStage in sync with activeDealStage on stage switches
   useEffect(() => {
-    initialSyncDoneRef.current = false;
-  }, [currentUser?.name, currentUser?.id, trackingSection]);
-
-  useEffect(() => {
-    if (!stageTrackerInfo || !stageTrackerInfo.stages || stageTrackerInfo.stages.length === 0) return;
-
-    const activeStageName = stageTrackerInfo.activeStageName || 'Preparation';
-
-    // 1. Initial Load Sync:
-    // If the default stage (Preparation) is completed or has no pending tasks for this user,
-    // and a subsequent stage (like Due Diligence) is active/unlocked, automatically switch to it!
-    if (!initialSyncDoneRef.current) {
-      initialSyncDoneRef.current = true;
-      prevActiveStageRef.current = activeStageName;
-
-      const currentStageObj = stageTrackerInfo.stages.find(
-        (s) => normalizeStage(s.name) === normalizeStage(selectedDealStage)
-      );
-
-      if (currentStageObj && (currentStageObj.isCompleted || currentStageObj.isLocked) && activeStageName !== selectedDealStage) {
-        setSelectedDealStage(activeStageName);
-      }
-      return;
+    if (activeDealStage && selectedDealStage !== activeDealStage) {
+      setSelectedDealStage(activeDealStage);
     }
-
-    // 2. Dynamic Progression:
-    // When one stage's tasks are completed and the active stage advances to the next stage,
-    // automatically update selectedDealStage so the user sees the new stage tasks!
-    if (prevActiveStageRef.current && prevActiveStageRef.current !== activeStageName) {
-      prevActiveStageRef.current = activeStageName;
-      setSelectedDealStage(activeStageName);
-    } else {
-      prevActiveStageRef.current = activeStageName;
-    }
-  }, [stageTrackerInfo, selectedDealStage]);
+  }, [activeDealStage]);
 
   // ============================================================================
   // TASK VISIBILITY PERMISSION LOGIC
@@ -633,17 +704,27 @@ export function DealWorkflowProvider({ children }) {
     if (!task) return false;
     if (!user) return true;
 
-    // Creator always sees their own tasks across all stages
-    if (isTaskCreator(task, user)) return true;
+    // In Task Creation studio, show all tasks manageable in studio across ALL stages
+    if (trackingSection === 'TASK_CREATION') {
+      return canManageTaskInStudio(task, user);
+    }
 
-    // Sequential stage gating:
-    // If the task belongs to a stage locked for this assigned user, hide it completely!
-    if (isStageLockedForUser(task, user)) {
+    // For live board (ASSIGNED_TO_ME and CREATED_BY_ME):
+    // 1. Task MUST be enabled to appear on the live board!
+    if (task.is_enabled === false) {
       return false;
     }
 
+    // 2. Task MUST belong to the active deal stage activated by Super Admin!
+    if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+      return false;
+    }
+
+    // Creator sees their own active stage tasks
+    if (isTaskCreator(task, user)) return true;
+
     const normRole = normalizeRole(user.role);
-    // Super Admins, Admins, and Sub Admins see all tasks in unlocked stages
+    // Super Admins, Admins, and Sub Admins see all tasks in active stage
     if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
 
     const userName = (user.name || '').trim().toLowerCase();
@@ -730,47 +811,59 @@ export function DealWorkflowProvider({ children }) {
   // Base tasks permitted for the current user
   const permittedTasks = useMemo(() => {
     return tasks.filter((t) => isTaskVisibleToUser(t, currentUser));
-  }, [tasks, currentUser, stageTrackerInfo]);
+  }, [tasks, currentUser, stageTrackerInfo, activeDealStage, trackingSection]);
 
-  // Counts for the 2 tracking sections (within current deal stage and search filter)
+  // Counts for tracking sections: Assigned to You, Created by You, Task Creation
   const trackingCounts = useMemo(() => {
-    const stagePermitted = permittedTasks.filter((task) => {
-      if (selectedDealStage !== 'ALL') {
-        if (normalizeStage(task.deal_stage) !== normalizeStage(selectedDealStage)) {
-          return false;
-        }
-      }
-      return true;
-    });
+    // Only active stage tasks that are enabled are counted for live board sections
+    const activeStageEnabled = tasks.filter((t) =>
+      normalizeStage(t.deal_stage) === normalizeStage(activeDealStage) && t.is_enabled !== false
+    );
 
-    const assignedByOthers = stagePermitted.filter((t) => isAssignedByOthers(t, currentUser)).length;
-    const createdByMe = stagePermitted.filter((t) => isTaskCreator(t, currentUser)).length;
-    const allStage = stagePermitted.length;
+    const totalAssignedByOthers = activeStageEnabled.filter((t) => isAssignedByOthers(t, currentUser)).length;
+    const totalCreatedByMe = activeStageEnabled.filter((t) => isTaskCreator(t, currentUser)).length;
 
-    const totalAssignedByOthers = tasks.filter((t) => isAssignedByOthers(t, currentUser)).length;
-    const totalCreatedByMe = tasks.filter((t) => isTaskCreator(t, currentUser)).length;
-    const totalAll = tasks.length;
+    // Task Creation section: all tasks manageable in studio across all stages
+    const taskCreationTasks = tasks.filter((t) => canManageTaskInStudio(t, currentUser));
+    const totalTaskCreation = taskCreationTasks.length;
 
     return {
-      assignedByOthers,
-      createdByMe,
-      allStage,
+      assignedByOthers: totalAssignedByOthers,
+      createdByMe: totalCreatedByMe,
+      allStage: activeStageEnabled.length,
       totalAssignedByOthers,
       totalCreatedByMe,
-      totalAll,
+      totalTaskCreation,
+      totalAll: tasks.length,
     };
-  }, [permittedTasks, tasks, selectedDealStage, currentUser]);
+  }, [tasks, activeDealStage, currentUser]);
 
   // Filtered tasks based on active filters
   const visibleTasks = useMemo(() => {
     return permittedTasks.filter((task) => {
-      // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
+      // 3 Tracking Sections: 'ASSIGNED_TO_ME' vs 'CREATED_BY_ME' vs 'TASK_CREATION'
       if (trackingSection === 'ASSIGNED_TO_ME') {
         if (!isAssignedByOthers(task, currentUser)) {
           return false;
         }
+        if (task.is_enabled === false) {
+          return false;
+        }
+        if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+          return false;
+        }
       } else if (trackingSection === 'CREATED_BY_ME') {
         if (!isTaskCreator(task, currentUser)) {
+          return false;
+        }
+        if (task.is_enabled === false) {
+          return false;
+        }
+        if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+          return false;
+        }
+      } else if (trackingSection === 'TASK_CREATION') {
+        if (!canManageTaskInStudio(task, currentUser)) {
           return false;
         }
       }
@@ -982,10 +1075,16 @@ export function DealWorkflowProvider({ children }) {
     const userName = (user.name || '').trim().toLowerCase();
     const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
 
+    // RULE: If task has subtasks, ALL subtasks must be completed by assignees before submitting to review!
+    if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+      const allSubtasksDone = task.subtasks.every((st) => st.status === 'DONE');
+      if (!allSubtasksDone) return false;
+    }
+
     // Direct assignee (the claimed or assigned user)
     if (assignedToUser && assignedToUser === userName) return true;
 
-    // Subtask assigned member
+    // Subtask assigned member (only if all subtasks are done)
     if (Array.isArray(task.subtasks) && task.subtasks.some((st) => {
       const stMember = (st.assignedMember || st.assigned_to_user || '').trim().toLowerCase();
       return stMember === userName;
@@ -1203,6 +1302,15 @@ export function DealWorkflowProvider({ children }) {
 
   // Action: Approve & Complete
   const approveAndComplete = async (taskId) => {
+    const target = tasks.find((t) => t.task_id === taskId);
+    if (target && Array.isArray(target.subtasks) && target.subtasks.length > 0) {
+      const pendingSubtasks = target.subtasks.filter((st) => st.status !== 'DONE');
+      if (pendingSubtasks.length > 0) {
+        alert(`Cannot mark task as Done: ${pendingSubtasks.length} subtask(s) are still pending. All assignees must complete their subtasks first.`);
+        return;
+      }
+    }
+
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
@@ -1392,22 +1500,30 @@ export function DealWorkflowProvider({ children }) {
       const targetCompany = getTargetCompanyForVisibility(formData.visibility, currentUser);
 
       const resolvedDept = formData.department || formData.workstream || 'General';
+      const taskStage = formData.deal_stage || 'Preparation';
+
+      // Default is_enabled: if provided explicitly, use it;
+      // otherwise, if the task belongs to the active stage, default to true, else false (staged)
+      const isEnabled = formData.is_enabled !== undefined
+        ? Boolean(formData.is_enabled)
+        : (normalizeStage(taskStage) === normalizeStage(activeDealStage));
 
       const res = await fetch('/api/deal-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          is_enabled: isEnabled,
           department: resolvedDept,
           workstream: resolvedDept,
           workspaceId,
-          creator_side: currentUser.side,
-          creator_company: currentUser.company,
+          creator_side: currentUser?.side || 'seller',
+          creator_company: currentUser?.company || 'ABC Textiles',
           target_side: targetSide,
           target_company: targetCompany,
-          created_by: currentUser.name,
-          creator_role: currentUser.role,
-          ipAddress: currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+          created_by: currentUser?.name || formData.created_by || 'Admin',
+          creator_role: currentUser?.role || formData.creator_role || 'admin',
+          ipAddress: currentUser?.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
         }),
       });
 
@@ -1415,14 +1531,64 @@ export function DealWorkflowProvider({ children }) {
       if (data.success && data.task) {
         setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
         setIsCreateModalOpen(false);
-        // Switch board to the created task's stage so it is immediately visible in that stage's TO DO
-        if (data.task.deal_stage) {
-          setSelectedDealStage(normalizeStage(data.task.deal_stage));
-        }
+        // Refresh tasks from DB in background to ensure all counters and relations are synced
+        fetchTasks();
         return data.task;
+      } else {
+        console.error('Task creation API error:', data.error);
+        alert(data.error || 'Failed to create task. Please try again.');
+        return null;
       }
     } catch (err) {
       console.error('Error creating task via API:', err);
+      alert('Error creating task: ' + (err.message || 'Network error'));
+      return null;
+    }
+  };
+
+  // Action: Toggle Task Enabled / Staged State (Super Admin, Admin, Sub Admin)
+  const toggleTaskEnabled = async (taskId, nextEnabledState) => {
+    const targetTask = tasks.find((t) => t.task_id === taskId);
+    if (!targetTask) return;
+
+    const willBeEnabled = nextEnabledState !== undefined ? Boolean(nextEnabledState) : !targetTask.is_enabled;
+
+    // Rule: Tasks can ONLY be enabled if their stage is currently activated by Super Admin!
+    if (willBeEnabled && normalizeStage(targetTask.deal_stage) !== normalizeStage(activeDealStage)) {
+      alert(`Cannot enable task: '${targetTask.deal_stage}' stage is currently disabled. Wait for Super Admin to activate this stage.`);
+      return;
+    }
+
+    // Optimistic local update
+    setTasks((prev) =>
+      prev.map((t) => (t.task_id === taskId ? { ...t, is_enabled: willBeEnabled } : t))
+    );
+
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_enable',
+          isEnabled: willBeEnabled,
+          user: {
+            name: currentUser?.name || 'Creator',
+            role: currentUser?.role || 'admin',
+            side: currentUser?.side || 'seller',
+            company: currentUser?.company || '',
+          },
+          ipAddress: currentUser?.side === 'seller' ? '192.168.1.12' : '10.0.4.18',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling task enable state:', err);
     }
   };
 
@@ -1475,12 +1641,59 @@ export function DealWorkflowProvider({ children }) {
           }
           return st;
         });
+
+        // RULE: Only when ALL subtasks are complete does the main task advance to REVIEW
+        const allCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every((st) => st.status === 'DONE');
+        const hasIncomplete = updatedSubtasks.some((st) => st.status !== 'DONE');
+
+        let nextStatus = t.status;
+        if (allCompleted && t.status === 'IN_PROGRESS') {
+          nextStatus = 'REVIEW';
+        } else if (hasIncomplete && t.status === 'REVIEW') {
+          nextStatus = 'IN_PROGRESS';
+        }
+
         return {
           ...t,
+          status: nextStatus,
           subtasks: updatedSubtasks,
         };
       })
     );
+
+    setSelectedTask((prev) => {
+      if (prev && prev.task_id === taskId) {
+        const currentSubtasks = prev.subtasks || [];
+        const updatedSubtasks = currentSubtasks.map((st) => {
+          if (st.id === subtaskId) {
+            const nextStatus = st.status === 'DONE' ? 'TO_DO' : 'DONE';
+            return {
+              ...st,
+              status: nextStatus,
+              completed_at: nextStatus === 'DONE' ? new Date().toISOString() : null,
+            };
+          }
+          return st;
+        });
+
+        const allCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every((st) => st.status === 'DONE');
+        const hasIncomplete = updatedSubtasks.some((st) => st.status !== 'DONE');
+
+        let nextStatus = prev.status;
+        if (allCompleted && prev.status === 'IN_PROGRESS') {
+          nextStatus = 'REVIEW';
+        } else if (hasIncomplete && prev.status === 'REVIEW') {
+          nextStatus = 'IN_PROGRESS';
+        }
+
+        return {
+          ...prev,
+          status: nextStatus,
+          subtasks: updatedSubtasks,
+        };
+      }
+      return prev;
+    });
 
     try {
       const res = await fetch(`/api/deal-tasks/${taskId}`, {
@@ -1489,6 +1702,7 @@ export function DealWorkflowProvider({ children }) {
         body: JSON.stringify({
           action: 'toggle_subtask',
           subtaskId,
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
         }),
       });
       const data = await res.json();
@@ -1646,6 +1860,7 @@ export function DealWorkflowProvider({ children }) {
         getMembersForGroup,
         isTaskVisibleToUser,
         isTaskCreator,
+        canManageTaskInStudio,
         isTaskAssignee,
         canUserClaimTask,
         canUserSubmitForReview,
@@ -1665,6 +1880,12 @@ export function DealWorkflowProvider({ children }) {
         normalizeStage,
         getStageIndex,
         // Actions
+        activeDealStage,
+        setActiveDealStage,
+        activateStage,
+        stageNotification,
+        dismissStageNotification,
+        toggleTaskEnabled,
         claimTask,
         submitForReview,
         approveAndComplete,

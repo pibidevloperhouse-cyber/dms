@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDealWorkflow } from './DealWorkflowContext';
-import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X, Users } from 'lucide-react';
-import { PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
+import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X, Users, Lock } from 'lucide-react';
+import { PRIORITIES, DEAL_STAGES, normalizeStage } from './DealWorkflowContext';
 
 export default function CreateTaskModal() {
   const {
@@ -12,12 +12,15 @@ export default function CreateTaskModal() {
     setIsCreateModalOpen,
     createTask,
     departments,
+    workflowGroups,
     getGroupsForDepartment,
     getMembersForGroup,
     getAssignableMembersForGroup,
     roleHierarchy,
     normalizeRole,
+    getRoleLabel,
     selectedDealStage,
+    activeDealStage,
   } = useDealWorkflow();
 
   // Main task fields
@@ -31,6 +34,7 @@ export default function CreateTaskModal() {
   const [dealStage, setDealStage] = useState('Preparation');
   const [dueDate, setDueDate] = useState('');
   const [subtasks, setSubtasks] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Subtask modal state
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
@@ -41,10 +45,51 @@ export default function CreateTaskModal() {
   const [subtaskDueDate, setSubtaskDueDate] = useState('');
   const [subtaskAttachments, setSubtaskAttachments] = useState([]);
 
-  // Available groups for the selected department
+  // Helper to resolve group's normalized role
+  const resolveGroupRole = (g) => {
+    if (g?.role) return normalizeRole(g.role);
+    const lower = (g?.name || '').toLowerCase();
+    if (lower.includes('super')) return 'super_admin';
+    if (lower.includes('sub')) return 'sub_admin';
+    if (lower.includes('admin')) return 'admin';
+    return 'internal_user';
+  };
+
+  // Available groups for the selected department, strictly excluding creator's own role and higher roles
   const availableGroups = useMemo(() => {
-    return getGroupsForDepartment(department);
-  }, [department, getGroupsForDepartment]);
+    const creatorRole = normalizeRole(currentUser?.role);
+    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+
+    let list = Array.isArray(workflowGroups) && workflowGroups.length > 0
+      ? workflowGroups
+      : [];
+
+    if (department && department !== 'ALL') {
+      list = list.filter(
+        (g) => (g.department || '').trim().toLowerCase() === department.trim().toLowerCase()
+      );
+    }
+
+    // Rule: Exclude groups matching creator's own role (e.g. admin cannot assign to admin groups)
+    // Rule: Creator can only assign down the hierarchy to subordinate roles
+    list = list.filter((g) => {
+      const gRole = resolveGroupRole(g);
+      if (gRole === creatorRole) return false;
+      return allowedRoles.includes(gRole);
+    });
+
+    return list.map((g) => {
+      const gRole = resolveGroupRole(g);
+      const roleStr = getRoleLabel ? getRoleLabel(gRole) : gRole;
+      return {
+        id: g.id || g.name,
+        name: g.name,
+        role: gRole,
+        roleLabel: roleStr,
+        displayName: `${g.name} (${roleStr})`,
+      };
+    });
+  }, [department, workflowGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel]);
 
   // Subordinate members available for subtask assignment strictly within assignedGroup
   const subtaskAssignableMembers = useMemo(() => {
@@ -74,8 +119,8 @@ export default function CreateTaskModal() {
   // Sync assigned group when availableGroups change
   useEffect(() => {
     if (availableGroups.length > 0) {
-      if (!assignedGroup || !availableGroups.includes(assignedGroup)) {
-        setAssignedGroup(availableGroups[0]);
+      if (!assignedGroup || !availableGroups.some((g) => g.name === assignedGroup)) {
+        setAssignedGroup(availableGroups[0].name);
       }
     } else {
       setAssignedGroup('');
@@ -113,9 +158,9 @@ export default function CreateTaskModal() {
     setIsCreateModalOpen(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || isSubmitting) return;
 
     // First assigned subordinate from subtasks if available
     const firstAssigned = subtasks.find((st) => st.assignedMember && st.assignedMember !== 'Unassigned');
@@ -127,24 +172,36 @@ export default function CreateTaskModal() {
       return;
     }
 
-    createTask({
-      title: title.trim(),
-      description: description.trim(),
-      visibility,
-      department: department || 'General',
-      workstream: department || 'General',
-      assigned_to_group: assignedGroup || '',
-      assigned_to_user: finalAssignee,
-      priority,
-      deal_stage: dealStage,
-      due_date: dueDate || null,
-      subtasks: subtasks,
-      claimable_by_role: true,
-      created_by: currentUser?.name || 'Creator',
-      creator_role: currentUser?.role || 'admin',
-    });
+    const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
 
-    handleClose();
+    setIsSubmitting(true);
+    try {
+      const created = await createTask({
+        title: title.trim(),
+        description: description.trim(),
+        visibility,
+        department: department || 'General',
+        workstream: department || 'General',
+        assigned_to_group: assignedGroup || '',
+        assigned_to_user: finalAssignee,
+        priority,
+        deal_stage: dealStage,
+        is_enabled: isStageActive,
+        due_date: dueDate || null,
+        subtasks: subtasks,
+        claimable_by_role: true,
+        created_by: currentUser?.name || 'Creator',
+        creator_role: currentUser?.role || 'admin',
+      });
+
+      if (created) {
+        handleClose();
+      }
+    } catch (err) {
+      console.error('Error submitting new task:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -307,10 +364,12 @@ export default function CreateTaskModal() {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No groups in this department</option>
+                      <option value="">No subordinate groups in this department</option>
                     ) : (
                       availableGroups.map((g) => (
-                        <option key={g} value={g}>{g}</option>
+                        <option key={g.id || g.name} value={g.name}>
+                          {g.displayName}
+                        </option>
                       ))
                     )}
                   </select>
@@ -353,7 +412,9 @@ export default function CreateTaskModal() {
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
                     {DEAL_STAGES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s} {normalizeStage(s) === normalizeStage(activeDealStage) ? '(Active)' : '(Disabled)'}
+                      </option>
                     ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -379,6 +440,16 @@ export default function CreateTaskModal() {
                 </div>
               </div>
             </div>
+
+            {/* Informative Staging Note for Non-Active Stage Creation */}
+            {normalizeStage(dealStage) !== normalizeStage(activeDealStage) && (
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 flex items-start gap-2 text-amber-900 text-xs">
+                <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">{dealStage} is currently disabled</span> (Active stage is <span className="font-bold">{activeDealStage}</span>). This task will be saved in <span className="font-bold">Task Creation</span> and can be enabled once Super Admin activates {dealStage}.
+                </div>
+              </div>
+            )}
 
             {/* Subtasks Section */}
             <div className="pt-2">
@@ -472,9 +543,17 @@ export default function CreateTaskModal() {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="px-5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Create Main Task
+                {isSubmitting ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <span>Create Main Task</span>
+                )}
               </button>
             </div>
           </form>

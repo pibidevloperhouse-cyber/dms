@@ -10,8 +10,12 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     currentUser,
     updateTask,
     departments,
+    workflowGroups,
     getGroupsForDepartment,
     getAssignableMembersForGroup,
+    roleHierarchy,
+    normalizeRole,
+    getRoleLabel,
   } = useDealWorkflow();
 
   // Main task fields
@@ -52,10 +56,51 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     }
   }, [task, isOpen, departments]);
 
-  // Available groups for the selected department
+  // Helper to resolve group's normalized role
+  const resolveGroupRole = (g) => {
+    if (g?.role) return normalizeRole(g.role);
+    const lower = (g?.name || '').toLowerCase();
+    if (lower.includes('super')) return 'super_admin';
+    if (lower.includes('sub')) return 'sub_admin';
+    if (lower.includes('admin')) return 'admin';
+    return 'internal_user';
+  };
+
+  // Available groups for the selected department, strictly excluding creator's own role and higher roles
   const availableGroups = useMemo(() => {
-    return getGroupsForDepartment(department);
-  }, [department, getGroupsForDepartment]);
+    const creatorRole = normalizeRole(currentUser?.role);
+    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+
+    let list = Array.isArray(workflowGroups) && workflowGroups.length > 0
+      ? workflowGroups
+      : [];
+
+    if (department && department !== 'ALL') {
+      list = list.filter(
+        (g) => (g.department || '').trim().toLowerCase() === department.trim().toLowerCase()
+      );
+    }
+
+    // Always preserve currently assigned group if editing
+    list = list.filter((g) => {
+      if (task?.assigned_to_group && g.name === task.assigned_to_group) return true;
+      const gRole = resolveGroupRole(g);
+      if (gRole === creatorRole) return false;
+      return allowedRoles.includes(gRole);
+    });
+
+    return list.map((g) => {
+      const gRole = resolveGroupRole(g);
+      const roleStr = getRoleLabel ? getRoleLabel(gRole) : gRole;
+      return {
+        id: g.id || g.name,
+        name: g.name,
+        role: gRole,
+        roleLabel: roleStr,
+        displayName: `${g.name} (${roleStr})`,
+      };
+    });
+  }, [department, workflowGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel, task]);
 
   // Subordinate members available for assignment strictly within assignedGroup
   const assignableMembers = useMemo(() => {
@@ -288,10 +333,12 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No groups in department</option>
+                      <option value="">No subordinate groups in department</option>
                     ) : (
                       availableGroups.map((g) => (
-                        <option key={g} value={g}>{g}</option>
+                        <option key={g.id || g.name} value={g.name}>
+                          {g.displayName}
+                        </option>
                       ))
                     )}
                   </select>

@@ -178,22 +178,6 @@ export default function TaskCard({ task, onCardClick }) {
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 flex items-center gap-1">
-              <User className="w-3 h-3 text-slate-400" />
-              Assignee:
-            </span>
-            <span className="font-medium text-slate-700 text-[11px] text-right truncate max-w-[140px]">
-              {!isCreator && displayedSubtasks.length > 0 ? (
-                <span className="font-semibold text-slate-900">{currentUser.name}</span>
-              ) : task.assigned_to_user ? (
-                <span className="font-semibold text-slate-900">{task.assigned_to_user}</span>
-              ) : (
-                <span className="text-slate-400">Unassigned (Claimable)</span>
-              )}
-            </span>
-          </div>
-
           <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
             <span className="text-[11px] text-slate-500 flex items-center gap-1">
               <Calendar className="w-3 h-3 text-slate-400" />
@@ -348,11 +332,31 @@ export default function TaskCard({ task, onCardClick }) {
             ) : isCreator ? (
               <span
                 className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-flex items-center gap-1"
-                title="You created this task. You can monitor progress, but only the assignee can submit for review."
+                title="You created this task. You can monitor progress, but only assignees can complete subtasks."
               >
                 <Clock className="w-3 h-3 text-blue-500" />
-                <span>In Progress · {task.assigned_to_user || 'Assignee'} working</span>
+                <span>In Progress · {task.subtasks && task.subtasks.length > 0 ? `${task.subtasks.filter(s => s.status === 'DONE').length}/${task.subtasks.length} Subtasks Done` : `${task.assigned_to_user || 'Assignee'} working`}</span>
               </span>
+            ) : task.subtasks && task.subtasks.length > 0 ? (
+              (() => {
+                const totalSub = task.subtasks.length;
+                const doneSub = task.subtasks.filter((s) => s.status === 'DONE').length;
+                const mySubDone = displayedSubtasks.length > 0 && displayedSubtasks.every((s) => s.status === 'DONE');
+                return (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                    mySubDone
+                      ? 'text-teal-800 bg-teal-50 border-teal-200'
+                      : 'text-amber-800 bg-amber-50 border-amber-200'
+                  }`}>
+                    <Clock className="w-3 h-3" />
+                    <span>
+                      {mySubDone
+                        ? `Your Subtask Done (${doneSub}/${totalSub})`
+                        : `In Progress (${doneSub}/${totalSub} Subtasks)`}
+                    </span>
+                  </span>
+                );
+              })()
             ) : (
               <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
                 <Clock className="w-3 h-3 text-blue-500" />

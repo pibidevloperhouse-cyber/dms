@@ -754,6 +754,7 @@ export const dealTasks = pgTable('deal_tasks', {
   dueDate: text('due_date'),
   linkedDocument: text('linked_document'),
   claimableByRole: boolean('claimable_by_role').default(true),
+  isEnabled: boolean('is_enabled').default(true),
 
   // JSON structures matching frontend
   subtasks: jsonb('subtasks').default('[]'),
