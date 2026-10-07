@@ -10,11 +10,9 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
 
-    let allGroupsQuery = db.select().from(groups);
-    if (companyId) {
-      allGroupsQuery = allGroupsQuery.where(eq(groups.companyId, companyId));
-    }
-    const dbGroups = await allGroupsQuery;
+    let allGroups = await db.select().from(groups);
+    let dbGroups = companyId ? allGroups.filter((g) => g.companyId === companyId) : allGroups;
+    let dbExternalGroups = companyId ? allGroups.filter((g) => g.companyId !== companyId) : [];
 
     // Fetch user_groups mappings
     const dbUserGroups = await db.select().from(userGroups);
@@ -27,12 +25,13 @@ export async function GET(req) {
         email: users.email,
         role: users.role,
         companyId: users.companyId,
+        dmsRole: users.dmsRole,
       })
       .from(users);
 
-    // Build map of group name -> member names
+    // Build map of group name -> member names for all groups (internal + external)
     const groupMembersMap = {};
-    for (const g of dbGroups) {
+    for (const g of allGroups) {
       const userIdsInGroup = dbUserGroups
         .filter((ug) => ug.groupId === g.id)
         .map((ug) => ug.userId);
@@ -40,14 +39,12 @@ export async function GET(req) {
       let members = allUsers.filter((u) => userIdsInGroup.includes(u.id));
 
       if (members.length === 0) {
-        // If createdBy is set, include creator
         if (g.createdBy) {
           const creator = allUsers.find((u) => u.id === g.createdBy);
           if (creator) members.push(creator);
         }
-        // If still empty, include all company users or active users
         if (members.length === 0) {
-          const companyUsers = allUsers.filter((u) => !companyId || u.companyId === companyId);
+          const companyUsers = allUsers.filter((u) => u.companyId === g.companyId);
           members = companyUsers.length > 0 ? companyUsers : allUsers;
         }
       }
@@ -57,7 +54,7 @@ export async function GET(req) {
       groupMembersMap[g.id] = memberNames;
     }
 
-    // Collect all departments from groups
+    // Collect all departments from internal groups (plus General)
     const departments = Array.from(
       new Set(dbGroups.map((g) => g.department).filter(Boolean))
     );
@@ -70,6 +67,16 @@ export async function GET(req) {
         department: g.department || 'General',
         role: g.role,
         type: g.type,
+        side: 'seller',
+        members: groupMembersMap[g.name] || [],
+      })),
+      externalGroups: dbExternalGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        department: g.department || 'General',
+        role: g.role,
+        type: g.type,
+        side: 'buyer',
         members: groupMembersMap[g.name] || [],
       })),
       departments,
