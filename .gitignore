@@ -42,3 +42,5 @@ verify_debug.js
 AUDIT_REPORT.md
 build_output.txt
 scratch/
+scripts/
+public/uploads/

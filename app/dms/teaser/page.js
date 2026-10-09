@@ -84,6 +84,25 @@ function TeaserContent() {
       });
 
       if (res.ok) {
+        // Save to my teasers
+        const myTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
+        const newTeaser = {
+          projectId,
+          projectName: projectName,
+          industry: "B2B SaaS",
+          geography: "North America",
+          dealType: "Majority Acquisition",
+          revenue: "$12.4M",
+          ebitda: "$3.1M",
+          status: "Pending",
+          requestedAt: new Date().toISOString()
+        };
+        // avoid duplicates
+        if (!myTeasers.find(t => t.projectId === projectId)) {
+          myTeasers.push(newTeaser);
+          localStorage.setItem('my_requested_teasers', JSON.stringify(myTeasers));
+        }
+
         setIsModalOpen(false);
         setRequestForm({
           fullName: "",
@@ -94,7 +113,7 @@ function TeaserContent() {
           investmentRange: "Select range",
           message: ""
         });
-        router.push('/dms/tracker');
+        router.push('/dms/marketplace/my_teaser');
       } else if (res.status === 409) {
         alert("You have already requested access for this deal.");
       } else {

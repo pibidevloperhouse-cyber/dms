@@ -739,9 +739,9 @@ export default function DealDashboard() {
                           <td className="py-5 px-6 text-base text-gray-500">{req.investorType}</td>
                           <td className="py-5 px-6">
                             <span className={`px-3 py-1.5 text-xs font-bold rounded-md tracking-wide capitalize ${req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? 'bg-[#e6fbf2] text-[#00c875]' :
-                                req.status?.toLowerCase() === 'rejected' ? 'bg-red-50 text-red-600' :
-                                  req.status?.toLowerCase() === 'revoked' ? 'bg-orange-50 text-orange-600' :
-                                    'bg-blue-50 text-blue-600' // default for pending, etc
+                              req.status?.toLowerCase() === 'rejected' ? 'bg-red-50 text-red-600' :
+                                req.status?.toLowerCase() === 'revoked' ? 'bg-orange-50 text-orange-600' :
+                                  'bg-blue-50 text-blue-600' // default for pending, etc
                               }`}>
                               {req.status?.toLowerCase() === 'accepted' ? 'Approved' : req.status}
                             </span>

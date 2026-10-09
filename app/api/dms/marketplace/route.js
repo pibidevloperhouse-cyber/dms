@@ -22,7 +22,7 @@ export async function GET(req) {
       })
       .from(dmsTeasers)
       .innerJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
-      .where(eq(dmsTeasers.status, 'Active'));
+      .where(or(eq(dmsTeasers.status, 'active'), eq(dmsTeasers.status, 'Active')));
 
     const activeBuyers = await db
       .select({
@@ -33,6 +33,7 @@ export async function GET(req) {
         investmentRange: users.investmentRange,
         companyType: users.companyType,
         jobTitle: users.jobTitle,
+        verificationStatus: users.verificationStatus,
       })
       .from(users)
       .where(or(eq(users.dmsRole, 'buyer'), eq(users.dmsRole, 'Buyer')));

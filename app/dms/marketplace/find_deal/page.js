@@ -450,9 +450,20 @@ export default function MarketplacePage() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{buyer.investorType || 'Investor'}</p>
-                                  <h3 className="text-base font-bold text-gray-900 leading-tight">
-                                    {buyer.name || 'Anonymous Buyer'}
-                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-bold text-gray-900 leading-tight">
+                                      {buyer.name || 'Anonymous Buyer'}
+                                    </h3>
+                                    {buyer.verificationStatus === 'verified' ? (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-[9px] font-bold text-emerald-700 uppercase tracking-wider">
+                                        <FaCheckCircle className="text-emerald-500" /> Verified
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-orange-200 bg-orange-50 text-[9px] font-bold text-orange-700 uppercase tracking-wider">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Unverified
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50/50 border border-emerald-100/80 px-2.5 py-1 rounded-full shadow-sm">

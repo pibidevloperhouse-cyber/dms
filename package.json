@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convertapi": "^1.15.0",
+    "country-state-city": "^3.2.1",
     "docx-preview": "^0.3.7",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

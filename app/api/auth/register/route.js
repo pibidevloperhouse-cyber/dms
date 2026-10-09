@@ -3,11 +3,40 @@ import { db } from '@/db';
 import { users, companies, dmsDealInvitations, dmsDeals } from '@/db/schema';
 import bcrypt from 'bcryptjs';
 import { eq, and } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY // Service Role required for backend storage
+);
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { firstName, lastName, email, password, dealType, participantType, companyType, companyName, inviteToken, projectId } = body;
+    const formData = await req.formData();
+    const firstName = formData.get('firstName');
+    const lastName = formData.get('lastName');
+    const email = formData.get('email');
+    const password = formData.get('password');
+    const dealType = formData.get('dealType');
+    const participantType = formData.get('participantType');
+    const companyType = formData.get('companyType');
+    const companyName = formData.get('companyName');
+    const inviteToken = formData.get('inviteToken');
+    const projectId = formData.get('projectId');
+    
+    // Extracted additional fields
+    const phoneNumber = formData.get('phoneNumber');
+    const linkedinUrl = formData.get('linkedinUrl');
+    const licenseNumber = formData.get('licenseNumber');
+    const websiteUrl = formData.get('websiteUrl');
+    const country = formData.get('country');
+    const stateRegion = formData.get('stateRegion');
+    const city = formData.get('city');
+    const sellerRole = formData.get('sellerRole'); // 'owner', 'advisor', 'broker'
+    const buyerType = formData.get('buyerType'); // investor type for buyers
+    
+    const proofOfAuthorityFile = formData.get('proofOfAuthority');
+    const additionalDocumentFile = formData.get('additionalDocument');
 
     // Basic validation
     if (!firstName || !lastName || !email || !password) {
@@ -25,6 +54,46 @@ export async function POST(req) {
     // Combine first and last name
     const fullName = `${firstName} ${lastName}`;
 
+    // Handle File Uploads
+    let proofOfAuthorityUrl = null;
+    let additionalDocumentUrl = null;
+
+    const safeCompanyName = companyName ? `${companyName.replace(/[^a-zA-Z0-9]/g, '-')}-` : '';
+
+    if (proofOfAuthorityFile && typeof proofOfAuthorityFile.name === 'string') {
+      const bytes = await proofOfAuthorityFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = `${safeCompanyName}${Date.now()}-poa-${proofOfAuthorityFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('verification-documents')
+        .upload(fileName, buffer, { contentType: proofOfAuthorityFile.type || 'application/octet-stream', upsert: false });
+        
+      if (!uploadError) {
+        const { data } = supabase.storage.from('verification-documents').getPublicUrl(fileName);
+        proofOfAuthorityUrl = data.publicUrl;
+      } else {
+        console.error("Supabase storage error (poa):", uploadError);
+      }
+    }
+
+    if (additionalDocumentFile && typeof additionalDocumentFile.name === 'string') {
+      const bytes = await additionalDocumentFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = `${safeCompanyName}${Date.now()}-doc-${additionalDocumentFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('verification-documents')
+        .upload(fileName, buffer, { contentType: additionalDocumentFile.type || 'application/octet-stream', upsert: false });
+        
+      if (!uploadError) {
+        const { data } = supabase.storage.from('verification-documents').getPublicUrl(fileName);
+        additionalDocumentUrl = data.publicUrl;
+      } else {
+        console.error("Supabase storage error (additional doc):", uploadError);
+      }
+    }
+
     let finalCompanyId = null;
 
     if (companyName) {
@@ -38,7 +107,20 @@ export async function POST(req) {
         const [newCompany] = await db.insert(companies).values({
           name: companyName,
           email: email, // use user's email for the company for now
-          status: 'active'
+          status: 'active',
+          phoneNumber,
+          companyType,
+          websiteUrl,
+          linkedinUrl,
+          operationType: dealType || null,
+          country,
+          stateRegion,
+          city,
+          dmsRole: roleToSet.toLowerCase(),
+          subRole: sellerRole || null,
+          proofOfAuthorityUrl,
+          licenseNumber,
+          additionalDocumentUrl,
         }).returning({ id: companies.id });
         
         finalCompanyId = newCompany.id;
@@ -50,12 +132,10 @@ export async function POST(req) {
       name: fullName,
       email,
       passwordHash,
-      companyType,
-      companyName,
+      phoneNumber,
       companyId: finalCompanyId, // Link to the company
-      dmsRole: roleToSet.toLowerCase(), // 'buyer' or 'seller'
       role: roleToSet.toLowerCase() === 'seller' ? 'super_admin' : 'guest_admin',
-      status: 'active'
+      status: 'active',
     }).returning({ id: users.id });
 
     // Handle Invite Token Auto-Approval

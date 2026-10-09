@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { name: 'Storage', href: '/business-owner/storage', icon: FaDatabase },
   { name: 'Plans', href: '/business-owner/plans', icon: FaTags },
   { name: 'Identity Verifications', href: '/business-owner/verifications', icon: FaUserCheck },
+  { name: 'Teaser Verifications', href: '/business-owner/teaser-verifications', icon: FaChartPie }, // Added
   { name: 'Email Templates', href: '/business-owner/email-templates', icon: FaEnvelopeOpenText },
   { name: 'Settings', href: '/business-owner/settings', icon: FaCog },
 ];

@@ -5,6 +5,129 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
 
+const industrySubcategories = {
+  "Technology / SaaS": ["Software Development", "Cloud Computing", "AI & Machine Learning", "Cybersecurity", "FinTech", "HealthTech", "EdTech"],
+  "Healthcare / Life Sciences": ["Pharmaceuticals", "Biotechnology", "Medical Devices", "Healthcare IT", "Hospitals & Clinics"],
+  "Manufacturing": ["Automotive", "Aerospace & Defense", "Electronics", "Industrial Machinery", "Chemicals"],
+  "Industrials": ["Construction", "Logistics & Supply Chain", "Waste Management", "Packaging"],
+  "Financial Services": ["Banking", "Investment Banking", "Insurance", "Wealth Management", "Venture Capital / Private Equity"],
+  "Real Estate": ["Commercial Real Estate", "Residential Real Estate", "Property Management", "Real Estate Tech"],
+  "Consumer Goods & Retail": ["E-commerce", "Apparel & Fashion", "Food & Beverage", "Home & Garden", "Personal Care"],
+  "Energy & Utilities": ["Renewable Energy", "Oil & Gas", "Water Utilities", "Electric Utilities"],
+  "Telecommunications": ["Wireless Services", "Broadband & Cable", "Networking Equipment"],
+  "Other": ["Other"]
+};
+
+const standardBusinessModels = [
+  "B2B (Business to Business)",
+  "B2C (Business to Consumer)",
+  "B2B2C",
+  "D2C (Direct to Consumer)",
+  "SaaS (Software as a Service)",
+  "Marketplace",
+  "E-commerce",
+  "Subscription",
+  "Freemium",
+  "Enterprise",
+  "Franchise",
+  "Other"
+];
+
+const standardEmployees = [
+  "1-10 Employees",
+  "11-20 Employees",
+  "21-30 Employees",
+  "31-40 Employees",
+  "41-50 Employees",
+  "51-60 Employees",
+  "61-70 Employees",
+  "71-80 Employees",
+  "81-90 Employees",
+  "91-100 Employees"
+];
+
+const standardLegalStructures = [
+  "LLC (Limited Liability Company)",
+  "C-Corporation",
+  "S-Corporation",
+  "Sole Proprietorship",
+  "Partnership",
+  "Limited Partnership (LP)",
+  "Limited Liability Partnership (LLP)",
+  "Private Limited (Pvt Ltd)",
+  "Public Limited",
+  "One Person Company (OPC)",
+  "Section 8 Company",
+  "Cooperative Society",
+  "Non-Profit Organization",
+  "Other"
+];
+
+const standardStates = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
+  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
+  "Uttarakhand", "West Bengal", "Delhi", "Other"
+];
+
+const stateDistricts = {
+  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul", "Thanjavur", "Ranipet", "Chengalpattu", "Kancheepuram"],
+  "Karnataka": ["Bengaluru Urban", "Bengaluru Rural", "Mysuru", "Hubballi-Dharwad", "Mangaluru", "Belagavi", "Kalaburagi", "Udupi"],
+  "Maharashtra": ["Mumbai City", "Mumbai Suburban", "Pune", "Nagpur", "Thane", "Nashik", "Aurangabad", "Kolhapur"],
+  "Delhi": ["New Delhi", "Central Delhi", "South Delhi", "North Delhi", "East Delhi", "West Delhi", "Shahdara"],
+  "Kerala": ["Thiruvananthapuram", "Kochi", "Kozhikode", "Thrissur", "Kollam", "Palakkad", "Alappuzha", "Ernakulam"],
+  "Telangana": ["Hyderabad", "Warangal", "Nizamabad", "Karimnagar", "Khammam", "Ranga Reddy"],
+  "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Kurnool", "Tirupati"],
+  "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Gandhinagar"]
+};
+
+const standardRevenueBands = [
+  "Below ₹1 Crore",
+  "₹1–5 Crore",
+  "₹5–10 Crore",
+  "₹10–50 Crore",
+  "₹50–100 Crore",
+  "₹100+ Crore"
+];
+
+const standardBuyerTypes = [
+  "Strategic Buyer",
+  "Financial Investor",
+  "Private Equity",
+  "Individual Buyer",
+  "Competitor",
+  "Industry Buyer",
+  "Family Office",
+  "Holding Company",
+  "Management/Employee Buyer",
+  "Any Qualified Buyer"
+];
+
+const standardCurrencies = [
+  { code: "USD", symbol: "$" },
+  { code: "INR", symbol: "₹" },
+  { code: "EUR", symbol: "€" },
+  { code: "GBP", symbol: "£" },
+  { code: "JPY", symbol: "¥" },
+  { code: "AUD", symbol: "A$" },
+  { code: "CAD", symbol: "C$" },
+  { code: "CHF", symbol: "CHF" },
+  { code: "CNY", symbol: "¥" },
+  { code: "SEK", symbol: "kr" },
+  { code: "NZD", symbol: "NZ$" },
+  { code: "MXN", symbol: "$" },
+  { code: "SGD", symbol: "S$" },
+  { code: "HKD", symbol: "HK$" },
+  { code: "NOK", symbol: "kr" },
+  { code: "KRW", symbol: "₩" },
+  { code: "TRY", symbol: "₺" },
+  { code: "RUB", symbol: "₽" },
+  { code: "BRL", symbol: "R$" },
+  { code: "ZAR", symbol: "R" },
+  { code: "AED", symbol: "د.إ" }
+];
+
 export default function WorkspacePage() {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
@@ -24,6 +147,8 @@ export default function WorkspacePage() {
   const [workspaces, setWorkspaces] = useState([]);
   const [vdrRole, setVdrRole] = useState('external_user');
   const [isMounted, setIsMounted] = useState(false);
+  const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
+  const [isBuyerDropdownOpen, setIsBuyerDropdownOpen] = useState(false);
   const router = useRouter();
 
   // Create Project Modal State
@@ -34,39 +159,96 @@ export default function WorkspacePage() {
     dealType: 'Merge',
     projectType: 'Industrial',
     description: '',
+    businessModel: '',
     industry: '',
+    subIndustry: '',
+    yearFounded: '',
+    employeeDropdown: '',
+    employeeCustom: '',
+    legalStructure: '',
+    headquarters: '',
+    operationsLocations: [],
+    customerCount: '',
+    topCustomerCurrency: 'USD',
+    topCustomerRevenue: '',
     revenue: '',
     ebitda: '',
+    grossMargin: '',
+    netProfit: '',
+    recurringRevenue: '',
+    growthRate: '',
+    debt: '',
+    workingCapital: '',
+    addBacks: '',
+    keyHighlights: '',
+    reasonForSale: '',
+    askingPrice: '',
+    valuationExpectation: '',
+    preferredBuyerTypes: [],
+    transitionPeriod: '',
+    profitAndLossFile: null,
+    balanceSheetFile: null,
+    ebitdaBandDropdown: '',
     mandate: ''
   });
 
   const handleCreateProject = async () => {
     try {
       const companyId = localStorage.getItem('companyId') || 'test-company-123';
+      const formData = new FormData();
+      formData.append('name', newProject.name || 'Untitled Project');
+      formData.append('companyId', companyId);
+      formData.append('dealType', newProject.dealType);
+      formData.append('projectType', newProject.projectType);
+      formData.append('description', newProject.description);
+      formData.append('businessModel', newProject.businessModel);
+      formData.append('industry', newProject.industry);
+      formData.append('subIndustry', newProject.subIndustry);
+      formData.append('yearFounded', newProject.yearFounded);
+      formData.append('numberOfEmployees', newProject.employeeDropdown === 'Other' ? newProject.employeeCustom : newProject.employeeDropdown);
+      formData.append('legalStructure', newProject.legalStructure);
+      formData.append('headquarters', newProject.headquarters);
+      formData.append('operationsLocations', JSON.stringify(newProject.operationsLocations));
+      formData.append('customerCount', newProject.customerCount);
+      formData.append('topCustomerRevenue', `${newProject.topCustomerCurrency} ${newProject.topCustomerRevenue}`);
+      formData.append('revenue', newProject.revenue);
+      formData.append('ebitda', newProject.ebitda);
+      formData.append('grossMargin', newProject.grossMargin);
+      formData.append('netProfit', newProject.netProfit);
+      formData.append('recurringRevenue', newProject.recurringRevenue);
+      formData.append('growthRate', newProject.growthRate);
+      formData.append('debt', newProject.debt);
+      formData.append('workingCapital', newProject.workingCapital);
+      formData.append('addBacks', newProject.addBacks);
+      formData.append('revenueBandDropdown', newProject.revenueBandDropdown);
+      formData.append('keyHighlights', newProject.keyHighlights);
+      formData.append('reasonForSale', newProject.reasonForSale);
+      formData.append('askingPrice', newProject.askingPrice);
+      formData.append('valuationExpectation', newProject.valuationExpectation);
+      formData.append('preferredBuyerTypes', JSON.stringify(newProject.preferredBuyerTypes));
+      formData.append('transitionPeriod', newProject.transitionPeriod);
+      formData.append('ebitdaBandDropdown', newProject.ebitdaBandDropdown);
+      formData.append('mandate', newProject.mandate);
+
+      if (newProject.profitAndLossFile) {
+        formData.append('profitAndLossFile', newProject.profitAndLossFile);
+      }
+      if (newProject.balanceSheetFile) {
+        formData.append('balanceSheetFile', newProject.balanceSheetFile);
+      }
+
       const res = await fetch('/api/dms/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProject.name || 'Untitled Project',
-          companyId: companyId,
-          dealType: newProject.dealType,
-          projectType: newProject.projectType,
-          status: 'ACTIVE',
-          description: newProject.description,
-          industry: newProject.industry,
-          revenue: newProject.revenue,
-          ebitda: newProject.ebitda,
-          mandate: newProject.mandate
-        })
+        body: formData
       });
       if (res.ok) {
         const data = await res.json();
         setWorkspaces([data.project, ...workspaces]);
         setIsCreateProjectOpen(false);
         setCreateStep(1);
-        setNewProject({ name: '', dealType: 'Merge', projectType: 'Industrial', description: '', industry: '', revenue: '', ebitda: '', mandate: '' });
+        setNewProject({ name: '', dealType: 'Merge', projectType: 'Industrial', description: '', businessModel: '', industry: '', subIndustry: '', yearFounded: '', employeeDropdown: '', employeeCustom: '', legalStructure: '', headquarters: '', operationsLocations: [], customerCount: '', topCustomerCurrency: 'USD', topCustomerRevenue: '', revenue: '', ebitda: '', grossMargin: '', netProfit: '', recurringRevenue: '', growthRate: '', debt: '', workingCapital: '', addBacks: '', revenueBandDropdown: '', revenueBandCustom: '', businessSummary: '', keyHighlights: '', reasonForSale: '', askingPrice: '', valuationExpectation: '', preferredBuyerTypes: [], transitionPeriod: '', profitAndLossFile: null, balanceSheetFile: null, ebitdaBandDropdown: '', mandate: '' });
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Failed to create project", e);
     }
   };
@@ -159,6 +341,15 @@ export default function WorkspacePage() {
   }, [router]);
 
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [projectFilter, setProjectFilter] = useState('All');
+
+  const filteredWorkspaces = workspaces.filter(ws => {
+    if (projectFilter === 'All') return true;
+    if (projectFilter === 'Approved') return ws.status?.toLowerCase() === 'active';
+    if (projectFilter === 'Pending') return ws.status?.toLowerCase() === 'inactive';
+    if (projectFilter === 'Rejected') return ws.status?.toLowerCase() === 'rejected';
+    return true;
+  });
 
   const handleDeleteProject = async (id, name) => {
     try {
@@ -185,19 +376,19 @@ export default function WorkspacePage() {
     router.push('/dms/login');
   };
 
-  
+
 
   return (
     <div className="w-full">
 
-      
+
 
       {/* Main Content Area */}
       <div className="w-full">
 
-        
 
-        
+
+
 
         {/* Hero Section */}
         {!userRole && (
@@ -889,81 +1080,119 @@ export default function WorkspacePage() {
                 </h1>
                 <span className="px-3 py-1 bg-[#e6fbf2] text-[#00c875] text-xs font-bold rounded-full tracking-wide capitalize">{userRole}</span>
               </div>
+              {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+                <button
+                  onClick={() => setIsCreateProjectOpen(true)}
+                  className="flex items-center gap-2 bg-[#008f70] hover:bg-[#007058] text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                >
+                  <FaPlus className="text-xs" /> Create Project
+                </button>
+              )}
+            </div>
+
+            {/* Project Filter Tabs */}
+            <div className="flex items-center gap-2 mb-8 border-b border-gray-200 pb-px">
+              {['All', 'Approved', 'Pending', 'Rejected'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setProjectFilter(tab)}
+                  className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${projectFilter === tab
+                    ? 'border-[#008f70] text-[#008f70]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-              {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-                <button
-                  onClick={() => setIsCreateProjectOpen(true)}
-                  className="h-44 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:border-gray-400 hover:bg-gray-50 transition-all group bg-white"
-                >
-                  <div className="w-12 h-12 bg-[#0b1120] text-white rounded-xl flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform">
-                    <FaPlus />
-                  </div>
-                  <span className="text-[13px] text-gray-500 font-medium">Add New Project</span>
-                </button>
-              )}
-
               {/* Existing Workspaces */}
-              {workspaces.map((workspace, index) => (
-                <div
-                  onClick={() => {
-                    const pid = workspace.projectId || workspace.id;
-                    sessionStorage.removeItem(`deal_activeTab_${pid}`);
-                    router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
-                  }}
-                  key={index}
-                  className="block cursor-pointer h-44 bg-white rounded-xl border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.02)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.06)] transition-all group"
-                >
-                  <div className="flex justify-between items-start mb-auto">
-                    <div className="flex gap-2 items-center">
-                      <span className="px-2 py-0.5 bg-[#e6fbf2] text-[#00c875] text-[9px] font-bold rounded">
-                        {workspace.status || 'ACTIVE'}
-                      </span>
-                      {workspace.dealType && (
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded">
-                          {workspace.dealType}
+              {filteredWorkspaces.map((workspace, index) => {
+                const isActive = workspace.status?.toLowerCase() === 'active';
+                const isRejected = workspace.status?.toLowerCase() === 'rejected';
+
+                return (
+                  <div
+                    onClick={() => {
+                      if (!isActive) return; // Prevent clicking if not active
+                      const pid = workspace.projectId || workspace.id;
+                      sessionStorage.removeItem(`deal_activeTab_${pid}`);
+                      router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
+                    }}
+                    key={index}
+                    className={`block h-48 bg-white rounded-2xl border shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] p-5 relative flex flex-col transition-all duration-300 group ${isActive ? 'border-gray-200 cursor-pointer hover:border-teal-300 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1' : isRejected ? 'border-red-100 cursor-not-allowed bg-red-50/20' : 'border-gray-200 cursor-not-allowed bg-gray-50/40'
+                      }`}
+                  >
+                    <div className="flex justify-between items-start mb-auto">
+                      <div className="flex gap-2 items-center">
+                        <span className={`px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-widest shadow-sm border ${isActive ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/20' : isRejected ? 'bg-red-50 text-red-600 border-red-200/50' : 'bg-orange-50 text-orange-600 border-orange-200/50'
+                          }`}>
+                          {isActive ? 'ACTIVE' : isRejected ? 'REJECTED' : 'PENDING'}
                         </span>
+                        {workspace.dealType && (
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase tracking-wider">
+                            {workspace.dealType}
+                          </span>
+                        )}
+                      </div>
+
+                      {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
+                          >
+                            <FaEllipsisV className="text-[11px]" />
+                          </button>
+
+                          {openDropdownId === workspace.id && (
+                            <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteProject(workspace.id, workspace.name);
+                                }}
+                                className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
 
-                    {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-                      <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
-                          }}
-                          className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
-                        >
-                          <FaEllipsisV className="text-[11px]" />
-                        </button>
+                    <div className="flex flex-col items-center justify-center flex-1 gap-4 pb-2 relative z-10 mt-3">
+                      {isActive ? (
+                        <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center border border-teal-100/60 group-hover:bg-teal-100/50 group-hover:scale-110 transition-all duration-300 shadow-sm">
+                          <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
+                        </div>
+                      ) : isRejected ? (
+                        <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100/60 shadow-sm">
+                          <FaTimes className="text-[26px] text-red-500" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100/60 shadow-sm">
+                          <FaLock className="text-[26px] text-orange-500" />
+                        </div>
+                      )}
 
-                        {openDropdownId === workspace.id && (
-                          <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteProject(workspace.id, workspace.name);
-                              }}
-                              className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                      <div className="text-center w-full">
+                        <span className={`font-extrabold text-[15px] tracking-tight block px-2 truncate ${isActive ? 'text-gray-900 group-hover:text-teal-800 transition-colors' : 'text-gray-500'
+                          }`}>
+                          {workspace.name}
+                        </span>
                       </div>
-                    )}
+                    </div>
                   </div>
-
-                  <div className="flex flex-col items-center justify-center flex-1 gap-2 pb-2">
-                    <FaShieldAlt className="text-4xl text-teal-600 group-hover:scale-105 transition-transform" />
-                    <span className="font-bold text-gray-800 text-sm mt-1">{workspace.name}</span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -1172,15 +1401,20 @@ export default function WorkspacePage() {
       {isCreateProjectOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-            
+
             {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/80">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{createStep === 1 ? 'Create New Project' : 'Create Teaser'}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{createStep === 1 ? 'Create New Project' : 'Project Teaser'}</h3>
                 <div className="flex items-center gap-2 mt-2">
                   <div className={`h-1.5 w-12 rounded-full ${createStep >= 1 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
                   <div className={`h-1.5 w-12 rounded-full ${createStep >= 2 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
-                  <span className="text-xs text-gray-500 font-medium ml-2">Step {createStep} of 2</span>
+                  <div className={`h-1.5 w-12 rounded-full ${createStep >= 3 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+                  <div className={`h-1.5 w-12 rounded-full ${createStep >= 4 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+                  <div className={`h-1.5 w-12 rounded-full ${createStep >= 5 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+                  <div className={`h-1.5 w-12 rounded-full ${createStep >= 6 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+                  <div className={`h-1.5 w-12 rounded-full ${createStep >= 7 ? 'bg-teal-500' : 'bg-gray-200'}`}></div>
+                  <span className="text-xs text-gray-500 font-medium ml-2">Step {createStep} of 7</span>
                 </div>
               </div>
               <button onClick={() => { setIsCreateProjectOpen(false); setCreateStep(1); }} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition-colors">
@@ -1194,13 +1428,13 @@ export default function WorkspacePage() {
                 <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Project Name <span className="text-red-500">*</span></label>
-                    <input type="text" placeholder="Enter project name..." className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} />
+                    <input type="text" placeholder="Enter project name..." className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Deal Type</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Project Type</label>
                       <div className="relative">
-                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.dealType} onChange={e => setNewProject({...newProject, dealType: e.target.value})}>
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.dealType} onChange={e => setNewProject({ ...newProject, dealType: e.target.value })}>
                           <option value="Merge">Merge</option>
                           <option value="Acquisition">Acquisition</option>
                           <option value="Investment">Investment</option>
@@ -1209,22 +1443,10 @@ export default function WorkspacePage() {
                         <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Project Type</label>
-                      <div className="relative">
-                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.projectType} onChange={e => setNewProject({...newProject, projectType: e.target.value})}>
-                          <option value="Industrial">Industrial</option>
-                          <option value="Manufacturing">Manufacturing</option>
-                          <option value="Healthcare">Healthcare</option>
-                          <option value="Others">Others</option>
-                        </select>
-                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
-                      </div>
-                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Project Description</label>
-                    <textarea placeholder="Enter a brief project description..." rows={4} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.description} onChange={e => setNewProject({...newProject, description: e.target.value})} />
+                    <textarea placeholder="Enter a brief project description..." rows={4} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.description} onChange={e => setNewProject({ ...newProject, description: e.target.value })} />
                   </div>
                 </div>
               )}
@@ -1240,20 +1462,584 @@ export default function WorkspacePage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Business Model</label>
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.businessModel} onChange={e => setNewProject({ ...newProject, businessModel: e.target.value })}>
+                          <option value="" disabled>Select a business model</option>
+                          {standardBusinessModels.map(model => (
+                            <option key={model} value={model}>{model}</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                    <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">Industry</label>
-                      <input type="text" placeholder="e.g. Technology / SaaS" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.industry} onChange={e => setNewProject({...newProject, industry: e.target.value})} />
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.industry} onChange={e => setNewProject({ ...newProject, industry: e.target.value, subIndustry: '' })}>
+                          <option value="" disabled>Select an industry</option>
+                          {Object.keys(industrySubcategories).map(ind => (
+                            <option key={ind} value={ind}>{ind}</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Sub Industry</label>
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow disabled:bg-gray-50 disabled:text-gray-400" value={newProject.subIndustry} onChange={e => setNewProject({ ...newProject, subIndustry: e.target.value })} disabled={!newProject.industry}>
+                          <option value="" disabled>Select a sub industry</option>
+                          {newProject.industry && industrySubcategories[newProject.industry]?.map(sub => (
+                            <option key={sub} value={sub}>{sub}</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Year Founded</label>
+                      <input type="date" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow text-gray-800" value={newProject.yearFounded} onChange={e => setNewProject({ ...newProject, yearFounded: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">No. of Employees</label>
+                      <div className="flex flex-col gap-2">
+                        <div className="relative">
+                          <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.employeeDropdown} onChange={e => setNewProject({ ...newProject, employeeDropdown: e.target.value })}>
+                            <option value="" disabled>Select employees</option>
+                            {standardEmployees.map(emp => (
+                              <option key={emp} value={emp}>{emp}</option>
+                            ))}
+                            {newProject.employeeDropdown && newProject.employeeDropdown !== 'Other' && !standardEmployees.includes(newProject.employeeDropdown) && (
+                              <option value={newProject.employeeDropdown}>{newProject.employeeDropdown}</option>
+                            )}
+                            <option value="Other">Other</option>
+                          </select>
+                          <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                        </div>
+                        {newProject.employeeDropdown === 'Other' && (
+                          <input
+                            type="text"
+                            placeholder="Enter custom no. of employees and press Enter..."
+                            className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow animate-in fade-in slide-in-from-top-2 duration-200"
+                            value={newProject.employeeCustom}
+                            onChange={e => setNewProject({ ...newProject, employeeCustom: e.target.value })}
+                            onBlur={() => {
+                              if (newProject.employeeCustom.trim() !== '') {
+                                setNewProject({ ...newProject, employeeDropdown: newProject.employeeCustom, employeeCustom: '' });
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newProject.employeeCustom.trim() !== '') {
+                                  setNewProject({ ...newProject, employeeDropdown: newProject.employeeCustom, employeeCustom: '' });
+                                }
+                              }
+                            }}
+                            autoFocus
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Legal Structure</label>
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.legalStructure} onChange={e => setNewProject({ ...newProject, legalStructure: e.target.value })}>
+                          <option value="" disabled>Select legal structure</option>
+                          {standardLegalStructures.map(structure => (
+                            <option key={structure} value={structure}>{structure}</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 3 && (
+                <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Headquarters</label>
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.headquarters} onChange={e => setNewProject({ ...newProject, headquarters: e.target.value })}>
+                          <option value="" disabled>Select state/location</option>
+                          {standardStates.map(state => (
+                            <option key={state} value={state}>{state}</option>
+                          ))}
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Operations Location</label>
+                      <div
+                        className="relative"
+                        tabIndex={-1}
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) {
+                            setIsDistrictDropdownOpen(false);
+                          }
+                        }}
+                      >
+                        <div
+                          className="w-full min-h-[46px] p-2 text-sm border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-teal-500/50 bg-white transition-shadow flex flex-wrap gap-2 cursor-pointer items-center"
+                          onClick={() => setIsDistrictDropdownOpen(!isDistrictDropdownOpen)}
+                        >
+                          {newProject.operationsLocations.map(loc => (
+                            <span key={loc} className="bg-teal-50 text-teal-700 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+                              {loc}
+                              <FaTimes
+                                className="cursor-pointer hover:text-teal-900"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewProject({ ...newProject, operationsLocations: newProject.operationsLocations.filter(l => l !== loc) });
+                                }}
+                              />
+                            </span>
+                          ))}
+                          {newProject.operationsLocations.length === 0 && (
+                            <span className="text-gray-400 pl-1">Select operations locations</span>
+                          )}
+                          <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                        </div>
+
+                        {isDistrictDropdownOpen && newProject.headquarters && stateDistricts[newProject.headquarters] && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {stateDistricts[newProject.headquarters].map(district => (
+                              <div
+                                key={district}
+                                className={`p-3 text-sm cursor-pointer hover:bg-teal-50 flex items-center justify-between ${newProject.operationsLocations.includes(district) ? 'bg-teal-50/50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                                onClick={() => {
+                                  if (newProject.operationsLocations.includes(district)) {
+                                    setNewProject({ ...newProject, operationsLocations: newProject.operationsLocations.filter(l => l !== district) });
+                                  } else {
+                                    setNewProject({ ...newProject, operationsLocations: [...newProject.operationsLocations, district] });
+                                  }
+                                }}
+                              >
+                                {district}
+                                {newProject.operationsLocations.includes(district) && <FaCheck className="text-teal-500 text-xs" />}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {isDistrictDropdownOpen && (!newProject.headquarters || !stateDistricts[newProject.headquarters]) && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-sm text-gray-500 text-center">
+                            {!newProject.headquarters ? "Please select a Headquarters first" : "No districts available for this state."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Total Customer Count</label>
+                      <input type="number" placeholder="e.g. 5000" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.customerCount} onChange={e => setNewProject({ ...newProject, customerCount: e.target.value })} min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Top Customer % Revenue</label>
+                      <div className="flex gap-2">
+                        <div className="relative w-28 shrink-0">
+                          <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.topCustomerCurrency} onChange={e => setNewProject({ ...newProject, topCustomerCurrency: e.target.value })}>
+                            {standardCurrencies.map(c => (
+                              <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                            ))}
+                          </select>
+                          <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                        </div>
+                        <div className="flex-1 flex flex-col">
+                          <input type="number" placeholder="e.g. 45" className={`w-full p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-shadow ${newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100 ? 'border-red-500 focus:ring-red-500/50' : 'border-gray-200 focus:ring-teal-500/50'}`} value={newProject.topCustomerRevenue} onChange={e => setNewProject({ ...newProject, topCustomerRevenue: e.target.value })} min="0" max="100" />
+                          {newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100 && (
+                            <p className="text-red-500 text-xs mt-1">Value cannot exceed 100</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">Revenue</label>
-                      <input type="text" placeholder="e.g. $1M - $5M ARR" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.revenue} onChange={e => setNewProject({...newProject, revenue: e.target.value})} />
+                      <input type="text" placeholder="e.g. $1M - $5M ARR" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.revenue} onChange={e => setNewProject({ ...newProject, revenue: e.target.value })} />
                     </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Profitability (EBITDA)</label>
-                      <input type="text" placeholder="e.g. 15% Margin" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.ebitda} onChange={e => setNewProject({...newProject, ebitda: e.target.value})} />
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Profitability (EBITDA) %</label>
+                      <input type="number" placeholder="e.g. 15" className={`w-full p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-shadow ${newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100) ? 'border-red-500 focus:ring-red-500/50' : 'border-gray-200 focus:ring-teal-500/50'}`} value={newProject.ebitda} onChange={e => setNewProject({ ...newProject, ebitda: e.target.value })} min="1" max="100" />
+                      {newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100) && (
+                        <p className="text-red-500 text-xs mt-1">Invalid input</p>
+                      )}
                     </div>
-                    <div className="sm:col-span-2">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">EBITDA Band <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.ebitdaBandDropdown} onChange={e => setNewProject({ ...newProject, ebitdaBandDropdown: e.target.value })}>
+                          <option value="" disabled>Select EBITDA Range</option>
+                          <option value="Below ₹25 Lakhs">Below ₹25 Lakhs</option>
+                          <option value="₹25 Lakhs – ₹50 Lakhs">₹25 Lakhs – ₹50 Lakhs</option>
+                          <option value="₹50 Lakhs – ₹1 Crore">₹50 Lakhs – ₹1 Crore</option>
+                          <option value="₹1 Crore – ₹5 Crore">₹1 Crore – ₹5 Crore</option>
+                          <option value="₹5 Crore – ₹10 Crore">₹5 Crore – ₹10 Crore</option>
+                          <option value="₹10 Crore – ₹25 Crore">₹10 Crore – ₹25 Crore</option>
+                          <option value="₹25 Crore+">₹25 Crore+</option>
+                          <option value="Negative EBITDA">Negative EBITDA</option>
+                          <option value="Not Disclosed">Not Disclosed</option>
+                        </select>
+                        <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 4 && (
+                <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Gross Margin %</label>
+                      <input type="number" placeholder="e.g. 40" className={`w-full p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-shadow ${newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100) ? 'border-red-500 focus:ring-red-500/50' : 'border-gray-200 focus:ring-teal-500/50'}`} value={newProject.grossMargin} onChange={e => setNewProject({ ...newProject, grossMargin: e.target.value })} min="1" max="100" />
+                      {newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100) && (
+                        <p className="text-red-500 text-xs mt-1">Invalid input</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Net Profit</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                          {standardCurrencies.find(c => c.code === newProject.topCustomerCurrency)?.symbol || '$'}
+                        </span>
+                        <input type="text" placeholder="e.g. 1,000,000" className="w-full p-3 pl-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.netProfit} onChange={e => setNewProject({ ...newProject, netProfit: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Recurring Revenue %</label>
+                      <input type="number" placeholder="e.g. 75" className={`w-full p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-shadow ${newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100) ? 'border-red-500 focus:ring-red-500/50' : 'border-gray-200 focus:ring-teal-500/50'}`} value={newProject.recurringRevenue} onChange={e => setNewProject({ ...newProject, recurringRevenue: e.target.value })} min="1" max="100" />
+                      {newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100) && (
+                        <p className="text-red-500 text-xs mt-1">Invalid input</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Growth Rate %</label>
+                      <input type="number" placeholder="e.g. 20" className={`w-full p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-shadow ${newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100) ? 'border-red-500 focus:ring-red-500/50' : 'border-gray-200 focus:ring-teal-500/50'}`} value={newProject.growthRate} onChange={e => setNewProject({ ...newProject, growthRate: e.target.value })} min="1" max="100" />
+                      {newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100) && (
+                        <p className="text-red-500 text-xs mt-1">Invalid input</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Debt on the Business</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                          {standardCurrencies.find(c => c.code === newProject.topCustomerCurrency)?.symbol || '$'}
+                        </span>
+                        <input type="text" placeholder="e.g. 500,000" className="w-full p-3 pl-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.debt} onChange={e => setNewProject({ ...newProject, debt: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Working Capital</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                          {standardCurrencies.find(c => c.code === newProject.topCustomerCurrency)?.symbol || '$'}
+                        </span>
+                        <input type="text" placeholder="e.g. 250,000" className="w-full p-3 pl-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.workingCapital} onChange={e => setNewProject({ ...newProject, workingCapital: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Add-backs (Description & Amount)</label>
+                      <input type="text" placeholder="e.g. Owner Salary - $50,000" className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.addBacks} onChange={e => setNewProject({ ...newProject, addBacks: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Revenue Band</label>
+                      <div className="flex flex-col gap-2">
+                        <div className="relative">
+                          <select className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none bg-white transition-shadow" value={newProject.revenueBandDropdown} onChange={e => setNewProject({ ...newProject, revenueBandDropdown: e.target.value })}>
+                            <option value="" disabled>Select revenue band</option>
+                            {standardRevenueBands.map(band => (
+                              <option key={band} value={band}>{band}</option>
+                            ))}
+                            {newProject.revenueBandDropdown && newProject.revenueBandDropdown !== 'Other' && !standardRevenueBands.includes(newProject.revenueBandDropdown) && (
+                              <option value={newProject.revenueBandDropdown}>{newProject.revenueBandDropdown}</option>
+                            )}
+                            <option value="Other">Other</option>
+                          </select>
+                          <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                        </div>
+                        {newProject.revenueBandDropdown === 'Other' && (
+                          <input
+                            type="text"
+                            placeholder="Enter custom revenue band and press Enter..."
+                            className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow animate-in fade-in slide-in-from-top-1"
+                            value={newProject.revenueBandCustom}
+                            onChange={e => setNewProject({ ...newProject, revenueBandCustom: e.target.value })}
+                            onBlur={() => {
+                              if (newProject.revenueBandCustom.trim() !== '') {
+                                setNewProject({ ...newProject, revenueBandDropdown: newProject.revenueBandCustom, revenueBandCustom: '' });
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newProject.revenueBandCustom.trim() !== '') {
+                                  setNewProject({ ...newProject, revenueBandDropdown: newProject.revenueBandCustom, revenueBandCustom: '' });
+                                }
+                              }
+                            }}
+                            autoFocus
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 5 && (
+                <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="flex flex-col gap-4">
+                    <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">Investment Mandate</label>
-                      <textarea placeholder="Describe the goal of the transaction..." rows={3} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.mandate} onChange={e => setNewProject({...newProject, mandate: e.target.value})} />
+                      <textarea placeholder="Describe the goal of the transaction..." rows={3} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.mandate} onChange={e => setNewProject({ ...newProject, mandate: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Business Summary</label>
+                      <textarea placeholder="Write a brief summary of the business..." rows={5} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.businessSummary} onChange={e => setNewProject({ ...newProject, businessSummary: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Key Highlights</label>
+                      <textarea placeholder="Enter key highlights (e.g. strong market position, proprietary technology)..." rows={4} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.keyHighlights} onChange={e => setNewProject({ ...newProject, keyHighlights: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Reason for Sale</label>
+                      <textarea placeholder="Explain the primary reason for selling or seeking investment..." rows={3} className="w-full p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none transition-shadow" value={newProject.reasonForSale} onChange={e => setNewProject({ ...newProject, reasonForSale: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 6 && (
+                <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Asking Price</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                          {standardCurrencies.find(c => c.code === newProject.topCustomerCurrency)?.symbol || '$'}
+                        </span>
+                        <input type="text" placeholder="e.g. 10,000,000" className="w-full p-3 pl-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.askingPrice} onChange={e => setNewProject({ ...newProject, askingPrice: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Valuation Expectation</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                          {standardCurrencies.find(c => c.code === newProject.topCustomerCurrency)?.symbol || '$'}
+                        </span>
+                        <input type="text" placeholder="e.g. 15,000,000" className="w-full p-3 pl-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow" value={newProject.valuationExpectation} onChange={e => setNewProject({ ...newProject, valuationExpectation: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 relative">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Preferred Buyer Types <span className="text-red-500">*</span></label>
+                    <div
+                      onClick={() => setIsBuyerDropdownOpen(true)}
+                      className="w-full p-2 text-sm text-left border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-teal-500/50 bg-white flex flex-wrap gap-2 items-center transition-shadow cursor-text min-h-[46px]"
+                    >
+                      {newProject.preferredBuyerTypes.map(type => (
+                        <span key={type} className="bg-teal-50 text-teal-700 px-2.5 py-1 rounded-md flex items-center gap-1 font-medium border border-teal-100">
+                          {type}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewProject({ ...newProject, preferredBuyerTypes: newProject.preferredBuyerTypes.filter(t => t !== type) });
+                            }}
+                            className="hover:text-teal-900 focus:outline-none"
+                          >
+                            <FaTimes className="text-[10px]" />
+                          </button>
+                        </span>
+                      ))}
+                      <div className="flex-1 min-w-[150px] flex items-center">
+                        <input
+                          type="text"
+                          placeholder={newProject.preferredBuyerTypes.length === 0 ? "Select or type buyer types..." : ""}
+                          className="w-full outline-none bg-transparent py-1 text-gray-800"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.target.value.trim() !== '') {
+                              e.preventDefault();
+                              const newType = e.target.value.trim();
+                              if (!newProject.preferredBuyerTypes.includes(newType)) {
+                                setNewProject({ ...newProject, preferredBuyerTypes: [...newProject.preferredBuyerTypes, newType] });
+                              }
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsBuyerDropdownOpen(!isBuyerDropdownOpen);
+                        }}
+                        className="p-1 ml-auto text-gray-400 hover:text-gray-600 focus:outline-none"
+                      >
+                        <FaChevronDown className={`text-xs transition-transform ${isBuyerDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {isBuyerDropdownOpen && (
+                      <div className="w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-sm max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                        <div className="p-2 space-y-1">
+                          <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 rounded">Buyer Categories</div>
+                          {standardBuyerTypes.map(type => (
+                            <label key={type} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                                checked={newProject.preferredBuyerTypes.includes(type)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewProject({ ...newProject, preferredBuyerTypes: [...newProject.preferredBuyerTypes, type] });
+                                  } else {
+                                    setNewProject({ ...newProject, preferredBuyerTypes: newProject.preferredBuyerTypes.filter(t => t !== type) });
+                                  }
+                                }}
+                              />
+                              <span className="text-sm text-gray-700">{type}</span>
+                            </label>
+                          ))}
+                          <div className="px-2 py-1 mt-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 rounded">{newProject.industry ? `${newProject.industry} Buyers` : 'Industries'}</div>
+                          {(newProject.industry && industrySubcategories[newProject.industry] ? industrySubcategories[newProject.industry] : Object.keys(industrySubcategories)).map(industry => (
+                            <label key={industry} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                                checked={newProject.preferredBuyerTypes.includes(industry)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewProject({ ...newProject, preferredBuyerTypes: [...newProject.preferredBuyerTypes, industry] });
+                                  } else {
+                                    setNewProject({ ...newProject, preferredBuyerTypes: newProject.preferredBuyerTypes.filter(t => t !== industry) });
+                                  }
+                                }}
+                              />
+                              <span className="text-sm text-gray-700">{industry}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Owner Transition Period <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 3"
+                        className="w-full p-3 pr-20 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-shadow"
+                        value={newProject.transitionPeriod}
+                        onChange={e => setNewProject({ ...newProject, transitionPeriod: e.target.value })}
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+                        months
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {createStep === 7 && (
+                <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Upload Profit and Loss Statement</label>
+                      <p className="text-xs text-gray-500 mb-4">You can securely upload your P&L document. We support PDF, DOC, DOCX, XLS, and CSV formats.</p>
+
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
+                        <input
+                          type="file"
+                          id="pnl-upload"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setNewProject({ ...newProject, profitAndLossFile: e.target.files[0] });
+                            }
+                          }}
+                        />
+                        <label htmlFor="pnl-upload" className="flex flex-col items-center cursor-pointer w-full">
+                          <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <FaFolderOpen className="text-xl" />
+                          </div>
+                          <span className="text-sm font-bold text-teal-600 hover:text-teal-700">Click to upload</span>
+                          <span className="text-xs text-gray-500 mt-1">or drag and drop</span>
+
+                          {newProject.profitAndLossFile && (
+                            <div className="mt-4 p-3 bg-white border border-teal-200 rounded-lg shadow-sm flex items-center gap-3 w-full max-w-xs" onClick={(e) => e.preventDefault()}>
+                              <FaCheckCircle className="text-teal-500 text-lg flex-shrink-0" />
+                              <div className="overflow-hidden flex-1">
+                                <p className="text-sm font-semibold text-gray-800 truncate">{newProject.profitAndLossFile.name}</p>
+                                <p className="text-xs text-gray-500">{(newProject.profitAndLossFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="text-gray-400 hover:text-red-500 focus:outline-none"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setNewProject({ ...newProject, profitAndLossFile: null });
+                                }}
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Upload Balance Sheet</label>
+                      <p className="text-xs text-gray-500 mb-4">You can securely upload your Balance Sheet document. We support PDF, DOC, DOCX, XLS, and CSV formats.</p>
+
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
+                        <input
+                          type="file"
+                          id="bs-upload"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setNewProject({ ...newProject, balanceSheetFile: e.target.files[0] });
+                            }
+                          }}
+                        />
+                        <label htmlFor="bs-upload" className="flex flex-col items-center cursor-pointer w-full">
+                          <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <FaFolderOpen className="text-xl" />
+                          </div>
+                          <span className="text-sm font-bold text-teal-600 hover:text-teal-700">Click to upload</span>
+                          <span className="text-xs text-gray-500 mt-1">or drag and drop</span>
+
+                          {newProject.balanceSheetFile && (
+                            <div className="mt-4 p-3 bg-white border border-teal-200 rounded-lg shadow-sm flex items-center gap-3 w-full max-w-xs" onClick={(e) => e.preventDefault()}>
+                              <FaCheckCircle className="text-teal-500 text-lg flex-shrink-0" />
+                              <div className="overflow-hidden flex-1">
+                                <p className="text-sm font-semibold text-gray-800 truncate">{newProject.balanceSheetFile.name}</p>
+                                <p className="text-xs text-gray-500">{(newProject.balanceSheetFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="text-gray-400 hover:text-red-500 focus:outline-none"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setNewProject({ ...newProject, balanceSheetFile: null });
+                                }}
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          )}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1271,20 +2057,26 @@ export default function WorkspacePage() {
                   Cancel
                 </button>
               )}
-              
-              {createStep < 2 ? (
-                <button 
+
+              {createStep < 7 ? (
+                <button
                   onClick={() => {
-                    if(!newProject.name) return; // Basic validation
+                    if (createStep === 1 && !newProject.name) return; // Basic validation
+                    if (createStep === 3 && (newProject.ebitdaBandDropdown === '' || (newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100)) || (newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100))) return;
+                    if (createStep === 4 && ((newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100)) || (newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100)) || (newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100)))) return;
+                    if (createStep === 6 && (newProject.preferredBuyerTypes.length === 0 || !newProject.transitionPeriod)) return;
                     setCreateStep(createStep + 1);
-                  }} 
-                  className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 ${newProject.name ? 'bg-[#008f70] hover:bg-[#007058]' : 'bg-gray-300 cursor-not-allowed'}`}
-                  disabled={!newProject.name}
+                  }}
+                  className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 ${(createStep === 1 && !newProject.name) || (createStep === 3 && (newProject.ebitdaBandDropdown === '' || (newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100)) || (newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100))) || (createStep === 4 && ((newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100)) || (newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100)) || (newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100)))) || (createStep === 6 && (newProject.preferredBuyerTypes.length === 0 || !newProject.transitionPeriod)) ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#008f70] hover:bg-[#007058]'}`}
+                  disabled={(createStep === 1 && !newProject.name) || (createStep === 3 && (newProject.ebitdaBandDropdown === '' || (newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100)) || (newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100))) || (createStep === 4 && ((newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100)) || (newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100)) || (newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100)))) || (createStep === 6 && (newProject.preferredBuyerTypes.length === 0 || !newProject.transitionPeriod))}
                 >
                   Continue <FaArrowRight className="text-xs" />
                 </button>
               ) : (
-                <button onClick={handleCreateProject} className="text-sm font-bold text-white bg-[#008f70] hover:bg-[#007058] px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+                <button
+                  onClick={handleCreateProject}
+                  className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 bg-[#008f70] hover:bg-[#007058]`}
+                >
                   <FaCheck /> Create Project
                 </button>
               )}

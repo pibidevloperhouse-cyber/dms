@@ -21,7 +21,7 @@ export default function IdentityVerificationsPage() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/business-owner/verifications');
+      const response = await fetch('/api/business-owner/verifications', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setUsers(data.data);
@@ -313,10 +313,6 @@ export default function IdentityVerificationsPage() {
                       <p className="font-semibold text-slate-800 text-sm">{selectedUser.companyName || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5"><FaBriefcase className="text-slate-400"/> Job Title</p>
-                      <p className="font-semibold text-slate-800 text-sm">{selectedUser.jobTitle || 'N/A'}</p>
-                    </div>
-                    <div>
                       <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5"><FaPhone className="text-slate-400"/> Phone Number</p>
                       <p className="font-semibold text-slate-800 text-sm">{selectedUser.phoneNumber || 'N/A'}</p>
                     </div>
@@ -330,42 +326,77 @@ export default function IdentityVerificationsPage() {
                         <p className="font-semibold text-slate-800 text-sm">N/A</p>
                       )}
                     </div>
+                    {selectedUser.websiteUrl && (
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5"><FaBuilding className="text-slate-400"/> Website</p>
+                        <a href={selectedUser.websiteUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm break-all">
+                          {selectedUser.websiteUrl}
+                        </a>
+                      </div>
+                    )}
+                    {(selectedUser.country || selectedUser.city) && (
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5"><FaBuilding className="text-slate-400"/> Location</p>
+                        <p className="font-semibold text-slate-800 text-sm">
+                          {[selectedUser.city, selectedUser.stateRegion, selectedUser.country].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Role Specific Details */}
-                {selectedUser.dmsRole === 'buyer' && (
-                  <div className="col-span-1 md:col-span-2 bg-blue-50/50 rounded-xl p-4 border border-blue-100">
-                    <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-4">Buyer Mandate</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-blue-600/70 mb-1">Company Type</p>
-                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.companyType || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-600/70 mb-1">Investor Type</p>
-                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.investorType || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-600/70 mb-1 flex items-center gap-1.5"><FaMoneyBillWave /> Investment Range</p>
-                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.investmentRange || 'N/A'}</p>
-                      </div>
+                {/* Business Profile */}
+                <div className="col-span-1 md:col-span-2 bg-indigo-50/50 rounded-xl p-4 border border-indigo-100">
+                  <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-4">Business Profile</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-indigo-700/70 mb-1">Company Type</p>
+                      <p className="font-semibold text-slate-800 text-sm">{selectedUser.companyType || 'N/A'}</p>
                     </div>
+                    <div>
+                      <p className="text-xs text-indigo-700/70 mb-1">Operational Type</p>
+                      <p className="font-semibold text-slate-800 text-sm">{selectedUser.operationType || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-indigo-700/70 mb-1">Entity Role</p>
+                      <p className="font-semibold text-slate-800 text-sm capitalize">{selectedUser.subRole || 'N/A'}</p>
+                    </div>
+                    {selectedUser.dmsRole === 'buyer' && selectedUser.investmentRange && (
+                      <div>
+                        <p className="text-xs text-indigo-700/70 mb-1 flex items-center gap-1.5"><FaMoneyBillWave /> Investment Range</p>
+                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.investmentRange}</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {selectedUser.dmsRole === 'seller' && (
-                  <div className="col-span-1 md:col-span-2 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
-                    <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-4">Seller Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-emerald-700/70 mb-1">Seller Entity Type</p>
-                        <p className="font-semibold text-slate-800 text-sm capitalize">{selectedUser.sellerType || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-emerald-700/70 mb-1">Is Broker/Advisor?</p>
-                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.isBroker ? 'Yes' : 'No'}</p>
-                      </div>
+                {/* Verification Documents */}
+                {(selectedUser.proofOfAuthorityUrl || selectedUser.additionalDocumentUrl || selectedUser.licenseNumber) && (
+                  <div className="col-span-1 md:col-span-2 bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+                    <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-4">Verification Documents</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {selectedUser.licenseNumber && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">License Number</p>
+                          <p className="font-semibold text-slate-800 text-sm">{selectedUser.licenseNumber}</p>
+                        </div>
+                      )}
+                      {selectedUser.proofOfAuthorityUrl && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">Proof of Authority</p>
+                          <a href={selectedUser.proofOfAuthorityUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm">
+                            View Document
+                          </a>
+                        </div>
+                      )}
+                      {selectedUser.additionalDocumentUrl && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">Additional Document</p>
+                          <a href={selectedUser.additionalDocumentUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm">
+                            View Document
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

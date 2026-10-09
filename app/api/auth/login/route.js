@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users, loginHistory } from '@/db/schema';
+import { users, loginHistory, companies } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
@@ -16,12 +16,16 @@ export async function POST(req) {
       email: users.email,
       password_hash: users.passwordHash,
       role: users.role,
-      dmsRole: users.dmsRole,
+      dmsRole: companies.dmsRole,
       status: users.status,
       nda_status: users.ndaStatus,
       request_status: users.requestStatus,
       verification_status: users.verificationStatus
-    }).from(users).where(eq(users.email, email)).limit(1);
+    })
+    .from(users)
+    .leftJoin(companies, eq(users.companyId, companies.id))
+    .where(eq(users.email, email))
+    .limit(1);
 
     const user = userList[0];
 

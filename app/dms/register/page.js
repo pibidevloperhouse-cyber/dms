@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaArrowLeft, FaEye, FaEyeSlash } from "react-icons/fa";
+import { Country, State, City } from 'country-state-city';
 
 export default function DMSRegister() {
   const router = useRouter();
@@ -24,6 +25,34 @@ export default function DMSRegister() {
   const [companyType, setCompanyType] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [buyerType, setBuyerType] = useState("");
+  
+  // Extra fields for Seller
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [sellerRole, setSellerRole] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [country, setCountry] = useState("");
+  const [selectedCountryCode, setSelectedCountryCode] = useState("");
+  const [stateRegion, setStateRegion] = useState("");
+  const [selectedStateCode, setSelectedStateCode] = useState("");
+  const [city, setCity] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [proofOfAuthority, setProofOfAuthority] = useState(null);
+  const [additionalDocument, setAdditionalDocument] = useState(null);
+
+  const countries = [
+    { code: "+91", iso: "in", length: 10 },
+    { code: "+1", iso: "us", length: 10 },
+    { code: "+44", iso: "gb", length: 10 },
+    { code: "+61", iso: "au", length: 9 },
+    { code: "+81", iso: "jp", length: 10 },
+    { code: "+49", iso: "de", length: 11 },
+    { code: "+33", iso: "fr", length: 9 },
+    { code: "+971", iso: "ae", length: 9 }
+  ];
+  
+  const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -80,12 +109,37 @@ export default function DMSRegister() {
     setIsSubmitting(true);
     
     try {
+      const formData = new FormData();
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('dealType', dealType);
+      formData.append('participantType', participantType);
+      formData.append('companyType', companyType);
+      formData.append('companyName', companyName);
+      formData.append('inviteToken', inviteToken);
+      formData.append('projectId', projectId);
+      formData.append('buyerType', buyerType);
+      formData.append('phoneNumber', `${selectedCountry.code} ${phoneNumber}`);
+      formData.append('sellerRole', sellerRole);
+      formData.append('websiteUrl', websiteUrl);
+      formData.append('country', country);
+      formData.append('stateRegion', stateRegion);
+      formData.append('city', city);
+      formData.append('linkedinUrl', linkedinUrl);
+      formData.append('licenseNumber', licenseNumber);
+      
+      if (proofOfAuthority) {
+        formData.append('proofOfAuthority', proofOfAuthority);
+      }
+      if (additionalDocument) {
+        formData.append('additionalDocument', additionalDocument);
+      }
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName, lastName, email, password, dealType, participantType, companyType, companyName, inviteToken, projectId, buyerType
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -173,10 +227,10 @@ export default function DMSRegister() {
                 </div>
               </div>
 
-              {/* 2. Which type? */}
+              {/* 2. Operational Type */}
               {!inviteToken && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Which type?</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Operational Type</label>
                   <select
                     value={dealType}
                     onChange={(e) => setDealType(e.target.value)}
@@ -246,6 +300,184 @@ export default function DMSRegister() {
                     <option>Other</option>
                   </select>
                 </div>
+              )}
+
+              {/* Shared Fields */}
+              {participantType && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
+                    <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-[#3b82f6] focus-within:border-[#3b82f6] bg-gray-50 focus-within:bg-white transition-all">
+                      <div className="relative border-r border-gray-300 flex items-center">
+                        <button 
+                          type="button"
+                          onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)} 
+                          className="flex items-center gap-2 bg-transparent py-3 pl-3 pr-2 outline-none text-gray-700 h-full rounded-l-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                        >
+                          <img src={`https://flagcdn.com/w20/${selectedCountry.iso}.png`} alt={selectedCountry.iso} className="w-5 h-auto shadow-sm" />
+                          <span className="text-sm font-medium">{selectedCountry.code}</span>
+                          <svg className={`w-4 h-4 text-gray-500 transition-transform ${isCountryDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        {isCountryDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsCountryDropdownOpen(false)}></div>
+                            <div className="absolute top-full left-0 mt-1 w-32 bg-white border border-gray-200 shadow-xl rounded-lg z-50 max-h-60 overflow-y-auto">
+                              {countries.map(c => (
+                                <button
+                                  key={c.code}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors border-b border-gray-100 last:border-0"
+                                  onClick={() => {
+                                    setSelectedCountry(c);
+                                    setIsCountryDropdownOpen(false);
+                                    setPhoneNumber(phoneNumber.slice(0, c.length));
+                                  }}
+                                >
+                                  <img src={`https://flagcdn.com/w20/${c.iso}.png`} alt={c.iso} className="w-5 h-auto shadow-sm" />
+                                  <span className="font-medium text-gray-700">{c.code}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <input 
+                        type="tel" 
+                        value={phoneNumber} 
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          if (val.length <= selectedCountry.length) {
+                            setPhoneNumber(val);
+                          }
+                        }}
+                        className="w-full px-3 py-3 outline-none bg-transparent rounded-r-lg" 
+                        placeholder={selectedCountry.iso === 'in' ? "00000 00000" : "0000 000 000"} 
+                        maxLength={selectedCountry.length}
+                        required 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Company Website URL</label>
+                      <input type="url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="https://www.example.com" required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">LinkedIn Company URL (Optional)</label>
+                      <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="https://linkedin.com/company/..." />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
+                      <select 
+                        value={selectedCountryCode} 
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setSelectedCountryCode(code);
+                          setCountry(Country.getCountryByCode(code)?.name || "");
+                          setSelectedStateCode("");
+                          setStateRegion("");
+                          setCity("");
+                        }} 
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none" 
+                        required
+                      >
+                        <option value="" disabled>Select Country...</option>
+                        {Country.getAllCountries().map(c => (
+                          <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">State / Province</label>
+                      <select 
+                        value={selectedStateCode} 
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setSelectedStateCode(code);
+                          setStateRegion(State.getStateByCodeAndCountry(code, selectedCountryCode)?.name || "");
+                          setCity("");
+                        }} 
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none" 
+                        required
+                        disabled={!selectedCountryCode || State.getStatesOfCountry(selectedCountryCode).length === 0}
+                      >
+                        <option value="" disabled>Select State...</option>
+                        {selectedCountryCode && State.getStatesOfCountry(selectedCountryCode).map((s, i) => (
+                          <option key={`${s.isoCode}-${i}`} value={s.isoCode}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">City</label>
+                      <select 
+                        value={city} 
+                        onChange={(e) => setCity(e.target.value)} 
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none" 
+                        required
+                        disabled={!selectedCountryCode}
+                      >
+                        <option value="" disabled>Select City...</option>
+                        {(selectedStateCode 
+                            ? City.getCitiesOfState(selectedCountryCode, selectedStateCode) 
+                            : selectedCountryCode 
+                              ? City.getCitiesOfCountry(selectedCountryCode) 
+                              : []
+                        ).map((c, i) => (
+                          <option key={`${c.name}-${i}`} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Extra Seller Fields */}
+              {participantType === "Seller" && (
+                <>
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Seller Role</label>
+                    <select value={sellerRole} onChange={(e) => setSellerRole(e.target.value)} required className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white appearance-none">
+                      <option value="" disabled>Select role...</option>
+                      <option value="owner">Owner</option>
+                      <option value="advisor">Advisor</option>
+                      <option value="broker">Broker</option>
+                    </select>
+                  </div>
+
+                  {sellerRole === 'owner' ? (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Business Registration Certificate <span className="text-red-500">*</span></label>
+                      <input type="file" onChange={(e) => setProofOfAuthority(e.target.files[0])} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required />
+                    </div>
+                  ) : sellerRole === 'advisor' || sellerRole === 'broker' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">License Number</label>
+                        <input type="text" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white" placeholder="License Number" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Client Representation Letter <span className="text-red-500">*</span></label>
+                        <input type="file" onChange={(e) => setProofOfAuthority(e.target.files[0])} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Proof of Authority <span className="text-red-500">*</span></label>
+                        <input type="file" onChange={(e) => setProofOfAuthority(e.target.files[0])} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Document</label>
+                        <input type="file" onChange={(e) => setAdditionalDocument(e.target.files[0])} className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all bg-gray-50 focus:bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* 5. Work Email */}

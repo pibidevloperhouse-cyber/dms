@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users, identityVerifications } from '@/db/schema';
+import { users, companies, identityVerifications } from '@/db/schema';
 import { eq, inArray, desc, or, and } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   try {
@@ -15,26 +17,34 @@ export async function GET(req) {
       id: users.id,
       name: users.name,
       email: users.email,
-      dmsRole: users.dmsRole,
+      dmsRole: companies.dmsRole,
       verificationStatus: users.verificationStatus,
       verifiedAt: users.verifiedAt,
       createdAt: users.createdAt,
-      companyName: users.companyName,
+      companyName: companies.name,
       jobTitle: users.jobTitle,
-      investorType: users.investorType,
+      operationType: companies.operationType,
       investmentRange: users.investmentRange,
-      companyType: users.companyType,
-      phoneNumber: users.phoneNumber,
-      sellerType: users.sellerType,
+      companyType: companies.companyType,
+      phoneNumber: companies.phoneNumber,
+      subRole: companies.subRole,
       isBroker: users.isBroker,
-      linkedinUrl: users.linkedinUrl,
+      linkedinUrl: companies.linkedinUrl,
       role: users.role,
+      websiteUrl: companies.websiteUrl,
+      country: companies.country,
+      stateRegion: companies.stateRegion,
+      city: companies.city,
+      licenseNumber: companies.licenseNumber,
+      proofOfAuthorityUrl: companies.proofOfAuthorityUrl,
+      additionalDocumentUrl: companies.additionalDocumentUrl,
     })
     .from(users)
+    .leftJoin(companies, eq(users.companyId, companies.id))
     .where(
       or(
-        and(eq(users.dmsRole, 'seller'), eq(users.role, 'super_admin')),
-        and(eq(users.dmsRole, 'buyer'), eq(users.role, 'guest_admin'))
+        and(eq(companies.dmsRole, 'seller'), eq(users.role, 'super_admin')),
+        and(eq(companies.dmsRole, 'buyer'), eq(users.role, 'guest_admin'))
       )
     )
     .orderBy(desc(users.createdAt));

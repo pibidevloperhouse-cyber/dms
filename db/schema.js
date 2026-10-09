@@ -27,6 +27,18 @@ export const companies = pgTable('companies', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   ndaText: text('nda_text'),
   phoneNumber: text('phone_number'),
+  companyType: text('company_type'),
+  websiteUrl: text('website_url'),
+  linkedinUrl: text('linkedin_url'),
+  operationType: text('operation_type'),
+  country: text('country'),
+  stateRegion: text('state_region'),
+  city: text('city'),
+  dmsRole: text('dms_role'),
+  subRole: text('sub_role'),
+  proofOfAuthorityUrl: text('proof_of_authority_url'),
+  licenseNumber: text('license_number'),
+  additionalDocumentUrl: text('additional_document_url'),
 });
 
 export const workspaces = pgTable('workspaces', {
@@ -60,17 +72,13 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   // DMS specific fields
   jobTitle: text('job_title'),
-  investorType: text('investor_type'),
   investmentRange: text('investment_range'),
-  companyType: text('company_type'),
-  dmsRole: text('dms_role'), // 'buyer' or 'seller'
   role: userRoleEnum('role').default('external_user').notNull(),
   status: userStatusEnum('status').default('invited').notNull(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   phoneNumber: text('phone_number'),
-  companyName: text('company_name'),
   twoFaEnabled: boolean('two_fa_enabled').default(false),
   ndaStatus: text('nda_status').default('not_required'),
   ndaAcceptedAt: timestamp('nda_accepted_at', { withTimezone: true }),
@@ -82,10 +90,8 @@ export const users = pgTable('users', {
   ndaIpAddress: text('nda_ip_address'),
   ndaUserId: text('nda_user_id'),
   // DMS Gap Analysis added fields
-  sellerType: sellerTypeEnum('seller_type'),
   isBroker: boolean('is_broker').default(false),
   referralSource: text('referral_source'),
-  linkedinUrl: text('linkedin_url'),
   verificationStatus: verificationStatusEnum('verification_status').default('unverified'),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
 });
@@ -560,6 +566,7 @@ export const dmsProjects = pgTable('dms_projects', {
   name: text('name').notNull(),
   status: text('status').default('active'),
   projectType: text('project_type'),
+  description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -567,24 +574,53 @@ export const dmsProjects = pgTable('dms_projects', {
 export const dmsTeasers = pgTable('dms_teasers', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').references(() => dmsProjects.id).notNull().unique(),
-  dealName: text('deal_name').notNull(),
-  sector: text('sector'),
-  geography: text('geography'),
-  companyOverview: text('company_overview'),
-  revenue: text('revenue'),
-  ebitda: text('ebitda'),
-  yoyGrowth: text('yoy_growth'),
+  
+  // Image 1: Basic Info
+  businessModel: text('business_model'),
+  industry: text('industry'),
+  subIndustry: text('sub_industry'),
+  yearFounded: text('year_founded'),
   employees: text('employees'),
+  legalStructure: text('legal_structure'),
+
+  // Image 2: Location & Core Metrics
+  headquarters: text('headquarters'),
+  operationsLocation: jsonb('operations_location').default('[]'),
+  totalCustomerCount: integer('total_customer_count'),
+  topCustomerPercentRevenue: text('top_customer_percent_revenue'),
+  revenue: text('revenue'),
+  profitabilityEbitdaPercent: text('profitability_ebitda_percent'),
+  ebitdaBand: text('ebitda_band'),
+
+  // Image 3: Financials
+  grossMarginPercent: text('gross_margin_percent'),
+  netProfit: text('net_profit'),
+  recurringRevenuePercent: text('recurring_revenue_percent'),
+  growthRatePercent: text('growth_rate_percent'),
+  debtOnBusiness: text('debt_on_business'),
+  workingCapital: text('working_capital'),
+  addBacks: text('add_backs'),
+  revenueBand: text('revenue_band'),
+
+  // Image 4: Narratives
+  investmentMandate: text('investment_mandate'),
+  businessSummary: text('business_summary'),
+  keyHighlights: text('key_highlights'),
+
+  // Image 5: Deal Expectations
+  askingPrice: text('asking_price'),
+  valuationExpectation: text('valuation_expectation'),
+  preferredBuyerTypes: jsonb('preferred_buyer_types').default('[]'),
+  reasonForSale: text('reason_for_sale'),
+
+  // Image 7: Documents
+  profitAndLossUrl: text('profit_and_loss_url'),
+  balanceSheetUrl: text('balance_sheet_url'),
+
+  // Metadata
   status: text('status').default('draft'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  // New fields from spec
-  publicHeadline: text('public_headline'),
-  publicDesc: text('public_desc'),
-  publicKeywords: jsonb('public_keywords').default('[]'),
-  showTtmRev: boolean('show_ttm_rev').default(true),
-  showTtmProfit: boolean('show_ttm_profit').default(true),
-  showAskingPrice: boolean('show_asking_price').default(true),
 });
 export const dmsDealProposals = pgTable('dms_deal_proposals', {
   id: uuid('id').defaultRandom().primaryKey(),
