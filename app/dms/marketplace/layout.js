@@ -97,7 +97,7 @@ export default function MarketplaceLayout({ children }) {
   }
 
   let title = "Overview";
-  if (pathname.includes('/find_deal')) title = "Find Deal";
+  if (pathname.includes('/find_deal')) title = userRole === 'seller' ? "Find Buyers" : "Find Deal";
   else if (pathname.includes('/workspace')) title = "Workspace";
   else if (pathname.includes('/tracker')) title = "Tracker";
   else if (pathname.includes('/inbox')) title = "Inbox";
@@ -120,7 +120,7 @@ export default function MarketplaceLayout({ children }) {
               <FaThLarge className={`\${getIsActive('/dms/marketplace/overview') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
-          <Link href="/dms/marketplace/find_deal" className="relative p-3 w-full flex justify-center text-white group" title="Find Deal">
+          <Link href="/dms/marketplace/find_deal" className="relative p-3 w-full flex justify-center text-white group" title={userRole === 'seller' ? "Find Buyers" : "Find Deal"}>
             {getIsActive('/dms/marketplace/find_deal') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
             <div className={`\${getIsActive('/dms/marketplace/find_deal') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
               <FaSearch className={`\${getIsActive('/dms/marketplace/find_deal') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />

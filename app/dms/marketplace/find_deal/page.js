@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
 
 export default function MarketplacePage() {
   const [userRole, setUserRole] = useState(null);
@@ -28,6 +28,10 @@ export default function MarketplacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isViewMoreModalOpen, setIsViewMoreModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [companyTypeFilter, setCompanyTypeFilter] = useState('All Company Types');
+  const [locationFilter, setLocationFilter] = useState('All Locations');
+  const [dealTypeFilter, setDealTypeFilter] = useState('All Deal Types');
   const router = useRouter();
 
   useEffect(() => {
@@ -153,6 +157,23 @@ export default function MarketplacePage() {
   };
 
 
+  const uniqueCountries = Array.from(new Set(buyerProfiles.map(b => b.country).filter(Boolean))).sort();
+
+  const filteredBuyers = buyerProfiles.filter(buyer => {
+    const matchesSearch = buyer.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCompanyType = companyTypeFilter === 'All Company Types' || buyer.companyType === companyTypeFilter;
+    const matchesLocation = locationFilter === 'All Locations' || buyer.country === locationFilter;
+    const matchesDealType = dealTypeFilter === 'All Deal Types' || buyer.investorType === dealTypeFilter;
+
+    return matchesSearch && matchesCompanyType && matchesLocation && matchesDealType;
+  });
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setCompanyTypeFilter('All Company Types');
+    setLocationFilter('All Locations');
+    setDealTypeFilter('All Deal Types');
+  };
 
   return (
     <div className="w-full">
@@ -343,7 +364,11 @@ export default function MarketplacePage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
               <div className="space-y-2">
                 <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-                  Explore <span className="text-transparent bg-clip-text bg-teal-600">Opportunities</span>
+                  {userRole === 'seller' ? (
+                    <>Find <span className="text-transparent bg-clip-text bg-teal-600">Buyers</span></>
+                  ) : (
+                    <>Explore <span className="text-transparent bg-clip-text bg-teal-600">Opportunities</span></>
+                  )}
                 </h1>
                 <p className="text-gray-500 text-sm md:text-base">Discover premium, vetted acquisition targets. Filter by your exact mandate and request access to anonymous teasers.</p>
               </div>
@@ -359,16 +384,34 @@ export default function MarketplacePage() {
             {/* Filters Area Box 1 */}
             <div className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-200 mb-4 flex flex-col md:flex-row gap-4 w-full items-end">
               <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Industry */}
+                {/* Dynamic Filter 1: Company Type (for sellers) or Industry (for buyers) */}
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Industry</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
+                    {userRole === 'seller' ? 'Company Type' : 'Industry'}
+                  </label>
                   <div className="relative">
-                    <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
-                      <option>All Industries</option>
-                      <option>Technology</option>
-                      <option>Healthcare</option>
-                      <option>Industrials</option>
-                    </select>
+                    {userRole === 'seller' ? (
+                      <select
+                        className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
+                        value={companyTypeFilter}
+                        onChange={(e) => setCompanyTypeFilter(e.target.value)}
+                      >
+                        <option>All Company Types</option>
+                        <option>Corporate Development</option>
+                        <option>Private Equity</option>
+                        <option>Investment Bank</option>
+                        <option>Law Firm</option>
+                        <option>Advisor</option>
+                        <option>Other</option>
+                      </select>
+                    ) : (
+                      <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
+                        <option>All Industries</option>
+                        <option>Technology</option>
+                        <option>Healthcare</option>
+                        <option>Industrials</option>
+                      </select>
+                    )}
                     <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
                   </div>
                 </div>
@@ -377,12 +420,25 @@ export default function MarketplacePage() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Location</label>
                   <div className="relative">
-                    <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
-                      <option>All Locations</option>
-                      <option>North America</option>
-                      <option>Europe</option>
-                      <option>Asia</option>
-                    </select>
+                    {userRole === 'seller' ? (
+                      <select
+                        className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
+                        value={locationFilter}
+                        onChange={(e) => setLocationFilter(e.target.value)}
+                      >
+                        <option>All Locations</option>
+                        {uniqueCountries.map((country, idx) => (
+                          <option key={idx} value={country}>{country}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
+                        <option>All Locations</option>
+                        <option>North America</option>
+                        <option>Europe</option>
+                        <option>Asia</option>
+                      </select>
+                    )}
                     <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
                   </div>
                 </div>
@@ -391,17 +447,31 @@ export default function MarketplacePage() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Deal Type</label>
                   <div className="relative">
-                    <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
-                      <option>All Deal Types</option>
-                      <option>Majority Acquisition</option>
-                      <option>Minority Investment</option>
-                    </select>
+                    {userRole === 'seller' ? (
+                      <select
+                        className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
+                        value={dealTypeFilter}
+                        onChange={(e) => setDealTypeFilter(e.target.value)}
+                      >
+                        <option>All Deal Types</option>
+                        <option>M&A</option>
+                      </select>
+                    ) : (
+                      <select className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer">
+                        <option>All Deal Types</option>
+                        <option>Majority Acquisition</option>
+                        <option>Minority Investment</option>
+                      </select>
+                    )}
                     <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none" />
                   </div>
                 </div>
               </div>
 
-              <button className="flex-shrink-0 flex items-center justify-center gap-2 px-6 py-3.5 bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg text-[11px] font-bold text-gray-500 uppercase tracking-widest transition-colors h-[48px]">
+              <button
+                className="flex-shrink-0 flex items-center justify-center gap-2 px-6 py-3.5 bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg text-[11px] font-bold text-gray-500 uppercase tracking-widest transition-colors h-[48px]"
+                onClick={handleResetFilters}
+              >
                 <FaRedoAlt className="w-[10px] h-[10px]" /> Reset
               </button>
             </div>
@@ -412,6 +482,8 @@ export default function MarketplacePage() {
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by industry, keyword, or business model..."
                   className="w-full pl-10 pr-4 py-3 bg-transparent border-none text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
                 />
@@ -439,132 +511,163 @@ export default function MarketplacePage() {
                       <div className="w-12 h-12 border-4 border-gray-200 border-t-[#008f70] rounded-full animate-spin mb-4"></div>
                       <h3 className="text-xl font-bold text-gray-900">Loading buyers...</h3>
                     </div>
-                  ) : buyerProfiles.length === 0 ? (
+                  ) : filteredBuyers.length === 0 ? (
                     <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <FaUser className="text-3xl text-gray-300" />
                       </div>
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No buyers found</h3>
                       <p className="text-gray-500 text-sm max-w-md text-center">Try adjusting your filters or search terms to find more buyers matching your criteria.</p>
-                      <button className="mt-6 px-6 py-2.5 bg-[#008f70] hover:bg-[#00755d] text-white text-sm font-bold rounded-full transition-colors shadow-sm">
-                        Clear all filters
+                      <button
+                        className="mt-6 px-6 py-2.5 bg-[#008f70] hover:bg-[#00755d] text-white text-sm font-bold rounded-full transition-colors shadow-sm"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        Clear search
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {[...buyerProfiles].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((buyer, idx) => (
-                        <div key={buyer.id || idx} className="bg-white border border-gray-200 flex flex-col group relative overflow-hidden transition-all duration-300 h-full rounded-xl hover:shadow-[0_4px_25px_rgb(0,0,0,0.04)] hover:-translate-y-1">
-                          <div className="p-5 flex flex-col h-full">
-                            {/* Header */}
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="flex gap-3 items-center">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm bg-[#008f70]`}>
-                                  {buyer.name ? buyer.name.substring(0, 2).toUpperCase() : 'B'}
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{buyer.investorType || 'Investor'}</p>
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="text-base font-bold text-gray-900 leading-tight">
-                                      {buyer.name || 'Anonymous Buyer'}
-                                    </h3>
-                                    {buyer.verificationStatus === 'verified' ? (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-[9px] font-bold text-emerald-700 uppercase tracking-wider">
-                                        <FaCheckCircle className="text-emerald-500" /> Verified
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-orange-200 bg-orange-50 text-[9px] font-bold text-orange-700 uppercase tracking-wider">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Unverified
-                                      </span>
-                                    )}
-                                  </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {[...filteredBuyers].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((buyer, idx) => (
+                        <div key={buyer.id || idx} className="bg-white border border-[#e8e6df] rounded-[24px] p-6 pb-0 flex flex-col group relative transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                          {/* Header Section */}
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-4">
+                              {/* Avatar Container with overlapping shadow layer */}
+                              <div className="relative w-[52px] h-[52px]">
+                                {/* Background shadow box */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#1f6fb2]/20 to-[#2ec4b6]/20 rounded-[16px] translate-x-1.5 translate-y-1.5 transition-transform group-hover:translate-x-2 group-hover:translate-y-2"></div>
+                                {/* Foreground avatar box */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] rounded-[16px] flex items-center justify-center border border-white/10 shadow-inner z-10">
+                                  <span className="text-white font-black text-lg">{buyer.name ? buyer.name.substring(0, 2).toUpperCase() : 'NT'}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50/50 border border-emerald-100/80 px-2.5 py-1 rounded-full shadow-sm">
-                                <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                                </span>
-                                <span className="flex items-baseline gap-1">
-                                  <span className="text-[13px] font-black text-emerald-700">{99 - ((idx * 7) % 40)}%</span>
-                                  <span className="text-[9px] font-bold text-emerald-600/80 tracking-widest uppercase">Match</span>
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Tags */}
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              <span className="inline-flex items-center text-[11px] text-gray-600 bg-white px-2.5 py-1 rounded-full font-medium border border-gray-200">
-                                {buyer.companyType || 'Corporate'}
-                              </span>
-                            </div>
-
-                            {/* Description */}
-                            <p className="text-[13px] text-gray-500 mb-6 line-clamp-2">
-                              {buyer.jobTitle ? `${buyer.jobTitle} at ${buyer.companyName || 'a leading firm'}.` : 'Seeking strategic acquisitions.'}
-                            </p>
-
-                            {/* Divider */}
-                            <div className="h-px bg-gray-100 w-full mb-4 mt-auto"></div>
-
-                            {/* Footer */}
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center text-[11px] text-gray-500 gap-1.5 font-medium">
-                                <span className="w-3 h-3 border border-gray-400 rounded-full inline-block"></span> Active Mandate
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => {
-                                    setSelectedBuyer(buyer);
-                                    setIsViewMoreModalOpen(true);
-                                  }}
-                                  className="text-[13px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-4 py-2 rounded-full transition-colors flex items-center gap-1.5 shadow-sm"
-                                >
-                                  View More
-                                </button>
-                                {sentInterests.includes(buyer.id || idx) ? (
-                                  <button disabled className="text-[13px] font-bold text-gray-400 cursor-not-allowed flex items-center gap-1.5">
-                                    <FaCheckCircle className="text-green-500" /> Interest Sent
+                              
+                              {/* Title Area */}
+                              <div className="flex flex-col ml-1">
+                                <p className="text-[10px] font-extrabold text-[#76857d] uppercase tracking-[0.18em] mb-1">
+                                  {buyer.investorType || 'STRATEGIC PARTNER'}
+                                </p>
+                                <div className="flex items-center gap-3">
+                                  <h3 className="text-[22px] font-extrabold text-[#11241a] leading-none tracking-tight">
+                                    {buyer.name || 'Northstar Labs'}
+                                  </h3>
+                                  <button className="text-[11px] font-bold text-[#1f6fb2] bg-[#f0f8ff] border border-[#d0e6f5] px-3.5 py-1 rounded-full shadow-sm hover:bg-[#e0f0fa] transition-colors">
+                                    Shortlist
                                   </button>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      const buyerId = buyer.id || idx;
-                                      setSentInterests([...sentInterests, buyerId]);
-
-                                      const sellerId = localStorage.getItem('userId') || '11111111-1111-1111-1111-111111111111';
-                                      const sellerName = localStorage.getItem('userName') || 'bala kumar';
-
-                                      const messagePayload = {
-                                        type: 'teaser_shared',
-                                        text: `The seller viewed your profile. Are you also interested?`,
-                                        teaserDetails: {
-                                          industry: "Technology / SaaS",
-                                          revenue: "$1M - $5M ARR",
-                                          ebitda: "15% Margin",
-                                          description: "A fast-growing B2B SaaS platform specializing in workflow automation. Seeking strategic investment or buyout."
-                                        }
-                                      };
-
-                                      fetch('/api/dms/messages', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          senderId: sellerId,
-                                          senderName: sellerName,
-                                          senderRole: 'seller',
-                                          recipientId: buyerId,
-                                          recipientName: buyer.name || 'Anonymous Buyer',
-                                          text: JSON.stringify(messagePayload)
-                                        })
-                                      }).catch(err => console.error('Failed to send message:', err));
-                                    }}
-                                    className="text-[13px] font-bold text-white bg-[#008f70] hover:bg-[#007058] px-4 py-2 rounded-full transition-colors flex items-center gap-1.5 shadow-sm shadow-teal-900/10"
-                                  >
-                                    Send Interest
-                                  </button>
-                                )}
+                                </div>
                               </div>
                             </div>
+                            
+                            {/* Signal Score Box */}
+                            <div className="bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] rounded-2xl p-3.5 min-w-[130px] shadow-sm flex flex-col justify-center transform group-hover:scale-[1.02] transition-transform relative overflow-hidden">
+                              <div className="absolute inset-0 bg-black/10"></div>
+                              <div className="relative flex items-center gap-1.5 text-white/90 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/90"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                SIGNAL SCORE
+                              </div>
+                              <div className="relative flex items-baseline gap-0.5 mb-0.5">
+                                <span className="text-white text-3xl font-black leading-none">{((99 - ((idx * 7) % 40)) / 10).toFixed(1)}</span>
+                                <span className="text-white/70 text-sm font-bold">/10</span>
+                              </div>
+                              <p className="relative text-white/80 text-[10px] font-medium mt-1">Strong fit for your thesis</p>
+                            </div>
+                          </div>
+
+                          {/* Tags below title */}
+                          <div className="flex gap-2 mb-6">
+                            <span className="inline-flex items-center text-[10px] text-[#1f6fb2] bg-[#f0f8ff] px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
+                              GROWTH OPPORTUNITY
+                            </span>
+                            <span className="inline-flex items-center text-[11px] text-[#596660] bg-white px-3 py-1.5 rounded-full font-bold border border-[#e8e9e4]">
+                              {buyer.companyType || 'B2B · SaaS'}
+                            </span>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-[#596660] text-[15px] leading-relaxed mb-6 pr-10 font-medium">
+                            {buyer.description || buyer.jobTitle ? `${buyer.jobTitle} at ${buyer.companyName || 'a leading firm'}. Seeking strategic acquisitions and growth opportunities.` : 'A fast-growing platform helping modern teams simplify their most important workflows.'}
+                          </p>
+
+                          {/* Stats Grid Box */}
+                          <div className="border border-[#e8e9e4] rounded-[20px] bg-white p-5 flex mb-6 shadow-sm relative">
+                            <div className="flex-1 border-r border-[#e8e9e4] pr-4">
+                              <p className="text-[9px] font-bold text-[#8ba898] uppercase tracking-[0.15em] mb-1.5">SECTOR</p>
+                              <p className="text-[13px] font-extrabold text-[#11241a]">{buyer.companyType || 'Enterprise software'}</p>
+                            </div>
+                            <div className="flex-1 border-r border-[#e8e9e4] px-4">
+                              <p className="text-[9px] font-bold text-[#8ba898] uppercase tracking-[0.15em] mb-1.5">HQ</p>
+                              <p className="text-[13px] font-extrabold text-[#11241a]">{buyer.country || 'Austin, Texas'}</p>
+                            </div>
+                            <div className="flex-1 pl-4">
+                              <p className="text-[9px] font-bold text-[#8ba898] uppercase tracking-[0.15em] mb-1.5">STAGE</p>
+                              <p className="text-[13px] font-extrabold text-[#11241a]">{buyer.investmentRange || 'Series C'}</p>
+                            </div>
+                            
+                            {/* Updated Indicator inside grid bounds but floating right-aligned at bottom */}
+                            <div className="absolute -bottom-7 right-0 flex items-center gap-1.5 text-[11px] font-bold text-[#76857d]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#2ec4b6]"></span>
+                              Updated 2 days ago
+                            </div>
+                          </div>
+
+                          {/* Spacer */}
+                          <div className="flex-grow"></div>
+
+                          {/* Footer */}
+                          <div className="border-t border-[#e8e9e4] pt-5 mt-8 flex justify-between items-center bg-white -mx-6 px-6 rounded-b-[24px] pb-6">
+                            <button
+                              onClick={() => {
+                                setSelectedBuyer(buyer);
+                                setIsViewMoreModalOpen(true);
+                              }}
+                              className="text-[13px] font-extrabold text-[#11241a] hover:text-[#1f6fb2] transition-colors flex items-center gap-1.5"
+                            >
+                              Read opportunity brief <FaChevronRight className="text-[10px] mt-0.5" />
+                            </button>
+                            
+                            {sentInterests.includes(buyer.id || idx) ? (
+                              <button disabled className="text-[13px] font-bold text-white bg-gray-400 px-6 py-2.5 rounded-xl flex items-center gap-2 cursor-not-allowed">
+                                <FaCheckCircle /> Sent
+                              </button>
+                            ) : (
+                              <button
+                                disabled={verificationStatus !== 'verified'}
+                                onClick={() => {
+                                  const buyerId = buyer.id || idx;
+                                  setSentInterests([...sentInterests, buyerId]);
+
+                                  const sellerId = localStorage.getItem('userId') || '11111111-1111-1111-1111-111111111111';
+                                  const sellerName = localStorage.getItem('userName') || 'bala kumar';
+
+                                  const messagePayload = {
+                                    type: 'teaser_shared',
+                                    text: `The seller viewed your profile. Are you also interested?`,
+                                    teaserDetails: {
+                                      industry: "Technology / SaaS",
+                                      revenue: "$1M - $5M ARR",
+                                      ebitda: "15% Margin",
+                                      description: "A fast-growing B2B SaaS platform specializing in workflow automation. Seeking strategic investment or buyout."
+                                    }
+                                  };
+
+                                  fetch('/api/dms/messages', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      senderId: sellerId,
+                                      senderName: sellerName,
+                                      senderRole: 'seller',
+                                      recipientId: buyerId,
+                                      recipientName: buyer.name || 'Anonymous Buyer',
+                                      text: JSON.stringify(messagePayload)
+                                    })
+                                  }).catch(err => console.error('Failed to send message:', err));
+                                }}
+                                className="text-[13px] font-bold text-white bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] hover:from-[#195e99] hover:to-[#25a89c] shadow-sm hover:shadow-md px-6 py-2.5 rounded-[12px] transition-all duration-200 flex items-center gap-2 transform hover:-translate-y-0.5"
+                              >
+                                Explore company ↗
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1260,16 +1363,38 @@ export default function MarketplacePage() {
                       <p className="font-semibold text-gray-800 text-sm">{selectedBuyer.location}</p>
                     </div>
                   )}
-
-                  {/* Mandate taking full width */}
-                  <div className="col-span-1 md:col-span-2 mt-2">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Mandate & Details</p>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedBuyer.mandate || selectedBuyer.description || (selectedBuyer.jobTitle ? `${selectedBuyer.jobTitle} at ${selectedBuyer.companyName || 'a leading firm'}.` : 'Seeking strategic acquisitions.')}
-                      </p>
+                  {selectedBuyer.websiteUrl && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><FaGlobe /> Website</p>
+                      <a href={selectedBuyer.websiteUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-600 hover:underline text-sm break-all">{selectedBuyer.websiteUrl}</a>
                     </div>
-                  </div>
+                  )}
+                  {selectedBuyer.linkedinUrl && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><FaLink /> LinkedIn</p>
+                      <a href={selectedBuyer.linkedinUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-600 hover:underline text-sm break-all">{selectedBuyer.linkedinUrl}</a>
+                    </div>
+                  )}
+                  {selectedBuyer.licenseNumber && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><FaShieldAlt /> License Number</p>
+                      <p className="font-semibold text-gray-800 text-sm">{selectedBuyer.licenseNumber}</p>
+                    </div>
+                  )}
+                  {selectedBuyer.proofOfAuthorityUrl && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><FaLink /> Proof of Authority</p>
+                      <a href={selectedBuyer.proofOfAuthorityUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-600 hover:underline text-sm break-all">View Document</a>
+                    </div>
+                  )}
+                  {selectedBuyer.additionalDocumentUrl && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><FaLink /> Additional Document</p>
+                      <a href={selectedBuyer.additionalDocumentUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-600 hover:underline text-sm break-all">View Document</a>
+                    </div>
+                  )}
+
+
                 </div>
               </div>
               <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
@@ -1313,11 +1438,10 @@ export default function MarketplacePage() {
 
                       setIsViewMoreModalOpen(false);
                     }}
-                    className={`text-sm font-bold text-white px-6 py-2.5 rounded-full transition-colors flex items-center gap-2 shadow-sm ${
-                      verificationStatus !== 'verified' 
-                        ? 'bg-gray-400 cursor-not-allowed opacity-50' 
+                    className={`text-sm font-bold text-white px-6 py-2.5 rounded-full transition-colors flex items-center gap-2 shadow-sm ${verificationStatus !== 'verified'
+                        ? 'bg-gray-400 cursor-not-allowed opacity-50'
                         : 'bg-[#008f70] hover:bg-[#007058]'
-                    }`}
+                      }`}
                   >
                     {verificationStatus !== 'verified' ? 'Verification Required' : 'Send Interest'} <FaArrowRight className="text-xs" />
                   </button>

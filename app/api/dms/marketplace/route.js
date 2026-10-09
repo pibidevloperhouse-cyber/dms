@@ -29,13 +29,24 @@ export async function GET(req) {
     const activeBuyersPromise = db
       .select({
         id: users.id,
-        name: users.name,
+        name: companies.name,
+        userName: users.name,
         companyName: companies.name,
         investorType: companies.operationType,
         investmentRange: users.investmentRange,
         companyType: companies.companyType,
         jobTitle: users.jobTitle,
         verificationStatus: users.verificationStatus,
+        email: users.email,
+        phone: users.phoneNumber,
+        city: companies.city,
+        country: companies.country,
+        stateRegion: companies.stateRegion,
+        websiteUrl: companies.websiteUrl,
+        linkedinUrl: companies.linkedinUrl,
+        licenseNumber: companies.licenseNumber,
+        proofOfAuthorityUrl: companies.proofOfAuthorityUrl,
+        additionalDocumentUrl: companies.additionalDocumentUrl
       })
       .from(users)
       .leftJoin(companies, eq(users.companyId, companies.id))
@@ -46,7 +57,12 @@ export async function GET(req) {
         )
       );
 
-    const [activeTeasers, activeBuyers] = await Promise.all([activeTeasersPromise, activeBuyersPromise]);
+    const [activeTeasers, activeBuyersRaw] = await Promise.all([activeTeasersPromise, activeBuyersPromise]);
+
+    const activeBuyers = activeBuyersRaw.map(buyer => ({
+      ...buyer,
+      location: [buyer.city, buyer.stateRegion, buyer.country].filter(Boolean).join(', ')
+    }));
 
     return NextResponse.json({ teasers: activeTeasers, buyers: activeBuyers }, { status: 200 });
   } catch (error) {
