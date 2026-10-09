@@ -324,11 +324,6 @@ export default function TokenRegisterPage() {
             // 🔥 1. Check if NDA is required from the invite
             const assignedNdaStatus = invitationDetails.requires_nda ? "pending" : "not_required";
 
-            // Hash the password securely
-            const bcrypt = require('bcryptjs');
-            const salt = bcrypt.genSaltSync(10);
-            const hashedPassword = bcrypt.hashSync(formData.password, salt);
-
             // 2. Insert user with nda_status and dms_role
             const { data: newUser, error: userError } = await supabase
                 .from("users")
@@ -336,7 +331,7 @@ export default function TokenRegisterPage() {
                     name: formData.name,
                     email: invitationDetails.email,
                     phone_number: formData.mobile,
-                    password_hash: hashedPassword,
+                    password_hash: formData.password,
                     role: targetRole,
                     company_id: targetCompany,
                     status: "active",

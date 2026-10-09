@@ -47,9 +47,8 @@ export async function POST(req) {
     // If dealType is M&A, participantType decides. Otherwise, default to Buyer.
     const roleToSet = participantType || 'Buyer';
 
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    // Store plain password as requested
+    const passwordHash = password;
 
     // Combine first and last name
     const fullName = `${firstName} ${lastName}`;

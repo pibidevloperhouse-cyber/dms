@@ -195,7 +195,7 @@ export async function POST(req) {
     const resolvedDept = department || workstream || 'General';
     const resolvedCreatorSide = creator_side || 'seller';
     const resolvedTargetSide = target_side || (visibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
-    const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? 'ABC Textiles' : 'XYZ Capital');
+    const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (visibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (visibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
     const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : 'Buyer Legal Team');
     const resolvedCreatedBy = created_by || 'Admin';
 
