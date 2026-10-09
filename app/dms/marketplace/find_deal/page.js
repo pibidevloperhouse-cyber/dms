@@ -25,6 +25,7 @@ export default function MarketplacePage() {
   const [vdrRole, setVdrRole] = useState('external_user');
   const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isViewMoreModalOpen, setIsViewMoreModalOpen] = useState(false);
   const router = useRouter();
@@ -68,15 +69,22 @@ export default function MarketplacePage() {
 
     // Fetch active data from the database
     const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const res = await fetch('/api/dms/marketplace');
+        const res = await fetch('/api/dms/marketplace', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          setOpportunities(data.teasers || []);
-          setBuyerProfiles(data.buyers || []);
+          setTimeout(() => {
+            setOpportunities(data.teasers || []);
+            setBuyerProfiles(data.buyers || []);
+            setIsLoading(false);
+          }, 3000);
+        } else {
+          setIsLoading(false);
         }
       } catch (err) {
         console.error("Failed to fetch marketplace deals:", err);
+        setIsLoading(false);
       }
     };
 
@@ -426,7 +434,12 @@ export default function MarketplacePage() {
               {userRole === 'seller' ? (
                 /* Buyer Profiles Area */
                 <div className="w-full">
-                  {buyerProfiles.length === 0 ? (
+                  {isLoading ? (
+                    <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
+                      <div className="w-12 h-12 border-4 border-gray-200 border-t-[#008f70] rounded-full animate-spin mb-4"></div>
+                      <h3 className="text-xl font-bold text-gray-900">Loading buyers...</h3>
+                    </div>
+                  ) : buyerProfiles.length === 0 ? (
                     <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <FaUser className="text-3xl text-gray-300" />

@@ -1,22 +1,24 @@
 import { db } from '../../../../db';
-import { dmsTeasers, dmsProjects, users } from '../../../../db/schema';
-import { eq, or } from 'drizzle-orm';
+import { dmsTeasers, dmsProjects, users, companies } from '../../../../db/schema';
+import { eq, or, and } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   try {
-    const activeTeasers = await db
+    const activeTeasersPromise = db
       .select({
         id: dmsTeasers.id,
         projectId: dmsTeasers.projectId,
         projectName: dmsProjects.name,
-        name: dmsTeasers.dealName,
-        sector: dmsTeasers.sector,
-        geography: dmsTeasers.geography,
-        overview: dmsTeasers.companyOverview,
+        name: dmsTeasers.businessSummary,
+        sector: dmsTeasers.industry,
+        geography: dmsTeasers.headquarters,
+        overview: dmsTeasers.businessSummary,
         revenue: dmsTeasers.revenue,
-        ebitda: dmsTeasers.ebitda,
-        growth: dmsTeasers.yoyGrowth,
+        ebitda: dmsTeasers.ebitdaBand,
+        growth: dmsTeasers.growthRatePercent,
         employees: dmsTeasers.employees,
         status: dmsTeasers.status
       })
@@ -24,19 +26,27 @@ export async function GET(req) {
       .innerJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
       .where(or(eq(dmsTeasers.status, 'active'), eq(dmsTeasers.status, 'Active')));
 
-    const activeBuyers = await db
+    const activeBuyersPromise = db
       .select({
         id: users.id,
         name: users.name,
-        companyName: users.companyName,
-        investorType: users.investorType,
+        companyName: companies.name,
+        investorType: companies.operationType,
         investmentRange: users.investmentRange,
-        companyType: users.companyType,
+        companyType: companies.companyType,
         jobTitle: users.jobTitle,
         verificationStatus: users.verificationStatus,
       })
       .from(users)
-      .where(or(eq(users.dmsRole, 'buyer'), eq(users.dmsRole, 'Buyer')));
+      .leftJoin(companies, eq(users.companyId, companies.id))
+      .where(
+        and(
+          or(eq(companies.dmsRole, 'buyer'), eq(companies.dmsRole, 'Buyer')),
+          eq(users.role, 'guest_admin')
+        )
+      );
+
+    const [activeTeasers, activeBuyers] = await Promise.all([activeTeasersPromise, activeBuyersPromise]);
 
     return NextResponse.json({ teasers: activeTeasers, buyers: activeBuyers }, { status: 200 });
   } catch (error) {
