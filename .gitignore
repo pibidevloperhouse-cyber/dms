@@ -36,7 +36,7 @@ yarn-error.log*
 # Local fallback store and temp scripts
 .vdr_*.json
 check_tables.js
-check_otps.js
+check_otps.jsBuyer Details
 check_tokens.js
 verify_debug.js
 AUDIT_REPORT.md
