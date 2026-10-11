@@ -359,41 +359,181 @@ export default function IdentityVerificationsPage() {
                     </div>
                     <div>
                       <p className="text-xs text-indigo-700/70 mb-1">Entity Role</p>
-                      <p className="font-semibold text-slate-800 text-sm capitalize">{selectedUser.subRole || 'N/A'}</p>
+                      <p className="font-semibold text-slate-800 text-sm capitalize">{selectedUser.buyerRole || selectedUser.sellerRole || selectedUser.subRole || 'N/A'}</p>
                     </div>
-                    {selectedUser.dmsRole === 'buyer' && selectedUser.investmentRange && (
+                    {selectedUser.dmsRole === 'buyer' && (selectedUser.capitalValue || selectedUser.teamSize) && (
                       <div>
-                        <p className="text-xs text-indigo-700/70 mb-1 flex items-center gap-1.5"><FaMoneyBillWave /> Investment Range</p>
-                        <p className="font-semibold text-slate-800 text-sm">{selectedUser.investmentRange}</p>
+                        <p className="text-xs text-indigo-700/70 mb-1">Capital Value / Team Size</p>
+                        <p className="font-semibold text-slate-800 text-sm">
+                          {selectedUser.capitalValue ? `$${Number(selectedUser.capitalValue).toLocaleString()}` : 'N/A'} {selectedUser.teamSize ? `(${selectedUser.teamSize} members)` : ''}
+                        </p>
                       </div>
                     )}
                   </div>
+
+                  {/* Company Description for Buyer */}
+                  {selectedUser.companyDescription && (
+                    <div className="mt-4 pt-4 border-t border-indigo-100/60">
+                      <p className="text-xs text-indigo-700/70 mb-1">Company Description</p>
+                      <p className="text-sm text-slate-700 leading-relaxed">{selectedUser.companyDescription}</p>
+                    </div>
+                  )}
+
+                  {/* Key Partners */}
+                  {Array.isArray(selectedUser.keyPartners) && selectedUser.keyPartners.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-indigo-100/60">
+                      <p className="text-xs text-indigo-700/70 mb-2 font-semibold">Key Partners</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedUser.keyPartners.map((partner, idx) => (
+                          <div key={idx} className="bg-white border border-indigo-200 px-3 py-1 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
+                            <span className="font-semibold text-slate-800">{partner.name}</span>
+                            {partner.linkedin && (
+                              <a href={partner.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold ml-1">
+                                [LinkedIn]
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Verification Documents */}
-                {(selectedUser.proofOfAuthorityUrl || selectedUser.additionalDocumentUrl || selectedUser.licenseNumber) && (
+                {/* Buyer Investment Mandate Section */}
+                {selectedUser.dmsRole === 'buyer' && (
+                  <div className="col-span-1 md:col-span-2 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
+                    <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                      <FaMoneyBillWave /> Investment Criteria & Mandate
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {selectedUser.revenueRange && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">Revenue Range</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.revenueRange}</p>
+                        </div>
+                      )}
+                      {selectedUser.ebitdaRange && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">EBITDA Range</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.ebitdaRange}</p>
+                        </div>
+                      )}
+                      {selectedUser.equityRange && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">Equity Range</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.equityRange}</p>
+                        </div>
+                      )}
+                      {selectedUser.fundingSource && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">Funding Source</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.fundingSource}</p>
+                        </div>
+                      )}
+                      {selectedUser.geography && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">Target Geography</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.geography}</p>
+                        </div>
+                      )}
+                      {selectedUser.timelineToCloseDays && (
+                        <div>
+                          <p className="text-xs text-emerald-800/70 mb-1">Timeline to Close</p>
+                          <p className="font-semibold text-slate-800">{selectedUser.timelineToCloseDays} Days</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Target Industries */}
+                    {Array.isArray(selectedUser.targetIndustries) && selectedUser.targetIndustries.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-emerald-100">
+                        <p className="text-xs text-emerald-800/70 mb-2 font-medium">Target Industries</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedUser.targetIndustries.map((ind, i) => (
+                            <span key={i} className="bg-emerald-100/70 text-emerald-800 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                              {ind}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ownership Stake & Financing */}
+                    {((Array.isArray(selectedUser.ownershipStakeSought) && selectedUser.ownershipStakeSought.length > 0) ||
+                      (Array.isArray(selectedUser.financingMethods) && selectedUser.financingMethods.length > 0)) && (
+                      <div className="mt-3 pt-3 border-t border-emerald-100 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {Array.isArray(selectedUser.ownershipStakeSought) && selectedUser.ownershipStakeSought.length > 0 && (
+                          <div>
+                            <p className="text-xs text-emerald-800/70 mb-1">Stake Sought</p>
+                            <p className="font-semibold text-slate-800 text-xs">{selectedUser.ownershipStakeSought.join(', ')}</p>
+                          </div>
+                        )}
+                        {Array.isArray(selectedUser.financingMethods) && selectedUser.financingMethods.length > 0 && (
+                          <div>
+                            <p className="text-xs text-emerald-800/70 mb-1">Financing Methods</p>
+                            <p className="font-semibold text-slate-800 text-xs">{selectedUser.financingMethods.join(', ')}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Deal Breakers */}
+                    {selectedUser.dealBreakers && (
+                      <div className="mt-3 pt-3 border-t border-emerald-100">
+                        <p className="text-xs text-rose-600 mb-1 font-semibold">Deal Breakers</p>
+                        <p className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-rose-200">{selectedUser.dealBreakers}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Verification Documents (Both Seller & Buyer) */}
+                {(selectedUser.proofOfAuthorityUrl || selectedUser.additionalDocumentUrl || selectedUser.licenseNumber ||
+                  selectedUser.secId || selectedUser.aumStatementUrl || selectedUser.secRegistrationUrl) && (
                   <div className="col-span-1 md:col-span-2 bg-amber-50/50 rounded-xl p-4 border border-amber-100">
-                    <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-4">Verification Documents</h4>
+                    <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-4">Verification & Regulatory Proofs</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {selectedUser.secId && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">SEC ID Number</p>
+                          <p className="font-semibold text-slate-800 text-sm font-mono">{selectedUser.secId}</p>
+                        </div>
+                      )}
                       {selectedUser.licenseNumber && (
                         <div>
                           <p className="text-xs text-amber-700/70 mb-1">License Number</p>
-                          <p className="font-semibold text-slate-800 text-sm">{selectedUser.licenseNumber}</p>
+                          <p className="font-semibold text-slate-800 text-sm font-mono">{selectedUser.licenseNumber}</p>
+                        </div>
+                      )}
+                      {selectedUser.aumStatementUrl && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">AUM Statement</p>
+                          <a href={selectedUser.aumStatementUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            View Document &rarr;
+                          </a>
+                        </div>
+                      )}
+                      {selectedUser.secRegistrationUrl && (
+                        <div>
+                          <p className="text-xs text-amber-700/70 mb-1">SEC Registration Doc</p>
+                          <a href={selectedUser.secRegistrationUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            View Document &rarr;
+                          </a>
                         </div>
                       )}
                       {selectedUser.proofOfAuthorityUrl && (
                         <div>
                           <p className="text-xs text-amber-700/70 mb-1">Proof of Authority</p>
-                          <a href={selectedUser.proofOfAuthorityUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm">
-                            View Document
+                          <a href={selectedUser.proofOfAuthorityUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            View Document &rarr;
                           </a>
                         </div>
                       )}
                       {selectedUser.additionalDocumentUrl && (
                         <div>
                           <p className="text-xs text-amber-700/70 mb-1">Additional Document</p>
-                          <a href={selectedUser.additionalDocumentUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm">
-                            View Document
+                          <a href={selectedUser.additionalDocumentUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            View Document &rarr;
                           </a>
                         </div>
                       )}

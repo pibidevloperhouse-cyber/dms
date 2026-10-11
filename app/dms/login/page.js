@@ -39,6 +39,7 @@ export default function DMSLogin() {
       localStorage.setItem('companyId', data.company_id);
       localStorage.setItem('userId', data.id);
       localStorage.setItem('userName', data.name || 'User');
+      localStorage.setItem('userEmail', data.email || email);
       localStorage.setItem('verificationStatus', data.verification_status || 'unverified');
       localStorage.setItem('loginTimestamp', Date.now().toString());
 

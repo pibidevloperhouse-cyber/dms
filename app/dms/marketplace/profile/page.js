@@ -8,6 +8,10 @@ import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLo
 export default function ProfilePage() {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userPhone, setUserPhone] = useState('');
+  const [userCompanyName, setUserCompanyName] = useState('');
+  const [userIndustry, setUserIndustry] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -23,6 +27,7 @@ export default function ProfilePage() {
   const [sentInterests, setSentInterests] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [vdrRole, setVdrRole] = useState('external_user');
+  const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
 
@@ -61,6 +66,8 @@ export default function ProfilePage() {
     const lowerRole = role.toLowerCase();
     setUserRole(lowerRole);
     setUserName(localStorage.getItem('userName') || 'bala kumar');
+    setUserEmail(localStorage.getItem('userEmail') || 'Not provided');
+    setVerificationStatus(localStorage.getItem('verificationStatus') || 'unverified');
 
     // Fetch active data from the database
     const fetchData = async () => {
@@ -70,6 +77,21 @@ export default function ProfilePage() {
           const data = await res.json();
           setOpportunities(data.teasers || []);
           setBuyerProfiles(data.buyers || []);
+        }
+        
+        // Fetch specific user profile for email
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+          const userRes = await fetch(`/api/user/profile?userId=${userId}`);
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            if (userData.data) {
+              if (userData.data.email) setUserEmail(userData.data.email);
+              if (userData.data.phoneNumber) setUserPhone(userData.data.phoneNumber);
+              if (userData.data.companyName) setUserCompanyName(userData.data.companyName);
+              if (userData.data.companyType) setUserIndustry(userData.data.companyType);
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to fetch marketplace deals:", err);
@@ -140,19 +162,19 @@ export default function ProfilePage() {
     router.push('/dms/login');
   };
 
-  
+
 
   return (
     <div className="w-full">
 
-      
+
 
       {/* Main Content Area */}
       <div className="w-full">
 
-        
 
-        
+
+
 
         {/* Hero Section */}
         {!userRole && (
@@ -624,28 +646,34 @@ export default function ProfilePage() {
 
                   {/* Profile Info */}
                   <div className="px-6 pb-6 pt-0 relative flex flex-col items-center text-center">
-                    <div className="w-20 h-20 bg-white rounded-full p-1 -mt-10 mb-3 shadow-md relative z-10 flex items-center justify-center">
-                      <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-2xl">
+                    <div className="w-32 h-32 bg-white rounded-full p-1.5 -mt-16 mb-4 shadow-md relative z-10 flex items-center justify-center">
+                      <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-5xl">
                         {userName ? userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'VP'}
                       </div>
-                      <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      {verificationStatus === 'verified' ? (
+                        <div className="absolute bottom-0 right-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm overflow-hidden border border-gray-100">
+                          <img src="/verified-badge-green.png" alt="Verified" className="w-[115%] h-[115%] object-cover mix-blend-multiply" />
+                        </div>
+                      ) : (
+                        <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      )}
                     </div>
 
                     <h2 className="text-xl font-bold text-gray-900">{userName || 'Vairajothi P.'}</h2>
-                    <p className="text-sm font-medium text-teal-600 mb-4">{userRole === 'admin' ? 'Super Admin' : (userRole || 'Buyer')} at PiBi Tech</p>
+                    <p className="text-sm font-medium text-teal-600 mb-4">{userRole === 'admin' ? 'Super Admin' : (userRole || 'Buyer')} at {userCompanyName || 'PiBi Tech'}</p>
 
                     <div className="w-full flex flex-col gap-3 text-sm text-gray-600 text-left mt-2 border-t border-gray-100 pt-5">
                       <div className="flex items-center gap-3">
                         <FaEnvelope className="text-gray-400 w-4 h-4" />
-                        <span className="truncate">vairajothi@pibi.tech</span>
+                        <span className="truncate">{userEmail}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <FaPhone className="text-gray-400 w-4 h-4" />
-                        <span>+1 (555) 123-4567</span>
+                        <span>{userPhone || 'Null'}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <FaMapMarkerAlt className="text-gray-400 w-4 h-4" />
-                        <span>San Francisco, CA</span>
+                        <span>Null</span>
                       </div>
                     </div>
                   </div>
@@ -669,11 +697,11 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
                     <div>
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Company Name</p>
-                      <p className="font-semibold text-gray-800 text-sm">{profileData.companyName}</p>
+                      <p className="font-semibold text-gray-800 text-sm">{userCompanyName || profileData.companyName}</p>
                     </div>
                     <div>
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Industry</p>
-                      <p className="font-semibold text-gray-800 text-sm">{profileData.industry}</p>
+                      <p className="font-semibold text-gray-800 text-sm">{userIndustry || profileData.industry}</p>
                     </div>
                     <div>
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Website</p>

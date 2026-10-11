@@ -35,12 +35,18 @@ yarn-error.log*
 
 # Local fallback store and temp scripts
 .vdr_*.json
-check_tables.js
-check_otps.jsBuyer Details
+check_otps.js
 check_tokens.js
+check_token.js
 verify_debug.js
 AUDIT_REPORT.md
 build_output.txt
 scratch/
 scripts/
 public/uploads/
+test-form
+seed_business_owner.js
+
+lib/form-config.js
+
+.temp_images/

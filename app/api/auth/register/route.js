@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users, companies, dmsDealInvitations, dmsDeals } from '@/db/schema';
+import { users, companies, sellerProfiles, buyerProfiles, dmsDealInvitations, dmsDeals } from '@/db/schema';
 import bcrypt from 'bcryptjs';
 import { eq, and } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
@@ -33,10 +33,35 @@ export async function POST(req) {
     const stateRegion = formData.get('stateRegion');
     const city = formData.get('city');
     const sellerRole = formData.get('sellerRole'); // 'owner', 'advisor', 'broker'
-    const buyerType = formData.get('buyerType'); // investor type for buyers
+    const buyerType = formData.get('buyerType'); // investor type / registering as
+    const buyerSubRole = formData.get('buyerSubRole');
     
+    // Seller Documents
     const proofOfAuthorityFile = formData.get('proofOfAuthority');
     const additionalDocumentFile = formData.get('additionalDocument');
+
+    // Buyer Regulatory Documents & Profile Fields
+    const secIdNumber = formData.get('secIdNumber');
+    const aumDocumentFile = formData.get('aumDocument');
+    const secRegistrationDocumentFile = formData.get('secRegistrationDocument');
+    const companyDescription = formData.get('companyDescription');
+    const foundedYear = formData.get('foundedYear');
+    const headquarters = formData.get('headquarters');
+    const companyCapitalValue = formData.get('companyCapitalValue');
+    const teamSize = formData.get('teamSize');
+    const keyPartners = formData.get('keyPartners');
+    const fundingSource = formData.get('fundingSource');
+    const targetIndustries = formData.get('targetIndustries');
+    const revenueRange = formData.get('revenueRange');
+    const ebitdaRange = formData.get('ebitdaRange');
+    const equityRange = formData.get('equityRange');
+    const geography = formData.get('geography');
+    const ownershipStake = formData.get('ownershipStake');
+    const businessTraits = formData.get('businessTraits');
+    const managementPreference = formData.get('managementPreference');
+    const financingMethods = formData.get('financingMethods');
+    const timelineToClose = formData.get('timelineToClose');
+    const dealBreakers = formData.get('dealBreakers');
 
     // Basic validation
     if (!firstName || !lastName || !email || !password) {
@@ -44,7 +69,6 @@ export async function POST(req) {
     }
 
     // Determine role (Buyer or Seller) based on participantType
-    // If dealType is M&A, participantType decides. Otherwise, default to Buyer.
     const roleToSet = participantType || 'Buyer';
 
     // Store plain password as requested
@@ -56,13 +80,15 @@ export async function POST(req) {
     // Handle File Uploads
     let proofOfAuthorityUrl = null;
     let additionalDocumentUrl = null;
+    let aumDocumentUrl = null;
+    let secRegistrationUrl = null;
 
-    const safeCompanyName = companyName ? `${companyName.replace(/[^a-zA-Z0-9]/g, '-')}-` : '';
+    const safeCompanyName = (companyName || fullName).replace(/[^a-zA-Z0-9]/g, '-');
 
     if (proofOfAuthorityFile && typeof proofOfAuthorityFile.name === 'string') {
       const bytes = await proofOfAuthorityFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const fileName = `${safeCompanyName}${Date.now()}-poa-${proofOfAuthorityFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      const fileName = `${safeCompanyName}-${Date.now()}-poa-${proofOfAuthorityFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
       
       const { error: uploadError } = await supabase.storage
         .from('verification-documents')
@@ -79,7 +105,7 @@ export async function POST(req) {
     if (additionalDocumentFile && typeof additionalDocumentFile.name === 'string') {
       const bytes = await additionalDocumentFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const fileName = `${safeCompanyName}${Date.now()}-doc-${additionalDocumentFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      const fileName = `${safeCompanyName}-${Date.now()}-doc-${additionalDocumentFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
       
       const { error: uploadError } = await supabase.storage
         .from('verification-documents')
@@ -93,9 +119,44 @@ export async function POST(req) {
       }
     }
 
-    let finalCompanyId = null;
+    if (aumDocumentFile && typeof aumDocumentFile.name === 'string') {
+      const bytes = await aumDocumentFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = `${safeCompanyName}-${Date.now()}-aum-${aumDocumentFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('verification-documents')
+        .upload(fileName, buffer, { contentType: aumDocumentFile.type || 'application/octet-stream', upsert: false });
+        
+      if (!uploadError) {
+        const { data } = supabase.storage.from('verification-documents').getPublicUrl(fileName);
+        aumDocumentUrl = data.publicUrl;
+      } else {
+        console.error("Supabase storage error (aum):", uploadError);
+      }
+    }
 
-    if (companyName) {
+    if (secRegistrationDocumentFile && typeof secRegistrationDocumentFile.name === 'string') {
+      const bytes = await secRegistrationDocumentFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = `${safeCompanyName}-${Date.now()}-sec-${secRegistrationDocumentFile.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('verification-documents')
+        .upload(fileName, buffer, { contentType: secRegistrationDocumentFile.type || 'application/octet-stream', upsert: false });
+        
+      if (!uploadError) {
+        const { data } = supabase.storage.from('verification-documents').getPublicUrl(fileName);
+        secRegistrationUrl = data.publicUrl;
+      } else {
+        console.error("Supabase storage error (sec):", uploadError);
+      }
+    }
+
+    let finalCompanyId = null;
+    const effectiveCompanyName = companyName || (buyerType === 'individual' ? `${fullName} (Individual)` : `${fullName}'s Firm`);
+
+    if (effectiveCompanyName) {
       // Check if company already exists
       const existingCompany = await db.select().from(companies).where(eq(companies.email, email)).limit(1);
       
@@ -104,7 +165,7 @@ export async function POST(req) {
       } else {
         // Create a new Company profile for the user
         const [newCompany] = await db.insert(companies).values({
-          name: companyName,
+          name: effectiveCompanyName,
           email: email, // use user's email for the company for now
           status: 'active',
           phoneNumber,
@@ -116,7 +177,7 @@ export async function POST(req) {
           stateRegion,
           city,
           dmsRole: roleToSet.toLowerCase(),
-          subRole: sellerRole || null,
+          subRole: sellerRole || buyerSubRole || null,
           proofOfAuthorityUrl,
           licenseNumber,
           additionalDocumentUrl,
@@ -126,7 +187,7 @@ export async function POST(req) {
       }
     }
 
-    // Insert user into database
+    // Insert user into database (role acts as VDR Role)
     const [newUser] = await db.insert(users).values({
       name: fullName,
       email,
@@ -136,6 +197,57 @@ export async function POST(req) {
       role: roleToSet.toLowerCase() === 'seller' ? 'super_admin' : 'guest_admin',
       status: 'active',
     }).returning({ id: users.id });
+
+    // Safe JSON parser helper
+    const safeParseJson = (val, fallback = []) => {
+      if (!val) return fallback;
+      try {
+        return typeof val === 'string' ? JSON.parse(val) : val;
+      } catch {
+        return fallback;
+      }
+    };
+
+    // Insert into respective Profile table
+    if (finalCompanyId) {
+      if (roleToSet.toLowerCase() === 'seller') {
+        await db.insert(sellerProfiles).values({
+          userId: newUser.id,
+          companyId: finalCompanyId,
+          sellerRole: sellerRole || null,
+          licenseNumber: licenseNumber || null,
+          proofOfAuthorityUrl: proofOfAuthorityUrl || null,
+          additionalDocumentUrl: additionalDocumentUrl || null,
+        });
+      } else if (roleToSet.toLowerCase() === 'buyer') {
+        await db.insert(buyerProfiles).values({
+          userId: newUser.id,
+          companyId: finalCompanyId,
+          buyerRole: buyerSubRole || buyerType || null,
+          secId: secIdNumber || null,
+          aumStatementUrl: aumDocumentUrl,
+          secRegistrationUrl: secRegistrationUrl,
+          companyDescription: companyDescription || null,
+          foundedYear: foundedYear || null,
+          headquarters: headquarters || null,
+          capitalValue: companyCapitalValue || null,
+          teamSize: teamSize || null,
+          keyPartners: safeParseJson(keyPartners, []),
+          fundingSource: fundingSource || null,
+          targetIndustries: safeParseJson(targetIndustries, []),
+          revenueRange: revenueRange || null,
+          ebitdaRange: ebitdaRange || null,
+          equityRange: equityRange || null,
+          geography: geography || null,
+          ownershipStakeSought: safeParseJson(ownershipStake, []),
+          businessTraitsWanted: businessTraits || null,
+          managementPreference: safeParseJson(managementPreference, []),
+          financingMethods: safeParseJson(financingMethods, []),
+          timelineToCloseDays: timelineToClose ? parseInt(timelineToClose, 10) : null,
+          dealBreakers: dealBreakers || null,
+        });
+      }
+    }
 
     // Handle Invite Token Auto-Approval
     if (inviteToken && projectId) {

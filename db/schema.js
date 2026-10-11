@@ -95,6 +95,49 @@ export const users = pgTable('users', {
   verificationStatus: verificationStatusEnum('verification_status').default('unverified'),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
 });
+
+export const sellerProfiles = pgTable('seller_profiles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  sellerRole: text('seller_role'), // 'owner', 'advisor', 'broker'
+  licenseNumber: text('license_number'),
+  proofOfAuthorityUrl: text('proof_of_authority_url'),
+  additionalDocumentUrl: text('additional_document_url'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const buyerProfiles = pgTable('buyer_profiles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  buyerRole: text('buyer_role'), // 'PE', 'Family Office', 'Strategic Buyer', etc.
+  secId: text('sec_id'),
+  aumStatementUrl: text('aum_statement_url'),
+  secRegistrationUrl: text('sec_registration_url'),
+  companyDescription: text('company_description'),
+  foundedYear: text('founded_year'),
+  headquarters: text('headquarters'),
+  capitalValue: text('capital_value'),
+  teamSize: text('team_size'),
+  keyPartners: jsonb('key_partners').default('[]'),
+  fundingSource: text('funding_source'),
+  targetIndustries: jsonb('target_industries').default('[]'),
+  revenueRange: text('revenue_range'),
+  ebitdaRange: text('ebitda_range'),
+  equityRange: text('equity_range'),
+  geography: text('geography'),
+  ownershipStakeSought: jsonb('ownership_stake_sought').default('[]'),
+  businessTraitsWanted: text('business_traits_wanted'),
+  managementPreference: jsonb('management_preference').default('[]'),
+  financingMethods: jsonb('financing_methods').default('[]'),
+  timelineToCloseDays: integer('timeline_to_close_days'),
+  dealBreakers: text('deal_breakers'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const folders = pgTable('folders', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').notNull(),
