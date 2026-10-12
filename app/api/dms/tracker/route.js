@@ -21,12 +21,23 @@ export async function GET(req) {
       message: dmsDealProposals.message,
       projectName: dmsProjects.name,
       projectId: dmsProjects.id,
+      projectDescription: dmsProjects.description,
+      projectType: dmsProjects.projectType,
+      dealId: dmsDeals.id,
+      dealName: dmsDeals.dealName,
+      dealProjectId: dmsDeals.projectId,
       fullName: users.name,
       email: users.email,
       company: companies.name,
       jobTitle: users.jobTitle,
       investorType: companies.operationType,
-      ndaStatus: dmsDeals.ndaStatus
+      ndaStatus: dmsDeals.ndaStatus,
+      teaserIndustry: dmsTeasers.industry,
+      teaserGeography: dmsTeasers.headquarters,
+      teaserOverview: dmsTeasers.businessSummary,
+      teaserRevenue: dmsTeasers.revenue,
+      teaserEbitda: dmsTeasers.ebitdaBand,
+      teaserDealType: dmsTeasers.businessModel
     })
       .from(dmsDealProposals)
       .leftJoin(dmsTeasers, eq(dmsDealProposals.teaserId, dmsTeasers.id))
@@ -45,10 +56,17 @@ export async function GET(req) {
     // Format the date to match what the UI expects (e.g. 'Oct 24, 2023')
     const formattedProposals = proposals.map(p => ({
       ...p,
-      projectName: p.projectName || 'Confidential Deal',
+      projectId: p.projectId || p.dealProjectId,
+      projectName: p.projectName || p.dealName || 'Confidential Deal',
       fullName: p.fullName || 'Anonymous Buyer',
       company: p.company || 'Private Investor',
       investorType: p.investorType || 'Direct Buyer',
+      industry: p.teaserIndustry || 'Technology / SaaS',
+      geography: p.teaserGeography || 'Tamil Nadu',
+      overview: p.teaserOverview || p.projectDescription || 'A comprehensive M&A and investment platform designed to connect business owners, buyers, investors, private equity firms, and...',
+      revenue: p.teaserRevenue || '₹5 Crore annually',
+      ebitda: p.teaserEbitda || '₹1.5 Crore',
+      dealType: p.teaserDealType || p.projectType || 'Majority Acquisition',
       dateSubmitted: p.dateSubmitted 
         ? new Date(p.dateSubmitted).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : 'Recently',

@@ -200,7 +200,31 @@ export default function TrackerPage() {
                         {req.dateSubmitted || 'Just now'}
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-xs font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded">{req.projectName || 'Unknown'}</span>
+                        <button
+                          onClick={() => {
+                            if (req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') {
+                              if (req.ndaStatus === 'signed') {
+                                const targetProjectId = req.projectId || req.dealProjectId;
+                                if (targetProjectId) {
+                                  router.push(`/dms/deal?projectId=${targetProjectId}&projectName=${encodeURIComponent(req.projectName || req.dealName || 'Project')}`);
+                                } else if (req.dealId) {
+                                  router.push('/documents');
+                                }
+                              } else {
+                                setNdaTarget({
+                                  proposalId: req.id,
+                                  projectId: req.projectId || req.dealProjectId,
+                                  projectName: req.projectName,
+                                  dealName: req.company
+                                });
+                                setShowNDAModal(true);
+                              }
+                            }
+                          }}
+                          className={`text-xs font-bold text-gray-900 bg-gray-100 px-2.5 py-1.5 rounded transition-all text-left ${(req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') ? 'hover:bg-[#00c875]/10 hover:text-[#008f70] cursor-pointer' : ''}`}
+                        >
+                          {req.projectName || 'Unknown'}
+                        </button>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
@@ -232,7 +256,21 @@ export default function TrackerPage() {
                             <Image src="/images/verifyed_nda.jpeg" alt="NDA Signed" width={32} height={32} className="rounded-md" />
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity" title="NDA Pending">
+                          <div
+                            className="flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Sign NDA"
+                            onClick={() => {
+                              if (req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') {
+                                setNdaTarget({
+                                  proposalId: req.id,
+                                  projectId: req.projectId,
+                                  projectName: req.projectName,
+                                  dealName: req.company
+                                });
+                                setShowNDAModal(true);
+                              }
+                            }}
+                          >
                             <Image src="/images/lock nda.png" alt="NDA Pending" width={32} height={32} className="rounded-md" />
                           </div>
                         )}
@@ -242,11 +280,31 @@ export default function TrackerPage() {
                           <button
                             onClick={() => {
                               if (req.ndaStatus === 'signed') {
-                                sessionStorage.setItem('marketplaceTab', 'workspace');
-                                router.push('/dms/marketplace');
+                                const dmsRole = localStorage.getItem('userRole') || 'buyer';
+                                const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
+
+                                if (req.dealId) {
+                                  const vdrSession = {
+                                    id: localStorage.getItem('userId'),
+                                    role: actualVdrRole,
+                                    dms_role: dmsRole,
+                                    name: localStorage.getItem('userName') || 'User',
+                                    company_id: localStorage.getItem('companyId') || '',
+                                    active_workspace_id: req.dealId
+                                  };
+                                  localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
+                                }
+
+                                const targetProjectId = req.projectId || req.dealProjectId;
+                                if (targetProjectId) {
+                                  router.push(`/dms/deal?projectId=${targetProjectId}&projectName=${encodeURIComponent(req.projectName || req.dealName || 'Project')}`);
+                                } else if (req.dealId) {
+                                  router.push('/documents');
+                                }
                               } else {
                                 setNdaTarget({
                                   proposalId: req.id,
+                                  projectId: req.projectId || req.dealProjectId,
                                   projectName: req.projectName,
                                   dealName: req.company
                                 });
@@ -295,8 +353,9 @@ export default function TrackerPage() {
                 // Update local state to show signed status
                 setRequests(prev => prev.map(r => r.id === ndaTarget.proposalId ? { ...r, ndaStatus: 'signed' } : r));
                 setShowNDAModal(false);
-                sessionStorage.setItem('marketplaceTab', 'workspace');
-                router.push('/dms/marketplace');
+                if (ndaTarget.projectId) {
+                  router.push(`/dms/deal?projectId=${ndaTarget.projectId}&projectName=${encodeURIComponent(ndaTarget.projectName || 'Project')}`);
+                }
               } else {
                 console.error("Failed to sign NDA");
                 alert("Failed to save signature. Please try again.");

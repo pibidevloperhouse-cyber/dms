@@ -211,6 +211,17 @@ export default function MarketplacePage() {
     return matchesSearch && matchesCompanyType && matchesLocation && matchesDealType;
   });
 
+  const filteredOpportunities = opportunities.filter(opp => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q ||
+      opp.projectName?.toLowerCase().includes(q) ||
+      opp.name?.toLowerCase().includes(q) ||
+      opp.industry?.toLowerCase().includes(q) ||
+      opp.sector?.toLowerCase().includes(q) ||
+      opp.businessModel?.toLowerCase().includes(q);
+    return matchesSearch;
+  });
+
   const handleResetFilters = () => {
     setSearchQuery('');
     setCompanyTypeFilter('All Company Types');
@@ -513,7 +524,11 @@ export default function MarketplacePage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                 </span>
-                {opportunities.length} active matching deals
+                {isLoading ? (
+                  <span className="text-[#008f70] font-medium">Loading deals...</span>
+                ) : (
+                  <span>{userRole === 'seller' ? filteredBuyers.length : filteredOpportunities.length} active matching deals</span>
+                )}
               </div>
             </div>
 
@@ -797,20 +812,61 @@ export default function MarketplacePage() {
               ) : (
                 /* Projects Area (For Buyers) */
                 <div className="w-full">
-                  {opportunities.length === 0 ? (
+                  {isLoading ? (
+                    <div className="w-full min-h-[450px] flex flex-col items-center justify-center bg-white border border-gray-100 rounded-3xl shadow-sm p-12">
+                      <div className="relative mb-6">
+                        {/* Outer spinning ring */}
+                        <div className="w-16 h-16 rounded-full border-4 border-teal-100 border-t-[#008f70] animate-spin"></div>
+                        {/* Center pulsing icon */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <FaBriefcase className="text-[#008f70] text-lg animate-pulse" />
+                        </div>
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Loading your deal...</h3>
+                      <p className="text-gray-400 text-sm max-w-md text-center mb-8">
+                        Discovering verified opportunities and teasers tailored to your mandate.
+                      </p>
+
+                      {/* Animated skeleton preview */}
+                      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse opacity-60">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="bg-gray-50/80 border border-gray-100 rounded-xl p-5 h-64 flex flex-col justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
+                              <div className="space-y-2 flex-1">
+                                <div className="h-3 bg-gray-200 rounded w-20"></div>
+                                <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 my-4">
+                              <div className="h-3 bg-gray-200 rounded w-full"></div>
+                              <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/40">
+                              <div className="h-4 bg-gray-200 rounded"></div>
+                              <div className="h-4 bg-gray-200 rounded"></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : filteredOpportunities.length === 0 ? (
                     <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <FaSearch className="text-3xl text-gray-300" />
                       </div>
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No opportunities found</h3>
                       <p className="text-gray-500 text-sm max-w-md text-center">Try adjusting your filters or search terms to find more deals matching your criteria.</p>
-                      <button className="mt-6 px-6 py-2.5 bg-[#008f70] hover:bg-[#00755d] text-white text-sm font-bold rounded-full transition-colors shadow-sm">
+                      <button 
+                        onClick={handleResetFilters}
+                        className="mt-6 px-6 py-2.5 bg-[#008f70] hover:bg-[#00755d] text-white text-sm font-bold rounded-full transition-colors shadow-sm"
+                      >
                         Clear all filters
                       </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {opportunities.map((opp, idx) => (
+                      {filteredOpportunities.map((opp, idx) => (
                         <div key={idx} className="bg-white border border-gray-200 flex flex-col group relative overflow-hidden transition-all duration-300 h-full rounded-xl hover:shadow-[0_4px_25px_rgb(0,0,0,0.04)] hover:-translate-y-1">
                           <div className="p-5 flex flex-col h-full">
                             {/* Header */}
