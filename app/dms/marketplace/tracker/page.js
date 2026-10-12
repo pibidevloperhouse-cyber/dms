@@ -18,6 +18,8 @@ export default function TrackerPage() {
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [ndaTarget, setNdaTarget] = useState(null);
 
+  const [statusFilter, setStatusFilter] = useState("All");
+
   useEffect(() => {
     setIsMounted(true);
     const role = localStorage.getItem('userRole');
@@ -27,22 +29,42 @@ export default function TrackerPage() {
     }
     const fetchRequests = async () => {
       const buyerId = localStorage.getItem('userId');
+      const userRole = localStorage.getItem('userRole');
       if (!buyerId) return;
       try {
-        const res = await fetch(`/api/dms/tracker?buyerId=${buyerId}`);
+        const res = await fetch(`/api/dms/tracker?buyerId=${buyerId}&role=${userRole || ''}`);
         if (res.ok) {
           const data = await res.json();
-          // Load requests, sort by newest (descending ID)
-          setRequests((data.requests || []).sort((a, b) => b.id - a.id));
+          let serverReqs = data.requests || [];
+
+          // Also check localStorage my_requested_teasers as fallback or merge
+          const localTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
+          if (localTeasers.length > 0 && serverReqs.length === 0) {
+            const userName = localStorage.getItem('userName') || 'jana nayagan';
+            const userEmail = localStorage.getItem('userEmail') || '';
+            const compName = localStorage.getItem('companyName') || 'PiBi Tech Solutions';
+            serverReqs = localTeasers.map(t => ({
+              id: t.projectId,
+              projectName: t.projectName,
+              projectId: t.projectId,
+              fullName: userName,
+              email: userEmail,
+              company: compName,
+              investorType: 'Direct Buyer',
+              status: t.status || 'Pending',
+              dateSubmitted: new Date(t.requestedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              ndaStatus: 'pending'
+            }));
+          }
+
+          setRequests(serverReqs);
         }
       } catch (err) {
         console.error("Failed to fetch tracker requests:", err);
       }
     };
     fetchRequests();
-  }, []);
-
-
+  }, [router]);
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -60,10 +82,14 @@ export default function TrackerPage() {
     }
   };
 
-  const filteredRequests = requests.filter(r =>
-    r.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.company?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRequests = requests.filter(r => {
+    const matchesSearch =
+      (r.fullName || '')?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.company || '')?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.projectName || '')?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || r.status?.toLowerCase() === statusFilter.toLowerCase();
+    return matchesSearch && matchesStatus;
+  });
 
   const pendingCount = requests.filter(r => r.status?.toLowerCase() === 'pending').length;
 
@@ -110,11 +136,15 @@ export default function TrackerPage() {
                 className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-[#b48629] focus:ring-1 focus:ring-[#b48629] w-64"
               />
             </div>
-            <select className="bg-white border border-gray-200 rounded py-2 px-3 text-sm focus:outline-none focus:border-[#b48629]">
-              <option>All statuses</option>
-              <option>Pending</option>
-              <option>Approved</option>
-              <option>Rejected</option>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-white border border-gray-200 rounded py-2 px-3 text-sm focus:outline-none focus:border-[#b48629]"
+            >
+              <option value="All">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
             <button className="flex items-center gap-2 bg-white border border-gray-200 rounded py-2 px-4 text-sm font-medium hover:bg-gray-50 transition-colors">
               <FaDownload className="text-gray-500" /> Export

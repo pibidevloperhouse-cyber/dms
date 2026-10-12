@@ -617,7 +617,7 @@ export const dmsProjects = pgTable('dms_projects', {
 export const dmsTeasers = pgTable('dms_teasers', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').references(() => dmsProjects.id).notNull().unique(),
-  
+
   // Image 1: Basic Info
   businessModel: text('business_model'),
   industry: text('industry'),

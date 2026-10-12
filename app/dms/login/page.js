@@ -37,6 +37,7 @@ export default function DMSLogin() {
       localStorage.setItem('userRole', data.dmsRole || 'buyer');
       localStorage.setItem('vdrRole', data.role || 'external_user');
       localStorage.setItem('companyId', data.company_id);
+      localStorage.setItem('companyName', data.companyName || '');
       localStorage.setItem('userId', data.id);
       localStorage.setItem('userName', data.name || 'User');
       localStorage.setItem('userEmail', data.email || email);

@@ -12,13 +12,18 @@ const nextConfig = {
   allowedDevOrigins: [
     "localhost",
     "192.168.*.*",
-    "10.11.208.137"
+    "10.14.134.243",
   ],
   async redirects() {
     return [
       {
         source: '/',
         destination: '/dms',
+        permanent: true,
+      },
+      {
+        source: '/dms/tracker',
+        destination: '/dms/marketplace/tracker',
         permanent: true,
       },
       {

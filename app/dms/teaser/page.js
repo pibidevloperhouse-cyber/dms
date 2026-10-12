@@ -162,7 +162,7 @@ function TeaserContent() {
             
             {/* Tracker */}
             <button 
-              onClick={() => router.push('/dms/tracker')}
+              onClick={() => router.push('/dms/marketplace/tracker')}
               className="relative p-3 w-full flex justify-center text-white group" 
               title="Tracker"
             >

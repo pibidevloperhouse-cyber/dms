@@ -28,6 +28,18 @@ export default function MarketplacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isViewMoreModalOpen, setIsViewMoreModalOpen] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
+  const [buyerProposals, setBuyerProposals] = useState([]);
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
+  const [dealRequestForm, setDealRequestForm] = useState({
+    fullName: '',
+    email: '',
+    company: '',
+    investmentRange: '$5M - $20M',
+    message: ''
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [companyTypeFilter, setCompanyTypeFilter] = useState('All Company Types');
   const [locationFilter, setLocationFilter] = useState('All Locations');
@@ -68,8 +80,34 @@ export default function MarketplacePage() {
 
     const lowerRole = role.toLowerCase();
     setUserRole(lowerRole);
-    setUserName(localStorage.getItem('userName') || 'bala kumar');
+    const curUserName = localStorage.getItem('userName') || 'bala kumar';
+    const curUserEmail = localStorage.getItem('userEmail') || '';
+    const curCompanyName = localStorage.getItem('companyName') || profileData.companyName || '';
+    setUserName(curUserName);
     setVerificationStatus(localStorage.getItem('verificationStatus') || 'unverified');
+    setDealRequestForm(prev => ({
+      ...prev,
+      fullName: curUserName,
+      email: curUserEmail,
+      company: curCompanyName
+    }));
+
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      fetch(`/api/user/profile?userId=${userId}`)
+        .then(res => res.json())
+        .then(resData => {
+          const compName = resData?.data?.companyName;
+          if (compName) {
+            localStorage.setItem('companyName', compName);
+            setDealRequestForm(prev => ({
+              ...prev,
+              company: compName
+            }));
+          }
+        })
+        .catch(err => console.error("Failed to fetch user profile company", err));
+    }
 
     // Fetch active data from the database
     const fetchData = async () => {
@@ -101,6 +139,11 @@ export default function MarketplacePage() {
           if (res.ok) {
             const data = await res.json();
             setWorkspaces(data.deals || []);
+          }
+          const propRes = await fetch(`/api/dms/tracker?buyerId=${userId}`);
+          if (propRes.ok) {
+            const propData = await propRes.json();
+            setBuyerProposals(propData.requests || []);
           }
         } catch (error) {
           console.error("Failed to fetch buyer deals", error);
@@ -173,6 +216,99 @@ export default function MarketplacePage() {
     setCompanyTypeFilter('All Company Types');
     setLocationFilter('All Locations');
     setDealTypeFilter('All Deal Types');
+  };
+
+  const getHighlightsList = (deal) => {
+    if (!deal) return [];
+    if (Array.isArray(deal.keyHighlights) && deal.keyHighlights.length > 0) {
+      return deal.keyHighlights;
+    }
+    if (typeof deal.keyHighlights === 'string' && deal.keyHighlights.trim()) {
+      try {
+        const parsed = JSON.parse(deal.keyHighlights);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        const lines = deal.keyHighlights.split('\n').map(s => s.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
+        if (lines.length > 0) return lines;
+      }
+    }
+    return [
+      "10+ years operating history with sustained profitability",
+      "Strong recurring revenue & established client contracts",
+      "90%+ customer retention across enterprise clients",
+      "High margin business model with scalable infrastructure",
+      "Experienced leadership team with deep industry expertise",
+      "Attractive expansion opportunity in domestic & overseas markets"
+    ];
+  };
+
+  const handleDealRequestSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!dealRequestForm.fullName || !dealRequestForm.company) {
+      alert("Please provide at least your Full Name and Company.");
+      return;
+    }
+
+    const userId = localStorage.getItem('userId');
+    if (!userId || !selectedDeal?.projectId) {
+      alert("Missing user ID or deal ID. Please login as buyer.");
+      return;
+    }
+
+    setIsSubmittingProposal(true);
+    try {
+      const res = await fetch('/api/dms/proposals/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: selectedDeal.projectId,
+          buyerId: userId,
+          message: dealRequestForm.message,
+          company: dealRequestForm.company,
+          investmentRange: dealRequestForm.investmentRange,
+          fullName: dealRequestForm.fullName
+        })
+      });
+
+      if (res.ok) {
+        const myTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
+        const newTeaser = {
+          projectId: selectedDeal.projectId,
+          projectName: selectedDeal.projectName,
+          industry: selectedDeal.industry || selectedDeal.sector || "Technology / SaaS",
+          geography: selectedDeal.geography || selectedDeal.headquarters || "India",
+          dealType: selectedDeal.businessModel || "Majority Acquisition",
+          revenue: selectedDeal.revenue || "$12.4M",
+          ebitda: selectedDeal.ebitda || "$3.1M",
+          status: "Pending",
+          requestedAt: new Date().toISOString()
+        };
+        if (!myTeasers.find(t => t.projectId === selectedDeal.projectId)) {
+          myTeasers.push(newTeaser);
+          localStorage.setItem('my_requested_teasers', JSON.stringify(myTeasers));
+        }
+
+        setBuyerProposals(prev => [
+          ...prev,
+          {
+            projectId: selectedDeal.projectId,
+            status: 'pending',
+            projectName: selectedDeal.projectName
+          }
+        ]);
+        setIsRequestFormOpen(false);
+        setIsDealModalOpen(false);
+        router.push('/dms/marketplace/tracker');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Failed to submit request. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error submitting deal request:", err);
+      alert("An error occurred while submitting the request.");
+    } finally {
+      setIsSubmittingProposal(false);
+    }
   };
 
   return (
@@ -284,7 +420,7 @@ export default function MarketplacePage() {
                 <div className="bg-white rounded-xl shadow-[0_2px_15px_rgb(0,0,0,0.02)] border border-gray-200 p-6 md:p-8 h-full flex flex-col">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-bold text-gray-900">Your Active Pipeline</h2>
-                    <button onClick={() => router.push('/dms/tracker')} className="text-sm font-bold text-teal-600 hover:text-teal-700">View Tracker</button>
+                    <button onClick={() => router.push('/dms/marketplace/tracker')} className="text-sm font-bold text-teal-600 hover:text-teal-700">View Tracker</button>
                   </div>
 
                   <div className="space-y-4">
@@ -750,9 +886,17 @@ export default function MarketplacePage() {
                               <div className="flex items-center text-[11px] text-gray-500 gap-1.5 font-medium">
                                 <span className="w-3 h-3 border border-gray-400 rounded-full inline-block"></span> 12 new documents
                               </div>
-                              <Link href={`/dms/teaser?project=${encodeURIComponent(opp.projectName || 'Teaser')}&projectId=${opp.projectId || '1'}`} className="text-[13px] font-bold text-[#008f70] hover:text-[#007058]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDeal(opp);
+                                  setIsDealModalOpen(true);
+                                  setIsRequestFormOpen(false);
+                                }}
+                                className="text-[13px] font-bold text-[#008f70] hover:text-[#007058] transition-colors cursor-pointer"
+                              >
                                 View deal
-                              </Link>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1431,6 +1575,331 @@ export default function MarketplacePage() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deal Details Modal Card */}
+        {isDealModalOpen && selectedDeal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0b1120]/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] border border-gray-100 animate-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="p-6 md:p-8 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#00527c] to-[#008f70] flex items-center justify-center text-white font-bold text-xl shadow-md shrink-0">
+                    {selectedDeal.projectName ? selectedDeal.projectName.substring(0, 2).toUpperCase() : 'DE'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                      <span className="px-2.5 py-0.5 bg-[#008f70]/10 text-[#008f70] text-[10px] font-bold tracking-wider rounded-md uppercase border border-[#008f70]/20">
+                        Confidential Opportunity
+                      </span>
+                      <span className="text-[11px] font-semibold text-gray-400">
+                        Project ID: {selectedDeal.projectId?.substring(0, 8) || 'N/A'}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+                      {selectedDeal.projectName || 'Confidential Deal'}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="inline-flex items-center text-xs font-semibold text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-xs">
+                        {selectedDeal.sector || selectedDeal.industry || 'Technology / SaaS'}
+                      </span>
+                      <span className="inline-flex items-center text-xs font-semibold text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-xs">
+                        {selectedDeal.geography || selectedDeal.headquarters || 'Tamil Nadu, India'}
+                      </span>
+                      <span className="inline-flex items-center text-xs font-semibold text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-200/60 shadow-xs">
+                        {selectedDeal.businessModel || selectedDeal.projectType || 'Majority Acquisition'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsDealModalOpen(false);
+                    setIsRequestFormOpen(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100 shrink-0"
+                  title="Close"
+                >
+                  <FaTimes className="text-xl" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1">
+                {/* If in Request Form View */}
+                {isRequestFormOpen ? (
+                  <div className="bg-gray-50/70 border border-gray-200 rounded-2xl p-6 md:p-8 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Request Access to {selectedDeal.projectName}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Provide your information to request access to confidential deal documents.</p>
+                      </div>
+                      <button
+                        onClick={() => setIsRequestFormOpen(false)}
+                        className="text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                      >
+                        ← Back to Overview
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Full Name *</label>
+                        <input
+                          type="text"
+                          value={dealRequestForm.fullName}
+                          onChange={(e) => setDealRequestForm({ ...dealRequestForm, fullName: e.target.value })}
+                          placeholder="e.g. Jana Nayagan"
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#008f70] bg-white text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Work Email *</label>
+                        <input
+                          type="email"
+                          value={dealRequestForm.email}
+                          onChange={(e) => setDealRequestForm({ ...dealRequestForm, email: e.target.value })}
+                          placeholder="e.g. buyer@example.com"
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#008f70] bg-white text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Company *</label>
+                        <input
+                          type="text"
+                          value={dealRequestForm.company}
+                          onChange={(e) => setDealRequestForm({ ...dealRequestForm, company: e.target.value })}
+                          placeholder="e.g. Apex Strategic Acquisitions"
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#008f70] bg-white text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Investment Range</label>
+                        <select
+                          value={dealRequestForm.investmentRange}
+                          onChange={(e) => setDealRequestForm({ ...dealRequestForm, investmentRange: e.target.value })}
+                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#008f70] bg-white text-gray-900 cursor-pointer"
+                        >
+                          <option>$1M - $5M</option>
+                          <option>$5M - $20M</option>
+                          <option>$20M - $50M</option>
+                          <option>$50M+</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Message / Mandate</label>
+                      <textarea
+                        rows="3"
+                        value={dealRequestForm.message}
+                        onChange={(e) => setDealRequestForm({ ...dealRequestForm, message: e.target.value })}
+                        placeholder="Briefly state your strategic fit, interest, and timeline..."
+                        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#008f70] bg-white text-gray-900 resize-none"
+                      ></textarea>
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsRequestFormOpen(false)}
+                        className="px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmittingProposal}
+                        onClick={handleDealRequestSubmit}
+                        className="px-6 py-2.5 bg-[#008f70] hover:bg-[#007058] text-white text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        {isSubmittingProposal ? "Submitting..." : "Submit Access Request"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Company Overview */}
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <FaBuilding className="text-[#008f70]" /> Company Overview
+                      </h3>
+                      <p className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                        {selectedDeal.overview || selectedDeal.businessSummary || selectedDeal.projectDescription || selectedDeal.name || 'A comprehensive M&A and investment platform designed to connect business owners, buyers, investors, private equity firms, and corporate acquirers.'}
+                      </p>
+                    </div>
+
+                    {/* Financial Snapshot */}
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <FaChartLine className="text-[#008f70]" /> Financial Snapshot
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenue</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDeal.revenue || '₹5 Cr'}</p>
+                        </div>
+                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">EBITDA</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDeal.ebitda || selectedDeal.ebitdaBand || '₹1.2 Cr'}</p>
+                        </div>
+                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">EBITDA Margin</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDeal.profitabilityEbitdaPercent ? `${selectedDeal.profitabilityEbitdaPercent}%` : '24%'}</p>
+                        </div>
+                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">YoY Growth</p>
+                          <p className="text-lg font-bold text-emerald-600">
+                            {selectedDeal.growth ? `+${selectedDeal.growth}% YoY` : (selectedDeal.growthRatePercent ? `+${selectedDeal.growthRatePercent}% YoY` : '+28% YoY')}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4 col-span-2 sm:col-span-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Employees</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDeal.employees || '50-100'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Key Highlights */}
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <FaCheckCircle className="text-[#008f70]" /> Key Highlights
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {getHighlightsList(selectedDeal).map((item, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-white hover:border-gray-200 transition-colors">
+                            <div className="w-6 h-6 rounded-md bg-teal-50 text-[#008f70] flex items-center justify-center shrink-0">
+                              <FaCheck className="text-xs" />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Transaction Overview & Core Details */}
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <FaBriefcase className="text-[#008f70]" /> Transaction & Business Details
+                      </h3>
+                      <div className="bg-gray-50/60 rounded-xl p-5 border border-gray-200 grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 text-xs">
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Deal Type</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.businessModel || selectedDeal.projectType || 'Majority Acquisition'}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Headquarters</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.geography || selectedDeal.headquarters || 'Tamil Nadu, India'}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Industry / Sector</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.sector || selectedDeal.industry || 'Technology / SaaS'}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Stage</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.stage || 'Due diligence'}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Indicative Value</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.revenue || selectedDeal.askingPrice || '₹5 Crore annually'}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Year Founded</p>
+                          <p className="font-semibold text-gray-900">{selectedDeal.yearFounded || '2021'}</p>
+                        </div>
+                        {selectedDeal.legalStructure && (
+                          <div>
+                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Legal Structure</p>
+                            <p className="font-semibold text-gray-900">{selectedDeal.legalStructure}</p>
+                          </div>
+                        )}
+                        {selectedDeal.reasonForSale && (
+                          <div className="col-span-2">
+                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Reason for Sale</p>
+                            <p className="font-semibold text-gray-900">{selectedDeal.reasonForSale}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </>
+                )}
+              </div>
+
+              {/* Full-Width Access Status Banner at Modal Bottom */}
+              {(() => {
+                const proposal = buyerProposals.find(p => p.projectId === selectedDeal.projectId);
+                if (proposal?.status === 'approved') {
+                  return (
+                    <div className="w-full bg-emerald-50 border-t border-emerald-200 p-5 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                          <FaCheckCircle className="text-xl" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-emerald-900 uppercase tracking-wider">Access Approved</h4>
+                          <p className="text-xs text-emerald-700 mt-0.5">You have full authorization to view confidential data room documents for this deal.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/dms/deal?projectId=${selectedDeal.projectId}&projectName=${encodeURIComponent(selectedDeal.projectName)}`)}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm shrink-0 flex items-center gap-2 cursor-pointer"
+                      >
+                        Open Data Room <FaArrowRight />
+                      </button>
+                    </div>
+                  );
+                } else if (proposal?.status === 'pending') {
+                  return (
+                    <div className="w-full bg-amber-50 border-t border-amber-200 p-5 md:px-8 flex items-center gap-3.5 shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                        <FaRegClock className="text-xl" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-amber-900 uppercase tracking-wider">Access Request Pending</h4>
+                        <p className="text-xs text-amber-700 mt-0.5">Your access request has been sent to the deal owner. You will be notified once reviewed.</p>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="w-full bg-[#0b1120] text-white p-5 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-gray-800 shrink-0">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-gray-800 text-teal-400 flex items-center justify-center shrink-0 border border-gray-700">
+                          <FaLock className="text-lg" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-200 uppercase tracking-wider">Identity Protected Deal</h4>
+                          <p className="text-xs text-gray-400 mt-0.5">Confidential data room access is reserved for verified and approved buyers.</p>
+                        </div>
+                      </div>
+                      {!isRequestFormOpen && (
+                        <button
+                          disabled={verificationStatus !== 'verified'}
+                          onClick={() => {
+                            const currentCompany = localStorage.getItem('companyName') || profileData.companyName || '';
+                            if (currentCompany) {
+                              setDealRequestForm(prev => ({ ...prev, company: prev.company || currentCompany }));
+                            }
+                            setIsRequestFormOpen(true);
+                          }}
+                          className={`px-6 py-3 text-xs font-bold rounded-lg transition-colors shrink-0 shadow-sm cursor-pointer ${
+                            verificationStatus !== 'verified'
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60'
+                              : 'bg-[#008f70] hover:bg-[#007058] text-white'
+                          }`}
+                        >
+                          {verificationStatus !== 'verified' ? 'Verification Required' : 'Request Access'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+              })()}
+
             </div>
           </div>
         )}

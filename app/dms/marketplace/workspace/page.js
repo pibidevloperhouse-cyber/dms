@@ -485,7 +485,7 @@ export default function WorkspacePage() {
                 <div className="bg-white rounded-xl shadow-[0_2px_15px_rgb(0,0,0,0.02)] border border-gray-200 p-6 md:p-8 h-full flex flex-col">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-bold text-gray-900">Your Active Pipeline</h2>
-                    <button onClick={() => router.push('/dms/tracker')} className="text-sm font-bold text-teal-600 hover:text-teal-700">View Tracker</button>
+                    <button onClick={() => router.push('/dms/marketplace/tracker')} className="text-sm font-bold text-teal-600 hover:text-teal-700">View Tracker</button>
                   </div>
 
                   <div className="space-y-4">

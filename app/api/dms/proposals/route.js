@@ -1,5 +1,5 @@
 import { db } from '../../../../db';
-import { dmsDealProposals, dmsTeasers, users, dmsDeals } from '../../../../db/schema';
+import { dmsDealProposals, dmsTeasers, users, dmsDeals, companies } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
@@ -28,14 +28,15 @@ export async function GET(req) {
       buyerId: users.id,
       fullName: users.name,
       email: users.email,
-      company: users.companyName,
+      company: companies.name,
       jobTitle: users.jobTitle,
-      investorType: users.investorType,
+      investorType: companies.operationType,
       investmentRange: users.investmentRange,
     })
     .from(dmsDealProposals)
     .where(eq(dmsDealProposals.teaserId, teaser.id))
-    .leftJoin(users, eq(dmsDealProposals.buyerId, users.id));
+    .leftJoin(users, eq(dmsDealProposals.buyerId, users.id))
+    .leftJoin(companies, eq(users.companyId, companies.id));
 
     return NextResponse.json({ proposals }, { status: 200 });
   } catch (error) {

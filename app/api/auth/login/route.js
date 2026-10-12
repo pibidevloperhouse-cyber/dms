@@ -12,6 +12,7 @@ export async function POST(req) {
     const userList = await db.select({
       id: users.id,
       company_id: users.companyId,
+      companyName: companies.name,
       name: users.name,
       email: users.email,
       password_hash: users.passwordHash,
