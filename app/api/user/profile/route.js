@@ -81,7 +81,7 @@ export async function GET(req) {
       email: user?.email || email || '',
       role: user?.role || 'guest_admin',
       companyId: company?.id || user?.companyId || null,
-      verificationStatus: user?.verificationStatus || 'unverified',
+      verificationStatus: company?.status === 'active' ? 'verified' : company?.status === 'rejected' ? 'failed' : 'pending',
       phoneNumber: user?.phoneNumber || '',
       companyType: company?.companyType || user?.companyType || '',
       companyName: company?.name || '',

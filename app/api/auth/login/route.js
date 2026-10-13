@@ -13,6 +13,7 @@ export async function POST(req) {
       id: users.id,
       company_id: users.companyId,
       companyName: companies.name,
+      companyStatus: companies.status,
       name: users.name,
       email: users.email,
       password_hash: users.passwordHash,
@@ -21,7 +22,6 @@ export async function POST(req) {
       status: users.status,
       nda_status: users.ndaStatus,
       request_status: users.requestStatus,
-      verification_status: users.verificationStatus
     })
     .from(users)
     .leftJoin(companies, eq(users.companyId, companies.id))
@@ -49,12 +49,16 @@ export async function POST(req) {
       return NextResponse.json({ error: 'This account has been suspended. Please contact your VDR Administrator.' }, { status: 403 });
     }
 
-    // Check verification status for buyers and sellers
+    // Check verification status for buyers and sellers (Option 1: Company Verification via companies.status)
+    const isCompanyVerified = user.companyStatus === 'active';
     if (user.dmsRole === 'buyer' || user.dmsRole === 'seller') {
-      if (user.verification_status !== 'verified') {
+      if (!isCompanyVerified) {
         return NextResponse.json({ error: 'Your company is under verification. Please wait for admin approval.' }, { status: 403 });
       }
     }
+
+    // Standardize verification_status in user payload
+    user.verification_status = isCompanyVerified ? 'verified' : (user.companyStatus === 'rejected' ? 'failed' : 'pending');
 
     // Insert into login_history
     try {

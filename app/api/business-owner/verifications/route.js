@@ -19,11 +19,11 @@ export async function GET(req) {
       email: users.email,
       phoneNumber: users.phoneNumber,
       role: users.role,
-      verificationStatus: users.verificationStatus,
-      verifiedAt: users.verifiedAt,
       createdAt: users.createdAt,
       
       // Company details
+      companyId: companies.id,
+      companyStatus: companies.status,
       dmsRole: companies.dmsRole,
       companyName: companies.name,
       operationType: companies.operationType,
@@ -34,17 +34,12 @@ export async function GET(req) {
       stateRegion: companies.stateRegion,
       city: companies.city,
       
-      // Seller Profile details (fallback to companies if legacy)
+      // Seller Profile details
       sellerRole: sellerProfiles.sellerRole,
       subRole: companies.subRole,
       licenseNumber: sellerProfiles.licenseNumber,
       proofOfAuthorityUrl: sellerProfiles.proofOfAuthorityUrl,
       additionalDocumentUrl: sellerProfiles.additionalDocumentUrl,
-
-      // Legacy fallbacks for existing seller records
-      companyLicenseNumber: companies.licenseNumber,
-      companyProofOfAuthorityUrl: companies.proofOfAuthorityUrl,
-      companyAdditionalDocumentUrl: companies.additionalDocumentUrl,
 
       // Buyer Profile details
       buyerRole: buyerProfiles.buyerRole,
@@ -82,13 +77,20 @@ export async function GET(req) {
     )
     .orderBy(desc(users.createdAt));
 
-    // Consolidate legacy seller fields if profile table was empty
-    const sanitizedUsers = dmsUsers.map(u => ({
-      ...u,
-      licenseNumber: u.licenseNumber || u.companyLicenseNumber,
-      proofOfAuthorityUrl: u.proofOfAuthorityUrl || u.companyProofOfAuthorityUrl,
-      additionalDocumentUrl: u.additionalDocumentUrl || u.companyAdditionalDocumentUrl,
-    }));
+    // Consolidate legacy seller fields and calculate company-based verification status (Option 1)
+    const sanitizedUsers = dmsUsers.map(u => {
+      const isVerified = u.companyStatus === 'active' || u.verificationStatus === 'verified';
+      const isFailed = u.companyStatus === 'rejected' || u.verificationStatus === 'failed';
+      const effectiveStatus = isVerified ? 'verified' : isFailed ? 'failed' : 'pending';
+
+      return {
+        ...u,
+        verificationStatus: effectiveStatus,
+        licenseNumber: u.licenseNumber,
+        proofOfAuthorityUrl: u.proofOfAuthorityUrl,
+        additionalDocumentUrl: u.additionalDocumentUrl,
+      };
+    });
 
     return NextResponse.json({ success: true, data: sanitizedUsers });
   } catch (error) {

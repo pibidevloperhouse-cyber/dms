@@ -163,11 +163,11 @@ export async function POST(req) {
       if (existingCompany.length > 0) {
         finalCompanyId = existingCompany[0].id;
       } else {
-        // Create a new Company profile for the user
+        // Create a new Company profile for the user (pending platform verification)
         const [newCompany] = await db.insert(companies).values({
           name: effectiveCompanyName,
           email: email, // use user's email for the company for now
-          status: 'active',
+          status: 'pending',
           phoneNumber,
           companyType,
           websiteUrl,
@@ -178,9 +178,6 @@ export async function POST(req) {
           city,
           dmsRole: roleToSet.toLowerCase(),
           subRole: sellerRole || buyerSubRole || null,
-          proofOfAuthorityUrl,
-          licenseNumber,
-          additionalDocumentUrl,
         }).returning({ id: companies.id });
         
         finalCompanyId = newCompany.id;

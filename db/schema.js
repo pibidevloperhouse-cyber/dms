@@ -36,9 +36,6 @@ export const companies = pgTable('companies', {
   city: text('city'),
   dmsRole: text('dms_role'),
   subRole: text('sub_role'),
-  proofOfAuthorityUrl: text('proof_of_authority_url'),
-  licenseNumber: text('license_number'),
-  additionalDocumentUrl: text('additional_document_url'),
 });
 
 export const workspaces = pgTable('workspaces', {
@@ -92,8 +89,6 @@ export const users = pgTable('users', {
   // DMS Gap Analysis added fields
   isBroker: boolean('is_broker').default(false),
   referralSource: text('referral_source'),
-  verificationStatus: verificationStatusEnum('verification_status').default('unverified'),
-  verifiedAt: timestamp('verified_at', { withTimezone: true }),
 });
 
 export const sellerProfiles = pgTable('seller_profiles', {
