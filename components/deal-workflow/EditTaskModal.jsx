@@ -83,7 +83,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     if (isExternal) {
       const fromExt = Array.isArray(externalGroups)
         ? externalGroups
-            .filter((g) => g.side === oppositeSide || !g.side)
+            .filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
             .map((g) => g.department)
             .filter(Boolean)
         : [];
@@ -92,7 +92,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     } else {
       const fromInt = Array.isArray(workflowGroups)
         ? workflowGroups
-            .filter((g) => g.side === userSide || !g.side)
+            .filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
             .map((g) => g.department)
             .filter(Boolean)
         : [];
@@ -105,23 +105,29 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
 
-    // Cross-party delegation rule: ONLY Super Admin can assign external groups
-    if (isExternal && !isSuperAdmin) {
-      return [];
-    }
-
-    const creatorRole = normalizeRole(currentUser?.role);
-    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
-
     let list = [];
     if (isExternal) {
+      // Counterparty groups (opposite side)
       list = Array.isArray(externalGroups) && externalGroups.length > 0
-        ? externalGroups.filter((g) => g.side === oppositeSide || !g.side)
+        ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
         : [];
     } else {
+      // Internal groups (current user's side)
       list = Array.isArray(workflowGroups) && workflowGroups.length > 0
-        ? workflowGroups.filter((g) => g.side === userSide || !g.side)
+        ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
         : [];
+
+      // For internal assignment: filter down role hierarchy if applicable
+      const creatorRole = normalizeRole(currentUser?.role);
+      const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+      if (allowedRoles.length > 0) {
+        list = list.filter((g) => {
+          if (task?.assigned_to_group && g.name === task.assigned_to_group) return true;
+          const gRole = resolveGroupRole(g);
+          if (gRole === creatorRole) return false;
+          return allowedRoles.includes(gRole);
+        });
+      }
     }
 
     if (department && department !== 'ALL') {
@@ -134,12 +140,13 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     }
 
     // Always preserve currently assigned group if editing
-    list = list.filter((g) => {
-      if (task?.assigned_to_group && g.name === task.assigned_to_group) return true;
-      const gRole = resolveGroupRole(g);
-      if (gRole === creatorRole) return false;
-      return allowedRoles.includes(gRole);
-    });
+    if (task?.assigned_to_group && !list.some((g) => g.name === task.assigned_to_group)) {
+      const allGroupsPool = isExternal ? externalGroups : workflowGroups;
+      const foundInPool = (allGroupsPool || []).find((g) => g.name === task.assigned_to_group);
+      if (foundInPool) {
+        list = [foundInPool, ...list];
+      }
+    }
 
     return list.map((g) => {
       const gRole = resolveGroupRole(g);
@@ -159,7 +166,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel, task, userSide, oppositeSide]);
+  }, [visibility, department, workflowGroups, externalGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel, task, userSide, oppositeSide]);
 
   // Subordinate members available for assignment strictly within assignedGroup
   const assignableMembers = useMemo(() => {
@@ -346,45 +353,28 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
                   <span>Visibility</span>
-                  {isSuperAdmin && (
-                    <span className="text-[10px] font-normal text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
-                      Cross-Party Access
-                    </span>
-                  )}
                 </label>
                 <div className="relative">
                   <select
                     value={visibility}
                     onChange={(e) => {
-                      if (!isSuperAdmin && e.target.value === 'EXTERNAL') return;
-                      setVisibility(e.target.value);
-                      const nextIsExt = e.target.value === 'EXTERNAL';
+                      const nextVis = e.target.value;
+                      setVisibility(nextVis);
+                      const nextIsExt = nextVis === 'EXTERNAL';
                       const nextDepts = nextIsExt
-                        ? Array.from(new Set([...(externalGroups || []).map((g) => g.department).filter(Boolean), ...(externalDepartments || [])]))
-                        : Array.from(new Set([...(workflowGroups || []).map((g) => g.department).filter(Boolean), ...(departments || [])]));
+                        ? Array.from(new Set([...(externalGroups || []).filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side).map((g) => g.department).filter(Boolean), ...(externalDepartments || [])]))
+                        : Array.from(new Set([...(workflowGroups || []).filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side).map((g) => g.department).filter(Boolean), ...(departments || [])]));
                       if (nextDepts.length > 0 && !nextDepts.includes(department)) {
                         setDepartment(nextDepts[0]);
                       }
                     }}
-                    disabled={!isSuperAdmin}
-                    className={`w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all ${
-                      !isSuperAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
                     <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
-                    {isSuperAdmin ? (
-                      <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
-                    ) : (
-                      <option value="EXTERNAL" disabled>External (Super Admin only)</option>
-                    )}
+                    <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
-                {!isSuperAdmin && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Only Super Admin can assign tasks to external counterparty groups.
-                  </p>
-                )}
               </div>
 
               <div>

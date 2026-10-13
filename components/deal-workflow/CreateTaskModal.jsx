@@ -65,14 +65,14 @@ export default function CreateTaskModal() {
   };
 
   // Available departments switch based on Visibility:
-  // INTERNAL -> internal departments of currentUser's side
-  // EXTERNAL -> opposite counterparty departments (e.g. buyer's departments for seller, or seller's for buyer)
+  // INTERNAL -> internal departments of currentUser's side (seller or buyer)
+  // EXTERNAL -> opposite counterparty departments (buyer if seller, seller if buyer)
   const availableDepartments = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
     if (isExternal) {
       const fromExt = Array.isArray(externalGroups)
         ? externalGroups
-            .filter((g) => g.side === oppositeSide || !g.side)
+            .filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
             .map((g) => g.department)
             .filter(Boolean)
         : [];
@@ -81,7 +81,7 @@ export default function CreateTaskModal() {
     } else {
       const fromInt = Array.isArray(workflowGroups)
         ? workflowGroups
-            .filter((g) => g.side === userSide || !g.side)
+            .filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
             .map((g) => g.department)
             .filter(Boolean)
         : [];
@@ -90,28 +90,34 @@ export default function CreateTaskModal() {
     }
   }, [visibility, externalGroups, externalDepartments, workflowGroups, departments, userSide, oppositeSide]);
 
-  // Available groups for the selected department, strictly excluding creator's own role and higher roles
-  // If visibility is EXTERNAL, show opposite counterparty's groups (allowed exclusively for Super Admin)
+  // Available groups switch based on Visibility:
+  // INTERNAL -> internal groups of currentUser's side
+  // EXTERNAL -> opposite counterparty's groups
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
 
-    // Cross-party delegation rule: ONLY Super Admin can assign external groups
-    if (isExternal && !isSuperAdmin) {
-      return [];
-    }
-
-    const creatorRole = normalizeRole(currentUser?.role);
-    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
-
     let list = [];
     if (isExternal) {
+      // Counterparty groups (opposite side)
       list = Array.isArray(externalGroups) && externalGroups.length > 0
-        ? externalGroups.filter((g) => g.side === oppositeSide || !g.side)
+        ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
         : [];
     } else {
+      // Internal groups (current user's side)
       list = Array.isArray(workflowGroups) && workflowGroups.length > 0
-        ? workflowGroups.filter((g) => g.side === userSide || !g.side)
+        ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
         : [];
+
+      // For internal assignment: filter down role hierarchy if applicable
+      const creatorRole = normalizeRole(currentUser?.role);
+      const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+      if (allowedRoles.length > 0) {
+        list = list.filter((g) => {
+          const gRole = resolveGroupRole(g);
+          if (gRole === creatorRole) return false;
+          return allowedRoles.includes(gRole);
+        });
+      }
     }
 
     if (department && department !== 'ALL') {
@@ -122,14 +128,6 @@ export default function CreateTaskModal() {
         list = filteredByDept;
       }
     }
-
-    // Rule: Exclude groups matching creator's own role (e.g. admin cannot assign to admin groups)
-    // Rule: Creator can only assign down the hierarchy to subordinate roles
-    list = list.filter((g) => {
-      const gRole = resolveGroupRole(g);
-      if (gRole === creatorRole) return false;
-      return allowedRoles.includes(gRole);
-    });
 
     return list.map((g) => {
       const gRole = resolveGroupRole(g);
@@ -149,7 +147,7 @@ export default function CreateTaskModal() {
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel, userSide, oppositeSide]);
+  }, [visibility, department, workflowGroups, externalGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel, userSide, oppositeSide]);
 
   // Subordinate members available for subtask assignment strictly within assignedGroup
   const subtaskAssignableMembers = useMemo(() => {
@@ -248,6 +246,7 @@ export default function CreateTaskModal() {
       const created = await createTask({
         title: title.trim(),
         description: description.trim(),
+        workspaceId: currentUser?.workspaceId,
         visibility,
         target_side: targetSide,
         target_company: targetCompany,
@@ -389,27 +388,15 @@ export default function CreateTaskModal() {
                   <select
                     value={visibility}
                     onChange={(e) => {
-                      if (!isSuperAdmin && e.target.value === 'EXTERNAL') return;
                       setVisibility(e.target.value);
                     }}
-                    disabled={!isSuperAdmin}
-                    className={`w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all ${!isSuperAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'cursor-pointer'
-                      }`}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
                     <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
-                    {isSuperAdmin ? (
-                      <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
-                    ) : (
-                      <option value="EXTERNAL" disabled>External (Super Admin only)</option>
-                    )}
+                    <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
-                {!isSuperAdmin && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Only Super Admin can assign tasks to external counterparty groups.
-                  </p>
-                )}
               </div>
 
               {/* Department Field (Replaces Workstream) */}

@@ -254,15 +254,19 @@ export const readSessionUser = () => {
     const s = JSON.parse(rawSession);
     if (s && (s.name || s.id || s.email)) {
       const roleStr = s.role || 'internal_user';
+      const userDmsRole = (s.dms_role || s.dmsRole || '').toLowerCase();
+      const isBuyerRole = userDmsRole === 'buyer' || ['guest_admin', 'buyer', 'guest_lead', 'external_user'].includes(roleStr);
+      const side = isBuyerRole ? 'buyer' : 'seller';
       return {
         id: s.id || 'session_user',
         name: (s.name || s.email?.split('@')[0] || 'User').trim(),
         email: s.email || '',
         role: roleStr,
         roleLabel: getRoleLabel(roleStr),
-        side: s.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(s.role) ? 'buyer' : 'seller'),
-        company: s.company_name || (s.dms_role === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+        side,
+        company: s.company_name || s.companyName || (side === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
         group: s.group || s.role || 'General',
+        workspaceId: s.active_workspace_id || s.workspace_id || null,
         avatar: (s.name || s.email || 'U')[0].toUpperCase(),
         color: 'from-blue-600 to-indigo-700',
       };
@@ -472,10 +476,18 @@ export function DealWorkflowProvider({ children }) {
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
   // Fetch real deal tasks and dynamic department/group structure
-  const fetchTasks = async (showLoading = true) => {
+  const fetchTasks = async (showLoading = true, customWsId = null) => {
     if (showLoading) setIsLoading(true);
     try {
-      const res = await fetch('/api/deal-tasks');
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const wsId = customWsId || session?.active_workspace_id || session?.workspace_id || '';
+      const params = new URLSearchParams();
+      if (wsId) {
+        params.set('workspaceId', wsId);
+      }
+      const url = params.toString() ? `/api/deal-tasks?${params.toString()}` : '/api/deal-tasks';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
         setTasks(data.tasks);
@@ -501,18 +513,29 @@ export function DealWorkflowProvider({ children }) {
     }
   };
 
-  const fetchDepartmentsAndGroups = async () => {
+  const fetchDepartmentsAndGroups = async (customWsId = null) => {
     try {
       const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
       const session = rawSession ? JSON.parse(rawSession) : null;
       const companyId = session?.company_id || '';
+      const wsId = customWsId || session?.active_workspace_id || session?.workspace_id || '';
+      const userSide = session?.dms_role || (['guest_admin', 'buyer', 'guest_lead'].includes(session?.role) ? 'buyer' : 'seller');
 
-      const res = await fetch(`/api/deal-workflow/departments-groups?companyId=${companyId}`);
+      const params = new URLSearchParams();
+      if (companyId) params.set('companyId', companyId);
+      if (wsId) params.set('workspaceId', wsId);
+      if (userSide) params.set('userSide', userSide);
+
+      const res = await fetch(`/api/deal-workflow/departments-groups?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setWorkflowGroups(data.groups || []);
         if (Array.isArray(data.externalGroups)) {
           setExternalGroupsState(data.externalGroups);
+        }
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setDepartments(data.departments);
+          setDbGroups((data.groups || []).map((g) => g.name));
         }
         if (Array.isArray(data.externalDepartments) && data.externalDepartments.length > 0) {
           setExternalDepartments(data.externalDepartments);
@@ -1328,16 +1351,12 @@ export function DealWorkflowProvider({ children }) {
 
     const userNormRole = normalizeRole(user.role);
     const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
-    if (allowedRoles.length === 0) return [];
 
-    // Cross-party delegation rule: ONLY Super Admin can assign tasks/subtasks to external buyer groups
-    const isSuperAdmin = userNormRole === 'super_admin';
     const isExternalGroup = externalGroups.some(
       (eg) => (eg?.name || '').trim().toLowerCase() === groupName.trim().toLowerCase()
     );
-    if (isExternalGroup && !isSuperAdmin) {
-      return [];
-    }
+
+    if (!isExternalGroup && allowedRoles.length === 0) return [];
 
     const memberNames = getMembersForGroup(groupName);
     const currentUserName = (user.name || '').trim().toLowerCase();
@@ -1365,7 +1384,7 @@ export function DealWorkflowProvider({ children }) {
       const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : 'internal_user');
       const targetNormRole = normalizeRole(rawRole);
 
-      if (allowedRoles.includes(targetNormRole)) {
+      if (isExternalGroup || allowedRoles.includes(targetNormRole)) {
         seen.add(cleanName.toLowerCase());
         candidates.push({
           id: dbUser?.id || demoUser?.id || cleanName,
@@ -1374,7 +1393,7 @@ export function DealWorkflowProvider({ children }) {
           roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || rawRole,
           email: dbUser?.email || demoUser?.email || '',
           group: groupName,
-          side: dbUser?.side || demoUser?.side || user.side,
+          side: dbUser?.side || demoUser?.side || (isExternalGroup ? (user.side === 'buyer' ? 'seller' : 'buyer') : user.side),
         });
       }
     });
@@ -1672,8 +1691,7 @@ export function DealWorkflowProvider({ children }) {
   const createTask = async (formData) => {
     try {
       const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
-      const session = rawSession ? JSON.parse(rawSession) : null;
-      const workspaceId = session?.active_workspace_id || null;
+      const workspaceId = formData.workspaceId || currentUser?.workspaceId || session?.active_workspace_id || session?.workspace_id || null;
 
       const targetSide = formData.target_side || getTargetSideForVisibility(formData.visibility, currentUser);
       const targetCompany = formData.target_company || getTargetCompanyForVisibility(formData.visibility, currentUser);
