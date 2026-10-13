@@ -5,8 +5,8 @@ import { eq, inArray, and } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY // Service Role required for backend storage
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // Service Role required for backend storage
 );
 
 export async function GET(req) {
@@ -70,7 +70,7 @@ export async function POST(req) {
     const dealType = formData.get('dealType');
     const projectType = formData.get('projectType');
     const description = formData.get('description');
-    
+
     // Extracted teaser fields
     const businessModel = formData.get('businessModel');
     const industry = formData.get('industry');
@@ -109,9 +109,9 @@ export async function POST(req) {
 
     // Parse JSON strings
     let operationsLocations = [];
-    try { if (operationsLocationsStr) operationsLocations = JSON.parse(operationsLocationsStr); } catch(e){}
+    try { if (operationsLocationsStr) operationsLocations = JSON.parse(operationsLocationsStr); } catch (e) { }
     let preferredBuyerTypes = [];
-    try { if (preferredBuyerTypesStr) preferredBuyerTypes = JSON.parse(preferredBuyerTypesStr); } catch(e){}
+    try { if (preferredBuyerTypesStr) preferredBuyerTypes = JSON.parse(preferredBuyerTypesStr); } catch (e) { }
 
     const [newProject] = await db.insert(dmsProjects).values({
       name,
@@ -128,7 +128,7 @@ export async function POST(req) {
       if (companyRecord && companyRecord.name) {
         companyName = companyRecord.name.replace(/[^a-zA-Z0-9_-]/g, '_'); // sanitize
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Could not fetch company name", e);
     }
 
@@ -144,17 +144,17 @@ export async function POST(req) {
       if (!file || typeof file === 'string') return null;
       const fileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
       const filePath = `${uploadBaseFolder}/${Date.now()}_${fileName}`;
-      
+
       const buffer = Buffer.from(await file.arrayBuffer());
       const { data, error } = await supabase.storage
         .from(bucketName)
         .upload(filePath, buffer, { contentType: file.type, upsert: false });
-        
+
       if (error) {
         console.error('File upload error:', error);
         return null;
       }
-      
+
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
       return publicUrlData.publicUrl;
     };
@@ -203,7 +203,7 @@ export async function POST(req) {
         balanceSheetUrl: balanceSheetUrl || null,
         status: 'inactive'
       });
-    } catch(teaserErr) {
+    } catch (teaserErr) {
       console.error('Failed to create initial teaser:', teaserErr);
     }
 
@@ -224,7 +224,7 @@ export async function DELETE(req) {
     }
 
     const { dmsTeasers, dmsDeals, dmsDealProposals, riskIssues, approvals, auditLogs } = require('@/db/schema');
-    
+
     const teasers = await db.select().from(dmsTeasers).where(eq(dmsTeasers.projectId, id));
     if (teasers.length > 0) {
       const teaserIds = teasers.map(t => t.id);

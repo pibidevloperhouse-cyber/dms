@@ -96,6 +96,7 @@ export async function GET(req) {
 
     const activeBuyers = activeBuyersRaw.map(buyer => ({
       ...buyer,
+      verificationStatus: buyer.verificationStatus || 'verified',
       location: [buyer.city, buyer.stateRegion, buyer.country].filter(Boolean).join(', ')
     }));
 

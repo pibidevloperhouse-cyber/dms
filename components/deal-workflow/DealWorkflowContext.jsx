@@ -141,7 +141,35 @@ export const DEMO_USERS = {
   },
 };
 
-export const SELLER_GROUPS = [];
+export const SELLER_GROUPS = [
+  {
+    id: 'seller_finance',
+    name: 'Seller Finance Team',
+    department: 'Finance',
+    role: 'sub_admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Lakshmi Narayanan'],
+  },
+  {
+    id: 'seller_legal',
+    name: 'Seller Legal Team',
+    department: 'Legal',
+    role: 'sub_admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Suresh Kumar'],
+  },
+  {
+    id: 'seller_admin',
+    name: 'Seller Admin',
+    department: 'General',
+    role: 'admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Ravi Shankar'],
+  },
+];
 export const BUYER_GROUPS = [
   {
     id: 'buyer_legal',
@@ -194,7 +222,7 @@ export const DEAL_STAGES = [
 
 export const normalizeStage = (stage) => {
   if (!stage) return 'Preparation';
-  const s = stage.trim().toLowerCase();
+  const s = (typeof stage === 'string' ? stage : String(stage?.name || stage || '')).trim().toLowerCase();
   if (s.includes('prep')) return 'Preparation';
   if (s.includes('due') || s.includes('diligence')) return 'Due Diligence';
   if (s.includes('neg')) return 'Negotiation';
@@ -256,19 +284,8 @@ export function DealWorkflowProvider({ children }) {
   const [groupMembersMap, setGroupMembersMap] = useState({});
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
+  const [externalDepartments, setExternalDepartments] = useState(['Finance', 'Legal', 'Operations', 'General']);
 
-  // Memoized external groups (always guarantees standard BUYER_GROUPS are available)
-  const externalGroups = useMemo(() => {
-    const list = [...BUYER_GROUPS];
-    if (Array.isArray(externalGroupsState)) {
-      externalGroupsState.forEach((g) => {
-        if (!list.some((item) => item.name.toLowerCase() === g.name.toLowerCase())) {
-          list.push(g);
-        }
-      });
-    }
-    return list;
-  }, [externalGroupsState]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
@@ -497,6 +514,9 @@ export function DealWorkflowProvider({ children }) {
         if (Array.isArray(data.externalGroups)) {
           setExternalGroupsState(data.externalGroups);
         }
+        if (Array.isArray(data.externalDepartments) && data.externalDepartments.length > 0) {
+          setExternalDepartments(data.externalDepartments);
+        }
         setGroupMembersMap(data.groupMembersMap || {});
         setAllUsers(data.users || []);
 
@@ -594,6 +614,26 @@ export function DealWorkflowProvider({ children }) {
     }
     return DEMO_USERS.ravi;
   }, [sessionUser, currentUserId]);
+
+  // Memoized external groups (dynamically targets counterparty based on current user side)
+  const externalGroups = useMemo(() => {
+    const userSide = currentUser?.side || 'seller';
+    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+    const fallbackList = oppositeSide === 'buyer' ? BUYER_GROUPS : SELLER_GROUPS;
+
+    const list = [];
+    if (Array.isArray(externalGroupsState)) {
+      externalGroupsState.forEach((g) => {
+        list.push(g);
+      });
+    }
+    fallbackList.forEach((fg) => {
+      if (!list.some((item) => (item.name || '').toLowerCase() === (fg.name || '').toLowerCase())) {
+        list.push(fg);
+      }
+    });
+    return list;
+  }, [externalGroupsState, currentUser?.side]);
 
   // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
   const [trackingSection, setTrackingSection] = useState(() => {
@@ -851,11 +891,14 @@ export function DealWorkflowProvider({ children }) {
   // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
   // ============================================================================
   const getGroupsForDepartment = (deptName, visibility) => {
+    const userSide = currentUser?.side || 'seller';
+    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+
     let source = workflowGroups;
     if (visibility === 'EXTERNAL') {
-      source = externalGroups;
+      source = externalGroups.filter((g) => g.side === oppositeSide || !g.side);
     } else if (visibility === 'INTERNAL') {
-      source = workflowGroups.filter((g) => g.side !== 'buyer');
+      source = workflowGroups.filter((g) => g.side === userSide || !g.side);
     } else {
       source = [...workflowGroups, ...externalGroups];
     }
@@ -871,8 +914,10 @@ export function DealWorkflowProvider({ children }) {
 
   const getMembersForGroup = (groupName) => {
     // Ensure groupName is a non-empty string before using string methods
-    const resolvedGroupName = typeof groupName === 'string' ? groupName : (Array.isArray(groupName) ? groupName[0] : null);
-    if (!resolvedGroupName) {
+    const resolvedGroupName = typeof groupName === 'string'
+      ? groupName
+      : (typeof groupName === 'object' && groupName?.name ? groupName.name : (Array.isArray(groupName) ? groupName[0] : null));
+    if (!resolvedGroupName || typeof resolvedGroupName !== 'string' || !resolvedGroupName.trim()) {
       const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
       return Array.from(new Set(raw.filter(Boolean)));
     }
@@ -1274,8 +1319,13 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Subordinate members for a SPECIFIC group based on Role Hierarchy (Creator excluded)
-  const getAssignableMembersForGroup = (groupName, user = currentUser) => {
-    if (!user || !groupName) return [];
+  const getAssignableMembersForGroup = (groupInput, user = currentUser) => {
+    if (!user || !groupInput) return [];
+    const groupName = typeof groupInput === 'string'
+      ? groupInput
+      : (typeof groupInput === 'object' && groupInput?.name ? groupInput.name : (Array.isArray(groupInput) ? groupInput[0] : ''));
+    if (!groupName || typeof groupName !== 'string' || !groupName.trim()) return [];
+
     const userNormRole = normalizeRole(user.role);
     const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
     if (allowedRoles.length === 0) return [];
@@ -1283,7 +1333,7 @@ export function DealWorkflowProvider({ children }) {
     // Cross-party delegation rule: ONLY Super Admin can assign tasks/subtasks to external buyer groups
     const isSuperAdmin = userNormRole === 'super_admin';
     const isExternalGroup = externalGroups.some(
-      (eg) => (eg.name || '').trim().toLowerCase() === groupName.trim().toLowerCase()
+      (eg) => (eg?.name || '').trim().toLowerCase() === groupName.trim().toLowerCase()
     );
     if (isExternalGroup && !isSuperAdmin) {
       return [];
@@ -2026,6 +2076,7 @@ export function DealWorkflowProvider({ children }) {
         addComment,
         deleteTask,
         departments,
+        externalDepartments,
         workflowGroups,
         externalGroups,
         buyerGroups: BUYER_GROUPS,

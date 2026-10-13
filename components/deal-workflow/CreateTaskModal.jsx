@@ -12,6 +12,7 @@ export default function CreateTaskModal() {
     setIsCreateModalOpen,
     createTask,
     departments,
+    externalDepartments = [],
     workflowGroups,
     externalGroups,
     getGroupsForDepartment,
@@ -23,6 +24,11 @@ export default function CreateTaskModal() {
     selectedDealStage,
     activeDealStage,
   } = useDealWorkflow();
+
+  const userSide = currentUser?.side || 'seller';
+  const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+  const oppositeLabel = oppositeSide === 'buyer' ? 'Buyer' : 'Seller';
+  const internalLabel = userSide === 'buyer' ? 'Buyer' : 'Seller';
 
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
 
@@ -58,8 +64,34 @@ export default function CreateTaskModal() {
     return 'internal_user';
   };
 
+  // Available departments switch based on Visibility:
+  // INTERNAL -> internal departments of currentUser's side
+  // EXTERNAL -> opposite counterparty departments (e.g. buyer's departments for seller, or seller's for buyer)
+  const availableDepartments = useMemo(() => {
+    const isExternal = visibility === 'EXTERNAL';
+    if (isExternal) {
+      const fromExt = Array.isArray(externalGroups)
+        ? externalGroups
+            .filter((g) => g.side === oppositeSide || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromExt, ...(externalDepartments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'Legal', 'Operations', 'General'];
+    } else {
+      const fromInt = Array.isArray(workflowGroups)
+        ? workflowGroups
+            .filter((g) => g.side === userSide || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromInt, ...(departments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'HR', 'Legal', 'Operations', 'General'];
+    }
+  }, [visibility, externalGroups, externalDepartments, workflowGroups, departments, userSide, oppositeSide]);
+
   // Available groups for the selected department, strictly excluding creator's own role and higher roles
-  // If visibility is EXTERNAL, show buyer groups (allowed exclusively for Super Admin)
+  // If visibility is EXTERNAL, show opposite counterparty's groups (allowed exclusively for Super Admin)
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
 
@@ -71,9 +103,16 @@ export default function CreateTaskModal() {
     const creatorRole = normalizeRole(currentUser?.role);
     const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
 
-    let list = isExternal
-      ? (Array.isArray(externalGroups) && externalGroups.length > 0 ? externalGroups : [])
-      : (Array.isArray(workflowGroups) && workflowGroups.length > 0 ? workflowGroups.filter((g) => g.side !== 'buyer') : []);
+    let list = [];
+    if (isExternal) {
+      list = Array.isArray(externalGroups) && externalGroups.length > 0
+        ? externalGroups.filter((g) => g.side === oppositeSide || !g.side)
+        : [];
+    } else {
+      list = Array.isArray(workflowGroups) && workflowGroups.length > 0
+        ? workflowGroups.filter((g) => g.side === userSide || !g.side)
+        : [];
+    }
 
     if (department && department !== 'ALL') {
       const filteredByDept = list.filter(
@@ -95,21 +134,22 @@ export default function CreateTaskModal() {
     return list.map((g) => {
       const gRole = resolveGroupRole(g);
       const roleStr = getRoleLabel ? getRoleLabel(gRole) : gRole;
-      const isExternalGroup = isExternal || g.side === 'buyer';
+      const targetSide = isExternal ? oppositeSide : userSide;
+      const sideText = targetSide === 'buyer' ? 'Buyer' : 'Seller';
       return {
         id: g.id || g.name,
         name: g.name,
         role: gRole,
         roleLabel: roleStr,
-        isExternal: isExternalGroup,
-        side: g.side || (isExternalGroup ? 'buyer' : 'seller'),
-        company: g.company || (isExternalGroup ? 'XYZ Capital' : (currentUser?.company || 'Company')),
-        displayName: isExternalGroup
-          ? `🌐 ${g.name} (${roleStr}) · Buyer Group`
+        isExternal,
+        side: g.side || targetSide,
+        company: g.company || (isExternal ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company')),
+        displayName: isExternal
+          ? `${g.name} (${roleStr}) · ${sideText} Group`
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel]);
+  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel, userSide, oppositeSide]);
 
   // Subordinate members available for subtask assignment strictly within assignedGroup
   const subtaskAssignableMembers = useMemo(() => {
@@ -120,12 +160,16 @@ export default function CreateTaskModal() {
     return [];
   }, [assignedGroup, getAssignableMembersForGroup, currentUser]);
 
-  // Sync default department when departments load
+  // Sync default department when availableDepartments or visibility change
   useEffect(() => {
-    if (departments.length > 0 && (!department || !departments.includes(department))) {
-      setDepartment(departments[0]);
+    if (availableDepartments.length > 0) {
+      if (!department || !availableDepartments.includes(department)) {
+        setDepartment(availableDepartments[0]);
+      }
+    } else {
+      setDepartment('');
     }
-  }, [departments, department]);
+  }, [availableDepartments, visibility]);
 
   // Sync default deal stage from currently viewed board stage
   useEffect(() => {
@@ -167,7 +211,7 @@ export default function CreateTaskModal() {
     setDescription('');
     setVisibility('INTERNAL');
     setDepartment(departments[0] || '');
-    setAssignedGroup(availableGroups[0] || '');
+    setAssignedGroup(availableGroups[0]?.name || '');
     setAssignedMember('');
     setPriority('High');
     setDealStage('Preparation');
@@ -194,8 +238,10 @@ export default function CreateTaskModal() {
 
     const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
     const isExternal = visibility === 'EXTERNAL';
-    const targetSide = isExternal ? (currentUser?.side === 'seller' ? 'buyer' : 'seller') : (currentUser?.side || 'seller');
-    const targetCompany = isExternal ? (currentUser?.side === 'seller' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company');
+    const targetSide = isExternal ? oppositeSide : userSide;
+    const targetCompany = isExternal 
+      ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') 
+      : (currentUser?.company || 'Company');
 
     setIsSubmitting(true);
     try {
@@ -337,11 +383,7 @@ export default function CreateTaskModal() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
                   <span>Visibility</span>
-                  {isSuperAdmin && (
-                    <span className="text-[10px] font-normal text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
-                      Cross-Party Access
-                    </span>
-                  )}
+
                 </label>
                 <div className="relative">
                   <select
@@ -354,9 +396,9 @@ export default function CreateTaskModal() {
                     className={`w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all ${!isSuperAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                   >
-                    <option value="INTERNAL">Internal ({currentUser?.company || 'Internal Team'})</option>
+                    <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
                     {isSuperAdmin ? (
-                      <option value="EXTERNAL">External (Buyer Side)</option>
+                      <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
                     ) : (
                       <option value="EXTERNAL" disabled>External (Super Admin only)</option>
                     )}
@@ -373,7 +415,7 @@ export default function CreateTaskModal() {
               {/* Department Field (Replaces Workstream) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Department *
+                  {visibility === 'EXTERNAL' ? `${oppositeLabel} Department *` : 'Department *'}
                 </label>
                 <div className="relative">
                   <select
@@ -382,10 +424,10 @@ export default function CreateTaskModal() {
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
                     required
                   >
-                    {departments.length === 0 ? (
+                    {availableDepartments.length === 0 ? (
                       <option value="">No departments found</option>
                     ) : (
-                      departments.map((d) => (
+                      availableDepartments.map((d) => (
                         <option key={d} value={d}>{d}</option>
                       ))
                     )}
@@ -402,12 +444,8 @@ export default function CreateTaskModal() {
               {/* Dynamic Group List based on chosen Department */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>{visibility === 'EXTERNAL' ? 'Assign to buyer group *' : 'Assign to group *'}</span>
-                  {visibility === 'EXTERNAL' && (
-                    <span className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 font-medium">
-                      Counterparty
-                    </span>
-                  )}
+                  <span>{visibility === 'EXTERNAL' ? `Assign to ${oppositeLabel.toLowerCase()} group *` : 'Assign to group *'}</span>
+
                 </label>
                 <div className="relative">
                   <select
@@ -417,7 +455,7 @@ export default function CreateTaskModal() {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No {visibility === 'EXTERNAL' ? 'buyer' : 'subordinate'} groups in this department</option>
+                      <option value="">No {visibility === 'EXTERNAL' ? oppositeLabel.toLowerCase() : 'subordinate'} groups in this department</option>
                     ) : (
                       availableGroups.map((g) => (
                         <option key={g.id || g.name} value={g.name}>

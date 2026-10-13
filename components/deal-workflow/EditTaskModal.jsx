@@ -10,6 +10,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     currentUser,
     updateTask,
     departments,
+    externalDepartments = [],
     workflowGroups,
     externalGroups,
     getGroupsForDepartment,
@@ -18,6 +19,11 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     normalizeRole,
     getRoleLabel,
   } = useDealWorkflow();
+
+  const userSide = currentUser?.side || 'seller';
+  const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+  const oppositeLabel = oppositeSide === 'buyer' ? 'Buyer' : 'Seller';
+  const internalLabel = userSide === 'buyer' ? 'Buyer' : 'Seller';
 
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
 
@@ -69,6 +75,32 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     return 'internal_user';
   };
 
+  // Available departments switch based on Visibility:
+  // INTERNAL -> internal departments of currentUser's side
+  // EXTERNAL -> opposite counterparty departments
+  const availableDepartments = useMemo(() => {
+    const isExternal = visibility === 'EXTERNAL';
+    if (isExternal) {
+      const fromExt = Array.isArray(externalGroups)
+        ? externalGroups
+            .filter((g) => g.side === oppositeSide || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromExt, ...(externalDepartments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'Legal', 'Operations', 'General'];
+    } else {
+      const fromInt = Array.isArray(workflowGroups)
+        ? workflowGroups
+            .filter((g) => g.side === userSide || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromInt, ...(departments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'HR', 'Legal', 'Operations', 'General'];
+    }
+  }, [visibility, externalGroups, externalDepartments, workflowGroups, departments, userSide, oppositeSide]);
+
   // Available groups for the selected department, strictly excluding creator's own role and higher roles
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
@@ -81,9 +113,16 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     const creatorRole = normalizeRole(currentUser?.role);
     const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
 
-    let list = isExternal
-      ? (Array.isArray(externalGroups) && externalGroups.length > 0 ? externalGroups : [])
-      : (Array.isArray(workflowGroups) && workflowGroups.length > 0 ? workflowGroups.filter((g) => g.side !== 'buyer') : []);
+    let list = [];
+    if (isExternal) {
+      list = Array.isArray(externalGroups) && externalGroups.length > 0
+        ? externalGroups.filter((g) => g.side === oppositeSide || !g.side)
+        : [];
+    } else {
+      list = Array.isArray(workflowGroups) && workflowGroups.length > 0
+        ? workflowGroups.filter((g) => g.side === userSide || !g.side)
+        : [];
+    }
 
     if (department && department !== 'ALL') {
       const filteredByDept = list.filter(
@@ -105,21 +144,22 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     return list.map((g) => {
       const gRole = resolveGroupRole(g);
       const roleStr = getRoleLabel ? getRoleLabel(gRole) : gRole;
-      const isExternalGroup = isExternal || g.side === 'buyer';
+      const targetSide = isExternal ? oppositeSide : userSide;
+      const sideText = targetSide === 'buyer' ? 'Buyer' : 'Seller';
       return {
         id: g.id || g.name,
         name: g.name,
         role: gRole,
         roleLabel: roleStr,
-        isExternal: isExternalGroup,
-        side: g.side || (isExternalGroup ? 'buyer' : 'seller'),
-        company: g.company || (isExternalGroup ? 'XYZ Capital' : (currentUser?.company || 'Company')),
-        displayName: isExternalGroup
-          ? `🌐 ${g.name} (${roleStr}) · Buyer Group`
+        isExternal,
+        side: g.side || targetSide,
+        company: g.company || (isExternal ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company')),
+        displayName: isExternal
+          ? `${g.name} (${roleStr}) · ${sideText} Group`
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel, task]);
+  }, [visibility, department, workflowGroups, externalGroups, isSuperAdmin, currentUser, roleHierarchy, normalizeRole, getRoleLabel, task, userSide, oppositeSide]);
 
   // Subordinate members available for assignment strictly within assignedGroup
   const assignableMembers = useMemo(() => {
@@ -318,15 +358,22 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     onChange={(e) => {
                       if (!isSuperAdmin && e.target.value === 'EXTERNAL') return;
                       setVisibility(e.target.value);
+                      const nextIsExt = e.target.value === 'EXTERNAL';
+                      const nextDepts = nextIsExt
+                        ? Array.from(new Set([...(externalGroups || []).map((g) => g.department).filter(Boolean), ...(externalDepartments || [])]))
+                        : Array.from(new Set([...(workflowGroups || []).map((g) => g.department).filter(Boolean), ...(departments || [])]));
+                      if (nextDepts.length > 0 && !nextDepts.includes(department)) {
+                        setDepartment(nextDepts[0]);
+                      }
                     }}
                     disabled={!isSuperAdmin}
                     className={`w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all ${
                       !isSuperAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   >
-                    <option value="INTERNAL">Internal ({currentUser?.company || 'Internal Team'})</option>
+                    <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
                     {isSuperAdmin ? (
-                      <option value="EXTERNAL">External (Buyer Side)</option>
+                      <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
                     ) : (
                       <option value="EXTERNAL" disabled>External (Super Admin only)</option>
                     )}
@@ -342,7 +389,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Department *
+                  {visibility === 'EXTERNAL' ? `${oppositeLabel} Department *` : 'Department *'}
                 </label>
                 <div className="relative">
                   <select
@@ -355,7 +402,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
                     required
                   >
-                    {departments.map((d) => (
+                    {availableDepartments.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
@@ -364,12 +411,12 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
               </div>
             </div>
 
-            {/* External Buyer Assignment Notification Banner */}
+            {/* External Assignment Notification Banner */}
             {visibility === 'EXTERNAL' && (
               <div className="bg-purple-50/90 border border-purple-200/90 rounded-xl p-2.5 flex items-start gap-2 text-purple-950 text-xs">
                 <Globe className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">Assigning to External Buyer Group</span> — This task will be assigned across party lines to <span className="font-semibold">XYZ Capital (Buyer)</span>.
+                  <span className="font-bold">Assigning to External {oppositeLabel} Group</span> — This task will be assigned across party lines to <span className="font-semibold">{oppositeSide === 'buyer' ? 'XYZ Capital (Buyer)' : 'ABC Textiles (Seller)'}</span>.
                 </div>
               </div>
             )}
@@ -378,7 +425,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
             <div className="grid grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>{visibility === 'EXTERNAL' ? 'Assign to buyer group *' : 'Assign to group *'}</span>
+                  <span>{visibility === 'EXTERNAL' ? `Assign to ${oppositeLabel.toLowerCase()} group *` : 'Assign to group *'}</span>
                   {visibility === 'EXTERNAL' && (
                     <span className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 font-medium">
                       Counterparty
@@ -393,7 +440,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No {visibility === 'EXTERNAL' ? 'buyer' : 'subordinate'} groups in department</option>
+                      <option value="">No {visibility === 'EXTERNAL' ? oppositeLabel.toLowerCase() : 'subordinate'} groups in department</option>
                     ) : (
                       availableGroups.map((g) => (
                         <option key={g.id || g.name} value={g.name}>

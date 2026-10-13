@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, companies, buyerProfiles } from '@/db/schema';
-import { eq, or, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   try {
