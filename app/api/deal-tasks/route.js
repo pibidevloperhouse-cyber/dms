@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dealTasks, groups, userGroups, users } from '@/db/schema';
+import { dealTasks, groups, userGroups, users, companies } from '@/db/schema';
 import { eq, desc, and, or, ilike } from 'drizzle-orm';
 import { formatTask } from '@/lib/dealTasksHelper';
 
@@ -104,8 +104,11 @@ export async function GET(req) {
           email: users.email,
           role: users.role,
           companyId: users.companyId,
+          companyName: companies.name,
+          dmsRole: companies.dmsRole,
         })
-        .from(users);
+        .from(users)
+        .leftJoin(companies, eq(users.companyId, companies.id));
 
       for (const g of dbGroups) {
         const userIdsInGroup = dbUserGroups
@@ -145,7 +148,11 @@ export async function GET(req) {
       })),
       departments: departments.length > 0 ? departments : ['Finance', 'Legal', 'Operations', 'General'],
       groupMembersMap,
-      users: dbAllUsers,
+      users: dbAllUsers.map((u) => ({
+        ...u,
+        side: u.dmsRole?.toLowerCase() === 'buyer' ? 'buyer' : 'seller',
+        company: u.companyName || '',
+      })),
     });
   } catch (error) {
     console.error('Fetch deal tasks error:', error);

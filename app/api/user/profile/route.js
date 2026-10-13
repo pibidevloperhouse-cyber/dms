@@ -20,7 +20,7 @@ export async function GET(req) {
       companyId: users.companyId,
       verificationStatus: users.verificationStatus,
       phoneNumber: users.phoneNumber,
-      companyType: users.companyType,
+      companyType: companies.companyType,
       companyName: companies.name,
     })
     .from(users)
