@@ -78,7 +78,7 @@ export default function ProfilePage() {
           setOpportunities(data.teasers || []);
           setBuyerProfiles(data.buyers || []);
         }
-        
+
         // Fetch specific user profile for email
         const userId = localStorage.getItem('userId');
         if (userId) {
