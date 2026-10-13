@@ -200,40 +200,24 @@ export default function GroupsSidebar({ isOpen = true }) {
                 return new Date(b.created_at || 0) - new Date(a.created_at || 0);
             });
 
-            // Read persisted custom departments
+            // Clean up any legacy localStorage entries so no ghost departments persist
             try {
-                const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
-                if (Array.isArray(savedCustom) && savedCustom.length > 0) {
-                    const valid = savedCustom.filter(d => typeof d === 'string' && d.trim());
-                    if (valid.length > 0) {
-                        setDepartments(prev => Array.from(new Set([...prev, ...valid])));
-                    }
-                }
+                localStorage.removeItem('dms_custom_departments');
+                localStorage.removeItem('dms_group_departments');
             } catch (e) {}
-
-            // Read persisted group department mappings
-            const savedGroupDepts = (() => {
-                try {
-                    return JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
-                } catch (e) {
-                    return {};
-                }
-            })();
 
             const loadedGroups = groups.map(g => ({
                 id: g.id,
                 name: g.name,
                 href: `/groups/${g.id}`,
                 role: g.role || '',
-                department: g.department || savedGroupDepts[g.id] || null
+                department: g.department || 'General'
             }));
 
             setNavItems(loadedGroups);
 
-            const existingGroupDepts = loadedGroups.map(g => g.department).filter(Boolean);
-            if (existingGroupDepts.length > 0) {
-                setDepartments(prev => Array.from(new Set([...prev, ...existingGroupDepts])));
-            }
+            const existingGroupDepts = Array.from(new Set(loadedGroups.map(g => g.department).filter(Boolean)));
+            setDepartments(existingGroupDepts);
 
             // Fetch Guest Lead if in a workspace
             if (session?.active_workspace_id) {
@@ -294,17 +278,7 @@ export default function GroupsSidebar({ isOpen = true }) {
         if (!query) return;
         const formatted = query.charAt(0).toUpperCase() + query.slice(1);
 
-        setDepartments(prev => {
-            const next = Array.from(new Set([...prev, formatted]));
-            try {
-                const savedCustom = JSON.parse(localStorage.getItem('dms_custom_departments') || '[]');
-                if (!savedCustom.includes(formatted)) {
-                    localStorage.setItem('dms_custom_departments', JSON.stringify([...savedCustom, formatted]));
-                }
-            } catch (e) {}
-            return next;
-        });
-
+        setDepartments(prev => Array.from(new Set([...prev, formatted])));
         setNewGroupDepartment(formatted);
         setIsCreatingNewDept(false);
         setCustomDeptInput('');
@@ -342,12 +316,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                 if (deleteTarget.isIndividualGroup) {
                     setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
                 } else {
-                    setNavItems(prev => prev.filter(g => g.id !== deleteTarget.id));
-                    try {
-                        const savedGroupDepts = JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
-                        delete savedGroupDepts[deleteTarget.id];
-                        localStorage.setItem('dms_group_departments', JSON.stringify(savedGroupDepts));
-                    } catch (e) {}
+                    setNavItems(prev => {
+                        const updated = prev.filter(g => g.id !== deleteTarget.id);
+                        setDepartments(Array.from(new Set(updated.map(g => g.department).filter(Boolean))));
+                        return updated;
+                    });
                 }
             }
         } catch (err) {
@@ -393,12 +366,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             const { data, error } = await supabase.from('groups').insert(insertPayload).select().single();
 
             if (!error && data) {
-                // Save department mapping to localStorage
-                try {
-                    const savedGroupDepts = JSON.parse(localStorage.getItem('dms_group_departments') || '{}');
-                    savedGroupDepts[data.id] = finalDept;
-                    localStorage.setItem('dms_group_departments', JSON.stringify(savedGroupDepts));
-                } catch (e) {}
+                setDepartments(prev => Array.from(new Set([...prev, finalDept])));
 
                 // Insert Default Permissions based on Role
                 let workspacePerms = {
@@ -593,14 +561,13 @@ export default function GroupsSidebar({ isOpen = true }) {
                             <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-100 rounded w-full"></div></div>
                         ) : (
                             (() => {
-                                const allKnownDepts = Array.from(new Set([
-                                    ...departments,
-                                    ...navItems.map(g => g.department || 'General').filter(Boolean)
-                                ]));
+                                const allKnownDepts = Array.from(new Set(
+                                    navItems.map(g => g.department || 'General').filter(Boolean)
+                                ));
 
                                 if (allKnownDepts.length === 0) {
                                     return (
-                                        <div className="px-5 py-4 text-xs text-gray-400 italic">Empty</div>
+                                        <div className="px-5 py-4 text-xs text-gray-400 italic">No groups found</div>
                                     );
                                 }
 

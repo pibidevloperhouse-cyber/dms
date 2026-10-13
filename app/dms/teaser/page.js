@@ -84,24 +84,9 @@ function TeaserContent() {
       });
 
       if (res.ok) {
-        // Save to my teasers
-        const myTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
-        const newTeaser = {
-          projectId,
-          projectName: projectName,
-          industry: "B2B SaaS",
-          geography: "North America",
-          dealType: "Majority Acquisition",
-          revenue: "$12.4M",
-          ebitda: "$3.1M",
-          status: "Pending",
-          requestedAt: new Date().toISOString()
-        };
-        // avoid duplicates
-        if (!myTeasers.find(t => t.projectId === projectId)) {
-          myTeasers.push(newTeaser);
-          localStorage.setItem('my_requested_teasers', JSON.stringify(myTeasers));
-        }
+        try {
+          localStorage.removeItem('my_requested_teasers');
+        } catch (e) {}
 
         setIsModalOpen(false);
         setRequestForm({

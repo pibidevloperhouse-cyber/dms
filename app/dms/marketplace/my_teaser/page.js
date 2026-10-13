@@ -35,7 +35,9 @@ export default function MyTeaserPage() {
                 ndaStatus: r.ndaStatus
               }));
               setMyTeasers(dbTeasers);
-              localStorage.setItem('my_requested_teasers', JSON.stringify(dbTeasers));
+              try {
+                localStorage.removeItem('my_requested_teasers');
+              } catch (e) {}
               setLoading(false);
               return;
             }
@@ -45,9 +47,7 @@ export default function MyTeaserPage() {
         }
       }
 
-      // Fallback to local storage if API didn't return requests
-      const storedTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
-      setMyTeasers(storedTeasers);
+      setMyTeasers([]);
       setLoading(false);
     };
 

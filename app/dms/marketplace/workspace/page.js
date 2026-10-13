@@ -318,21 +318,12 @@ export default function WorkspacePage() {
             const data = await res.json();
             let deals = data.deals || [];
 
-            // If user has local requested teasers that are not yet in server deals, merge them
-            const localTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
-            for (const lt of localTeasers) {
-              if (lt.projectId && !deals.some(d => d.projectId === lt.projectId)) {
-                deals.push({
-                  id: lt.projectId,
-                  projectId: lt.projectId,
-                  name: lt.projectName,
-                  status: lt.status?.toLowerCase() === 'approved' ? 'active' : 'inactive',
-                  ndaStatus: 'pending',
-                  createdAt: lt.requestedAt || new Date().toISOString()
-                });
-              }
-            }
+            // Clean up any legacy ghost requested teasers from localStorage
+            try {
+              localStorage.removeItem('my_requested_teasers');
+            } catch (e) {}
 
+            // Use only verified deals from the database
             setWorkspaces(deals);
           }
         } catch (error) {

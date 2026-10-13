@@ -304,22 +304,9 @@ export default function MarketplacePage() {
       });
 
       if (res.ok) {
-        const myTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
-        const newTeaser = {
-          projectId: selectedDeal.projectId,
-          projectName: selectedDeal.projectName,
-          industry: selectedDeal.industry || selectedDeal.sector || "Technology / SaaS",
-          geography: selectedDeal.geography || selectedDeal.headquarters || "India",
-          dealType: selectedDeal.businessModel || "Majority Acquisition",
-          revenue: selectedDeal.revenue || "$12.4M",
-          ebitda: selectedDeal.ebitda || "$3.1M",
-          status: "Pending",
-          requestedAt: new Date().toISOString()
-        };
-        if (!myTeasers.find(t => t.projectId === selectedDeal.projectId)) {
-          myTeasers.push(newTeaser);
-          localStorage.setItem('my_requested_teasers', JSON.stringify(myTeasers));
-        }
+        try {
+          localStorage.removeItem('my_requested_teasers');
+        } catch (e) {}
 
         setBuyerProposals(prev => [
           ...prev,

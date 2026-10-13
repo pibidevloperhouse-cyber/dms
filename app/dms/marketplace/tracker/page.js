@@ -37,25 +37,9 @@ export default function TrackerPage() {
           const data = await res.json();
           let serverReqs = data.requests || [];
 
-          // Also check localStorage my_requested_teasers as fallback or merge
-          const localTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
-          if (localTeasers.length > 0 && serverReqs.length === 0) {
-            const userName = localStorage.getItem('userName') || 'jana nayagan';
-            const userEmail = localStorage.getItem('userEmail') || '';
-            const compName = localStorage.getItem('companyName') || 'PiBi Tech Solutions';
-            serverReqs = localTeasers.map(t => ({
-              id: t.projectId,
-              projectName: t.projectName,
-              projectId: t.projectId,
-              fullName: userName,
-              email: userEmail,
-              company: compName,
-              investorType: 'Direct Buyer',
-              status: t.status || 'Pending',
-              dateSubmitted: new Date(t.requestedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              ndaStatus: 'pending'
-            }));
-          }
+          try {
+            localStorage.removeItem('my_requested_teasers');
+          } catch (e) {}
 
           setRequests(serverReqs);
         }
