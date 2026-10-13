@@ -52,6 +52,45 @@ export default function MarketplacePage() {
   const [dealTypeFilter, setDealTypeFilter] = useState('All Deal Types');
   const router = useRouter();
 
+  const loadUserProfile = async () => {
+    if (typeof window === 'undefined') return;
+    const uId = localStorage.getItem('userId');
+    const uEmail = localStorage.getItem('userEmail');
+    const cId = localStorage.getItem('companyId');
+    const params = new URLSearchParams();
+    if (uId) params.set('userId', uId);
+    if (uEmail) params.set('email', uEmail);
+    if (cId) params.set('companyId', cId);
+
+    if (!uId && !uEmail && !cId) return;
+
+    try {
+      const res = await fetch(`/api/user/profile?${params.toString()}`);
+      if (res.ok) {
+        const resData = await res.json();
+        const profile = resData?.data;
+        if (profile) {
+          if (profile.companyName) {
+            localStorage.setItem('companyName', profile.companyName);
+          }
+          setDealRequestForm(prev => ({
+            ...prev,
+            company: profile.companyName || prev.company || localStorage.getItem('companyName') || '',
+            investmentRange: profile.investmentRange || prev.investmentRange || '$5M - $20M',
+            companyDescription: profile.companyDescription || prev.companyDescription || '',
+            foundedDate: profile.foundedYear || profile.foundedDate || prev.foundedDate || '',
+            headquarters: profile.headquarters || prev.headquarters || '',
+            teamSize: profile.teamSize || prev.teamSize || '',
+            dealBreakers: profile.dealBreakers || prev.dealBreakers || '',
+            timeToClose: (profile.timelineToCloseDays !== null && profile.timelineToCloseDays !== undefined) ? String(profile.timelineToCloseDays) : (prev.timeToClose || '30')
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch user profile", err);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
 
@@ -98,31 +137,7 @@ export default function MarketplacePage() {
       company: curCompanyName
     }));
 
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      fetch(`/api/user/profile?userId=${userId}`)
-        .then(res => res.json())
-        .then(resData => {
-          const profile = resData?.data;
-          if (profile) {
-            if (profile.companyName) {
-              localStorage.setItem('companyName', profile.companyName);
-            }
-            setDealRequestForm(prev => ({
-              ...prev,
-              company: profile.companyName || prev.company,
-              investmentRange: profile.investmentRange || prev.investmentRange || '$5M - $20M',
-              companyDescription: profile.companyDescription || prev.companyDescription || '',
-              foundedDate: profile.foundedYear || prev.foundedDate || '',
-              headquarters: profile.headquarters || prev.headquarters || '',
-              teamSize: profile.teamSize || prev.teamSize || '',
-              dealBreakers: profile.dealBreakers || prev.dealBreakers || '',
-              timeToClose: (profile.timelineToCloseDays !== null && profile.timelineToCloseDays !== undefined) ? String(profile.timelineToCloseDays) : (prev.timeToClose || '30')
-            }));
-          }
-        })
-        .catch(err => console.error("Failed to fetch user profile", err));
-    }
+    loadUserProfile();
 
     // Fetch active data from the database
     const fetchData = async () => {
@@ -1819,9 +1834,6 @@ export default function MarketplacePage() {
                       <span className="px-2.5 py-0.5 bg-[#008f70]/10 text-[#008f70] text-[10px] font-bold tracking-wider rounded-md uppercase border border-[#008f70]/20">
                         Confidential Opportunity
                       </span>
-                      <span className="text-[11px] font-semibold text-gray-400">
-                        Project ID: {selectedDeal.projectId?.substring(0, 8) || 'N/A'}
-                      </span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
                       {selectedDeal.projectName || 'Confidential Deal'}
@@ -2189,6 +2201,7 @@ export default function MarketplacePage() {
                         <button
                           disabled={verificationStatus !== 'verified'}
                           onClick={() => {
+                            loadUserProfile();
                             const currentCompany = localStorage.getItem('companyName') || profileData.companyName || '';
                             if (currentCompany) {
                               setDealRequestForm(prev => ({ ...prev, company: prev.company || currentCompany }));

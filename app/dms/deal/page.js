@@ -895,10 +895,6 @@ export default function DealDashboard() {
                   <p className="text-sm font-medium text-gray-900">{selectedRequest.company}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Job Title</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.jobTitle}</p>
-                </div>
-                <div>
                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Investor Type</p>
                   <p className="text-sm font-medium text-gray-900">{selectedRequest.investorType}</p>
                 </div>
