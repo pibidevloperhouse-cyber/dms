@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog, FaCalendarAlt, FaDollarSign, FaUsers, FaChartBar } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog, FaCalendarAlt, FaDollarSign, FaUsers } from "react-icons/fa";
 
 export default function MarketplacePage() {
   const [userRole, setUserRole] = useState(null);
@@ -28,7 +28,6 @@ export default function MarketplacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isViewMoreModalOpen, setIsViewMoreModalOpen] = useState(false);
-  const [buyerModalTab, setBuyerModalTab] = useState('analytics');
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
@@ -730,21 +729,16 @@ export default function MarketplacePage() {
                           {/* Header Section */}
                           <div className="flex justify-between items-start mb-5">
                             <div className="flex items-center gap-4">
-                              <div className="w-14 h-14 bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] rounded-xl flex items-center justify-center text-white font-bold text-2xl shrink-0 shadow-xs">
+                              <div className="w-14 h-14 bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] rounded-xl flex items-center justify-center text-white font-bold text-2xl shrink-0">
                                 {buyer.name ? buyer.name.substring(0, 2).toUpperCase() : 'GO'}
                               </div>
                               <div>
-                                <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-1.5">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                                  {buyer.investorType || 'M&A OPPORTUNITY'}
+                                </p>
+                                <h3 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">
                                   {buyer.name || 'Google tech'}
                                 </h3>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                                    {buyer.investorType || 'M&A'}
-                                  </p>
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#008f70] bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
-                                    <FaCheckCircle className="text-[#008f70] text-[9px]" /> Verified
-                                  </span>
-                                </div>
                               </div>
                             </div>
                             <button className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -814,7 +808,6 @@ export default function MarketplacePage() {
                               <button
                                 onClick={() => {
                                   setSelectedBuyer(buyer);
-                                  setBuyerModalTab('analytics');
                                   setIsViewMoreModalOpen(true);
                                 }}
                                 className="text-[14px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 px-6 py-3 rounded-[8px] flex items-center gap-2 transition-colors duration-200 shadow-sm"
@@ -825,7 +818,6 @@ export default function MarketplacePage() {
                               <button
                                 onClick={() => {
                                   setSelectedBuyer(buyer);
-                                  setBuyerModalTab('analytics');
                                   setIsViewMoreModalOpen(true);
                                 }}
                                 className="text-[14px] font-bold text-white bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] hover:opacity-90 shadow-sm px-6 py-3 rounded-[8px] transition-opacity duration-200 flex items-center gap-2"
@@ -887,7 +879,7 @@ export default function MarketplacePage() {
                       </div>
                       <h3 className="text-xl font-bold text-gray-900 mb-2">No opportunities found</h3>
                       <p className="text-gray-500 text-sm max-w-md text-center">Try adjusting your filters or search terms to find more deals matching your criteria.</p>
-                      <button
+                      <button 
                         onClick={handleResetFilters}
                         className="mt-6 px-6 py-2.5 bg-[#008f70] hover:bg-[#00755d] text-white text-sm font-bold rounded-full transition-colors shadow-sm"
                       >
@@ -1524,484 +1516,228 @@ export default function MarketplacePage() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0b1120]/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] border border-gray-100 animate-in zoom-in-95 duration-200">
               {/* Modal Header */}
-              <div className="p-6 md:p-8 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 shrink-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0">
-                      {selectedBuyer.name ? selectedBuyer.name.substring(0, 2).toUpperCase() : 'PI'}
+              <div className="p-6 md:p-8 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-100 flex items-start justify-between gap-4 shrink-0">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0">
+                    {selectedBuyer.name ? selectedBuyer.name.substring(0, 2).toUpperCase() : 'B'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                      <span className="px-2.5 py-0.5 bg-gradient-to-r from-[#1f6fb2]/10 to-[#2ec4b6]/10 text-[#1f6fb2] text-[10px] font-bold tracking-wider rounded-md uppercase border border-[#2ec4b6]/20">
+                        Buyer Profile
+                      </span>
+                      <span className="text-[11px] font-semibold text-gray-400">
+                        Buyer ID: {selectedBuyer.id?.substring(0, 8) || 'N/A'}
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                        <span className="px-2.5 py-0.5 bg-[#e0f2fe] text-[#0284c7] text-[10px] font-bold tracking-wider rounded-md uppercase border border-sky-200">
-                          BUYER PROFILE
-                        </span>
-                        <span className="text-[11px] font-semibold text-gray-400">
-                          Buyer ID: {selectedBuyer.id?.substring(0, 8) || '7d71e1404'}
-                        </span>
-                      </div>
-                      <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                        <span>{selectedBuyer.name || 'PiBi Tech Solutions'}</span>
-                        <FaCheckCircle className="text-[#008f70] text-xl shrink-0" title="Verified Buyer" />
-                      </h2>
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+                      {selectedBuyer.name || 'Anonymous Buyer'}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {selectedBuyer.companyType && (
                         <span className="inline-flex items-center text-xs font-semibold text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-xs">
-                          {selectedBuyer.companyType || 'Technology'}
+                          {selectedBuyer.companyType}
                         </span>
+                      )}
+                      {(selectedBuyer.headquarters || selectedBuyer.location) && (
                         <span className="inline-flex items-center text-xs font-semibold text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-xs">
-                          {selectedBuyer.headquarters || selectedBuyer.location || 'India'}
+                          {selectedBuyer.headquarters || selectedBuyer.location}
                         </span>
-                        <span className="inline-flex items-center text-xs font-semibold text-[#0284c7] bg-[#e0f2fe]/70 px-3 py-1 rounded-full border border-sky-200 shadow-xs">
-                          {selectedBuyer.investorType || 'M&A'}
+                      )}
+                      {selectedBuyer.investorType && (
+                        <span className="inline-flex items-center text-xs font-semibold text-[#1f6fb2] bg-gradient-to-r from-[#1f6fb2]/10 to-[#2ec4b6]/10 px-3 py-1 rounded-full border border-[#2ec4b6]/20 shadow-xs">
+                          {selectedBuyer.investorType}
                         </span>
-                      </div>
+                      )}
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setIsViewMoreModalOpen(false)}
-                    className="text-gray-400 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100 shrink-0"
-                    title="Close"
-                  >
-                    <FaTimes className="text-xl" />
-                  </button>
                 </div>
 
-                {/* Tab Switcher Pills */}
-                <div className="flex items-center gap-1.5 p-1 bg-gray-100/90 rounded-xl w-fit mt-5 border border-gray-200/60">
-                  <button
-                    type="button"
-                    onClick={() => setBuyerModalTab('overview')}
-                    className={`px-4 py-2 rounded-lg text-sm transition-all ${buyerModalTab === 'overview'
-                        ? 'bg-white text-gray-900 shadow-sm font-bold border border-gray-200/80'
-                        : 'text-gray-600 hover:text-gray-900 font-medium'
-                      }`}
-                  >
-                    Company Overview
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBuyerModalTab('analytics')}
-                    className={`px-4 py-2 rounded-lg text-sm transition-all ${buyerModalTab === 'analytics'
-                        ? 'bg-white text-gray-900 shadow-sm font-bold border border-gray-200/80'
-                        : 'text-gray-600 hover:text-gray-900 font-medium'
-                      }`}
-                  >
-                    Analytics Snapshot
-                  </button>
-                </div>
+                <button
+                  onClick={() => setIsViewMoreModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100 shrink-0"
+                  title="Close"
+                >
+                  <FaTimes className="text-xl" />
+                </button>
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 md:p-8 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
-                {buyerModalTab === 'analytics' ? (
-                  <div className="space-y-6">
-                    {/* Top Row / Subheader */}
-                    <div className="flex items-center justify-between pb-1">
-                      <div className="flex items-center gap-2.5">
-                        <div className="text-[#0284c7]">
-                          <FaChartBar className="text-xl" />
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-gray-900">Buyer analytics</h3>
-                          <p className="text-xs text-gray-400 font-medium">Performance signals from the last 6 months</p>
-                        </div>
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200/60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        Active buyer
-                      </div>
-                    </div>
+              <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1 custom-scrollbar">
+                {/* Company Overview */}
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <FaBuilding className="text-[#1f6fb2]" /> Company Overview
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 md:p-5 rounded-xl border border-gray-100">
+                    {selectedBuyer.companyDescription || 'No company description provided.'}
+                  </p>
+                </div>
 
-                    {/* 4 Stat Metric Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {/* Profile Views */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">PROFILE VIEWS</span>
-                        <div className="flex items-baseline justify-between mt-1">
-                          <span className="text-3xl font-extrabold text-gray-900">387</span>
-                          <span className="text-xs font-bold text-emerald-500">+24.8%</span>
-                        </div>
-                      </div>
-
-                      {/* Active Interests */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">ACTIVE INTERESTS</span>
-                        <div className="flex items-baseline justify-between mt-1">
-                          <span className="text-3xl font-extrabold text-gray-900">31</span>
-                          <span className="text-xs font-bold text-emerald-500">+18.2%</span>
-                        </div>
-                      </div>
-
-                      {/* Avg. Response */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">AVG. RESPONSE</span>
-                        <div className="flex items-baseline justify-between mt-1">
-                          <span className="text-3xl font-extrabold text-gray-900">
-                            {selectedBuyer.timelineToCloseDays ? `${(selectedBuyer.timelineToCloseDays / 16).toFixed(1)}d` : '1.8d'}
-                          </span>
-                          <span className="text-xs font-bold text-emerald-500">-12.4%</span>
-                        </div>
-                      </div>
-
-                      {/* Match Score */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">MATCH SCORE</span>
-                        <div className="flex items-baseline justify-between mt-1">
-                          <span className="text-3xl font-extrabold text-gray-900">92%</span>
-                          <span className="text-xs font-bold text-emerald-500">+6.1%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Middle Row: Buyer Engagement Bar Chart & Acquisition Focus */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                      {/* Buyer Engagement Dual Bar Chart */}
-                      <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h4 className="text-base font-bold text-gray-900">Buyer engagement</h4>
-                            <p className="text-xs text-gray-400 font-medium mt-0.5">Views vs. expressed interest</p>
-                          </div>
-                          <div className="relative">
-                            <button
-                              type="button"
-                              className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors shadow-2xs"
-                            >
-                              Last 6 months
-                              <FaChevronDown className="text-[10px] text-gray-400" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Bar Chart Bars */}
-                        <div className="relative pt-6 pb-2">
-                          <div className="h-44 flex items-end justify-between gap-2 sm:gap-4 px-2 border-b border-gray-100">
-                            {[
-                              { month: 'May', views: 42, interests: 26 },
-                              { month: 'Jun', views: 56, interests: 34 },
-                              { month: 'Jul', views: 50, interests: 40 },
-                              { month: 'Aug', views: 74, interests: 48 },
-                              { month: 'Sep', views: 68, interests: 56 },
-                              { month: 'Oct', views: 88, interests: 76 }
-                            ].map((item, i) => (
-                              <div key={i} className="flex-1 flex flex-col items-center h-full justify-end group">
-                                <div className="w-full flex items-end justify-center gap-1 sm:gap-1.5 h-full">
-                                  {/* Views bar (Light Sky Blue) */}
-                                  <div
-                                    className="w-3 sm:w-4 bg-[#bfe5f7] rounded-t-sm transition-all duration-300 hover:brightness-95"
-                                    style={{ height: `${item.views}%` }}
-                                    title={`Profile views: ${item.views}`}
-                                  ></div>
-                                  {/* Interests bar (Teal) */}
-                                  <div
-                                    className="w-3 sm:w-4 bg-[#00c49f] rounded-t-sm transition-all duration-300 hover:brightness-95"
-                                    style={{ height: `${item.interests}%` }}
-                                    title={`Interests: ${item.interests}`}
-                                  ></div>
-                                </div>
-                                <span className="text-[11px] font-medium text-gray-400 mt-2.5">{item.month}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Legend */}
-                          <div className="flex items-center gap-5 mt-5">
-                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
-                              <span className="w-2.5 h-2.5 rounded-full bg-[#bfe5f7]"></span>
-                              Profile views
-                            </span>
-                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
-                              <span className="w-2.5 h-2.5 rounded-full bg-[#00c49f]"></span>
-                              Interests
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Acquisition Focus */}
-                      <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                        <div>
-                          <h4 className="text-base font-bold text-gray-900">Acquisition focus</h4>
-                          <p className="text-xs text-gray-400 font-medium mt-0.5 mb-5">Preferred opportunity categories</p>
-
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                                <span className="text-gray-800">Technology services</span>
-                                <span className="text-gray-500">78%</span>
-                              </div>
-                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#00c49f] h-2 rounded-full" style={{ width: '78%' }}></div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                                <span className="text-gray-800">SaaS & software</span>
-                                <span className="text-gray-500">64%</span>
-                              </div>
-                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#00c49f] h-2 rounded-full" style={{ width: '64%' }}></div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                                <span className="text-gray-800">Fintech</span>
-                                <span className="text-gray-500">51%</span>
-                              </div>
-                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#00c49f] h-2 rounded-full" style={{ width: '51%' }}></div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                                <span className="text-gray-800">IT infrastructure</span>
-                                <span className="text-gray-500">42%</span>
-                              </div>
-                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#00c49f] h-2 rounded-full" style={{ width: '42%' }}></div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-[#f0f9ff] border border-[#e0f2fe] rounded-xl p-3.5 flex items-center gap-2.5 text-xs font-semibold text-[#0284c7] mt-5">
-                          <FaChartLine className="text-[#0284c7] text-sm shrink-0" />
-                          <span>Strong fit for technology businesses</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom 3 Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Verification Status */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs">
-                        <div className="flex items-center gap-2 text-[#0284c7] mb-2">
-                          <FaShieldAlt className="text-base" />
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">VERIFICATION STATUS</span>
-                        </div>
-                        <p className="text-base font-bold text-gray-900">Verified buyer</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {selectedBuyer.createdAt
-                            ? (() => {
-                              try {
-                                const d = new Date(selectedBuyer.createdAt);
-                                return isNaN(d.getTime()) ? 'KYC completed Oct 08, 2026' : `KYC completed ${d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}`;
-                              } catch (e) {
-                                return 'KYC completed Oct 08, 2026';
-                              }
-                            })()
-                            : 'KYC completed Oct 08, 2026'}
-                        </p>
-                      </div>
-
-                      {/* Investment Geography */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs">
-                        <div className="flex items-center gap-2 text-[#0284c7] mb-2">
-                          <FaGlobe className="text-base" />
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">INVESTMENT GEOGRAPHY</span>
-                        </div>
-                        <p className="text-base font-bold text-gray-900">
-                          {selectedBuyer.country || selectedBuyer.location || 'India'} • APAC
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">Open to cross-border opportunities</p>
-                      </div>
-
-                      {/* Typical Decision Time */}
-                      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-xs">
-                        <div className="flex items-center gap-2 text-[#0284c7] mb-2">
-                          <FaRegClock className="text-base" />
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">TYPICAL DECISION TIME</span>
-                        </div>
-                        <p className="text-base font-bold text-gray-900">
-                          {selectedBuyer.timelineToCloseDays
-                            ? `${Math.round(selectedBuyer.timelineToCloseDays * 0.5)}–${selectedBuyer.timelineToCloseDays} days`
-                            : '14–21 days'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">Based on recent activity</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    {/* Company Overview */}
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <FaBuilding className="text-[#1f6fb2]" /> Company Overview
-                      </h3>
-                      <p className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 md:p-5 rounded-xl border border-gray-100">
-                        {selectedBuyer.companyDescription || 'No company description provided.'}
+                {/* Financial & Profile Snapshot */}
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <FaChartLine className="text-[#1f6fb2]" /> Financial & Mandate Snapshot
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {/* Capital Value */}
+                    <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <FaDollarSign className="text-gray-400" /> Capital Value
+                      </p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {selectedBuyer.capitalValue
+                          ? (!isNaN(Number(selectedBuyer.capitalValue))
+                              ? `$${Number(selectedBuyer.capitalValue).toLocaleString()}`
+                              : (String(selectedBuyer.capitalValue).startsWith('$') ? selectedBuyer.capitalValue : `$${selectedBuyer.capitalValue}`))
+                          : 'N/A'}
                       </p>
                     </div>
 
-                    {/* Financial & Profile Snapshot */}
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <FaChartLine className="text-[#1f6fb2]" /> Financial & Mandate Snapshot
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {/* Capital Value */}
-                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <FaDollarSign className="text-gray-400" /> Capital Value
-                          </p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {selectedBuyer.capitalValue
-                              ? (!isNaN(Number(selectedBuyer.capitalValue))
-                                ? `$${Number(selectedBuyer.capitalValue).toLocaleString()}`
-                                : (String(selectedBuyer.capitalValue).startsWith('$') ? selectedBuyer.capitalValue : `$${selectedBuyer.capitalValue}`))
-                              : 'N/A'}
-                          </p>
-                        </div>
-
-                        {/* Team Size */}
-                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <FaUsers className="text-gray-400" /> Team Size
-                          </p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {selectedBuyer.teamSize
-                              ? `${selectedBuyer.teamSize} ${/^\d+$/.test(String(selectedBuyer.teamSize).trim()) ? 'Members' : ''}`
-                              : 'N/A'}
-                          </p>
-                        </div>
-
-                        {/* Founded Date */}
-                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <FaCalendarAlt className="text-gray-400" /> Founded Date
-                          </p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {(() => {
-                              if (!selectedBuyer.foundedYear) return 'N/A';
-                              if (/^\d{4}$/.test(String(selectedBuyer.foundedYear).trim())) return String(selectedBuyer.foundedYear);
-                              try {
-                                const d = new Date(selectedBuyer.foundedYear);
-                                return isNaN(d.getTime())
-                                  ? String(selectedBuyer.foundedYear)
-                                  : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                              } catch (e) {
-                                return String(selectedBuyer.foundedYear);
-                              }
-                            })()}
-                          </p>
-                        </div>
-
-                        {/* Headquarters */}
-                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <FaMapMarkerAlt className="text-gray-400" /> Headquarters
-                          </p>
-                          <p className="text-lg font-bold text-gray-900 truncate" title={selectedBuyer.headquarters || 'N/A'}>
-                            {selectedBuyer.headquarters || 'N/A'}
-                          </p>
-                        </div>
-
-                        {/* Time to Close */}
-                        <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4 col-span-2 sm:col-span-1">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                            <FaRegClock className="text-gray-400" /> Time to Close
-                          </p>
-                          <p className="text-lg font-bold text-emerald-600">
-                            {selectedBuyer.timelineToCloseDays ? `${selectedBuyer.timelineToCloseDays} Days` : '30 Days'}
-                          </p>
-                        </div>
-                      </div>
+                    {/* Team Size */}
+                    <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <FaUsers className="text-gray-400" /> Team Size
+                      </p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {selectedBuyer.teamSize
+                          ? `${selectedBuyer.teamSize} ${/^\d+$/.test(String(selectedBuyer.teamSize).trim()) ? 'Members' : ''}`
+                          : 'N/A'}
+                      </p>
                     </div>
 
-                    {/* Company & Verification Details */}
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <FaBriefcase className="text-[#1f6fb2]" /> Company & Verification Details
-                      </h3>
-                      <div className="bg-gray-50/60 rounded-xl p-5 border border-gray-200 grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 text-xs">
-                        {selectedBuyer.companyName && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaBuilding /> Company</p>
-                            <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.companyName}</p>
-                          </div>
-                        )}
-                        {selectedBuyer.jobTitle && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaBriefcase /> Job Title</p>
-                            <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.jobTitle}</p>
-                          </div>
-                        )}
-                        {selectedBuyer.companyType && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Company Type</p>
-                            <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.companyType}</p>
-                          </div>
-                        )}
-                        {selectedBuyer.createdAt && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaCalendarAlt /> Profile Create Date</p>
-                            <p className="font-semibold text-gray-900 text-sm">
-                              {(() => {
-                                try {
-                                  const d = new Date(selectedBuyer.createdAt);
-                                  return isNaN(d.getTime())
-                                    ? String(selectedBuyer.createdAt)
-                                    : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                } catch (e) {
-                                  return String(selectedBuyer.createdAt);
-                                }
-                              })()}
-                            </p>
-                          </div>
-                        )}
-                        {selectedBuyer.location && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaMapMarkerAlt /> Location</p>
-                            <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.location}</p>
-                          </div>
-                        )}
-                        {selectedBuyer.licenseNumber && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaShieldAlt /> License Number</p>
-                            <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.licenseNumber}</p>
-                          </div>
-                        )}
-                        {selectedBuyer.websiteUrl && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaGlobe /> Website</p>
-                            <a href={selectedBuyer.websiteUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">{selectedBuyer.websiteUrl}</a>
-                          </div>
-                        )}
-                        {selectedBuyer.linkedinUrl && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> LinkedIn</p>
-                            <a href={selectedBuyer.linkedinUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">{selectedBuyer.linkedinUrl}</a>
-                          </div>
-                        )}
-                        {selectedBuyer.proofOfAuthorityUrl && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> Proof of Authority</p>
-                            <a href={selectedBuyer.proofOfAuthorityUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">View Document</a>
-                          </div>
-                        )}
-                        {selectedBuyer.additionalDocumentUrl && (
-                          <div>
-                            <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> Additional Document</p>
-                            <a href={selectedBuyer.additionalDocumentUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">View Document</a>
-                          </div>
-                        )}
-                      </div>
+                    {/* Founded Date */}
+                    <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <FaCalendarAlt className="text-gray-400" /> Founded Date
+                      </p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {(() => {
+                          if (!selectedBuyer.foundedYear) return 'N/A';
+                          if (/^\d{4}$/.test(String(selectedBuyer.foundedYear).trim())) return String(selectedBuyer.foundedYear);
+                          try {
+                            const d = new Date(selectedBuyer.foundedYear);
+                            return isNaN(d.getTime()) 
+                              ? String(selectedBuyer.foundedYear) 
+                              : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                          } catch (e) {
+                            return String(selectedBuyer.foundedYear);
+                          }
+                        })()}
+                      </p>
                     </div>
 
-                    {/* Deal Breakers */}
-                    {selectedBuyer.dealBreakers && (
+                    {/* Headquarters */}
+                    <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <FaMapMarkerAlt className="text-gray-400" /> Headquarters
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 truncate" title={selectedBuyer.headquarters || 'N/A'}>
+                        {selectedBuyer.headquarters || 'N/A'}
+                      </p>
+                    </div>
+
+                    {/* Time to Close */}
+                    <div className="bg-gray-50/80 border border-gray-200/80 rounded-xl p-4 col-span-2 sm:col-span-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <FaRegClock className="text-gray-400" /> Time to Close
+                      </p>
+                      <p className="text-lg font-bold text-emerald-600">
+                        {selectedBuyer.timelineToCloseDays ? `${selectedBuyer.timelineToCloseDays} Days` : '30 Days'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company & Verification Details */}
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <FaBriefcase className="text-[#1f6fb2]" /> Company & Verification Details
+                  </h3>
+                  <div className="bg-gray-50/60 rounded-xl p-5 border border-gray-200 grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 text-xs">
+                    {selectedBuyer.companyName && (
                       <div>
-                        <h3 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
-                          <FaShieldAlt className="text-[#1f6fb2]" /> Deal Breakers
-                        </h3>
-                        <p className="text-sm text-gray-700 leading-relaxed bg-amber-50/50 p-4 rounded-xl border border-amber-200/60 font-medium">
-                          {selectedBuyer.dealBreakers}
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaBuilding /> Company</p>
+                        <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.companyName}</p>
+                      </div>
+                    )}
+                    {selectedBuyer.jobTitle && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaBriefcase /> Job Title</p>
+                        <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.jobTitle}</p>
+                      </div>
+                    )}
+                    {selectedBuyer.companyType && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1">Company Type</p>
+                        <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.companyType}</p>
+                      </div>
+                    )}
+                    {selectedBuyer.createdAt && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaCalendarAlt /> Profile Create Date</p>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {(() => {
+                            try {
+                              const d = new Date(selectedBuyer.createdAt);
+                              return isNaN(d.getTime()) 
+                                ? String(selectedBuyer.createdAt) 
+                                : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                            } catch (e) {
+                              return String(selectedBuyer.createdAt);
+                            }
+                          })()}
                         </p>
                       </div>
                     )}
+                    {selectedBuyer.location && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaMapMarkerAlt /> Location</p>
+                        <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.location}</p>
+                      </div>
+                    )}
+                    {selectedBuyer.licenseNumber && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaShieldAlt /> License Number</p>
+                        <p className="font-semibold text-gray-900 text-sm">{selectedBuyer.licenseNumber}</p>
+                      </div>
+                    )}
+                    {selectedBuyer.websiteUrl && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaGlobe /> Website</p>
+                        <a href={selectedBuyer.websiteUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">{selectedBuyer.websiteUrl}</a>
+                      </div>
+                    )}
+                    {selectedBuyer.linkedinUrl && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> LinkedIn</p>
+                        <a href={selectedBuyer.linkedinUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">{selectedBuyer.linkedinUrl}</a>
+                      </div>
+                    )}
+                    {selectedBuyer.proofOfAuthorityUrl && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> Proof of Authority</p>
+                        <a href={selectedBuyer.proofOfAuthorityUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">View Document</a>
+                      </div>
+                    )}
+                    {selectedBuyer.additionalDocumentUrl && (
+                      <div>
+                        <p className="font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><FaLink /> Additional Document</p>
+                        <a href={selectedBuyer.additionalDocumentUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#1f6fb2] hover:text-[#2ec4b6] hover:underline text-sm break-all">View Document</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Deal Breakers */}
+                {selectedBuyer.dealBreakers && (
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <FaShieldAlt className="text-[#1f6fb2]" /> Deal Breakers
+                    </h3>
+                    <p className="text-sm text-gray-700 leading-relaxed bg-amber-50/50 p-4 rounded-xl border border-amber-200/60 font-medium">
+                      {selectedBuyer.dealBreakers}
+                    </p>
                   </div>
                 )}
               </div>
@@ -2009,8 +1745,8 @@ export default function MarketplacePage() {
               {/* Full-Width Bottom Action Banner */}
               <div className="w-full bg-gradient-to-r from-gray-50 via-white to-gray-50 border-t border-gray-100 p-5 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 border border-emerald-200/80 flex items-center justify-center shrink-0">
-                    <FaCheckCircle className="text-xl" />
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1f6fb2]/10 to-[#2ec4b6]/10 text-[#1f6fb2] border border-[#2ec4b6]/30 flex items-center justify-center shrink-0">
+                    <FaCheckCircle className="text-xl text-[#2ec4b6]" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-900 tracking-wide uppercase">
@@ -2067,12 +1803,12 @@ export default function MarketplacePage() {
 
                         setIsViewMoreModalOpen(false);
                       }}
-                      className={`text-sm font-bold text-white px-7 py-3 rounded-xl transition-all flex items-center gap-2 shadow-sm ${verificationStatus !== 'verified'
-                          ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-[#00a896] hover:bg-[#008f70] active:scale-95'
+                      className={`text-sm font-bold text-white px-7 py-3 rounded-xl transition-all flex items-center gap-2 shadow-md ${verificationStatus !== 'verified'
+                        ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                        : 'bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] hover:opacity-90 active:scale-95'
                         }`}
                     >
-                      {verificationStatus !== 'verified' ? 'Verification Required' : 'Send interest ↗'}
+                      {verificationStatus !== 'verified' ? 'Verification Required' : 'Send Interest'} <FaArrowRight className="text-xs" />
                     </button>
                   )}
                 </div>
@@ -2472,10 +2208,11 @@ export default function MarketplacePage() {
                             }
                             setIsRequestFormOpen(true);
                           }}
-                          className={`px-6 py-3 text-xs font-bold rounded-lg transition-colors shrink-0 shadow-sm cursor-pointer ${verificationStatus !== 'verified'
+                          className={`px-6 py-3 text-xs font-bold rounded-lg transition-colors shrink-0 shadow-sm cursor-pointer ${
+                            verificationStatus !== 'verified'
                               ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60'
                               : 'bg-[#008f70] hover:bg-[#007058] text-white'
-                            }`}
+                          }`}
                         >
                           {verificationStatus !== 'verified' ? 'Verification Required' : 'Request Access'}
                         </button>

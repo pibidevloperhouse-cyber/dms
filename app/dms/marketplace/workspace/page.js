@@ -2087,24 +2087,3 @@ export default function WorkspacePage() {
     </div>
   );
 }
-                  }}
-className = {`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 ${(createStep === 1 && !newProject.name) || (createStep === 3 && (newProject.ebitdaBandDropdown === '' || (newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100)) || (newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100))) || (createStep === 4 && ((newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100)) || (newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100)) || (newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100)))) || (createStep === 6 && (newProject.preferredBuyerTypes.length === 0 || !newProject.transitionPeriod)) ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#008f70] hover:bg-[#007058]'}`}
-disabled = {(createStep === 1 && !newProject.name) || (createStep === 3 && (newProject.ebitdaBandDropdown === '' || (newProject.ebitda !== '' && (Number(newProject.ebitda) < 1 || Number(newProject.ebitda) > 100)) || (newProject.topCustomerRevenue !== '' && Number(newProject.topCustomerRevenue) > 100))) || (createStep === 4 && ((newProject.recurringRevenue !== '' && (Number(newProject.recurringRevenue) < 1 || Number(newProject.recurringRevenue) > 100)) || (newProject.grossMargin !== '' && (Number(newProject.grossMargin) < 1 || Number(newProject.grossMargin) > 100)) || (newProject.growthRate !== '' && (Number(newProject.growthRate) < 1 || Number(newProject.growthRate) > 100)))) || (createStep === 6 && (newProject.preferredBuyerTypes.length === 0 || !newProject.transitionPeriod))}
-                >
-  Continue < FaArrowRight className = "text-xs" />
-                </button >
-              ) : (
-  <button
-    onClick={handleCreateProject}
-    className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 bg-[#008f70] hover:bg-[#007058]`}
-  >
-    <FaCheck /> Create Project
-  </button>
-)}
-            </div >
-          </div >
-        </div >
-      )}
-    </div >
-  );
-}

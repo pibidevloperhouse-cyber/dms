@@ -23,9 +23,9 @@ export async function GET(req) {
       projectId: dmsProjects.id,
       name: dmsProjects.name, // The buyer sees the actual project name
     })
-      .from(dmsDeals)
-      .where(eq(dmsDeals.buyerId, buyerId))
-      .innerJoin(dmsProjects, eq(dmsDeals.projectId, dmsProjects.id));
+    .from(dmsDeals)
+    .where(eq(dmsDeals.buyerId, buyerId))
+    .innerJoin(dmsProjects, eq(dmsDeals.projectId, dmsProjects.id));
 
     const uniqueProjectsMap = new Map();
     for (const deal of rawDeals) {
