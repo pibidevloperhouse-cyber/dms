@@ -843,16 +843,16 @@ export default function DealDashboard() {
 
       {/* Access Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in duration-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h2 className="text-xl font-bold text-gray-800">Access Request Details</h2>
-              <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <FaTimes className="text-lg" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[88vh] flex flex-col shadow-2xl relative animate-in fade-in zoom-in duration-200 overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="text-lg font-bold text-gray-800">Access Request Details</h2>
+              <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200/60">
+                <FaTimes className="text-base" />
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                 <div>
                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Full Name</p>
@@ -878,7 +878,41 @@ export default function DealDashboard() {
                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Investment Range</p>
                   <p className="text-sm font-medium text-gray-900">{selectedRequest.investmentRange}</p>
                 </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Headquarters</p>
+                  <p className="text-sm font-medium text-gray-900">{selectedRequest.headquarters || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Founded Date</p>
+                  <p className="text-sm font-medium text-gray-900">{selectedRequest.foundedYear || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Team Size</p>
+                  <p className="text-sm font-medium text-gray-900">{selectedRequest.teamSize || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Time to Close</p>
+                  <p className="text-sm font-medium text-teal-700 font-semibold">{selectedRequest.timelineToCloseDays ? `${selectedRequest.timelineToCloseDays} Days` : 'N/A'}</p>
+                </div>
               </div>
+
+              {selectedRequest.companyDescription && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1 mt-1">Company Description</p>
+                  <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 border border-gray-100 leading-relaxed">
+                    {selectedRequest.companyDescription}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.dealBreakers && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1 mt-1">Deal Breakers</p>
+                  <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 border border-gray-100 leading-relaxed">
+                    {selectedRequest.dealBreakers}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2 border-t border-gray-100">
                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2 mt-2">Message</p>
@@ -888,7 +922,7 @@ export default function DealDashboard() {
               </div>
             </div>
 
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
               {(selectedRequest.status?.toLowerCase() === 'approved' || selectedRequest.status?.toLowerCase() === 'accepted') ? (
                 <button
                   onClick={() => {
