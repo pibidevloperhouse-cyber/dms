@@ -29,8 +29,8 @@ export async function GET(req) {
       featureBidding: dmsDeals.featureBidding,
       featureTasks: dmsDeals.featureTasks,
     })
-    .from(dmsDeals)
-    .leftJoin(users, eq(dmsDeals.buyerId, users.id));
+      .from(dmsDeals)
+      .leftJoin(users, eq(dmsDeals.buyerId, users.id));
 
     let conditions = [eq(dmsDeals.projectId, projectId)];
 
@@ -42,14 +42,14 @@ export async function GET(req) {
       // Filter for internal non-super admins based on their assigned deals (workspaces)
       const userGroupsQuery = await db.select().from(userGroups).where(eq(userGroups.userId, userId));
       const groupIds = userGroupsQuery.map(ug => ug.groupId);
-      
+
       if (groupIds.length === 0) {
         return NextResponse.json({ deals: [] }, { status: 200 });
       }
 
       const groupsQuery = await db.select().from(groups).where(inArray(groups.id, groupIds));
       const workspaceIds = groupsQuery.map(g => g.workspaceId).filter(id => id != null);
-      
+
       if (workspaceIds.length === 0) {
         return NextResponse.json({ deals: [] }, { status: 200 });
       }
