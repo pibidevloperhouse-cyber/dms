@@ -194,7 +194,7 @@ export const DEAL_STAGES = [
 
 export const normalizeStage = (stage) => {
   if (!stage) return 'Preparation';
-  const s = stage.trim().toLowerCase();
+  const s = (typeof stage === 'string' ? stage : String(stage?.name || stage || '')).trim().toLowerCase();
   if (s.includes('prep')) return 'Preparation';
   if (s.includes('due') || s.includes('diligence')) return 'Due Diligence';
   if (s.includes('neg')) return 'Negotiation';
@@ -256,6 +256,7 @@ export function DealWorkflowProvider({ children }) {
   const [groupMembersMap, setGroupMembersMap] = useState({});
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
+  const [externalDepartments, setExternalDepartments] = useState(['Legal', 'Finance', 'Operations', 'General']);
 
   // Memoized external groups (always guarantees standard BUYER_GROUPS are available)
   const externalGroups = useMemo(() => {
@@ -511,6 +512,9 @@ export function DealWorkflowProvider({ children }) {
           new Set([...(data.departments || []), ...localDepts])
         );
         setDepartments(mergedDepts);
+        if (Array.isArray(data.externalDepartments) && data.externalDepartments.length > 0) {
+          setExternalDepartments(data.externalDepartments);
+        }
         setDbGroups((data.groups || []).map((g) => g.name));
       }
     } catch (err) {
@@ -855,7 +859,7 @@ export function DealWorkflowProvider({ children }) {
     if (visibility === 'EXTERNAL') {
       source = externalGroups;
     } else if (visibility === 'INTERNAL') {
-      source = workflowGroups.filter((g) => g.side !== 'buyer');
+      source = workflowGroups;
     } else {
       source = [...workflowGroups, ...externalGroups];
     }
@@ -871,8 +875,10 @@ export function DealWorkflowProvider({ children }) {
 
   const getMembersForGroup = (groupName) => {
     // Ensure groupName is a non-empty string before using string methods
-    const resolvedGroupName = typeof groupName === 'string' ? groupName : (Array.isArray(groupName) ? groupName[0] : null);
-    if (!resolvedGroupName) {
+    const resolvedGroupName = typeof groupName === 'string'
+      ? groupName
+      : (typeof groupName === 'object' && groupName?.name ? groupName.name : (Array.isArray(groupName) ? groupName[0] : null));
+    if (!resolvedGroupName || typeof resolvedGroupName !== 'string' || !resolvedGroupName.trim()) {
       const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
       return Array.from(new Set(raw.filter(Boolean)));
     }
@@ -1274,8 +1280,13 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Subordinate members for a SPECIFIC group based on Role Hierarchy (Creator excluded)
-  const getAssignableMembersForGroup = (groupName, user = currentUser) => {
-    if (!user || !groupName) return [];
+  const getAssignableMembersForGroup = (groupInput, user = currentUser) => {
+    if (!user || !groupInput) return [];
+    const groupName = typeof groupInput === 'string'
+      ? groupInput
+      : (typeof groupInput === 'object' && groupInput?.name ? groupInput.name : (Array.isArray(groupInput) ? groupInput[0] : ''));
+    if (!groupName || typeof groupName !== 'string' || !groupName.trim()) return [];
+
     const userNormRole = normalizeRole(user.role);
     const allowedRoles = ROLE_HIERARCHY[userNormRole]?.canAssignTo || [];
     if (allowedRoles.length === 0) return [];
@@ -1283,7 +1294,7 @@ export function DealWorkflowProvider({ children }) {
     // Cross-party delegation rule: ONLY Super Admin can assign tasks/subtasks to external buyer groups
     const isSuperAdmin = userNormRole === 'super_admin';
     const isExternalGroup = externalGroups.some(
-      (eg) => (eg.name || '').trim().toLowerCase() === groupName.trim().toLowerCase()
+      (eg) => (eg?.name || '').trim().toLowerCase() === groupName.trim().toLowerCase()
     );
     if (isExternalGroup && !isSuperAdmin) {
       return [];
@@ -2026,6 +2037,7 @@ export function DealWorkflowProvider({ children }) {
         addComment,
         deleteTask,
         departments,
+        externalDepartments,
         workflowGroups,
         externalGroups,
         buyerGroups: BUYER_GROUPS,

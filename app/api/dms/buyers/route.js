@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
-import { users } from '../../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { users, companies } from '../../../../db/schema';
+import { eq, or, ilike } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -11,10 +11,11 @@ export async function GET() {
       id: users.id,
       name: users.name,
       email: users.email,
-      companyName: users.companyName
+      companyName: companies.name,
     })
     .from(users)
-    .where(eq(users.dmsRole, 'buyer'));
+    .innerJoin(companies, eq(users.companyId, companies.id))
+    .where(or(eq(companies.dmsRole, 'buyer'), ilike(companies.dmsRole, 'buyer')));
 
     return NextResponse.json({ buyers: buyersList }, { status: 200 });
   } catch (error) {

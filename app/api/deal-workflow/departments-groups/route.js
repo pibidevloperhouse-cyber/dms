@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { groups, userGroups, users } from '@/db/schema';
+import { groups, userGroups, users, companies } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -10,14 +10,56 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
 
-    let allGroups = await db.select().from(groups);
-    let dbGroups = companyId ? allGroups.filter((g) => g.companyId === companyId) : allGroups;
-    let dbExternalGroups = companyId ? allGroups.filter((g) => g.companyId !== companyId) : [];
+    // Query all groups joined with their company
+    const allGroups = await db
+      .select({
+        id: groups.id,
+        name: groups.name,
+        department: groups.department,
+        role: groups.role,
+        type: groups.type,
+        companyId: groups.companyId,
+        createdBy: groups.createdBy,
+        companyName: companies.name,
+        companyRole: companies.dmsRole,
+      })
+      .from(groups)
+      .leftJoin(companies, eq(groups.companyId, companies.id));
+
+    // Determine active side based on companyId
+    let currentCompanyRole = 'seller';
+    if (companyId) {
+      try {
+        const compRows = await db
+          .select({ dmsRole: companies.dmsRole })
+          .from(companies)
+          .where(eq(companies.id, companyId))
+          .limit(1);
+        if (compRows.length > 0 && compRows[0].dmsRole?.toLowerCase() === 'buyer') {
+          currentCompanyRole = 'buyer';
+        }
+      } catch (cErr) {
+        console.error('Error fetching company role:', cErr);
+      }
+    }
+    const otherRole = currentCompanyRole === 'seller' ? 'buyer' : 'seller';
+
+    // Internal vs External group separation
+    let dbGroups = [];
+    let dbExternalGroups = [];
+
+    if (companyId) {
+      dbGroups = allGroups.filter((g) => g.companyId === companyId);
+      dbExternalGroups = allGroups.filter((g) => g.companyId !== companyId);
+    } else {
+      dbGroups = allGroups.filter((g) => (g.companyRole?.toLowerCase() === currentCompanyRole || !g.companyRole));
+      dbExternalGroups = allGroups.filter((g) => g.companyRole?.toLowerCase() === otherRole);
+    }
 
     // Fetch user_groups mappings
     const dbUserGroups = await db.select().from(userGroups);
 
-    // Fetch users for member resolution
+    // Fetch users for member resolution joined with companies table (dmsRole moved to companies)
     const allUsers = await db
       .select({
         id: users.id,
@@ -25,9 +67,11 @@ export async function GET(req) {
         email: users.email,
         role: users.role,
         companyId: users.companyId,
-        dmsRole: users.dmsRole,
+        companyName: companies.name,
+        dmsRole: companies.dmsRole,
       })
-      .from(users);
+      .from(users)
+      .leftJoin(companies, eq(users.companyId, companies.id));
 
     // Build map of group name -> member names for all groups (internal + external)
     const groupMembersMap = {};
@@ -54,9 +98,12 @@ export async function GET(req) {
       groupMembersMap[g.id] = memberNames;
     }
 
-    // Collect all departments from internal groups (plus General)
-    const departments = Array.from(
+    // Collect departments from internal and external groups
+    const internalDepartments = Array.from(
       new Set(dbGroups.map((g) => g.department).filter(Boolean))
+    );
+    const externalDepartments = Array.from(
+      new Set(dbExternalGroups.map((g) => g.department).filter(Boolean))
     );
 
     return NextResponse.json({
@@ -67,7 +114,8 @@ export async function GET(req) {
         department: g.department || 'General',
         role: g.role,
         type: g.type,
-        side: 'seller',
+        side: currentCompanyRole,
+        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
       externalGroups: dbExternalGroups.map((g) => ({
@@ -76,12 +124,18 @@ export async function GET(req) {
         department: g.department || 'General',
         role: g.role,
         type: g.type,
-        side: 'buyer',
+        side: otherRole,
+        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
-      departments,
+      departments: internalDepartments.length > 0 ? internalDepartments : ['Finance', 'Legal', 'Operations', 'General'],
+      externalDepartments: externalDepartments.length > 0 ? externalDepartments : ['Legal', 'Finance', 'Operations', 'General'],
       groupMembersMap,
-      users: allUsers,
+      users: allUsers.map((u) => ({
+        ...u,
+        side: u.dmsRole?.toLowerCase() === 'buyer' ? 'buyer' : 'seller',
+        company: u.companyName || '',
+      })),
     });
   } catch (error) {
     console.error('Error fetching departments and groups:', error);
