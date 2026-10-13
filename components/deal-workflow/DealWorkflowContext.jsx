@@ -141,7 +141,35 @@ export const DEMO_USERS = {
   },
 };
 
-export const SELLER_GROUPS = [];
+export const SELLER_GROUPS = [
+  {
+    id: 'seller_finance',
+    name: 'Seller Finance Team',
+    department: 'Finance',
+    role: 'sub_admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Lakshmi Narayanan'],
+  },
+  {
+    id: 'seller_legal',
+    name: 'Seller Legal Team',
+    department: 'Legal',
+    role: 'sub_admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Suresh Kumar'],
+  },
+  {
+    id: 'seller_admin',
+    name: 'Seller Admin',
+    department: 'General',
+    role: 'admin',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Ravi Shankar'],
+  },
+];
 export const BUYER_GROUPS = [
   {
     id: 'buyer_legal',
@@ -256,20 +284,8 @@ export function DealWorkflowProvider({ children }) {
   const [groupMembersMap, setGroupMembersMap] = useState({});
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
-  const [externalDepartments, setExternalDepartments] = useState(['Legal', 'Finance', 'Operations', 'General']);
+  const [externalDepartments, setExternalDepartments] = useState(['Finance', 'Legal', 'Operations', 'General']);
 
-  // Memoized external groups (always guarantees standard BUYER_GROUPS are available)
-  const externalGroups = useMemo(() => {
-    const list = [...BUYER_GROUPS];
-    if (Array.isArray(externalGroupsState)) {
-      externalGroupsState.forEach((g) => {
-        if (!list.some((item) => item.name.toLowerCase() === g.name.toLowerCase())) {
-          list.push(g);
-        }
-      });
-    }
-    return list;
-  }, [externalGroupsState]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
@@ -498,6 +514,9 @@ export function DealWorkflowProvider({ children }) {
         if (Array.isArray(data.externalGroups)) {
           setExternalGroupsState(data.externalGroups);
         }
+        if (Array.isArray(data.externalDepartments) && data.externalDepartments.length > 0) {
+          setExternalDepartments(data.externalDepartments);
+        }
         setGroupMembersMap(data.groupMembersMap || {});
         setAllUsers(data.users || []);
 
@@ -512,9 +531,6 @@ export function DealWorkflowProvider({ children }) {
           new Set([...(data.departments || []), ...localDepts])
         );
         setDepartments(mergedDepts);
-        if (Array.isArray(data.externalDepartments) && data.externalDepartments.length > 0) {
-          setExternalDepartments(data.externalDepartments);
-        }
         setDbGroups((data.groups || []).map((g) => g.name));
       }
     } catch (err) {
@@ -598,6 +614,26 @@ export function DealWorkflowProvider({ children }) {
     }
     return DEMO_USERS.ravi;
   }, [sessionUser, currentUserId]);
+
+  // Memoized external groups (dynamically targets counterparty based on current user side)
+  const externalGroups = useMemo(() => {
+    const userSide = currentUser?.side || 'seller';
+    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+    const fallbackList = oppositeSide === 'buyer' ? BUYER_GROUPS : SELLER_GROUPS;
+
+    const list = [];
+    if (Array.isArray(externalGroupsState)) {
+      externalGroupsState.forEach((g) => {
+        list.push(g);
+      });
+    }
+    fallbackList.forEach((fg) => {
+      if (!list.some((item) => (item.name || '').toLowerCase() === (fg.name || '').toLowerCase())) {
+        list.push(fg);
+      }
+    });
+    return list;
+  }, [externalGroupsState, currentUser?.side]);
 
   // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
   const [trackingSection, setTrackingSection] = useState(() => {
@@ -855,11 +891,14 @@ export function DealWorkflowProvider({ children }) {
   // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
   // ============================================================================
   const getGroupsForDepartment = (deptName, visibility) => {
+    const userSide = currentUser?.side || 'seller';
+    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+
     let source = workflowGroups;
     if (visibility === 'EXTERNAL') {
-      source = externalGroups;
+      source = externalGroups.filter((g) => g.side === oppositeSide || !g.side);
     } else if (visibility === 'INTERNAL') {
-      source = workflowGroups;
+      source = workflowGroups.filter((g) => g.side === userSide || !g.side);
     } else {
       source = [...workflowGroups, ...externalGroups];
     }

@@ -10,21 +10,9 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
 
-    // Query all groups joined with their company
-    const allGroups = await db
-      .select({
-        id: groups.id,
-        name: groups.name,
-        department: groups.department,
-        role: groups.role,
-        type: groups.type,
-        companyId: groups.companyId,
-        createdBy: groups.createdBy,
-        companyName: companies.name,
-        companyRole: companies.dmsRole,
-      })
-      .from(groups)
-      .leftJoin(companies, eq(groups.companyId, companies.id));
+    let allGroups = await db.select().from(groups);
+    let dbGroups = companyId ? allGroups.filter((g) => g.companyId === companyId) : allGroups;
+    let dbExternalGroups = companyId ? allGroups.filter((g) => g.companyId !== companyId) : [];
 
     // Determine active side based on companyId
     let currentCompanyRole = 'seller';
@@ -43,18 +31,6 @@ export async function GET(req) {
       }
     }
     const otherRole = currentCompanyRole === 'seller' ? 'buyer' : 'seller';
-
-    // Internal vs External group separation
-    let dbGroups = [];
-    let dbExternalGroups = [];
-
-    if (companyId) {
-      dbGroups = allGroups.filter((g) => g.companyId === companyId);
-      dbExternalGroups = allGroups.filter((g) => g.companyId !== companyId);
-    } else {
-      dbGroups = allGroups.filter((g) => (g.companyRole?.toLowerCase() === currentCompanyRole || !g.companyRole));
-      dbExternalGroups = allGroups.filter((g) => g.companyRole?.toLowerCase() === otherRole);
-    }
 
     // Fetch user_groups mappings
     const dbUserGroups = await db.select().from(userGroups);
@@ -98,7 +74,7 @@ export async function GET(req) {
       groupMembersMap[g.id] = memberNames;
     }
 
-    // Collect departments from internal and external groups
+    // Collect all departments from internal and external groups
     const internalDepartments = Array.from(
       new Set(dbGroups.map((g) => g.department).filter(Boolean))
     );
@@ -115,7 +91,6 @@ export async function GET(req) {
         role: g.role,
         type: g.type,
         side: currentCompanyRole,
-        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
       externalGroups: dbExternalGroups.map((g) => ({
@@ -125,11 +100,10 @@ export async function GET(req) {
         role: g.role,
         type: g.type,
         side: otherRole,
-        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
       departments: internalDepartments.length > 0 ? internalDepartments : ['Finance', 'Legal', 'Operations', 'General'],
-      externalDepartments: externalDepartments.length > 0 ? externalDepartments : ['Legal', 'Finance', 'Operations', 'General'],
+      externalDepartments: externalDepartments.length > 0 ? externalDepartments : ['Finance', 'Legal', 'Operations', 'General'],
       groupMembersMap,
       users: allUsers.map((u) => ({
         ...u,
