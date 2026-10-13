@@ -1169,18 +1169,18 @@ export default function InboxPage() {
                                       <p className="text-sm font-semibold mb-3">Select your product</p>
                                       <div className="flex flex-col gap-2">
                                         {msgData.products.map((prod, idx) => (
-                                          <div
-                                            key={idx}
+                                          <div 
+                                            key={idx} 
                                             onClick={async () => {
                                               if (isMe) return; // Seller shouldn't click their own message
                                               try {
                                                 const senderId = localStorage.getItem('userId') || 'buyer-123';
                                                 const senderName = localStorage.getItem('userName') || 'Current User';
-                                                const payload = {
-                                                  type: 'product_selected',
-                                                  text: `Send teaser link for the product: ${prod}`
+                                                const payload = { 
+                                                  type: 'product_selected', 
+                                                  text: `Send teaser link for the product: ${prod}` 
                                                 };
-
+                                                
                                                 const res = await fetch('/api/dms/messages', {
                                                   method: 'POST',
                                                   headers: { 'Content-Type': 'application/json' },
@@ -1191,7 +1191,7 @@ export default function InboxPage() {
                                                     text: JSON.stringify(payload)
                                                   })
                                                 });
-
+                                                
                                                 if (res.ok) {
                                                   const data = await res.json();
                                                   setInboxMessages(prev => [data.message, ...prev]);
@@ -1219,7 +1219,7 @@ export default function InboxPage() {
                                         <div className="flex items-center justify-between mb-2">
                                           <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 opacity-80"><FaBriefcase /> Project Teaser</span>
                                         </div>
-                                        <button
+                                        <button 
                                           onClick={() => {
                                             if (msgData.teaserDetails?.productName) {
                                               const projName = encodeURIComponent(msgData.teaserDetails.productName);
@@ -1349,7 +1349,7 @@ export default function InboxPage() {
                               <button onClick={() => {
                                 const productName = lastMsgData?.text?.split('product: ')?.[1] || 'Product';
                                 const realProject = workspaces.find(w => w.name === productName) || {};
-
+                                
                                 handleSendAction('teaser_approved', 'Teaser link sent. Access granted.', {
                                   teaserDetails: {
                                     productName: productName,

@@ -12,7 +12,7 @@ export default function CreateTaskModal() {
     setIsCreateModalOpen,
     createTask,
     departments,
-    externalDepartments,
+    externalDepartments = [],
     workflowGroups,
     externalGroups,
     getGroupsForDepartment,
@@ -24,6 +24,11 @@ export default function CreateTaskModal() {
     selectedDealStage,
     activeDealStage,
   } = useDealWorkflow();
+
+  const userSide = currentUser?.side || 'seller';
+  const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+  const oppositeLabel = oppositeSide === 'buyer' ? 'Buyer' : 'Seller';
+  const internalLabel = userSide === 'buyer' ? 'Buyer' : 'Seller';
 
   const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
 
@@ -59,78 +64,90 @@ export default function CreateTaskModal() {
     return 'internal_user';
   };
 
-  // Departments dynamically resolved based on Visibility:
-  // INTERNAL -> lists all internal departments
-  // EXTERNAL -> lists all external counterparty departments (opposite party)
+  // Available departments switch based on Visibility:
+  // INTERNAL -> internal departments of currentUser's side (seller or buyer)
+  // EXTERNAL -> opposite counterparty departments (buyer if seller, seller if buyer)
   const availableDepartments = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
-    const deptSet = new Set();
-
     if (isExternal) {
-      (externalGroups || []).forEach((g) => {
-        if (g?.department) deptSet.add(g.department);
-      });
-      (externalDepartments || []).forEach((d) => {
-        if (d) deptSet.add(d);
-      });
-      ['Legal', 'Finance', 'Operations', 'General'].forEach((d) => deptSet.add(d));
+      const fromExt = Array.isArray(externalGroups)
+        ? externalGroups
+            .filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromExt, ...(externalDepartments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'Legal', 'Operations', 'General'];
     } else {
-      (workflowGroups || []).forEach((g) => {
-        if (g?.department) deptSet.add(g.department);
-      });
-      (departments || []).forEach((d) => {
-        if (d) deptSet.add(d);
-      });
-      ['Finance', 'Legal', 'Operations', 'General'].forEach((d) => deptSet.add(d));
+      const fromInt = Array.isArray(workflowGroups)
+        ? workflowGroups
+            .filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
+            .map((g) => g.department)
+            .filter(Boolean)
+        : [];
+      const combined = Array.from(new Set([...fromInt, ...(departments || [])]));
+      return combined.length > 0 ? combined : ['Finance', 'HR', 'Legal', 'Operations', 'General'];
     }
+  }, [visibility, externalGroups, externalDepartments, workflowGroups, departments, userSide, oppositeSide]);
 
-    return Array.from(deptSet).filter(Boolean);
-  }, [visibility, externalGroups, workflowGroups, externalDepartments, departments]);
-
-  // Available groups dynamically resolved based on Visibility & Department:
-  // INTERNAL -> lists all internal groups (filtered by department)
-  // EXTERNAL -> lists all opposite party counterparty groups (filtered by department)
+  // Available groups switch based on Visibility:
+  // INTERNAL -> internal groups of currentUser's side
+  // EXTERNAL -> opposite counterparty's groups
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
-    const isSeller = (currentUser?.side || 'seller') === 'seller';
-    const oppositePartyName = isSeller ? 'Buyer' : 'Seller';
 
-    // Source pool based on visibility
-    let list = isExternal
-      ? (Array.isArray(externalGroups) && externalGroups.length > 0 ? externalGroups : [])
-      : (Array.isArray(workflowGroups) && workflowGroups.length > 0 ? workflowGroups : []);
+    let list = [];
+    if (isExternal) {
+      // Counterparty groups (opposite side)
+      list = Array.isArray(externalGroups) && externalGroups.length > 0
+        ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
+        : [];
+    } else {
+      // Internal groups (current user's side)
+      list = Array.isArray(workflowGroups) && workflowGroups.length > 0
+        ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
+        : [];
 
-    // Filter by selected department if provided
+      // For internal assignment: filter down role hierarchy if applicable
+      const creatorRole = normalizeRole(currentUser?.role);
+      const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+      if (allowedRoles.length > 0) {
+        list = list.filter((g) => {
+          const gRole = resolveGroupRole(g);
+          if (gRole === creatorRole) return false;
+          return allowedRoles.includes(gRole);
+        });
+      }
+    }
+
     if (department && department !== 'ALL') {
-      const filtered = list.filter(
+      const filteredByDept = list.filter(
         (g) => (g.department || '').trim().toLowerCase() === department.trim().toLowerCase()
       );
-      if (filtered.length > 0) {
-        list = filtered;
+      if (filteredByDept.length > 0) {
+        list = filteredByDept;
       }
     }
 
     return list.map((g) => {
       const gRole = resolveGroupRole(g);
       const roleStr = getRoleLabel ? getRoleLabel(gRole) : gRole;
-      const groupSide = isExternal ? (isSeller ? 'buyer' : 'seller') : (currentUser?.side || 'seller');
-      const companyName = g.company || (isExternal ? (isSeller ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company'));
-
+      const targetSide = isExternal ? oppositeSide : userSide;
+      const sideText = targetSide === 'buyer' ? 'Buyer' : 'Seller';
       return {
         id: g.id || g.name,
         name: g.name,
         role: gRole,
         roleLabel: roleStr,
-        department: g.department || 'General',
         isExternal,
-        side: groupSide,
-        company: companyName,
+        side: g.side || targetSide,
+        company: g.company || (isExternal ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company')),
         displayName: isExternal
-          ? `🌐 ${g.name} (${roleStr}) · ${oppositePartyName} Group`
+          ? `${g.name} (${roleStr}) · ${sideText} Group`
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, currentUser, getRoleLabel]);
+  }, [visibility, department, workflowGroups, externalGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel, userSide, oppositeSide]);
 
   // Subordinate members available for subtask assignment strictly within assignedGroup
   const subtaskAssignableMembers = useMemo(() => {
@@ -141,14 +158,16 @@ export default function CreateTaskModal() {
     return [];
   }, [assignedGroup, getAssignableMembersForGroup, currentUser]);
 
-  // Sync default department when visibility or availableDepartments change
+  // Sync default department when availableDepartments or visibility change
   useEffect(() => {
     if (availableDepartments.length > 0) {
       if (!department || !availableDepartments.includes(department)) {
         setDepartment(availableDepartments[0]);
       }
+    } else {
+      setDepartment('');
     }
-  }, [visibility, availableDepartments]);
+  }, [availableDepartments, visibility]);
 
   // Sync default deal stage from currently viewed board stage
   useEffect(() => {
@@ -217,14 +236,17 @@ export default function CreateTaskModal() {
 
     const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
     const isExternal = visibility === 'EXTERNAL';
-    const targetSide = isExternal ? (currentUser?.side === 'seller' ? 'buyer' : 'seller') : (currentUser?.side || 'seller');
-    const targetCompany = isExternal ? (currentUser?.side === 'seller' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company');
+    const targetSide = isExternal ? oppositeSide : userSide;
+    const targetCompany = isExternal 
+      ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') 
+      : (currentUser?.company || 'Company');
 
     setIsSubmitting(true);
     try {
       const created = await createTask({
         title: title.trim(),
         description: description.trim(),
+        workspaceId: currentUser?.workspaceId,
         visibility,
         target_side: targetSide,
         target_company: targetCompany,
@@ -359,25 +381,28 @@ export default function CreateTaskModal() {
             <div className="grid grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>Visibility *</span>
+                  <span>Visibility</span>
+
                 </label>
                 <div className="relative">
                   <select
                     value={visibility}
-                    onChange={(e) => setVisibility(e.target.value)}
+                    onChange={(e) => {
+                      setVisibility(e.target.value);
+                    }}
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
-                    <option value="INTERNAL">Internal ({currentUser?.company || 'Your Company'})</option>
-                    <option value="EXTERNAL">External ({currentUser?.side === 'seller' ? 'Buyer Side' : 'Seller Side'})</option>
+                    <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
+                    <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Department Field (Dynamic based on Visibility) */}
+              {/* Department Field (Replaces Workstream) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>{visibility === 'EXTERNAL' ? 'External Department *' : 'Department *'}</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {visibility === 'EXTERNAL' ? `${oppositeLabel} Department *` : 'Department *'}
                 </label>
                 <div className="relative">
                   <select
@@ -399,12 +424,15 @@ export default function CreateTaskModal() {
               </div>
             </div>
 
+
+
             {/* Row: Assign to group & Priority */}
             <div className="grid grid-cols-2 gap-3.5">
-              {/* Dynamic Group List based on chosen Department and Visibility */}
+              {/* Dynamic Group List based on chosen Department */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>{visibility === 'EXTERNAL' ? (currentUser?.side === 'seller' ? 'Assign to buyer group *' : 'Assign to seller group *') : 'Assign to group *'}</span>
+                  <span>{visibility === 'EXTERNAL' ? `Assign to ${oppositeLabel.toLowerCase()} group *` : 'Assign to group *'}</span>
+
                 </label>
                 <div className="relative">
                   <select
@@ -414,7 +442,7 @@ export default function CreateTaskModal() {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No {visibility === 'EXTERNAL' ? 'opposite party' : 'internal'} groups in this department</option>
+                      <option value="">No {visibility === 'EXTERNAL' ? oppositeLabel.toLowerCase() : 'subordinate'} groups in this department</option>
                     ) : (
                       availableGroups.map((g) => (
                         <option key={g.id || g.name} value={g.name}>

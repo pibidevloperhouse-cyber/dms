@@ -9,25 +9,18 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
+    const workspaceId = searchParams.get('workspaceId');
+    const userSide = searchParams.get('userSide');
 
-    // Query all groups joined with their company
-    const allGroups = await db
-      .select({
-        id: groups.id,
-        name: groups.name,
-        department: groups.department,
-        role: groups.role,
-        type: groups.type,
-        companyId: groups.companyId,
-        createdBy: groups.createdBy,
-        companyName: companies.name,
-        companyRole: companies.dmsRole,
-      })
-      .from(groups)
-      .leftJoin(companies, eq(groups.companyId, companies.id));
+    let allGroups = await db.select().from(groups);
 
-    // Determine active side based on companyId
-    let currentCompanyRole = 'seller';
+    // Isolate by workspace if workspaceId is provided
+    if (workspaceId) {
+      allGroups = allGroups.filter((g) => !g.workspaceId || g.workspaceId === workspaceId);
+    }
+
+    // Determine active side based on companyId or userSide query param
+    let currentCompanyRole = userSide?.toLowerCase() === 'buyer' ? 'buyer' : 'seller';
     if (companyId) {
       try {
         const compRows = await db
@@ -37,6 +30,8 @@ export async function GET(req) {
           .limit(1);
         if (compRows.length > 0 && compRows[0].dmsRole?.toLowerCase() === 'buyer') {
           currentCompanyRole = 'buyer';
+        } else if (compRows.length > 0 && compRows[0].dmsRole?.toLowerCase() === 'seller') {
+          currentCompanyRole = 'seller';
         }
       } catch (cErr) {
         console.error('Error fetching company role:', cErr);
@@ -44,7 +39,6 @@ export async function GET(req) {
     }
     const otherRole = currentCompanyRole === 'seller' ? 'buyer' : 'seller';
 
-    // Internal vs External group separation
     let dbGroups = [];
     let dbExternalGroups = [];
 
@@ -52,8 +46,13 @@ export async function GET(req) {
       dbGroups = allGroups.filter((g) => g.companyId === companyId);
       dbExternalGroups = allGroups.filter((g) => g.companyId !== companyId);
     } else {
-      dbGroups = allGroups.filter((g) => (g.companyRole?.toLowerCase() === currentCompanyRole || !g.companyRole));
-      dbExternalGroups = allGroups.filter((g) => g.companyRole?.toLowerCase() === otherRole);
+      if (currentCompanyRole === 'buyer') {
+        dbGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+      } else {
+        dbGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+      }
     }
 
     // Fetch user_groups mappings
@@ -98,7 +97,7 @@ export async function GET(req) {
       groupMembersMap[g.id] = memberNames;
     }
 
-    // Collect departments from internal and external groups
+    // Collect all departments from internal and external groups
     const internalDepartments = Array.from(
       new Set(dbGroups.map((g) => g.department).filter(Boolean))
     );
@@ -115,7 +114,6 @@ export async function GET(req) {
         role: g.role,
         type: g.type,
         side: currentCompanyRole,
-        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
       externalGroups: dbExternalGroups.map((g) => ({
@@ -125,11 +123,10 @@ export async function GET(req) {
         role: g.role,
         type: g.type,
         side: otherRole,
-        company: g.companyName || '',
         members: groupMembersMap[g.name] || [],
       })),
       departments: internalDepartments.length > 0 ? internalDepartments : ['Finance', 'Legal', 'Operations', 'General'],
-      externalDepartments: externalDepartments.length > 0 ? externalDepartments : ['Legal', 'Finance', 'Operations', 'General'],
+      externalDepartments: externalDepartments.length > 0 ? externalDepartments : ['Finance', 'Legal', 'Operations', 'General'],
       groupMembersMap,
       users: allUsers.map((u) => ({
         ...u,
