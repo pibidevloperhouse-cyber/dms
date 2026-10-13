@@ -99,7 +99,23 @@ export default function DealDashboard() {
     // Fetch Deals
     fetch(url)
       .then(res => res.json())
-      .then(data => setDeals(data.deals || []))
+      .then(data => {
+        const dealList = data.deals || [];
+        setDeals(dealList);
+        if (role === 'buyer') {
+          const buyerDeal = dealList[0];
+          if (buyerDeal && buyerDeal.ndaStatus !== 'signed') {
+            setNdaTarget({
+              proposalId: buyerDeal.proposalId,
+              dealId: buyerDeal.id,
+              projectId: projectId,
+              projectName: projectName,
+              dealName: buyerDeal.name || projectName
+            });
+            setShowNDAModal(true);
+          }
+        }
+      })
       .catch(console.error);
 
     // Fetch Buyers for Deal Creation dropdown
@@ -581,6 +597,18 @@ export default function DealDashboard() {
                     <div
                       key={deal.id}
                       onClick={() => {
+                        if (userRole === 'buyer' && deal.ndaStatus !== 'signed') {
+                          setNdaTarget({
+                            proposalId: deal.proposalId,
+                            dealId: deal.id,
+                            projectId: projectId,
+                            projectName: projectName,
+                            dealName: deal.name || projectName
+                          });
+                          setShowNDAModal(true);
+                          return;
+                        }
+
                         const dmsRole = localStorage.getItem('userRole');
                         // Fix: Use the actual role from the database that we saved on login!
                         const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
@@ -1148,13 +1176,39 @@ export default function DealDashboard() {
       {/* NDA Modal */}
       <NDAModal
         isOpen={showNDAModal}
-        onClose={() => setShowNDAModal(false)}
-        projectName={ndaTarget?.projectName}
-        companyName={ndaTarget?.dealName}
-        onAccept={() => {
+        onClose={() => {
           setShowNDAModal(false);
-          if (ndaTarget) {
-            router.push(`/dms/workspace?filterProject=${encodeURIComponent(ndaTarget.projectName)}&filterDeal=${encodeURIComponent(ndaTarget.dealName)}`);
+          if (userRole === 'buyer') {
+            router.push('/dms/marketplace/workspace');
+          }
+        }}
+        projectName={ndaTarget?.projectName || projectName}
+        companyName={ndaTarget?.dealName || 'Buyer'}
+        onAccept={async (signatureData) => {
+          try {
+            const buyerId = localStorage.getItem('userId');
+            const res = await fetch('/api/dms/tracker/sign-nda', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                proposalId: ndaTarget?.proposalId,
+                dealId: ndaTarget?.dealId,
+                projectId: projectId,
+                buyerId: buyerId,
+                signatureData
+              })
+            });
+
+            if (res.ok) {
+              setDeals(prev => prev.map(d => ({ ...d, ndaStatus: 'signed' })));
+              setShowNDAModal(false);
+              setNdaTarget(null);
+            } else {
+              alert("Failed to save NDA signature. Please try again.");
+            }
+          } catch (err) {
+            console.error("Error signing NDA:", err);
+            alert("Error signing NDA.");
           }
         }}
       />
