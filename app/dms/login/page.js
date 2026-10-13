@@ -34,9 +34,23 @@ export default function DMSLogin() {
 
       const { data } = await res.json();
 
+      // 1. Store VDR session so VDR pages (/workspace, /documents, etc.) recognize the user
+      const vdrSession = {
+        id: data.id,
+        company_id: data.company_id,
+        companyName: data.companyName,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        nda_status: data.nda_status || 'not_required',
+        request_status: data.request_status || 'approved'
+      };
+      localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
+
+      // 2. Store DMS session keys
       localStorage.setItem('userRole', data.dmsRole || 'buyer');
       localStorage.setItem('vdrRole', data.role || 'external_user');
-      localStorage.setItem('companyId', data.company_id);
+      localStorage.setItem('companyId', data.company_id || '');
       localStorage.setItem('companyName', data.companyName || '');
       localStorage.setItem('userId', data.id);
       localStorage.setItem('userName', data.name || 'User');
@@ -44,13 +58,27 @@ export default function DMSLogin() {
       localStorage.setItem('verificationStatus', data.verification_status || 'unverified');
       localStorage.setItem('loginTimestamp', Date.now().toString());
 
-      if (data.dmsRole === 'buyer') {
+      // 3. Role-based redirect logic:
+      // ONLY super_admin (seller owner) and guest_admin (buyer owner) access Marketplace!
+      // All other invited team members (admin, sub_admin, internal_user, guest_lead, external_user) go DIRECTLY to VDR (/workspace)!
+      const isMarketplaceAccessible = data.role === 'super_admin' || data.role === 'guest_admin';
+
+      if (!isMarketplaceAccessible) {
+        if (data.nda_status === 'pending') {
+          router.push('/sign-nda');
+        } else {
+          router.push('/workspace');
+        }
+        return;
+      }
+
+      // Marketplace owners redirect
+      if (data.role === 'guest_admin') {
         try {
           const dealsRes = await fetch(`/api/dms/buyer-deals?buyerId=${data.id}`);
           const dealsData = await dealsRes.json();
           if (dealsData.deals && dealsData.deals.length > 0) {
             // Check if they have ANY deal that was created from a direct invite (known buyer)
-            // A direct invite deal will not have a proposalId attached.
             const hasDirectInviteDeals = dealsData.deals.some(deal => !deal.proposalId);
 
             if (hasDirectInviteDeals) {
@@ -64,7 +92,8 @@ export default function DMSLogin() {
         // If they only have deals from proposals (unknown buyer), or no deals at all, go to marketplace
         router.push('/dms/marketplace/find_deal');
       } else {
-        router.push('/dms/marketplace/find_deal');
+        // super_admin (seller owner)
+        router.push('/dms/marketplace/overview');
       }
     } catch (error) {
       console.error(error);

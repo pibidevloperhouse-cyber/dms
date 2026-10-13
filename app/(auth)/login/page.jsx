@@ -65,25 +65,38 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Add nda_status and request_status to local storage so the whole app knows
-      localStorage.setItem('vdr_session', JSON.stringify({
+      // 2. Store VDR session and DMS keys
+      const vdrSession = {
         id: user.id,
         company_id: user.company_id,
+        companyName: user.companyName,
         name: user.name,
         email: user.email,
         role: user.role,
         nda_status: user.nda_status,
         request_status: requestStatus
-      }));
+      };
+      localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
+
+      localStorage.setItem('userRole', user.dmsRole || 'seller');
+      localStorage.setItem('vdrRole', user.role || 'external_user');
+      localStorage.setItem('companyId', user.company_id || '');
+      localStorage.setItem('companyName', user.companyName || '');
+      localStorage.setItem('userId', user.id);
+      localStorage.setItem('userName', user.name || 'User');
+      localStorage.setItem('userEmail', user.email || email);
+      localStorage.setItem('verificationStatus', user.verification_status || 'unverified');
+      localStorage.setItem('loginTimestamp', Date.now().toString());
 
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
       }
-      // 3. THE FORK IN THE ROAD: Check if they are forced to sign the NDA
+
+      // 3. THE FORK IN THE ROAD: Check NDA status first
       if (user.nda_status === 'pending') {
         setSuccess('Update Required: Redirecting to NDA...');
         setTimeout(() => {
-          router.push('/sign-nda'); // <--- CORRECTED
+          router.push('/sign-nda');
         }, 1500);
       } else {
         setSuccess(`${user.name} login successfully`);
@@ -92,8 +105,17 @@ export default function LoginPage() {
           if (redirectUrl) {
             sessionStorage.removeItem('vdr_redirect_url');
             router.push(redirectUrl);
+            return;
+          }
+
+          // ONLY super_admin (seller owner) and guest_admin (buyer owner) access Marketplace!
+          // All other invited team members (admin, sub_admin, internal_user, etc.) go directly to VDR (/workspace)
+          if (user.role === 'super_admin') {
+            router.push('/dms/marketplace/overview');
+          } else if (user.role === 'guest_admin') {
+            router.push('/dms/marketplace/find_deal');
           } else {
-            router.push('/workspace'); // Normal login redirects to workspace
+            router.push('/workspace');
           }
         }, 1500);
       }

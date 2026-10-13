@@ -59,27 +59,54 @@ export default function MarketplaceLayout({ children }) {
 
     const loginTime = localStorage.getItem('loginTimestamp');
     const role = localStorage.getItem('userRole');
+    const vdrRole = localStorage.getItem('vdrRole');
 
-    if (role && loginTime) {
-      const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-      if (Date.now() - parseInt(loginTime, 10) > TWELVE_HOURS) {
-        localStorage.clear();
-        router.push('/dms/login');
-        return;
+    // Also check vdr_session role as fallback
+    let actualRole = vdrRole;
+    if (!actualRole) {
+      const sessionRaw = localStorage.getItem('vdr_session');
+      if (sessionRaw) {
+        try {
+          actualRole = JSON.parse(sessionRaw).role;
+        } catch (e) {}
       }
-      setUserRole(role.toLowerCase());
-      setUserName(localStorage.getItem('userName') || 'User');
-    } else if (!role) {
-      router.push('/dms/login');
     }
+
+    if (!role || !loginTime) {
+      router.push('/dms/login');
+      return;
+    }
+
+    const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+    if (Date.now() - parseInt(loginTime, 10) > TWELVE_HOURS) {
+      localStorage.clear();
+      router.push('/dms/login');
+      return;
+    }
+
+    // Role Guard: ONLY super_admin (seller owner) and guest_admin (buyer owner) can access Marketplace!
+    // All other invited roles (admin, sub_admin, internal_user, guest_lead, external_user) must stay in VDR!
+    const isOwner = actualRole === 'super_admin' || actualRole === 'guest_admin';
+    if (!isOwner) {
+      router.replace('/workspace');
+      return;
+    }
+
+    setUserRole(role.toLowerCase());
+    setUserName(localStorage.getItem('userName') || 'User');
   }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('vdrRole');
     localStorage.removeItem('companyId');
+    localStorage.removeItem('companyName');
     localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('verificationStatus');
     localStorage.removeItem('loginTimestamp');
+    localStorage.removeItem('vdr_session');
     router.push('/dms/login');
   };
 

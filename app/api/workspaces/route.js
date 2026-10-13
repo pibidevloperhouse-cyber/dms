@@ -147,8 +147,8 @@
 
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { workspaces, workspaceMembers } from '@/db/schema';
-import { eq, inArray, desc, sql, and, ilike } from 'drizzle-orm';
+import { workspaces, workspaceMembers, dmsDeals, dmsProjects, userGroups, groups } from '@/db/schema';
+import { eq, inArray, desc, sql, and, ilike, or } from 'drizzle-orm';
 
 export async function GET(req) {
     try {
@@ -161,61 +161,145 @@ export async function GET(req) {
             return NextResponse.json({ error: "Missing required parameters" }, { status: 400 });
         }
 
-        let fetchedWorkspaces = [];
+        const itemsMap = new Map();
 
-        if (role === 'super_admin') {
-            // Super admins see all workspaces in their company
-            fetchedWorkspaces = await db.select().from(workspaces)
-                .where(eq(workspaces.companyId, company_id))
-                .orderBy(desc(workspaces.createdAt));
-        } else {
-            // Normal users see only workspaces they are members of
+        // 1. Fetch user assigned group workspace IDs (dms_deals.id)
+        let assignedDealIds = [];
+        try {
+            const ugRows = await db.select({ groupId: userGroups.groupId })
+                .from(userGroups)
+                .where(eq(userGroups.userId, user_id));
+            const groupIds = ugRows.map(ug => ug.groupId);
+            if (groupIds.length > 0) {
+                const gRows = await db.select({ workspaceId: groups.workspaceId })
+                    .from(groups)
+                    .where(inArray(groups.id, groupIds));
+                assignedDealIds = gRows.map(g => g.workspaceId).filter(Boolean);
+            }
+        } catch (e) {
+            console.error('Error fetching user groups in workspaces API:', e);
+        }
+
+        // 2. Fetch workspace members IDs
+        let memberWorkspaceIds = [];
+        try {
             const memberData = await db.select({ workspaceId: workspaceMembers.workspaceId })
                 .from(workspaceMembers)
                 .where(eq(workspaceMembers.userId, user_id));
+            memberWorkspaceIds = memberData.map(m => m.workspaceId).filter(Boolean);
+        } catch (e) {
+            console.error('Error fetching workspace members in workspaces API:', e);
+        }
 
-            const workspaceIds = memberData.map(m => m.workspaceId);
+        const explicitAssignedIds = Array.from(new Set([...assignedDealIds, ...memberWorkspaceIds]));
 
-            if (workspaceIds.length === 0) {
-                return NextResponse.json({ workspaces: [], success: true });
+        // 3. Fetch DMS Deals
+        try {
+            // Find company projects
+            const companyProjects = await db.select()
+                .from(dmsProjects)
+                .where(eq(dmsProjects.companyId, company_id));
+            const projectIds = companyProjects.map(p => p.id);
+
+            let dealsQuery = [];
+
+            if (role === 'super_admin') {
+                // Super admin sees all deals in company projects
+                if (projectIds.length > 0) {
+                    dealsQuery = await db.select()
+                        .from(dmsDeals)
+                        .where(inArray(dmsDeals.projectId, projectIds))
+                        .orderBy(desc(dmsDeals.createdAt));
+                }
+            } else if (role === 'admin') {
+                // Admin: if explicitly assigned to specific deals, show only those!
+                // Otherwise show all company deals under company projects
+                if (explicitAssignedIds.length > 0) {
+                    dealsQuery = await db.select()
+                        .from(dmsDeals)
+                        .where(inArray(dmsDeals.id, explicitAssignedIds))
+                        .orderBy(desc(dmsDeals.createdAt));
+                } else if (projectIds.length > 0) {
+                    dealsQuery = await db.select()
+                        .from(dmsDeals)
+                        .where(inArray(dmsDeals.projectId, projectIds))
+                        .orderBy(desc(dmsDeals.createdAt));
+                }
+            } else {
+                // Normal user / guest / member:
+                // Only deals they are explicitly assigned to, or where they are the buyer
+                const dealConditions = [];
+                if (explicitAssignedIds.length > 0) {
+                    dealConditions.push(inArray(dmsDeals.id, explicitAssignedIds));
+                }
+                dealConditions.push(eq(dmsDeals.buyerId, user_id));
+
+                dealsQuery = await db.select()
+                    .from(dmsDeals)
+                    .where(or(...dealConditions))
+                    .orderBy(desc(dmsDeals.createdAt));
             }
 
-            fetchedWorkspaces = await db.select().from(workspaces)
-                .where(
-                    and(
-                        inArray(workspaces.id, workspaceIds),
-                        ilike(workspaces.status, 'Active')
+            // Map dmsDeals to workspace items
+            for (const deal of dealsQuery) {
+                const status = (deal.status && deal.status.toLowerCase() === 'active') ? 'Active' : (deal.status || 'Active');
+                itemsMap.set(deal.id, {
+                    id: deal.id,
+                    company_id: company_id,
+                    name: deal.dealName || 'Deal Room',
+                    description: deal.dealName || 'Deal',
+                    status: status,
+                    created_by: deal.buyerId,
+                    created_at: deal.createdAt,
+                    updated_at: deal.updatedAt,
+                    user_count: 1
+                });
+            }
+        } catch (e) {
+            console.error('Error fetching dms deals in workspaces API:', e);
+        }
+
+        // 4. Also fetch legacy workspaces if any
+        try {
+            let fetchedWorkspaces = [];
+            if (role === 'super_admin') {
+                fetchedWorkspaces = await db.select().from(workspaces)
+                    .where(eq(workspaces.companyId, company_id))
+                    .orderBy(desc(workspaces.createdAt));
+            } else if (explicitAssignedIds.length > 0) {
+                fetchedWorkspaces = await db.select().from(workspaces)
+                    .where(
+                        and(
+                            inArray(workspaces.id, explicitAssignedIds),
+                            ilike(workspaces.status, 'Active')
+                        )
                     )
-                )
-                .orderBy(desc(workspaces.createdAt));
+                    .orderBy(desc(workspaces.createdAt));
+            }
+
+            for (const ws of fetchedWorkspaces) {
+                if (!itemsMap.has(ws.id)) {
+                    let formattedStatus = ws.status || 'Active';
+                    if (formattedStatus.toLowerCase() === 'active') formattedStatus = 'Active';
+                    if (formattedStatus.toLowerCase() === 'inactive') formattedStatus = 'Inactive';
+                    itemsMap.set(ws.id, {
+                        id: ws.id,
+                        company_id: ws.companyId,
+                        name: ws.name,
+                        description: ws.description,
+                        status: formattedStatus,
+                        created_by: ws.createdBy,
+                        created_at: ws.createdAt,
+                        updated_at: ws.updatedAt,
+                        user_count: 1
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching legacy workspaces:', e);
         }
 
-        // Frontend-க்கு ஏற்றபடி snake_case ஆக மாற்றவும், 'status' ஐ Capital-ஆக மாற்றவும்
-        const formattedWorkspaces = [];
-        for (let ws of fetchedWorkspaces) {
-            const memberCountResult = await db.select({ count: sql`count(*)` })
-                .from(workspaceMembers)
-                .where(eq(workspaceMembers.workspaceId, ws.id));
-
-            const userCount = memberCountResult[0]?.count || 0;
-
-            let formattedStatus = ws.status || 'Active';
-            if (formattedStatus.toLowerCase() === 'active') formattedStatus = 'Active';
-            if (formattedStatus.toLowerCase() === 'inactive') formattedStatus = 'Inactive';
-
-            formattedWorkspaces.push({
-                id: ws.id,
-                company_id: ws.companyId,
-                name: ws.name,
-                description: ws.description,
-                status: formattedStatus,
-                created_by: ws.createdBy,
-                created_at: ws.createdAt,
-                updated_at: ws.updatedAt,
-                user_count: Number(userCount)
-            });
-        }
-
+        const formattedWorkspaces = Array.from(itemsMap.values());
         return NextResponse.json({ workspaces: formattedWorkspaces, success: true });
 
     } catch (err) {
