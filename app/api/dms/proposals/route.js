@@ -1,5 +1,5 @@
 import { db } from '../../../../db';
-import { dmsDealProposals, dmsTeasers, users, dmsDeals, companies } from '../../../../db/schema';
+import { dmsDealProposals, dmsTeasers, users, dmsDeals, companies, buyerProfiles } from '../../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
@@ -19,7 +19,7 @@ export async function GET(req) {
       return NextResponse.json({ proposals: [] }, { status: 200 });
     }
 
-    // Now get proposals and join with users to get buyer details
+    // Now get proposals and join with users and buyerProfiles to get buyer details
     const proposals = await db.select({
       id: dmsDealProposals.id,
       status: dmsDealProposals.status,
@@ -32,11 +32,18 @@ export async function GET(req) {
       jobTitle: users.jobTitle,
       investorType: companies.operationType,
       investmentRange: users.investmentRange,
+      companyDescription: buyerProfiles.companyDescription,
+      foundedYear: buyerProfiles.foundedYear,
+      headquarters: buyerProfiles.headquarters,
+      teamSize: buyerProfiles.teamSize,
+      dealBreakers: buyerProfiles.dealBreakers,
+      timelineToCloseDays: buyerProfiles.timelineToCloseDays,
     })
     .from(dmsDealProposals)
     .where(eq(dmsDealProposals.teaserId, teaser.id))
     .leftJoin(users, eq(dmsDealProposals.buyerId, users.id))
-    .leftJoin(companies, eq(users.companyId, companies.id));
+    .leftJoin(companies, eq(users.companyId, companies.id))
+    .leftJoin(buyerProfiles, eq(users.id, buyerProfiles.userId));
 
     return NextResponse.json({ proposals }, { status: 200 });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { db } from '../../../../../db';
-import { dmsDealProposals, dmsTeasers, dmsProjects, users, companies } from '../../../../../db/schema';
+import { dmsDealProposals, dmsTeasers, dmsProjects, users, companies, buyerProfiles } from '../../../../../db/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
@@ -83,6 +83,27 @@ export async function POST(req) {
         if (data.investmentRange) updateFields.investmentRange = data.investmentRange;
 
         await db.update(users).set(updateFields).where(eq(users.id, buyerId));
+
+        // Save timelineToCloseDays to buyerProfiles
+        const closeDays = (data.timelineToCloseDays !== undefined && data.timelineToCloseDays !== null && data.timelineToCloseDays !== '')
+          ? parseInt(data.timelineToCloseDays, 10)
+          : ((data.timeToClose !== undefined && data.timeToClose !== null && data.timeToClose !== '') ? parseInt(data.timeToClose, 10) : null);
+
+        if (closeDays !== null && !isNaN(closeDays)) {
+          const [existingBp] = await db.select().from(buyerProfiles).where(eq(buyerProfiles.userId, buyerId));
+          if (existingBp) {
+            await db.update(buyerProfiles).set({
+              timelineToCloseDays: closeDays,
+              updatedAt: new Date()
+            }).where(eq(buyerProfiles.userId, buyerId));
+          } else if (buyerUser.companyId) {
+            await db.insert(buyerProfiles).values({
+              userId: buyerId,
+              companyId: buyerUser.companyId,
+              timelineToCloseDays: closeDays
+            });
+          }
+        }
       }
     } catch (profileErr) {
       console.warn('Non-fatal error updating buyer profile:', profileErr);

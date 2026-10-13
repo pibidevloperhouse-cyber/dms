@@ -1,5 +1,5 @@
 import { db } from '../../../../db';
-import { dmsTeasers, dmsProjects, users, companies } from '../../../../db/schema';
+import { dmsTeasers, dmsProjects, users, companies, buyerProfiles } from '../../../../db/schema';
 import { eq, or, and } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
@@ -73,10 +73,18 @@ export async function GET(req) {
         linkedinUrl: companies.linkedinUrl,
         licenseNumber: companies.licenseNumber,
         proofOfAuthorityUrl: companies.proofOfAuthorityUrl,
-        additionalDocumentUrl: companies.additionalDocumentUrl
+        createdAt: companies.createdAt,
+        companyDescription: buyerProfiles.companyDescription,
+        foundedYear: buyerProfiles.foundedYear,
+        headquarters: buyerProfiles.headquarters,
+        capitalValue: buyerProfiles.capitalValue,
+        teamSize: buyerProfiles.teamSize,
+        timelineToCloseDays: buyerProfiles.timelineToCloseDays,
+        dealBreakers: buyerProfiles.dealBreakers
       })
       .from(users)
       .leftJoin(companies, eq(users.companyId, companies.id))
+      .leftJoin(buyerProfiles, or(eq(users.id, buyerProfiles.userId), eq(companies.id, buyerProfiles.companyId)))
       .where(
         and(
           or(eq(companies.dmsRole, 'buyer'), eq(companies.dmsRole, 'Buyer')),
