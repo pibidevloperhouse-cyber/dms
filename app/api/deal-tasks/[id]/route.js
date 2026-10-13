@@ -308,6 +308,10 @@ export async function PATCH(req, { params }) {
         if (payload.dealStage !== undefined) updatedFields.dealStage = payload.dealStage;
         if (payload.deal_stage !== undefined) updatedFields.dealStage = payload.deal_stage;
         if (payload.visibility !== undefined) updatedFields.visibility = payload.visibility;
+        if (payload.targetSide !== undefined) updatedFields.targetSide = payload.targetSide;
+        if (payload.target_side !== undefined) updatedFields.targetSide = payload.target_side;
+        if (payload.targetCompany !== undefined) updatedFields.targetCompany = payload.targetCompany;
+        if (payload.target_company !== undefined) updatedFields.targetCompany = payload.target_company;
         if (payload.status !== undefined) updatedFields.status = payload.status;
         if (payload.subtasks !== undefined) updatedFields.subtasks = payload.subtasks;
 

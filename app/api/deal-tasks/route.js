@@ -26,7 +26,12 @@ export async function GET(req) {
     }
 
     if (workspaceId) {
-      conditions.push(eq(dealTasks.workspaceId, workspaceId));
+      conditions.push(
+        or(
+          eq(dealTasks.workspaceId, workspaceId),
+          eq(dealTasks.dealId, workspaceId)
+        )
+      );
     }
 
     if (status && status !== 'ALL') {
@@ -96,6 +101,9 @@ export async function GET(req) {
 
     try {
       dbGroups = await db.select().from(groups);
+      if (workspaceId) {
+        dbGroups = dbGroups.filter((g) => !g.workspaceId || g.workspaceId === workspaceId);
+      }
       const dbUserGroups = await db.select().from(userGroups);
       dbAllUsers = await db
         .select({

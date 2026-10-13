@@ -203,22 +203,8 @@ export default function TrackerPage() {
                         <button
                           onClick={() => {
                             if (req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') {
-                              if (req.ndaStatus === 'signed') {
-                                const targetProjectId = req.projectId || req.dealProjectId;
-                                if (targetProjectId) {
-                                  router.push(`/dms/deal?projectId=${targetProjectId}&projectName=${encodeURIComponent(req.projectName || req.dealName || 'Project')}`);
-                                } else if (req.dealId) {
-                                  router.push('/documents');
-                                }
-                              } else {
-                                setNdaTarget({
-                                  proposalId: req.id,
-                                  projectId: req.projectId || req.dealProjectId,
-                                  projectName: req.projectName,
-                                  dealName: req.company
-                                });
-                                setShowNDAModal(true);
-                              }
+                              sessionStorage.setItem('marketplaceTab', 'workspace');
+                              router.push('/dms/marketplace/workspace');
                             }
                           }}
                           className={`text-xs font-bold text-gray-900 bg-gray-100 px-2.5 py-1.5 rounded transition-all text-left ${(req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') ? 'hover:bg-[#00c875]/10 hover:text-[#008f70] cursor-pointer' : ''}`}
@@ -279,40 +265,11 @@ export default function TrackerPage() {
                         {req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? (
                           <button
                             onClick={() => {
-                              if (req.ndaStatus === 'signed') {
-                                const dmsRole = localStorage.getItem('userRole') || 'buyer';
-                                const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
-
-                                if (req.dealId) {
-                                  const vdrSession = {
-                                    id: localStorage.getItem('userId'),
-                                    role: actualVdrRole,
-                                    dms_role: dmsRole,
-                                    name: localStorage.getItem('userName') || 'User',
-                                    company_id: localStorage.getItem('companyId') || '',
-                                    active_workspace_id: req.dealId
-                                  };
-                                  localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
-                                }
-
-                                const targetProjectId = req.projectId || req.dealProjectId;
-                                if (targetProjectId) {
-                                  router.push(`/dms/deal?projectId=${targetProjectId}&projectName=${encodeURIComponent(req.projectName || req.dealName || 'Project')}`);
-                                } else if (req.dealId) {
-                                  router.push('/documents');
-                                }
-                              } else {
-                                setNdaTarget({
-                                  proposalId: req.id,
-                                  projectId: req.projectId || req.dealProjectId,
-                                  projectName: req.projectName,
-                                  dealName: req.company
-                                });
-                                setShowNDAModal(true);
-                              }
+                              sessionStorage.setItem('marketplaceTab', 'workspace');
+                              router.push('/dms/marketplace/workspace');
                             }}
                             title="Open Deal"
-                            className="p-2 text-[#00c875] hover:bg-[#00c875]/10 rounded-full transition-colors flex items-center justify-center mx-auto"
+                            className="p-2 text-[#00c875] hover:bg-[#00c875]/10 rounded-full transition-colors flex items-center justify-center mx-auto cursor-pointer"
                           >
                             <FaFolderOpen className="text-lg" />
                           </button>
@@ -345,6 +302,9 @@ export default function TrackerPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   proposalId: ndaTarget.proposalId,
+                  projectId: ndaTarget.projectId,
+                  dealId: ndaTarget.dealId,
+                  buyerId: localStorage.getItem('userId'),
                   signatureData
                 })
               });
@@ -353,9 +313,8 @@ export default function TrackerPage() {
                 // Update local state to show signed status
                 setRequests(prev => prev.map(r => r.id === ndaTarget.proposalId ? { ...r, ndaStatus: 'signed' } : r));
                 setShowNDAModal(false);
-                if (ndaTarget.projectId) {
-                  router.push(`/dms/deal?projectId=${ndaTarget.projectId}&projectName=${encodeURIComponent(ndaTarget.projectName || 'Project')}`);
-                }
+                sessionStorage.setItem('marketplaceTab', 'workspace');
+                router.push('/dms/marketplace/workspace');
               } else {
                 console.error("Failed to sign NDA");
                 alert("Failed to save signature. Please try again.");

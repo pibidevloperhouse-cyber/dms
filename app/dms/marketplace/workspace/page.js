@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
+import NDAModal from "../../../../components/NDAModal";
 
 const industrySubcategories = {
   "Technology / SaaS": ["Software Development", "Cloud Computing", "AI & Machine Learning", "Cybersecurity", "FinTech", "HealthTech", "EdTech"],
@@ -150,6 +151,10 @@ export default function WorkspacePage() {
   const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
   const [isBuyerDropdownOpen, setIsBuyerDropdownOpen] = useState(false);
   const router = useRouter();
+
+  // NDA Modal State for Buyer
+  const [showNDAModal, setShowNDAModal] = useState(false);
+  const [ndaTarget, setNdaTarget] = useState(null);
 
   // Create Project Modal State
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -308,10 +313,27 @@ export default function WorkspacePage() {
         const userId = localStorage.getItem('userId');
         if (!userId) return;
         try {
-          const res = await fetch(`/api/dms/buyer-deals?buyerId=${userId}`);
+          const res = await fetch(`/api/dms/buyer-deals?buyerId=${userId}&role=${lowerRole || ''}`);
           if (res.ok) {
             const data = await res.json();
-            setWorkspaces(data.deals || []);
+            let deals = data.deals || [];
+
+            // If user has local requested teasers that are not yet in server deals, merge them
+            const localTeasers = JSON.parse(localStorage.getItem('my_requested_teasers') || '[]');
+            for (const lt of localTeasers) {
+              if (lt.projectId && !deals.some(d => d.projectId === lt.projectId)) {
+                deals.push({
+                  id: lt.projectId,
+                  projectId: lt.projectId,
+                  name: lt.projectName,
+                  status: lt.status?.toLowerCase() === 'approved' ? 'active' : 'inactive',
+                  ndaStatus: 'pending',
+                  createdAt: lt.requestedAt || new Date().toISOString()
+                });
+              }
+            }
+
+            setWorkspaces(deals);
           }
         } catch (error) {
           console.error("Failed to fetch buyer deals", error);
@@ -1113,11 +1135,27 @@ export default function WorkspacePage() {
               {filteredWorkspaces.map((workspace, index) => {
                 const isActive = workspace.status?.toLowerCase() === 'active';
                 const isRejected = workspace.status?.toLowerCase() === 'rejected';
+                const isNdaSigned = workspace.ndaStatus?.toLowerCase() === 'signed';
 
                 return (
                   <div
                     onClick={() => {
-                      if (!isActive) return; // Prevent clicking if not active
+                      if (!isActive) {
+                        if (workspace.status?.toLowerCase() === 'inactive') {
+                          alert("Access request is pending approval from the seller.");
+                        } else if (workspace.status?.toLowerCase() === 'rejected') {
+                          alert("Access request was declined by the seller.");
+                        }
+                        return; // Prevent clicking if not active
+                      }
+                      
+                      // For buyers, require signed NDA before entering project
+                      if (userRole === 'buyer' && !isNdaSigned) {
+                        setNdaTarget(workspace);
+                        setShowNDAModal(true);
+                        return; // Block access - cannot enter without signing NDA!
+                      }
+
                       const pid = workspace.projectId || workspace.id;
                       sessionStorage.removeItem(`deal_activeTab_${pid}`);
                       router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
@@ -1127,14 +1165,26 @@ export default function WorkspacePage() {
                       }`}
                   >
                     <div className="flex justify-between items-start mb-auto">
-                      <div className="flex gap-2 items-center">
+                      <div className="flex gap-2 items-center flex-wrap">
                         <span className={`px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-widest shadow-sm border ${isActive ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/20' : isRejected ? 'bg-red-50 text-red-600 border-red-200/50' : 'bg-orange-50 text-orange-600 border-orange-200/50'
                           }`}>
                           {isActive ? 'ACTIVE' : isRejected ? 'REJECTED' : 'PENDING'}
                         </span>
-                        {workspace.dealType && (
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase tracking-wider">
-                            {workspace.dealType}
+                        {userRole === 'buyer' && (
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-xs ${
+                            isNdaSigned
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {isNdaSigned ? (
+                              <>
+                                <FaCheck className="text-[8px]" /> NDA Signed
+                              </>
+                            ) : (
+                              <>
+                                <FaLock className="text-[8px]" /> NDA Required
+                              </>
+                            )}
                           </span>
                         )}
                       </div>
@@ -1170,8 +1220,13 @@ export default function WorkspacePage() {
 
                     <div className="flex flex-col items-center justify-center flex-1 gap-4 pb-2 relative z-10 mt-3">
                       {isActive ? (
-                        <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center border border-teal-100/60 group-hover:bg-teal-100/50 group-hover:scale-110 transition-all duration-300 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center border border-teal-100/60 group-hover:bg-teal-100/50 group-hover:scale-110 transition-all duration-300 shadow-sm relative">
                           <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
+                          {userRole === 'buyer' && !isNdaSigned && (
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[9px] shadow-sm" title="NDA signature required">
+                              <FaLock />
+                            </div>
+                          )}
                         </div>
                       ) : isRejected ? (
                         <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100/60 shadow-sm">
@@ -2084,6 +2139,59 @@ export default function WorkspacePage() {
           </div>
         </div>
       )}
+
+      {/* NDA Modal for Buyer */}
+      <NDAModal
+        isOpen={showNDAModal}
+        onClose={() => {
+          setShowNDAModal(false);
+          setNdaTarget(null);
+        }}
+        projectName={ndaTarget?.name || ndaTarget?.projectName || 'Project'}
+        companyName={profileData.companyName || userName || 'Buyer'}
+        onAccept={async (signatureData) => {
+          if (!ndaTarget) return;
+          try {
+            const buyerId = localStorage.getItem('userId');
+            const res = await fetch('/api/dms/tracker/sign-nda', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                proposalId: ndaTarget.proposalId,
+                dealId: ndaTarget.id,
+                projectId: ndaTarget.projectId || ndaTarget.id,
+                buyerId: buyerId,
+                signatureData
+              })
+            });
+
+            if (res.ok) {
+              const targetPid = ndaTarget.projectId || ndaTarget.id;
+              const targetName = ndaTarget.name || ndaTarget.projectName || 'Project';
+
+              // Update local workspaces state immediately
+              setWorkspaces(prev => prev.map(ws => {
+                if (ws.id === ndaTarget.id || ws.projectId === targetPid) {
+                  return { ...ws, ndaStatus: 'signed' };
+                }
+                return ws;
+              }));
+
+              setShowNDAModal(false);
+              setNdaTarget(null);
+
+              // Navigate into the project now that NDA is signed!
+              sessionStorage.removeItem(`deal_activeTab_${targetPid}`);
+              router.push(`/dms/deal?projectId=${targetPid}&projectName=${encodeURIComponent(targetName)}`);
+            } else {
+              alert("Failed to save NDA signature. Please try again.");
+            }
+          } catch (err) {
+            console.error("Error signing NDA:", err);
+            alert("Error signing NDA. Please try again.");
+          }
+        }}
+      />
     </div>
   );
 }

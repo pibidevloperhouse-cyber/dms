@@ -9,13 +9,18 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
+    const workspaceId = searchParams.get('workspaceId');
+    const userSide = searchParams.get('userSide');
 
     let allGroups = await db.select().from(groups);
-    let dbGroups = companyId ? allGroups.filter((g) => g.companyId === companyId) : allGroups;
-    let dbExternalGroups = companyId ? allGroups.filter((g) => g.companyId !== companyId) : [];
 
-    // Determine active side based on companyId
-    let currentCompanyRole = 'seller';
+    // Isolate by workspace if workspaceId is provided
+    if (workspaceId) {
+      allGroups = allGroups.filter((g) => !g.workspaceId || g.workspaceId === workspaceId);
+    }
+
+    // Determine active side based on companyId or userSide query param
+    let currentCompanyRole = userSide?.toLowerCase() === 'buyer' ? 'buyer' : 'seller';
     if (companyId) {
       try {
         const compRows = await db
@@ -25,12 +30,30 @@ export async function GET(req) {
           .limit(1);
         if (compRows.length > 0 && compRows[0].dmsRole?.toLowerCase() === 'buyer') {
           currentCompanyRole = 'buyer';
+        } else if (compRows.length > 0 && compRows[0].dmsRole?.toLowerCase() === 'seller') {
+          currentCompanyRole = 'seller';
         }
       } catch (cErr) {
         console.error('Error fetching company role:', cErr);
       }
     }
     const otherRole = currentCompanyRole === 'seller' ? 'buyer' : 'seller';
+
+    let dbGroups = [];
+    let dbExternalGroups = [];
+
+    if (companyId) {
+      dbGroups = allGroups.filter((g) => g.companyId === companyId);
+      dbExternalGroups = allGroups.filter((g) => g.companyId !== companyId);
+    } else {
+      if (currentCompanyRole === 'buyer') {
+        dbGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+      } else {
+        dbGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+      }
+    }
 
     // Fetch user_groups mappings
     const dbUserGroups = await db.select().from(userGroups);

@@ -1,6 +1,6 @@
 import { db } from '../../../../../db';
 import { dmsDeals } from '../../../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,9 +12,9 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { proposalId, signatureData } = body;
+    const { proposalId, dealId, projectId, buyerId, signatureData } = body;
 
-    if (!proposalId || !signatureData) {
+    if (!signatureData || (!proposalId && !dealId && (!projectId || !buyerId))) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
@@ -28,38 +28,69 @@ export async function POST(req) {
         const base64Data = matches[2];
         const buffer = Buffer.from(base64Data, 'base64');
         
-        const fileName = `signature_${proposalId}_${Date.now()}.${imageType}`;
+        const fileName = `signature_${dealId || proposalId || Date.now()}_${Date.now()}.${imageType}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('nda-signatures')
-          .upload(fileName, buffer, {
-            contentType: `image/${imageType}`,
-            upsert: false
-          });
-          
-        if (uploadError) {
-          console.error("Supabase Upload Error:", uploadError);
-          return NextResponse.json({ error: 'Failed to upload signature image' }, { status: 500 });
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('nda-signatures')
+            .upload(fileName, buffer, {
+              contentType: `image/${imageType}`,
+              upsert: false
+            });
+            
+          if (!uploadError) {
+            // Get public URL
+            const { data } = supabase.storage.from('nda-signatures').getPublicUrl(fileName);
+            if (data?.publicUrl) {
+              signatureUrl = data.publicUrl;
+            }
+          }
+        } catch (uploadErr) {
+          console.warn("Storage upload exception, fallback to raw signature:", uploadErr);
         }
-        
-        // Get public URL
-        const { data } = supabase.storage.from('nda-signatures').getPublicUrl(fileName);
-        signatureUrl = data.publicUrl;
       }
     }
 
-    // Update the deal matching the proposalId
-    const [updatedDeal] = await db.update(dmsDeals)
-      .set({ 
-        ndaStatus: 'signed', 
-        ndaSignature: signatureUrl,
-        updatedAt: new Date()
-      })
-      .where(eq(dmsDeals.proposalId, proposalId))
-      .returning();
+    let updatedDeal = null;
+
+    if (dealId) {
+      const [deal] = await db.update(dmsDeals)
+        .set({ 
+          ndaStatus: 'signed', 
+          ndaSignature: signatureUrl,
+          updatedAt: new Date()
+        })
+        .where(eq(dmsDeals.id, dealId))
+        .returning();
+      updatedDeal = deal;
+    }
+
+    if (!updatedDeal && proposalId) {
+      const [deal] = await db.update(dmsDeals)
+        .set({ 
+          ndaStatus: 'signed', 
+          ndaSignature: signatureUrl,
+          updatedAt: new Date()
+        })
+        .where(eq(dmsDeals.proposalId, proposalId))
+        .returning();
+      updatedDeal = deal;
+    }
+
+    if (!updatedDeal && projectId && buyerId) {
+      const [deal] = await db.update(dmsDeals)
+        .set({ 
+          ndaStatus: 'signed', 
+          ndaSignature: signatureUrl,
+          updatedAt: new Date()
+        })
+        .where(and(eq(dmsDeals.projectId, projectId), eq(dmsDeals.buyerId, buyerId)))
+        .returning();
+      updatedDeal = deal;
+    }
 
     if (!updatedDeal) {
-      return NextResponse.json({ error: 'Deal not found for this proposal' }, { status: 404 });
+      return NextResponse.json({ error: 'Deal not found for signing NDA' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, deal: updatedDeal }, { status: 200 });
@@ -68,3 +99,4 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

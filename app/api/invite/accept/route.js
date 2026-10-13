@@ -18,7 +18,7 @@ export async function POST(request) {
     const { error: ugError } = await supabase
       .from("user_groups")
       .upsert({ user_id, group_id }, { onConflict: "user_id,group_id" });
-
+      
     if (ugError) throw new Error("Failed to add user to group: " + ugError.message);
 
     // 2. Insert into workspace_members (if applicable)
@@ -42,7 +42,7 @@ export async function POST(request) {
       .from("invitations")
       .update({ status: "accepted" })
       .eq("id", invitation_id);
-
+      
     if (invError) throw new Error("Failed to update invitation: " + invError.message);
 
     return NextResponse.json({ success: true });
