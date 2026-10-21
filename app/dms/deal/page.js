@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash } from "react-icons/fa";
+import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaMapMarkerAlt, FaUser, FaEnvelope, FaBuilding, FaFileAlt, FaSlidersH, FaCommentDots } from "react-icons/fa";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
@@ -28,6 +28,7 @@ export default function DealDashboard() {
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [requestModalTab, setRequestModalTab] = useState('overview');
   const [activeTab, setActiveTab] = useState('deals');
   const [userRole, setUserRole] = useState('seller');
   const [vdrRole, setVdrRole] = useState('external_user');
@@ -37,6 +38,30 @@ export default function DealDashboard() {
     if (projectId) {
       sessionStorage.setItem(`deal_activeTab_${projectId}`, tab);
     }
+  };
+
+  const formatFoundedDate = (val) => {
+    if (!val) return 'Not provided';
+    if (/^\d{4}$/.test(String(val).trim())) return String(val);
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = d.toLocaleDateString('en-GB', { month: 'short' });
+      const year = d.getFullYear();
+      return `${day} ${month} ${year}`;
+    } catch (e) {
+      return String(val);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'BK';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   // NDA Modal State
@@ -869,151 +894,315 @@ export default function DealDashboard() {
 
       </main>
 
-      {/* Access Request Details Modal */}
+      {/* Access Request Details Modal - Two-Column Split Layout matching Reference Design */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[88vh] flex flex-col shadow-2xl relative animate-in fade-in zoom-in duration-200 overflow-hidden border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="text-lg font-bold text-gray-800">Access Request Details</h2>
-              <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200/60">
-                <FaTimes className="text-base" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row shadow-2xl relative overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+            
+            {/* Left Sidebar: Firm Identity & Key Metrics with linear-gradient(135deg, #1f6fb2, #2ec4b6) */}
+            <div 
+              style={{ background: 'linear-gradient(135deg, #1f6fb2, #2ec4b6)' }}
+              className="w-full md:w-72 lg:w-80 text-white p-7 md:p-8 border-b md:border-b-0 md:border-r border-white/10 shrink-0 flex flex-col justify-between overflow-y-auto"
+            >
+              <div>
+                {/* Logo Box */}
+                <div className="w-14 h-14 rounded-xl border border-white/20 bg-white shadow-md flex flex-col items-center justify-center p-2">
+                  <FaBuilding className="text-xl text-[#1f6fb2]" />
+                  <span className="text-[10px] font-bold text-[#1f6fb2] tracking-wider uppercase mt-0.5 leading-none">
+                    {selectedRequest.company ? selectedRequest.company.substring(0, 3).toUpperCase() : 'BKU'}
+                  </span>
+                </div>
 
-            <div className="p-6 space-y-5 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Full Name</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.fullName}</p>
+                {/* Company Name */}
+                <h2 className="text-lg font-bold text-white mt-4 leading-tight">
+                  {selectedRequest.company || 'BKU Pvt Ltd'}
+                </h2>
+
+                {/* Headquarters Location */}
+                <div className="flex items-center gap-1.5 text-xs text-white/80 font-medium mt-1">
+                  <FaMapMarkerAlt className="text-xs text-white/70 shrink-0" />
+                  <span>{selectedRequest.headquarters || 'Azerbaijan'}</span>
                 </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Work Email</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.email}</p>
+
+                {/* Investor Type Subtitle */}
+                <div className="mt-2.5">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-white text-xs font-semibold border border-white/20 capitalize">
+                    {selectedRequest.investorType 
+                      ? (selectedRequest.investorType.toLowerCase().includes('investor') ? selectedRequest.investorType : `${selectedRequest.investorType} investor`) 
+                      : 'M&A investor'}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Company</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.company}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Investor Type</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.investorType}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Investment Range</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.investmentRange}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Headquarters</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.headquarters || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Founded Date</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.foundedYear || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Team Size</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedRequest.teamSize || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Time to Close</p>
-                  <p className="text-sm font-medium text-teal-700 font-semibold">{selectedRequest.timelineToCloseDays ? `${selectedRequest.timelineToCloseDays} Days` : 'N/A'}</p>
+
+                {/* Divider Line */}
+                <div className="w-full border-t border-white/20 my-6" />
+
+                {/* Vertical Stacked Key Stats */}
+                <div className="space-y-6">
+                  {/* Investment range */}
+                  <div>
+                    <p className="text-xs text-white/75 font-medium mb-1">Investment range</p>
+                    <p className="text-2xl font-bold text-white">{selectedRequest.investmentRange || '$5M – $20M'}</p>
+                  </div>
+
+                  {/* Time to close */}
+                  <div>
+                    <p className="text-xs text-white/75 font-medium mb-1">Time to close</p>
+                    <div className="flex items-baseline">
+                      <span className="text-2xl font-bold text-white">
+                        {selectedRequest.timelineToCloseDays ? String(selectedRequest.timelineToCloseDays).replace(/days?/i, '').trim() : '30'}
+                      </span>
+                      <span className="text-sm font-medium text-white/80 ml-1.5">days</span>
+                    </div>
+                  </div>
+
+                  {/* Team size */}
+                  <div>
+                    <p className="text-xs text-white/75 font-medium mb-1">Team size</p>
+                    <div className="flex items-baseline">
+                      <span className="text-2xl font-bold text-white">
+                        {selectedRequest.teamSize ? String(selectedRequest.teamSize).replace(/people|members?/i, '').trim() : '148'}
+                      </span>
+                      <span className="text-sm font-medium text-white/80 ml-1.5">people</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {selectedRequest.companyDescription && (
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1 mt-1">Company Description</p>
-                  <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 border border-gray-100 leading-relaxed">
-                    {selectedRequest.companyDescription}
-                  </div>
-                </div>
-              )}
-
-              {selectedRequest.dealBreakers && (
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1 mt-1">Deal Breakers</p>
-                  <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 border border-gray-100 leading-relaxed">
-                    {selectedRequest.dealBreakers}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-gray-100">
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2 mt-2">Message</p>
-                <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 min-h-[80px] border border-gray-100">
-                  {selectedRequest.message || "No message provided."}
-                </div>
+              {/* REQUEST ID at bottom */}
+              <div className="mt-8 pt-4 border-t border-white/10">
+                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-0.5">REQUEST ID</p>
+                <p className="text-xs font-medium text-white/90 font-mono tracking-wider break-all">
+                  REQ-{selectedRequest.id || '0001'}
+                </p>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
-              {(selectedRequest.status?.toLowerCase() === 'approved' || selectedRequest.status?.toLowerCase() === 'accepted') ? (
+            {/* Right Main Content Deck */}
+            <div className="flex-1 flex flex-col justify-between overflow-hidden bg-white">
+              
+              {/* Top Navigation Tabs & Close Icon */}
+              <div className="border-b border-gray-200 px-8 pt-5 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-6">
+                  <button
+                    onClick={() => setRequestModalTab('overview')}
+                    className={`pb-3 text-sm font-semibold transition-colors relative cursor-pointer ${
+                      requestModalTab === 'overview'
+                        ? 'text-gray-900 border-b-2 border-[#008f70]'
+                        : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    Overview
+                  </button>
+                  <button
+                    onClick={() => setRequestModalTab('activity')}
+                    className={`pb-3 text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      requestModalTab === 'activity'
+                        ? 'text-gray-900 border-b-2 border-[#008f70]'
+                        : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <span>Activity</span>
+                    <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full font-bold">1</span>
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => {
-                    setNdaTarget({
-                      projectName: projectName,
-                      dealName: selectedRequest.company || "New Deal"
-                    });
-                    setSelectedRequest(null);
-                    setShowNDAModal(true);
-                  }}
-                  className="px-6 py-2.5 bg-[var(--brand)] hover:bg-[var(--brand-secondary)] text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2"
+                  onClick={() => setSelectedRequest(null)}
+                  className="text-gray-400 hover:text-gray-600 pb-3 transition-colors cursor-pointer"
+                  title="Close"
                 >
-                  <FaFolder /> Open Deal
+                  <FaTimes className="text-base" />
                 </button>
-              ) : (
-                <>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/dms/proposals', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ proposalId: selectedRequest.id, action: 'reject', projectId })
-                        });
-                        if (res.ok) {
-                          setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'rejected' } : r));
-                          setSelectedRequest(null);
-                        }
-                      } catch (err) {
-                        console.error(err);
-                        alert("Failed to reject proposal");
-                      }
-                    }}
-                    className="px-5 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-bold transition-colors text-sm"
-                  >
-                    Reject Request
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/dms/proposals', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ proposalId: selectedRequest.id, action: 'accept', projectId })
-                        });
-                        if (res.ok) {
-                          setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'approved' } : r));
-                          // Refresh deals
-                          const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
-                          const dealsData = await dealsRes.json();
-                          setDeals(dealsData.deals || []);
+              </div>
 
-                          setSelectedRequest(null);
-                          alert(`Deal created automatically for ${selectedRequest.company}.`);
-                        }
-                      } catch (err) {
-                        console.error(err);
-                        alert("Failed to accept proposal");
-                      }
+              {/* Scrollable Information Body */}
+              <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                {requestModalTab === 'overview' ? (
+                  <div className="space-y-6">
+                    {/* Section 1: Applicant information */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 text-gray-800">
+                        <FaUser className="text-gray-400 text-xs" />
+                        <h3 className="text-sm font-bold text-gray-900">Applicant information</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1.5">Full name</p>
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#e6fbf2] text-[#008f70] text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {getInitials(selectedRequest.fullName)}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900">{selectedRequest.fullName || 'kamal dha'}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1.5">Work email</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900">{selectedRequest.email || 'BKU@gmail.com'}</span>
+                            <FaEnvelope className="text-gray-400 text-xs" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full border-t border-gray-100" />
+
+                    {/* Section 2: Company information */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 text-gray-800">
+                        <FaBuilding className="text-gray-400 text-xs" />
+                        <h3 className="text-sm font-bold text-gray-900">Company information</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-5 gap-x-6">
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1">Company name</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedRequest.company || 'BKU Pvt Ltd'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1">Headquarters</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedRequest.headquarters || 'Azerbaijan'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1">Founded date</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatFoundedDate(selectedRequest.foundedYear)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 font-medium mb-1">Investor type</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedRequest.investorType || 'Mergers & acquisitions'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full border-t border-gray-100" />
+
+                    {/* Section 3: Company description */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-gray-800">
+                        <FaFileAlt className="text-gray-400 text-xs" />
+                        <h3 className="text-sm font-bold text-gray-900">Company description</h3>
+                      </div>
+                      <p className="text-xs text-gray-500 font-normal leading-relaxed">
+                        {(!selectedRequest.companyDescription || selectedRequest.companyDescription.toLowerCase() === 'none') ? 'Not provided' : selectedRequest.companyDescription}
+                      </p>
+                    </div>
+
+                    <div className="w-full border-t border-gray-100" />
+
+                    {/* Section 4: Deal breakers */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-gray-800">
+                        <FaSlidersH className="text-gray-400 text-xs" />
+                        <h3 className="text-sm font-bold text-gray-900">Deal breakers</h3>
+                      </div>
+                      <p className="text-xs text-gray-500 font-normal leading-relaxed">
+                        {(!selectedRequest.dealBreakers || selectedRequest.dealBreakers.toLowerCase() === 'none') ? 'None specified' : selectedRequest.dealBreakers}
+                      </p>
+                    </div>
+
+                    {/* Optional Message if provided */}
+                    {selectedRequest.message && (
+                      <>
+                        <div className="w-full border-t border-gray-100" />
+                        <div>
+                          <div className="flex items-center gap-2 mb-2 text-gray-800">
+                            <FaCommentDots className="text-gray-400 text-xs" />
+                            <h3 className="text-sm font-bold text-gray-900">Applicant message</h3>
+                          </div>
+                          <p className="text-xs text-gray-600 font-normal italic leading-relaxed bg-gray-50 p-3.5 rounded-lg border border-gray-100">
+                            "{selectedRequest.message}"
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-4 space-y-4">
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-100">
+                      <div className="w-8 h-8 rounded-full bg-[#e6fbf2] text-[#008f70] flex items-center justify-center font-bold text-xs shrink-0">
+                        <FaCheck className="text-xs" />
+                      </div>
+                      <div className="text-xs">
+                        <p className="font-bold text-gray-900">Access Request Submitted</p>
+                        <p className="text-gray-500 mt-0.5">{selectedRequest.fullName || 'Applicant'} requested data room access for {projectName}.</p>
+                        <span className="text-[10px] text-gray-400 mt-1 inline-block">Status: {selectedRequest.status || 'Pending'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Action Buttons Dock */}
+              <div className="px-8 py-4 border-t border-gray-100 flex justify-end items-center gap-3 bg-white shrink-0">
+                {(selectedRequest.status?.toLowerCase() === 'approved' || selectedRequest.status?.toLowerCase() === 'accepted') ? (
+                  <button
+                    onClick={() => {
+                      setNdaTarget({
+                        projectName: projectName,
+                        dealName: selectedRequest.company || "New Deal"
+                      });
+                      setSelectedRequest(null);
+                      setShowNDAModal(true);
                     }}
-                    className="px-5 py-2.5 bg-[#00c875] hover:bg-[#00a863] text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2"
+                    className="px-6 py-2.5 bg-[#008f70] hover:bg-[#007058] text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2 cursor-pointer"
                   >
-                    <FaCheck /> Accept & Create Deal
+                    <FaFolder /> Open Deal
                   </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/dms/proposals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ proposalId: selectedRequest.id, action: 'reject', projectId })
+                          });
+                          if (res.ok) {
+                            setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'rejected' } : r));
+                            setSelectedRequest(null);
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          alert("Failed to reject proposal");
+                        }
+                      }}
+                      className="px-6 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-bold transition-colors text-sm cursor-pointer"
+                    >
+                      Reject Request
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/dms/proposals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ proposalId: selectedRequest.id, action: 'accept', projectId })
+                          });
+                          if (res.ok) {
+                            setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'approved' } : r));
+                            // Refresh deals
+                            const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
+                            const dealsData = await dealsRes.json();
+                            setDeals(dealsData.deals || []);
+
+                            setSelectedRequest(null);
+                            alert(`Deal created automatically for ${selectedRequest.company}.`);
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          alert("Failed to accept proposal");
+                        }
+                      }}
+                      className="px-6 py-2.5 bg-[#00c875] hover:bg-[#00b067] text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <FaCheck className="text-xs" /> Accept & Create Deal
+                    </button>
+                  </>
+                )}
+              </div>
+
             </div>
+
           </div>
         </div>
       )}
