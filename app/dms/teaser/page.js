@@ -10,17 +10,33 @@ function TeaserContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectName = searchParams.get('project') || "Project Aurora";
+  const projectId = searchParams.get('projectId');
   const isApproved = searchParams.get('approved') === 'true';
 
   const [userRole, setUserRole] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState('unverified');
   const [isMounted, setIsMounted] = useState(false);
+  const [teaserData, setTeaserData] = useState(null);
+  const [loadingTeaser, setLoadingTeaser] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
     setUserRole(localStorage.getItem('userRole'));
     setVerificationStatus(localStorage.getItem('verificationStatus') || 'unverified');
-  }, []);
+
+    if (projectId) {
+      setLoadingTeaser(true);
+      fetch(`/api/dms/teasers?projectId=${projectId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.teaser) {
+            setTeaserData(data.teaser);
+          }
+        })
+        .catch(err => console.error("Failed to load teaser", err))
+        .finally(() => setLoadingTeaser(false));
+    }
+  }, [projectId]);
 
   const handleLogout = () => {
     localStorage.removeItem('userId');
@@ -217,16 +233,15 @@ function TeaserContent() {
               </h1>
 
               <p className="text-gray-500 text-sm md:text-base leading-relaxed mb-8">
-                A profitable mid-market B2B SaaS company providing workflow automation
-                solutions to enterprise customers.
+                {teaserData?.businessSummary || "A profitable company providing high-value solutions to customers."}
               </p>
 
               <div className="flex flex-wrap items-center text-sm font-medium text-[#008f70]">
-                <span>B2B SaaS</span>
+                <span>{teaserData?.industry || teaserData?.businessModel || "B2B SaaS"}</span>
                 <span className="mx-3 text-gray-300">/</span>
-                <span className="text-[#008f70]">North America</span>
+                <span className="text-[#008f70]">{teaserData?.headquarters || "North America"}</span>
                 <span className="mx-3 text-gray-300">/</span>
-                <span className="text-[#008f70]">Majority Acquisition</span>
+                <span className="text-[#008f70]">{teaserData?.investmentMandate || "Majority Acquisition"}</span>
               </div>
             </div>
 
@@ -274,49 +289,75 @@ function TeaserContent() {
             <div className="lg:col-span-2">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Company Overview</h2>
               <p className="text-sm text-gray-600 leading-relaxed mb-12">
-                A profitable mid-market B2B SaaS company providing workflow automation solutions to enterprise customers. The company combines a durable operating model with an attractive opportunity for a well-capitalized partner to support its next phase of growth.
+                {teaserData?.businessSummary || "A profitable mid-market business combining a durable operating model with an attractive opportunity for a well-capitalized partner."}
               </p>
 
               <h2 className="text-lg font-bold text-gray-900 mb-6">Key Highlights</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 mb-12">
-                {[
-                  "10+ years operating history",
-                  "Strong recurring revenue",
-                  "90%+ customer retention",
-                  "High margin business model",
-                  "Experienced management team",
-                  "Attractive growth opportunity"
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0 md:last:border-b-0">
-                    <div className="w-5 h-5 bg-green-50 border border-green-100 text-green-600 rounded flex items-center justify-center flex-shrink-0">
-                      <FaCheck className="text-[10px]" />
+              {teaserData?.keyHighlights ? (
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-5 mb-12 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                  {teaserData.keyHighlights}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 mb-12">
+                  {[
+                    teaserData?.yearFounded ? `Founded in ${teaserData.yearFounded}` : "Established operating track record",
+                    teaserData?.recurringRevenuePercent ? `${teaserData.recurringRevenuePercent}% recurring revenue` : "Strong recurring revenue model",
+                    teaserData?.grossMarginPercent ? `${teaserData.grossMarginPercent}% gross margin` : "High gross margin profile",
+                    teaserData?.totalCustomerCount ? `${Number(teaserData.totalCustomerCount).toLocaleString()} active customers` : "Diversified customer base",
+                    teaserData?.businessModel ? `Proven ${teaserData.businessModel} model` : "Defensible market position",
+                    "Attractive scale and expansion opportunity"
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0 md:last:border-b-0">
+                      <div className="w-5 h-5 bg-green-50 border border-green-100 text-green-600 rounded flex items-center justify-center flex-shrink-0">
+                        <FaCheck className="text-[10px]" />
+                      </div>
+                      <span className="text-sm text-gray-700">{item}</span>
                     </div>
-                    <span className="text-sm text-gray-700">{item}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               <h2 className="text-lg font-bold text-gray-900 mb-6">Financial Snapshot</h2>
-              <div className="bg-white border border-gray-200 rounded-xl flex flex-col md:flex-row overflow-hidden text-center md:text-left">
+              <div className="bg-white border border-gray-200 rounded-xl flex flex-col md:flex-row overflow-hidden text-center md:text-left mb-8">
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Revenue</p>
-                  <p className="text-xl font-bold text-gray-900">$12.4M</p>
+                  <p className="text-xl font-bold text-gray-900">{teaserData?.revenue || teaserData?.revenueBand || "—"}</p>
                 </div>
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">EBITDA</p>
-                  <p className="text-xl font-bold text-gray-900">$3.1M</p>
+                  <p className="text-xl font-bold text-gray-900">{teaserData?.ebitdaBand || (teaserData?.profitabilityEbitdaPercent ? `${teaserData.profitabilityEbitdaPercent}%` : "—")}</p>
                 </div>
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">EBITDA Margin</p>
-                  <p className="text-xl font-bold text-gray-900">25%</p>
+                  <p className="text-xl font-bold text-gray-900">{teaserData?.profitabilityEbitdaPercent ? `${teaserData.profitabilityEbitdaPercent}%` : "—"}</p>
                 </div>
                 <div className="p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">YoY Growth</p>
-                  <p className="text-xl font-bold text-[#00c875]">+28% YoY</p>
+                  <p className="text-xl font-bold text-[#00c875]">{teaserData?.growthRatePercent ? `+${teaserData.growthRatePercent}% YoY` : "—"}</p>
                 </div>
                 <div className="p-5 flex-1">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Employees</p>
-                  <p className="text-xl font-bold text-gray-900">85</p>
+                  <p className="text-xl font-bold text-gray-900">{teaserData?.employees || "—"}</p>
+                </div>
+              </div>
+
+              {/* Additional Financial Details */}
+              <div className="bg-gray-50/70 border border-gray-200 rounded-xl p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs mb-12">
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Gross Margin</span>
+                  <span className="font-semibold text-gray-800">{teaserData?.grossMarginPercent ? `${teaserData.grossMarginPercent}%` : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Net Profit</span>
+                  <span className="font-semibold text-gray-800">{teaserData?.netProfit || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Debt on Business</span>
+                  <span className="font-semibold text-gray-800">{teaserData?.debtOnBusiness ? `$${Number(teaserData.debtOnBusiness.replace(/[^0-9.]/g, '') || 0).toLocaleString()}` : "None / Zero Debt"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Working Capital</span>
+                  <span className="font-semibold text-gray-800">{teaserData?.workingCapital ? `$${Number(teaserData.workingCapital.replace(/[^0-9.]/g, '') || 0).toLocaleString()}` : "—"}</span>
                 </div>
               </div>
             </div>
@@ -328,23 +369,25 @@ function TeaserContent() {
 
                 <div className="flex justify-between py-3 border-b border-gray-100">
                   <span className="text-sm text-gray-500">Deal Type</span>
-                  <span className="text-sm font-bold text-gray-900">Majority Acquisition</span>
+                  <span className="text-sm font-bold text-gray-900">{teaserData?.investmentMandate || teaserData?.businessModel || "Majority Acquisition"}</span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-gray-100">
                   <span className="text-sm text-gray-500">Geography</span>
-                  <span className="text-sm font-bold text-gray-900">North America</span>
+                  <span className="text-sm font-bold text-gray-900">{teaserData?.headquarters || "North America"}</span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-gray-100">
                   <span className="text-sm text-gray-500">Sector</span>
-                  <span className="text-sm font-bold text-gray-900">B2B SaaS</span>
+                  <span className="text-sm font-bold text-gray-900">{teaserData?.industry || "Technology"}</span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">Revenue Multiple</span>
-                  <span className="text-sm font-bold text-gray-900">Confidential</span>
+                  <span className="text-sm text-gray-500">Revenue Multiple / Band</span>
+                  <span className="text-sm font-bold text-gray-900">{teaserData?.revenueBand || "Confidential"}</span>
                 </div>
                 <div className="flex justify-between items-start py-3 mb-6">
                   <span className="text-sm text-gray-500 mt-0.5">Asking Price</span>
-                  <span className="text-sm font-bold text-gray-900 text-right">Available upon<br />qualified access</span>
+                  <span className="text-sm font-bold text-gray-900 text-right">
+                    {teaserData?.askingPrice ? `$${Number(teaserData.askingPrice.replace(/[^0-9.]/g, '') || 0).toLocaleString()}` : "Available upon<br />qualified access"}
+                  </span>
                 </div>
 
                 {!isApproved && (
