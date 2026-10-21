@@ -26,19 +26,19 @@ export default function SellerDataRoomPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr_300px] mx-7 mb-10 border border-slate-200 rounded-xl bg-white overflow-hidden items-stretch shadow-sm">
         <div className="border-b md:border-b-0 md:border-r border-slate-100 py-3.5">
-          <div className="px-5 py-2 text-[10.5px] tracking-wide text-slate-400 uppercase">Folders</div>
-          <div className="px-5 py-2 text-[13px] text-slate-500 cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Corporate</span><span className="text-[11px] text-slate-400 font-mono">6</span></div>
-          <div className="px-5 py-2 text-[13px] text-slate-900 font-medium cursor-pointer flex justify-between bg-blue-50 border-r-2 border-blue-600"><span>Financials</span><span className="text-[11px] text-slate-400 font-mono">9</span></div>
-          <div className="px-5 py-2 text-[13px] text-slate-500 cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Legal</span><span className="text-[11px] text-slate-400 font-mono">5</span></div>
-          <div className="px-5 py-2 text-[13px] text-slate-500 cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Operations</span><span className="text-[11px] text-slate-400 font-mono">4</span></div>
-          <div className="px-5 py-2 text-[13px] text-slate-500 cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>HR &amp; Talent</span><span className="text-[11px] text-slate-400 font-mono">3</span></div>
-          <div className="px-5 pt-3 pb-1 text-[10.5px] tracking-wide text-slate-400 uppercase mt-2">Discussion</div>
-          <div className="px-5 py-2 text-[13px] text-slate-500 cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Q&amp;A inbox</span><span className="text-[11px] text-slate-400 font-mono">2</span></div>
+          <div className="px-5 py-2 text-[10.5px] tracking-wide text-slate-400 uppercase font-bold">Folders</div>
+          <div className="px-5 py-2 text-[13px] text-slate-600 font-medium cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Corporate</span><span className="text-[11px] text-slate-500 font-semibold">6</span></div>
+          <div className="px-5 py-2 text-[13px] text-slate-900 font-semibold cursor-pointer flex justify-between bg-blue-50 border-r-2 border-blue-600"><span>Financials</span><span className="text-[11px] text-blue-600 font-bold">9</span></div>
+          <div className="px-5 py-2 text-[13px] text-slate-600 font-medium cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Legal</span><span className="text-[11px] text-slate-500 font-semibold">5</span></div>
+          <div className="px-5 py-2 text-[13px] text-slate-600 font-medium cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Operations</span><span className="text-[11px] text-slate-500 font-semibold">4</span></div>
+          <div className="px-5 py-2 text-[13px] text-slate-600 font-medium cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>HR &amp; Talent</span><span className="text-[11px] text-slate-500 font-semibold">3</span></div>
+          <div className="px-5 pt-3 pb-1 text-[10.5px] tracking-wide text-slate-400 uppercase mt-2 font-bold">Discussion</div>
+          <div className="px-5 py-2 text-[13px] text-slate-600 font-medium cursor-pointer flex justify-between hover:bg-slate-50 transition-colors"><span>Q&amp;A inbox</span><span className="text-[11px] text-slate-500 font-semibold">2</span></div>
         </div>
 
         <div className="flex flex-col min-w-0">
           <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 flex-wrap gap-2">
-            <h2 className="text-[16px] font-serif font-medium m-0">Financials <span className="text-slate-400 font-sans font-normal text-[13px]">· 9 files</span></h2>
+            <h2 className="text-[16px] font-bold text-slate-900 m-0">Financials <span className="text-slate-400 font-normal text-[13px]">· 9 files</span></h2>
             <span className="text-[12px] text-slate-400">Sort: Recently added</span>
           </div>
           <div className="overflow-x-auto">
@@ -55,7 +55,7 @@ export default function SellerDataRoomPage() {
                 <tr className="border-b border-slate-100 bg-blue-50 cursor-pointer">
                   <td className="px-5 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">XLS</div>
+                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">XLS</div>
                       <div>
                         <b className="font-medium text-slate-900 text-[13px]">Revenue &amp; cohort breakdown.xlsx</b>
                         <div className="text-slate-400 text-[11px]">Viewed by 3 of 4 buyers</div>
@@ -69,7 +69,7 @@ export default function SellerDataRoomPage() {
                 <tr className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
                   <td className="px-5 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">PDF</div>
+                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">PDF</div>
                       <div>
                         <b className="font-medium text-slate-900 text-[13px]">Audited financials FY25.pdf</b>
                         <div className="text-slate-400 text-[11px]">Viewed by 3 of 4 buyers</div>
@@ -83,7 +83,7 @@ export default function SellerDataRoomPage() {
                 <tr className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
                   <td className="px-5 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">XLS</div>
+                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">XLS</div>
                       <div>
                         <b className="font-medium text-slate-900 text-[13px]">Updated cap table v3.xlsx</b>
                         <div className="text-slate-400 text-[11px]">Viewed by 1 of 4 buyers</div>
@@ -97,7 +97,7 @@ export default function SellerDataRoomPage() {
                 <tr className="hover:bg-slate-50 cursor-pointer transition-colors">
                   <td className="px-5 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">PDF</div>
+                      <div className="w-[26px] h-[26px] rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">PDF</div>
                       <div>
                         <b className="font-medium text-slate-900 text-[13px]">Debt schedule.pdf</b>
                         <div className="text-slate-400 text-[11px]">Viewed by 2 of 4 buyers</div>

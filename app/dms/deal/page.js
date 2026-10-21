@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash } from "react-icons/fa";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
 
-export default function DealDashboard() {
+function DealDashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get('projectId');
@@ -1300,5 +1300,13 @@ export default function DealDashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DealDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F8F9FA] flex justify-center items-center text-gray-500 font-medium">Loading...</div>}>
+      <DealDashboardContent />
+    </Suspense>
   );
 }

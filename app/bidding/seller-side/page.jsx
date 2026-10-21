@@ -44,56 +44,56 @@ export default function SellerBiddingPage() {
         <div className="pt-6 px-7">
           <div className="flex justify-between items-start gap-6 flex-wrap">
             <div>
-              <div className="text-[27px] text-slate-900 flex items-baseline gap-3 flex-wrap font-serif font-medium">
+              <div className="text-[26px] text-slate-900 flex items-baseline gap-3 flex-wrap font-bold tracking-tight">
                 Project Alpha
-                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-full tracking-wide bg-amber-50 text-amber-600 border border-amber-100">
+                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full tracking-wide bg-amber-50 text-amber-700 border border-amber-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Bid Evaluation
                 </span>
               </div>
-              <div className="text-slate-500 text-[13px] mt-1.5">Round opened 12 Aug 2026 &nbsp;·&nbsp; Ask $100M &nbsp;·&nbsp; 3 of 4 invited buyers have bid</div>
+              <div className="text-slate-500 text-[13px] font-medium mt-1.5">Round opened 12 Aug 2026 &nbsp;·&nbsp; Ask $100M &nbsp;·&nbsp; 3 of 4 invited buyers have bid</div>
             </div>
             <div className="flex gap-2.5 items-start">
-              <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-500 hover:bg-white hover:text-slate-900 transition-colors">Export ledger</button>
-              <button className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity">Close bidding round</button>
+              <button className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors">Export ledger</button>
+              <button className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity">Close bidding round</button>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[12.5px] text-red-600 mt-3.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span> Bid deadline in <b className="font-mono tabular-nums">2 days 6 hrs</b> — 18:00 IST, 6 Sep 2026 · reminder sent to 1 outstanding buyer
+          <div className="flex items-center gap-2 text-[12.5px] text-rose-600 font-medium mt-3.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Bid deadline in <b className="font-bold">2 days 6 hrs</b> — 18:00 IST, 6 Sep 2026 · reminder sent to 1 outstanding buyer
           </div>
         </div>
 
-        <div className="mt-6 mx-7 grid grid-cols-2 md:grid-cols-5 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
+        <div className="mt-6 mx-7 grid grid-cols-2 md:grid-cols-5 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-xs">
           <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 tracking-wide mb-2">Bids received</div>
-            <div className="text-[22px] font-mono text-slate-900 tabular-nums">3<span className="text-slate-400 font-sans text-[14px]"> / 4 invited</span></div>
+            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Bids received</div>
+            <div className="text-[24px] font-bold text-slate-900 tracking-tight">3<span className="text-slate-400 font-normal text-[14px]"> / 4 invited</span></div>
             <div className="text-[11.5px] text-slate-400 mt-1">1 outstanding — Meridian Partners</div>
           </div>
           <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 tracking-wide mb-2">Highest offer</div>
-            <div className="text-[22px] font-mono text-blue-600 tabular-nums">$100.0M</div>
-            <div className="text-[11.5px] text-green-600 mt-1">At asking price</div>
+            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Highest offer</div>
+            <div className="text-[24px] font-bold text-blue-600 tracking-tight">$100.0M</div>
+            <div className="text-[11.5px] text-emerald-600 font-medium mt-1">At asking price</div>
           </div>
           <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 tracking-wide mb-2">Average offer</div>
-            <div className="text-[22px] font-mono text-slate-900 tabular-nums">$95.0M</div>
+            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Average offer</div>
+            <div className="text-[24px] font-bold text-slate-900 tracking-tight">$95.0M</div>
             <div className="text-[11.5px] text-slate-400 mt-1">Spread $10M</div>
           </div>
           <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 tracking-wide mb-2">Median cash component</div>
-            <div className="text-[22px] font-mono text-slate-900 tabular-nums">78%</div>
+            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Median cash component</div>
+            <div className="text-[24px] font-bold text-slate-900 tracking-tight">78%</div>
             <div className="text-[11.5px] text-slate-400 mt-1">Across 3 bids</div>
           </div>
           <div className="p-4 md:p-5">
-            <div className="text-[11px] text-slate-500 tracking-wide mb-2">VDR engagement</div>
-            <div className="text-[22px] font-mono text-slate-900 tabular-nums">41<span className="text-slate-400 font-sans text-[14px]"> views</span></div>
-            <div className="text-[11.5px] text-green-600 mt-1">Highest: Halcyon Growth</div>
+            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">VDR engagement</div>
+            <div className="text-[24px] font-bold text-slate-900 tracking-tight">41<span className="text-slate-400 font-normal text-[14px]"> views</span></div>
+            <div className="text-[11.5px] text-emerald-600 font-medium mt-1">Highest: Halcyon Growth</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 mt-6 mx-7 mb-10 items-start">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs">
             <div className="flex items-center justify-between p-4 md:p-5 border-b border-slate-100">
-              <h2 className="text-[16px] font-serif font-medium m-0">Bid ledger <span className="text-slate-400 font-normal text-[14px] ml-1.5">3 offers</span></h2>
+              <h2 className="text-[16px] font-bold text-slate-900 m-0">Bid ledger <span className="text-slate-400 font-normal text-[14px] ml-1.5">3 offers</span></h2>
               <span className="text-[12px] text-slate-400">Updated live as buyers submit</span>
             </div>
 
@@ -114,7 +114,7 @@ export default function SellerBiddingPage() {
             </div>
 
             <div className={`items-center justify-between p-3 mx-4 mt-4 bg-slate-900 text-white text-[12.5px] rounded-lg ${selectedBids.size >= 2 ? 'flex' : 'hidden'}`}>
-              <span><span className="font-mono">{selectedBids.size}</span> bids selected for side-by-side comparison</span>
+              <span><span className="font-bold">{selectedBids.size}</span> bids selected for side-by-side comparison</span>
               <button className="font-sans text-[12px] font-medium px-3 py-1.5 rounded-md cursor-pointer border border-white text-white hover:bg-white hover:text-slate-900 transition-colors" onClick={() => setShowCompare(true)}>Compare selected →</button>
             </div>
 
@@ -136,93 +136,93 @@ export default function SellerBiddingPage() {
                     <td className="px-4 py-3.5 align-middle"><input type="checkbox" className="w-[15px] h-[15px] accent-slate-900" checked={selectedBids.has('c')} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleCompare(e, 'c')} /></td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-mono font-medium shrink-0">HG</div>
+                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">HG</div>
                         <div>
-                          <div className="font-medium text-slate-900 text-[13.5px]">Halcyon Growth</div>
+                          <div className="font-semibold text-slate-900 text-[13.5px]">Halcyon Growth</div>
                           <div className="text-[11.5px] text-slate-400">PE Firm · NDA signed 14 Aug</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
-                      <div className="text-[15px] text-blue-600 font-mono">$100.0M</div>
+                      <div className="text-[15px] text-blue-600 font-bold">$100.0M</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">Close: Dec 2026</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex w-[90px] h-1.5 rounded-full overflow-hidden mb-1">
                         <div className="bg-slate-800 w-[60%]"></div><div className="bg-slate-300 w-[40%]"></div>
                       </div>
-                      <div className="text-[11px] text-slate-400">60% cash / 40% stock</div>
+                      <div className="text-[11px] text-slate-400 font-medium">60% cash / 40% stock</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
                         <div className="w-[56px] h-[5px] bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-[92%]"></div></div>
-                        <span className="text-[11px] text-slate-500">18 docs</span>
+                        <span className="text-[11px] text-slate-600 font-medium">18 docs</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-green-50 text-green-700">Shortlisted</span></td>
-                    <td className="px-4 py-3.5 align-middle text-slate-500 font-mono text-[13px] tabular-nums">2 Sep</td>
+                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Shortlisted</span></td>
+                    <td className="px-4 py-3.5 align-middle text-slate-500 font-medium text-[13px]">2 Sep</td>
                   </tr>
 
                   <tr className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors" data-id="b" onClick={() => handleRowClick('b')}>
                     <td className="px-4 py-3.5 align-middle"><input type="checkbox" className="w-[15px] h-[15px] accent-slate-900" checked={selectedBids.has('b')} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleCompare(e, 'b')} /></td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-mono font-medium shrink-0">XC</div>
+                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">XC</div>
                         <div>
-                          <div className="font-medium text-slate-900 text-[13.5px]">XYZ Capital</div>
+                          <div className="font-semibold text-slate-900 text-[13.5px]">XYZ Capital</div>
                           <div className="text-[11.5px] text-slate-400">Strategic Buyer · NDA signed 11 Aug</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
-                      <div className="text-[15px] text-slate-900 font-mono">$95.0M</div>
+                      <div className="text-[15px] text-slate-900 font-bold">$95.0M</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">Close: Dec 2026</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex w-[90px] h-1.5 rounded-full overflow-hidden mb-1">
                         <div className="bg-slate-800 w-[70%]"></div><div className="bg-slate-300 w-[30%]"></div>
                       </div>
-                      <div className="text-[11px] text-slate-400">70% cash / 30% stock</div>
+                      <div className="text-[11px] text-slate-400 font-medium">70% cash / 30% stock</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
                         <div className="w-[56px] h-[5px] bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-[66%]"></div></div>
-                        <span className="text-[11px] text-slate-500">14 docs</span>
+                        <span className="text-[11px] text-slate-600 font-medium">14 docs</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700">Under review</span></td>
-                    <td className="px-4 py-3.5 align-middle text-slate-500 font-mono text-[13px] tabular-nums">1 Sep</td>
+                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">Under review</span></td>
+                    <td className="px-4 py-3.5 align-middle text-slate-500 font-medium text-[13px]">1 Sep</td>
                   </tr>
 
                   <tr className="hover:bg-slate-50 cursor-pointer transition-colors" data-id="a" onClick={() => handleRowClick('a')}>
                     <td className="px-4 py-3.5 align-middle"><input type="checkbox" className="w-[15px] h-[15px] accent-slate-900" checked={selectedBids.has('a')} onClick={(e) => e.stopPropagation()} onChange={(e) => toggleCompare(e, 'a')} /></td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-mono font-medium shrink-0">CB</div>
+                        <div className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">CB</div>
                         <div>
-                          <div className="font-medium text-slate-900 text-[13.5px]">Cardinal Buyers Inc.</div>
+                          <div className="font-semibold text-slate-900 text-[13.5px]">Cardinal Buyers Inc.</div>
                           <div className="text-[11.5px] text-slate-400">Corporate Buyer · NDA signed 13 Aug</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
-                      <div className="text-[15px] text-slate-900 font-mono">$90.0M</div>
+                      <div className="text-[15px] text-slate-900 font-bold">$90.0M</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">Close: Jan 2027</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex w-[90px] h-1.5 rounded-full overflow-hidden mb-1">
                         <div className="bg-slate-800 w-[100%]"></div><div className="bg-slate-300 w-[0%]"></div>
                       </div>
-                      <div className="text-[11px] text-slate-400">100% cash</div>
+                      <div className="text-[11px] text-slate-400 font-medium">100% cash</div>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
                         <div className="w-[56px] h-[5px] bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-[34%]"></div></div>
-                        <span className="text-[11px] text-slate-500">9 docs</span>
+                        <span className="text-[11px] text-slate-600 font-medium">9 docs</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-red-50 text-red-700">Declined</span></td>
-                    <td className="px-4 py-3.5 align-middle text-slate-500 font-mono text-[13px] tabular-nums">29 Aug</td>
+                    <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">Declined</span></td>
+                    <td className="px-4 py-3.5 align-middle text-slate-500 font-medium text-[13px]">29 Aug</td>
                   </tr>
                 </tbody>
               </table>
@@ -234,19 +234,19 @@ export default function SellerBiddingPage() {
           <div className="fixed inset-0 bg-[#0f172a]/50 flex items-start justify-center pt-12 px-5 z-50 overflow-auto backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setShowCompare(false); }}>
             <div className="bg-white rounded-xl max-w-[980px] w-full border border-slate-200 shadow-xl overflow-hidden mb-12">
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
-                <h2 className="text-[18px] font-serif font-medium m-0 text-slate-900">Compare bids</h2>
+                <h2 className="text-[18px] font-bold text-slate-900 m-0">Compare bids</h2>
                 <button className="cursor-pointer text-slate-400 hover:text-slate-900 text-[24px] leading-none border-none bg-transparent transition-colors" onClick={() => setShowCompare(false)}>×</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <tbody>
                     <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Buyer</th>
-                      {Array.from(selectedBids).map(id => <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900 font-medium">{bidsData[id].name}</td>)}
+                      <th className="p-4 border-b border-slate-100 text-slate-500 font-semibold text-[11.5px] w-[150px] bg-[#F8F9FB] uppercase tracking-wider">Buyer</th>
+                      {Array.from(selectedBids).map(id => <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900 font-semibold">{bidsData[id].name}</td>)}
                     </tr>
                     <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Offer</th>
-                      {Array.from(selectedBids).map((id, index) => <td key={id} className={`p-4 border-b border-slate-100 text-[13px] font-mono ${index === 0 ? 'text-blue-600 font-semibold' : 'text-slate-900'}`}>{bidsData[id].offer}</td>)}
+                      <th className="p-4 border-b border-slate-100 text-slate-500 font-semibold text-[11.5px] w-[150px] bg-[#F8F9FB] uppercase tracking-wider">Offer</th>
+                      {Array.from(selectedBids).map((id, index) => <td key={id} className={`p-4 border-b border-slate-100 text-[13px] font-bold ${index === 0 ? 'text-blue-600' : 'text-slate-900'}`}>{bidsData[id].offer}</td>)}
                     </tr>
                     <tr>
                       <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Cash / Stock</th>

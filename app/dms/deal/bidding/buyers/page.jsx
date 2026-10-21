@@ -16,21 +16,21 @@ export default function SellerBuyersPage() {
 
       <div className="pt-5 px-7 flex justify-between items-start flex-wrap gap-3.5">
         <div>
-          <h1 className="text-[22px] font-serif font-medium m-0">Buyers</h1>
+          <h1 className="text-[22px] font-bold text-slate-900 m-0">Buyers</h1>
           <div className="text-[13px] text-slate-500 mt-1">Invite, manage access, and track every buyer's progress through the process</div>
         </div>
       </div>
 
       <div className="flex gap-3.5 mt-4 px-7">
-        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Invited <b className="text-slate-900 font-mono">4</b></span>
-        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">NDA signed <b className="text-slate-900 font-mono">3</b></span>
-        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Bids received <b className="text-slate-900 font-mono">3</b></span>
-        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Declined <b className="text-slate-900 font-mono">1</b></span>
+        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Invited <b className="text-slate-900 font-bold">4</b></span>
+        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">NDA signed <b className="text-slate-900 font-bold">3</b></span>
+        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Bids received <b className="text-slate-900 font-bold">3</b></span>
+        <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Declined <b className="text-slate-900 font-bold">1</b></span>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl my-5 mx-7 mb-10 shadow-sm overflow-hidden">
         <div className="flex justify-between items-center px-4 py-4 border-b border-slate-100 bg-white">
-          <h2 className="text-[15px] font-serif font-medium m-0">All buyers</h2>
+          <h2 className="text-[15px] font-bold text-slate-900 m-0">All buyers</h2>
           <span className="text-[12px] text-slate-400">4 invited</span>
         </div>
 
@@ -50,7 +50,7 @@ export default function SellerBuyersPage() {
               <tr className="border-b border-slate-100">
                 <td className="px-4 py-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-mono font-medium shrink-0">HG</div>
+                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">HG</div>
                     <div>
                       <div className="font-medium text-[13.5px] text-slate-900">Halcyon Growth</div>
                       <div className="text-[11.5px] text-slate-400">PE Firm · Melbourne, AU</div>
@@ -58,7 +58,7 @@ export default function SellerBuyersPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700">Shortlisted</span></td>
-                <td className="px-4 py-3.5 align-middle font-mono text-[13px] text-slate-900 tabular-nums">$100.0M</td>
+                <td className="px-4 py-3.5 align-middle font-bold text-[13px] text-slate-900 tabular-nums">$100.0M</td>
                 <td className="px-4 py-3.5 align-middle">
                   <select className="font-sans text-[12px] text-slate-900 border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-slate-400">
                     <option>Full access</option>
@@ -77,7 +77,7 @@ export default function SellerBuyersPage() {
               <tr className="border-b border-slate-100">
                 <td className="px-4 py-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-mono font-medium shrink-0">XC</div>
+                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">XC</div>
                     <div>
                       <div className="font-medium text-[13.5px] text-slate-900">XYZ Capital</div>
                       <div className="text-[11.5px] text-slate-400">Strategic Buyer · Singapore</div>
@@ -85,7 +85,7 @@ export default function SellerBuyersPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">Under review</span></td>
-                <td className="px-4 py-3.5 align-middle font-mono text-[13px] text-slate-900 tabular-nums">$95.0M</td>
+                <td className="px-4 py-3.5 align-middle font-bold text-[13px] text-slate-900 tabular-nums">$95.0M</td>
                 <td className="px-4 py-3.5 align-middle">
                   <select className="font-sans text-[12px] text-slate-900 border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-slate-400" defaultValue="Restricted">
                     <option>Full access</option>
@@ -104,7 +104,7 @@ export default function SellerBuyersPage() {
               <tr className="border-b border-slate-100">
                 <td className="px-4 py-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-mono font-medium shrink-0">CB</div>
+                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">CB</div>
                     <div>
                       <div className="font-medium text-[13.5px] text-slate-900">Cardinal Buyers Inc.</div>
                       <div className="text-[11.5px] text-slate-400">Corporate Buyer · London, UK</div>
@@ -112,7 +112,7 @@ export default function SellerBuyersPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700">Declined</span></td>
-                <td className="px-4 py-3.5 align-middle font-mono text-[13px] text-slate-900 tabular-nums">$90.0M</td>
+                <td className="px-4 py-3.5 align-middle font-bold text-[13px] text-slate-900 tabular-nums">$90.0M</td>
                 <td className="px-4 py-3.5 align-middle">
                   <select className="font-sans text-[12px] text-slate-900 border border-slate-200 rounded-lg px-2 py-1 bg-white outline-none focus:border-slate-400" defaultValue="No access">
                     <option>Full access</option>
@@ -130,7 +130,7 @@ export default function SellerBuyersPage() {
               <tr>
                 <td className="px-4 py-3.5 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-mono font-medium shrink-0">MP</div>
+                    <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">MP</div>
                     <div>
                       <div className="font-medium text-[13.5px] text-slate-900">Meridian Partners</div>
                       <div className="text-[11.5px] text-slate-400">PE Firm · New York, US</div>
@@ -138,7 +138,7 @@ export default function SellerBuyersPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">NDA pending</span></td>
-                <td className="px-4 py-3.5 align-middle font-mono text-[13px] text-slate-900 tabular-nums">—</td>
+                <td className="px-4 py-3.5 align-middle font-medium text-[13px] text-slate-900 tabular-nums">—</td>
                 <td className="px-4 py-3.5 align-middle"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">No access yet</span></td>
                 <td className="px-4 py-3.5 align-middle text-slate-400 text-[12px]">Invited 4 Sep</td>
                 <td className="px-4 py-3.5 align-middle">
