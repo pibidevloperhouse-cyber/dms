@@ -174,9 +174,19 @@ export default function CreateTaskModal() {
     if (isCreateModalOpen) {
       if (selectedDealStage && selectedDealStage !== 'ALL') {
         setDealStage(selectedDealStage);
+        if (normalizeStage(selectedDealStage) === 'Preparation' && visibility === 'EXTERNAL') {
+          setVisibility('INTERNAL');
+        }
       }
     }
-  }, [isCreateModalOpen, selectedDealStage]);
+  }, [isCreateModalOpen, selectedDealStage, visibility]);
+
+  // Restrict visibility: Preparation stage is strictly internal
+  useEffect(() => {
+    if (normalizeStage(dealStage) === 'Preparation' && visibility === 'EXTERNAL') {
+      setVisibility('INTERNAL');
+    }
+  }, [dealStage, visibility]);
 
   // Sync assigned group when availableGroups change
   useEffect(() => {
@@ -234,8 +244,10 @@ export default function CreateTaskModal() {
       return;
     }
 
+    const isPrep = normalizeStage(dealStage) === 'Preparation';
+    const effectiveVisibility = isPrep ? 'INTERNAL' : visibility;
     const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
-    const isExternal = visibility === 'EXTERNAL';
+    const isExternal = effectiveVisibility === 'EXTERNAL';
     const targetSide = isExternal ? oppositeSide : userSide;
     const targetCompany = isExternal 
       ? (oppositeSide === 'buyer' ? 'XYZ Capital' : 'ABC Textiles') 
@@ -247,7 +259,7 @@ export default function CreateTaskModal() {
         title: title.trim(),
         description: description.trim(),
         workspaceId: currentUser?.workspaceId,
-        visibility,
+        visibility: effectiveVisibility,
         target_side: targetSide,
         target_company: targetCompany,
         creator_side: currentUser?.side || 'seller',
@@ -377,12 +389,42 @@ export default function CreateTaskModal() {
               />
             </div>
 
-            {/* Row: Visibility & Department */}
+            {/* Row 1: Deal stage & Visibility */}
             <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Deal stage
+                </label>
+                <div className="relative">
+                  <select
+                    value={dealStage}
+                    onChange={(e) => {
+                      const nextStage = e.target.value;
+                      setDealStage(nextStage);
+                      if (normalizeStage(nextStage) === 'Preparation' && visibility === 'EXTERNAL') {
+                        setVisibility('INTERNAL');
+                      }
+                    }}
+                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
+                  >
+                    {DEAL_STAGES.map((s) => (
+                      <option key={s} value={s}>
+                        {s} {normalizeStage(s) === normalizeStage(activeDealStage) ? '(Active)' : '(Disabled)'}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
                   <span>Visibility</span>
-
+                  {normalizeStage(dealStage) === 'Preparation' && (
+                    <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200 font-medium">
+                      Internal Only
+                    </span>
+                  )}
                 </label>
                 <div className="relative">
                   <select
@@ -393,12 +435,17 @@ export default function CreateTaskModal() {
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
                     <option value="INTERNAL">Internal ({currentUser?.company || `${internalLabel} Team`})</option>
-                    <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
+                    {normalizeStage(dealStage) !== 'Preparation' && (
+                      <option value="EXTERNAL">External ({oppositeLabel} Side - Counterparty)</option>
+                    )}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+            </div>
 
+            {/* Row 2: Department & Assign to group */}
+            <div className="grid grid-cols-2 gap-3.5">
               {/* Department Field (Replaces Workstream) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -422,17 +469,11 @@ export default function CreateTaskModal() {
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-            </div>
 
-
-
-            {/* Row: Assign to group & Priority */}
-            <div className="grid grid-cols-2 gap-3.5">
               {/* Dynamic Group List based on chosen Department */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
                   <span>{visibility === 'EXTERNAL' ? `Assign to ${oppositeLabel.toLowerCase()} group *` : 'Assign to group *'}</span>
-
                 </label>
                 <div className="relative">
                   <select
@@ -454,7 +495,10 @@ export default function CreateTaskModal() {
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+            </div>
 
+            {/* Row 3: Priority & Due date */}
+            <div className="grid grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Priority
@@ -467,32 +511,6 @@ export default function CreateTaskModal() {
                   >
                     {PRIORITIES.map((p) => (
                       <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Assign to Member (Role Hierarchy Enforced & Creator Excluded) */}
-
-
-            {/* Row: Deal stage & Due date */}
-            <div className="grid grid-cols-2 gap-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Deal stage
-                </label>
-                <div className="relative">
-                  <select
-                    value={dealStage}
-                    onChange={(e) => setDealStage(e.target.value)}
-                    className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
-                  >
-                    {DEAL_STAGES.map((s) => (
-                      <option key={s} value={s}>
-                        {s} {normalizeStage(s) === normalizeStage(activeDealStage) ? '(Active)' : '(Disabled)'}
-                      </option>
                     ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />

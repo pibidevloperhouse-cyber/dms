@@ -207,10 +207,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
+    const isPrep = (deal_stage || '').trim().toLowerCase().includes('prep');
+    const effectiveVisibility = isPrep ? 'INTERNAL' : (visibility || 'INTERNAL');
+
     const resolvedDept = department || workstream || 'General';
     const resolvedCreatorSide = creator_side || 'seller';
-    const resolvedTargetSide = target_side || (visibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
-    const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (visibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (visibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
+    const resolvedTargetSide = target_side || (effectiveVisibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
+    const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (effectiveVisibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (effectiveVisibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
     const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : 'Buyer Legal Team');
     const resolvedCreatedBy = created_by || 'Admin';
 
@@ -230,7 +233,7 @@ export async function POST(req) {
 
     const initialAudit = [
       {
-        action: visibility === 'EXTERNAL' ? 'External Task Created & Dispatched' : 'Internal Task Created',
+        action: effectiveVisibility === 'EXTERNAL' ? 'External Task Created & Dispatched' : 'Internal Task Created',
         performed_by: resolvedCreatedBy,
         role: creator_role,
         timestamp: formattedDate,
@@ -252,7 +255,7 @@ export async function POST(req) {
         workstream: resolvedDept,
         dealStage: deal_stage,
         dueDate: due_date || null,
-        visibility,
+        visibility: effectiveVisibility,
         creatorSide: resolvedCreatorSide,
         creatorCompany: creator_company,
         targetSide: resolvedTargetSide,

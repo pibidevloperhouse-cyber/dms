@@ -325,6 +325,13 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {}
   }, []);
 
+  // Preparation stage is strictly for internal groups - reset visibility filter if set to EXTERNAL
+  useEffect(() => {
+    if (normalizeStage(selectedDealStage) === 'Preparation' && selectedVisibility === 'EXTERNAL') {
+      setSelectedVisibility('ALL');
+    }
+  }, [selectedDealStage, selectedVisibility]);
+
   // Fetch active stage from server backend
   const fetchActiveStage = async () => {
     try {
@@ -1693,11 +1700,13 @@ export function DealWorkflowProvider({ children }) {
       const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
       const workspaceId = formData.workspaceId || currentUser?.workspaceId || session?.active_workspace_id || session?.workspace_id || null;
 
-      const targetSide = formData.target_side || getTargetSideForVisibility(formData.visibility, currentUser);
-      const targetCompany = formData.target_company || getTargetCompanyForVisibility(formData.visibility, currentUser);
-
       const resolvedDept = formData.department || formData.workstream || 'General';
       const taskStage = formData.deal_stage || 'Preparation';
+      const isPrep = normalizeStage(taskStage) === 'Preparation';
+      const finalVisibility = isPrep ? 'INTERNAL' : (formData.visibility || 'INTERNAL');
+
+      const targetSide = formData.target_side || getTargetSideForVisibility(finalVisibility, currentUser);
+      const targetCompany = formData.target_company || getTargetCompanyForVisibility(finalVisibility, currentUser);
 
       // Default is_enabled: if provided explicitly, use it;
       // otherwise, if the task belongs to the active stage, default to true, else false (staged)
@@ -1710,6 +1719,7 @@ export function DealWorkflowProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          visibility: finalVisibility,
           is_enabled: isEnabled,
           department: resolvedDept,
           workstream: resolvedDept,
@@ -1792,12 +1802,18 @@ export function DealWorkflowProvider({ children }) {
   // Action: Update / Edit Task by Creator
   const updateTask = async (taskId, updatedData) => {
     try {
+      const sanitizedData = { ...updatedData };
+      const stage = sanitizedData.deal_stage || sanitizedData.dealStage;
+      if (stage && normalizeStage(stage) === 'Preparation') {
+        sanitizedData.visibility = 'INTERNAL';
+      }
+
       const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'edit_task',
-          ...updatedData,
+          ...sanitizedData,
           user: {
             name: currentUser?.name || 'Creator',
             role: currentUser?.role || 'admin',

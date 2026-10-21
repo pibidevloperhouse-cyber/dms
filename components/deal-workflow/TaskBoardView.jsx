@@ -97,6 +97,14 @@ export default function TaskBoardView() {
     }
   }, [trackingSection, memberFilter, setMemberFilter]);
 
+  // Preparation stage is strictly internal - reset visibility filter if set to EXTERNAL
+  const isPrepStage = normalizeStage(selectedDealStage) === 'Preparation';
+  useEffect(() => {
+    if (isPrepStage && selectedVisibility === 'EXTERNAL') {
+      setSelectedVisibility('ALL');
+    }
+  }, [isPrepStage, selectedVisibility, setSelectedVisibility]);
+
   const handleDepartmentChange = (newDept) => {
     setSelectedDepartment(newDept);
     // When department changes, if the current group is not in this department, reset group to ALL
@@ -433,9 +441,15 @@ export default function TaskBoardView() {
                     onChange={(e) => setSelectedVisibility(e.target.value)}
                     className="appearance-none bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium rounded-xl pl-3 pr-7 py-2 focus:outline-none focus:border-[#006666] transition-all cursor-pointer shadow-2xs"
                   >
-                    <option value="ALL">Internal & External</option>
-                    <option value="INTERNAL">Internal Only</option>
-                    <option value="EXTERNAL">External Only</option>
+                    {isPrepStage ? (
+                      <option value="ALL">Internal Only</option>
+                    ) : (
+                      <>
+                        <option value="ALL">Internal & External</option>
+                        <option value="INTERNAL">Internal Only</option>
+                        <option value="EXTERNAL">External Only</option>
+                      </>
+                    )}
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
