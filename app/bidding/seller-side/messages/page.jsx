@@ -19,37 +19,37 @@ export default function SellerMessagesPage() {
           <div className="px-[18px] py-4 border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wide">Buyer conversations</div>
 
           <div className="px-[18px] py-3 border-b border-slate-100 cursor-pointer flex gap-2.5 bg-blue-50 border-r-2 border-blue-600">
-            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-mono shrink-0">HG</div>
+            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">HG</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-slate-900 flex justify-between">Halcyon Growth</div>
-              <div className="text-[12px] text-slate-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis">You: Escrow holdback period works for us...</div>
+              <div className="text-[13px] font-semibold text-slate-900 flex justify-between">Halcyon Growth</div>
+              <div className="text-[12px] text-slate-500 font-medium mt-1 whitespace-nowrap overflow-hidden text-ellipsis">You: Escrow holdback period works for us...</div>
               <div className="text-[11px] text-slate-400 mt-1">7 Sep</div>
             </div>
           </div>
 
           <div className="px-[18px] py-3 border-b border-slate-100 cursor-pointer flex gap-2.5 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-mono shrink-0">XC</div>
+            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">XC</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-slate-900 flex justify-between">XYZ Capital <span className="bg-blue-600 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none self-center">2</span></div>
-              <div className="text-[12px] text-slate-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis">Asked: Can we get clarity on IP assignment?</div>
+              <div className="text-[13px] font-semibold text-slate-900 flex justify-between">XYZ Capital <span className="bg-blue-600 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none self-center">2</span></div>
+              <div className="text-[12px] text-slate-500 font-medium mt-1 whitespace-nowrap overflow-hidden text-ellipsis">Asked: Can we get clarity on IP assignment?</div>
               <div className="text-[11px] text-slate-400 mt-1">Yesterday</div>
             </div>
           </div>
 
           <div className="px-[18px] py-3 border-b border-slate-100 cursor-pointer flex gap-2.5 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-mono shrink-0">CB</div>
+            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">CB</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-slate-900 flex justify-between">Cardinal Buyers</div>
-              <div className="text-[12px] text-slate-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis">We're stepping back from the process for now</div>
+              <div className="text-[13px] font-semibold text-slate-900 flex justify-between">Cardinal Buyers</div>
+              <div className="text-[12px] text-slate-500 font-medium mt-1 whitespace-nowrap overflow-hidden text-ellipsis">We're stepping back from the process for now</div>
               <div className="text-[11px] text-slate-400 mt-1">29 Aug</div>
             </div>
           </div>
 
           <div className="px-[18px] py-3 border-b border-slate-100 cursor-pointer flex gap-2.5 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-mono shrink-0">MP</div>
+            <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">MP</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-slate-900 flex justify-between">Meridian Partners</div>
-              <div className="text-[12px] text-slate-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis">NDA countersigned, requesting VDR access</div>
+              <div className="text-[13px] font-semibold text-slate-900 flex justify-between">Meridian Partners</div>
+              <div className="text-[12px] text-slate-500 font-medium mt-1 whitespace-nowrap overflow-hidden text-ellipsis">NDA countersigned, requesting VDR access</div>
               <div className="text-[11px] text-slate-400 mt-1">4 Sep</div>
             </div>
           </div>
@@ -58,10 +58,10 @@ export default function SellerMessagesPage() {
         <div className="flex flex-col">
           <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10">
             <div>
-              <h2 className="text-[15px] font-serif font-medium m-0">Halcyon Growth</h2>
-              <div className="text-[11.5px] text-slate-400 mt-0.5">Lead: R. Okafor · Advisor: Linklane LLP · Current offer $100.0M</div>
+              <h2 className="text-[15px] font-bold text-slate-900 m-0">Halcyon Growth</h2>
+              <div className="text-[11.5px] text-slate-400 mt-0.5 font-medium">Lead: R. Okafor · Advisor: Linklane LLP · Current offer $100.0M</div>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700">Shortlisted</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">Shortlisted</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-[#F8F9FB]">

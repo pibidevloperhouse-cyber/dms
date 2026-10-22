@@ -8,6 +8,20 @@ import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShi
 
 export default function DMSLanding() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState({
+    products: false,
+    owners: false,
+    acquirers: false,
+    resources: false,
+    company: false,
+  });
+
+  const toggleMobileSubmenu = (menu) => {
+    setMobileExpanded(prev => ({
+      ...prev,
+      [menu]: !prev[menu]
+    }));
+  };
 
   useEffect(() => {
     AOS.init({
@@ -22,21 +36,28 @@ export default function DMSLanding() {
   return (
     <main className="overflow-x-hidden relative w-full bg-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md shadow-md z-50 py-4 px-4 md:px-12 flex justify-between items-center">
-        <div className="flex items-center gap-16 lg:gap-24 flex-1">
+      <nav className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 z-50 py-3.5 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div className="flex items-center gap-5 lg:gap-6 xl:gap-8">
           <div className="text-xl md:text-2xl font-bold text-gray-800 flex-shrink-0">
-            <Link href="/"><i className="fas fa-shield-alt text-[var(--brand)] mr-2"></i> Secure DMS</Link>
+            <Link href="/" className="flex items-center">
+              <i className="fas fa-shield-alt text-[var(--brand)] mr-7"></i>
+              <span>Secure DMS</span>
+            </Link>
           </div>
-          
-          <div className="hidden md:flex items-center gap-8">
+
+          <div className="hidden lg:flex items-center gap-5 xl:gap-7 2xl:gap-8 text-[15px]">
+            {/* Products Dropdown */}
             <div className="relative group">
-              <button className="flex items-center gap-2 font-semibold text-gray-700 hover:text-[var(--brand)] transition-colors text-lg py-2">
-                Products
-                <FaChevronDown className="text-sm transition-transform duration-300 group-hover:rotate-180" />
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap cursor-pointer group-hover:text-[#2563eb]"
+              >
+                <span>Products</span>
+                <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
               </button>
-              
-              <div className="absolute top-10 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-72">
-                <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 w-full">
+
+              <div className="absolute top-full left-0 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-72">
+                <div className="bg-white rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.12)] border border-[#e2e8f0] py-2 w-full">
                   <Link href="/" className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors group/item">
                     <div className="w-10 h-10 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] flex items-center justify-center mr-3 group-hover/item:scale-110 transition-transform">
                       <FaServer />
@@ -58,20 +79,238 @@ export default function DMSLanding() {
                 </div>
               </div>
             </div>
-            
-            <Link href="/dms/marketplace" className="font-semibold text-gray-700 hover:text-[var(--brand)] transition-colors text-lg py-2">
-              Marketplace
-            </Link>
+
+            {/* 1. Owners Dropdown (img 1) */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
+              >
+                <span>Owners</span>
+                <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-[590px]">
+                <div className="relative bg-white rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.12)] border border-[#e2e8f0] px-8 py-7 text-left">
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rotate-45 border-t border-l border-[#e2e8f0]"></div>
+
+                  {/* Top Banner */}
+                  <div className="text-center pb-4 mb-5 border-b border-[#eef1f6]">
+                    <Link href="/dms/register?role=advisor" className="inline-block group/title">
+                      <h4 className="text-[21px] font-bold text-[#1f2738] group-hover/title:text-[#2563eb] transition-colors tracking-[-0.01em]">
+                        Hire an M&A Advisor
+                      </h4>
+                    </Link>
+                    <p className="text-[14.5px] text-[#4b5568] font-normal mt-1 leading-normal">
+                      Partner With an Axial Exit Consultant to Hire a Great M&A Advisor.
+                    </p>
+                  </div>
+
+                  {/* 2 Columns */}
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-4">
+                    <Link href="/business-owner/login" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Sell Your Business
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Sharpen Your Exit Plan. Assemble Your Deal Team. Avoid Costly Mistakes.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms/marketplace" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Buyer Demand Report
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        How Many Buyers Are Interested In Your Business?
+                      </p>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. M&A Advisors */}
+            <button
+              type="button"
+              className="font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap cursor-pointer"
+            >
+              M&A Advisors
+            </button>
+
+            {/* 3. Acquirers Dropdown (img 2) */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
+              >
+                <span>Acquirers</span>
+                <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-[590px]">
+                <div className="relative bg-white rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.12)] border border-[#e2e8f0] px-8 py-8 text-left">
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rotate-45 border-t border-l border-[#e2e8f0]"></div>
+
+                  {/* 2 Columns */}
+                  <div className="grid grid-cols-2 gap-x-10">
+                    <Link href="/dms/marketplace/find_deal" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Source Actionable Deals
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Source Relevant Acquisition and Minority Equity Opportunities.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms/register" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Sell a Portfolio Company
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Run a Competitive Advisor Search for Your Next Portfolio Company Exit.
+                      </p>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Valuation Calculator */}
+            <button
+              type="button"
+              className="font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap cursor-pointer"
+            >
+              Valuation Calculator
+            </button>
+
+            {/* 5. Resources Dropdown (img 4) */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
+              >
+                <span>Resources</span>
+                <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-[590px]">
+                <div className="relative bg-white rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.12)] border border-[#e2e8f0] px-8 py-7 text-left">
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rotate-45 border-t border-l border-[#e2e8f0]"></div>
+
+                  {/* Top Banner */}
+                  <div className="text-center pb-4 mb-5 border-b border-[#eef1f6]">
+                    <Link href="/dms" className="inline-block group/title">
+                      <h4 className="text-[21px] font-bold text-[#1f2738] group-hover/title:text-[#2563eb] transition-colors tracking-[-0.01em]">
+                        Middle Market Review
+                      </h4>
+                    </Link>
+                    <p className="text-[14.5px] text-[#4b5568] font-normal mt-1 leading-normal">
+                      Weekly Articles & Reports Covering Private Capital Markets.
+                    </p>
+                  </div>
+
+                  {/* 2 Columns */}
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-4">
+                    <Link href="/dms" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Owner Resource Center
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Articles & Resources for Owners Preparing for an Exit.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Axial's Podcast
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        The Masters in Small Business Podcast, Hosted by Axial's CEO.
+                      </p>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Company Dropdown (img 3) */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
+              >
+                <span>Company</span>
+                <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 w-[640px]">
+                <div className="relative bg-white rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.12)] border border-[#e2e8f0] px-8 py-7 text-left">
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rotate-45 border-t border-l border-[#e2e8f0]"></div>
+
+                  {/* Top Banner */}
+                  <div className="text-center pb-4 mb-5 border-b border-[#eef1f6]">
+                    <Link href="/dms" className="inline-block group/title">
+                      <h4 className="text-[21px] font-bold text-[#1f2738] group-hover/title:text-[#2563eb] transition-colors tracking-[-0.01em]">
+                        About Axial
+                      </h4>
+                    </Link>
+                    <p className="text-[14.5px] text-[#4b5568] font-normal mt-1 leading-normal">
+                      The Story Behind Axial's Private Deal Platform & the Team Building It.
+                    </p>
+                  </div>
+
+                  {/* 2x2 Grid */}
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+                    <Link href="/dms/marketplace" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Closed Deals
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        A Selection of Closed Transactions on Axial, Sorted by Industry.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Member Reviews
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Video Testimonials and Written Reviews From Current Axial Members.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Network Overview
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Review Network Composition and Recent Deal Activity on Axial.
+                      </p>
+                    </Link>
+
+                    <Link href="/dms/marketplace/tracker" className="block group/item">
+                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
+                        Deal Flow Dashboard
+                      </h5>
+                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
+                        Analyze Live Deal Flow Activity and Market Trends on Axial.
+                      </p>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        
-        <div className="hidden md:flex gap-4 items-center justify-end">
+
+        <div className="hidden lg:flex gap-3 xl:gap-4 items-center justify-end ml-6 xl:ml-10 flex-shrink-0">
           <Link href="/dms/login" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
           <Link href="/dms/register" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Sign Up</Link>
         </div>
-        
-        <button 
-          className="md:hidden text-2xl text-[var(--brand)] focus:outline-none"
+
+        <button
+          className="lg:hidden text-2xl text-[var(--brand)] focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
@@ -80,24 +319,153 @@ export default function DMSLanding() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed top-[68px] left-0 w-full bg-white shadow-md z-40 flex flex-col p-6 md:hidden gap-4 border-t border-gray-100 animate-fade-in">
+        <div className="fixed top-[68px] left-0 w-full bg-white shadow-md z-40 flex flex-col p-6 lg:hidden gap-4 border-t border-gray-100 animate-fade-in max-h-[calc(100vh-68px)] overflow-y-auto">
           <div className="flex flex-col gap-2">
-            <button className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg">
-              Products
-              <FaChevronDown className="transition-transform duration-300" />
-            </button>
-            <div className="flex flex-col gap-2 pl-4 animate-fade-in">
-              <Link href="/" className="flex items-center px-5 py-2 text-gray-600 hover:text-[var(--brand)] font-medium">
-                <FaServer className="mr-3 text-[var(--brand)]" /> Virtual Data Room
-              </Link>
-              <Link href="/dms" className="flex items-center px-5 py-2 text-gray-600 hover:text-[var(--brand)] font-medium">
-                <FaBriefcase className="mr-3 text-[var(--brand)]" /> Deal Management System
-              </Link>
+            {/* Products Mobile Accordion */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMobileSubmenu('products')}
+                className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
+              >
+                <span>Products</span>
+                <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.products ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileExpanded.products && (
+                <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
+                  <Link href="/" className="flex items-center px-4 py-2 text-gray-600 hover:text-[var(--brand)] font-medium" onClick={() => setIsMobileMenuOpen(false)}>
+                    <FaServer className="mr-3 text-[var(--brand)]" /> Virtual Data Room
+                  </Link>
+                  <Link href="/dms" className="flex items-center px-4 py-2 text-gray-600 hover:text-[var(--brand)] font-medium" onClick={() => setIsMobileMenuOpen(false)}>
+                    <FaBriefcase className="mr-3 text-[var(--brand)]" /> Deal Management System
+                  </Link>
+                </div>
+              )}
             </div>
-            
-            <Link href="/dms/marketplace" className="w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors">
-              Marketplace
-            </Link>
+
+            {/* Owners Mobile Accordion */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMobileSubmenu('owners')}
+                className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
+              >
+                <span>Owners</span>
+                <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.owners ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileExpanded.owners && (
+                <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
+                  <Link href="/dms/register?role=advisor" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Hire an M&A Advisor</div>
+                    <div className="text-xs text-gray-500 font-normal">Partner With an Axial Exit Consultant to Hire a Great M&A Advisor.</div>
+                  </Link>
+                  <Link href="/business-owner/login" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Sell Your Business</div>
+                    <div className="text-xs text-gray-500 font-normal">Sharpen Your Exit Plan. Assemble Your Deal Team.</div>
+                  </Link>
+                  <Link href="/dms/marketplace" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Buyer Demand Report</div>
+                    <div className="text-xs text-gray-500 font-normal">How Many Buyers Are Interested In Your Business?</div>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <button type="button" className="w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left">
+              M&A Advisors
+            </button>
+
+            {/* Acquirers Mobile Accordion */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMobileSubmenu('acquirers')}
+                className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
+              >
+                <span>Acquirers</span>
+                <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.acquirers ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileExpanded.acquirers && (
+                <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
+                  <Link href="/dms/marketplace/find_deal" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Source Actionable Deals</div>
+                    <div className="text-xs text-gray-500 font-normal">Source Relevant Acquisition and Minority Equity Opportunities.</div>
+                  </Link>
+                  <Link href="/dms/register" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Sell a Portfolio Company</div>
+                    <div className="text-xs text-gray-500 font-normal">Run a Competitive Advisor Search for Your Next Portfolio Company Exit.</div>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <button type="button" className="w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left">
+              Valuation Calculator
+            </button>
+
+            {/* Resources Mobile Accordion */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMobileSubmenu('resources')}
+                className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
+              >
+                <span>Resources</span>
+                <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.resources ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileExpanded.resources && (
+                <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Middle Market Review</div>
+                    <div className="text-xs text-gray-500 font-normal">Weekly Articles & Reports Covering Private Capital Markets.</div>
+                  </Link>
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Owner Resource Center</div>
+                    <div className="text-xs text-gray-500 font-normal">Articles & Resources for Owners Preparing for an Exit.</div>
+                  </Link>
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Axial's Podcast</div>
+                    <div className="text-xs text-gray-500 font-normal">The Masters in Small Business Podcast, Hosted by Axial's CEO.</div>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Company Mobile Accordion */}
+            <div>
+              <button
+                type="button"
+                onClick={() => toggleMobileSubmenu('company')}
+                className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
+              >
+                <span>Company</span>
+                <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.company ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileExpanded.company && (
+                <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>About Axial</div>
+                    <div className="text-xs text-gray-500 font-normal">The Story Behind Axial's Private Deal Platform.</div>
+                  </Link>
+                  <Link href="/dms/marketplace" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Closed Deals</div>
+                    <div className="text-xs text-gray-500 font-normal">A Selection of Closed Transactions on Axial.</div>
+                  </Link>
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Member Reviews</div>
+                    <div className="text-xs text-gray-500 font-normal">Video Testimonials and Written Reviews.</div>
+                  </Link>
+                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Network Overview</div>
+                    <div className="text-xs text-gray-500 font-normal">Review Network Composition and Deal Activity.</div>
+                  </Link>
+                  <Link href="/dms/marketplace/tracker" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
+                    <div>Deal Flow Dashboard</div>
+                    <div className="text-xs text-gray-500 font-normal">Analyze Live Deal Flow Activity and Market Trends.</div>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
           <Link href="/dms/login" className="btn-bo-hover w-full text-center px-5 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
           <Link href="/dms/register" className="btn-bo-hover w-full text-center px-5 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 bg-[var(--brand)]/5" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
@@ -149,7 +517,7 @@ export default function DMSLanding() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative">
             <div className="absolute top-1/2 left-0 w-full h-1 bg-indigo-100 -z-10 hidden lg:block transform -translate-y-1/2"></div>
-            
+
             {/* Step 1 & 2 */}
             <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-shadow group" data-aos="fade-up" data-aos-delay="0">
               <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold mb-6 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">01</div>
@@ -181,7 +549,7 @@ export default function DMSLanding() {
             <div className="flex-1" data-aos="fade-left">
               <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-6">The Buyer's Journey</h2>
               <p className="text-xl text-gray-500 mb-8">Discover, analyze, and acquire premium businesses with confidence.</p>
-              
+
               <div className="space-y-6">
                 <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                   <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaSearch /></div>
@@ -190,7 +558,7 @@ export default function DMSLanding() {
                     <p className="text-gray-600">Browse anonymous teasers on our Deal Marketplace to find the perfect acquisition target.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                   <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaKey /></div>
                   <div>
@@ -216,7 +584,7 @@ export default function DMSLanding() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex-1 w-full" data-aos="fade-right">
               <div className="bg-gray-50 rounded-3xl p-8 border border-gray-200 shadow-inner relative">
                 {/* Mockup UI of Buyer Dashboard */}
@@ -248,13 +616,13 @@ export default function DMSLanding() {
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-6" data-aos="fade-up">Where Journeys Intersect</h2>
           <p className="text-xl text-gray-500 mb-16 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="100">Our platform orchestrates the complex dance between Sellers and Buyers securely in real-time.</p>
-          
+
           <div className="relative" data-aos="zoom-in" data-aos-delay="200">
             {/* Custom Visual Timeline */}
             <div className="flex flex-col md:flex-row items-center justify-between relative bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
               {/* Connector line */}
               <div className="absolute top-1/2 left-0 w-full h-1 bg-gradient-to-r from-blue-200 via-indigo-300 to-teal-200 hidden md:block -translate-y-1/2"></div>
-              
+
               <div className="relative z-10 flex flex-col items-center bg-white p-4 rounded-xl w-48 mb-8 md:mb-0">
                 <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl mb-4 border-4 border-white shadow-md"><FaBuilding /></div>
                 <h4 className="font-bold text-gray-800">1. Publish Teaser</h4>
@@ -300,7 +668,7 @@ export default function DMSLanding() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-white text-xl font-bold"><i className="fas fa-shield-alt mr-2"></i> SecureVDR</h3>
-              <p className="mt-3">Enterprise Data Rooms <br/>with next-gen security.</p>
+              <p className="mt-3">Enterprise Data Rooms <br />with next-gen security.</p>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Product</h4>

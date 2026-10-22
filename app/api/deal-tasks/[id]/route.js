@@ -308,6 +308,13 @@ export async function PATCH(req, { params }) {
         if (payload.dealStage !== undefined) updatedFields.dealStage = payload.dealStage;
         if (payload.deal_stage !== undefined) updatedFields.dealStage = payload.deal_stage;
         if (payload.visibility !== undefined) updatedFields.visibility = payload.visibility;
+
+        const effectiveStage = updatedFields.dealStage || task.dealStage || 'Preparation';
+        const isPrep = String(effectiveStage).trim().toLowerCase().includes('prep');
+        if (isPrep) {
+          updatedFields.visibility = 'INTERNAL';
+        }
+
         if (payload.targetSide !== undefined) updatedFields.targetSide = payload.targetSide;
         if (payload.target_side !== undefined) updatedFields.targetSide = payload.target_side;
         if (payload.targetCompany !== undefined) updatedFields.targetCompany = payload.targetCompany;
