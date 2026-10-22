@@ -4,6 +4,7 @@ import { users, companies, sellerProfiles, buyerProfiles, dmsDealInvitations, dm
 import bcrypt from 'bcryptjs';
 import { eq, and } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
+import { logAuthActivity } from '@/lib/auth-audit';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,11 +12,13 @@ const supabase = createClient(
 );
 
 export async function POST(req) {
+  let attemptedEmail = '';
   try {
     const formData = await req.formData();
     const firstName = formData.get('firstName');
     const lastName = formData.get('lastName');
     const email = formData.get('email');
+    attemptedEmail = email || '';
     const password = formData.get('password');
     const dealType = formData.get('dealType');
     const participantType = formData.get('participantType');
@@ -65,6 +68,14 @@ export async function POST(req) {
 
     // Basic validation
     if (!firstName || !lastName || !email || !password) {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail || 'unknown',
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: 'Missing required fields',
+        companyId: null,
+      });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -274,14 +285,41 @@ export async function POST(req) {
       }
     }
 
+    // Record successful sign-up
+    await logAuthActivity({
+      userId: newUser.id,
+      email: attemptedEmail,
+      eventType: 'SIGNUP',
+      status: 'SUCCESS',
+      failureReason: null,
+      companyId: finalCompanyId,
+    });
+
     return NextResponse.json({ success: true, message: 'User registered successfully', userId: newUser.id, companyId: finalCompanyId, role: roleToSet.toLowerCase() });
   } catch (error) {
     console.error('Registration Error:', error);
     // Handle unique email constraint error specifically
     const errorCode = error.code || (error.cause && error.cause.code);
     if (errorCode === '23505') {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail || 'unknown',
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: 'An account with this email already exists',
+        companyId: null,
+      });
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
+
+    await logAuthActivity({
+      userId: null,
+      email: attemptedEmail || 'unknown',
+      eventType: 'SIGNUP',
+      status: 'FAILURE',
+      failureReason: error.message || 'Internal server error',
+      companyId: null,
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -61,6 +61,11 @@ export default function StatusBadge({
       icon: X,
       defaultLabel: "Failed",
     },
+    failure: {
+      bg: "bg-rose-50 border-rose-200/80 text-rose-700",
+      icon: X,
+      defaultLabel: "Failure",
+    },
     rejected: {
       bg: "bg-rose-50 border-rose-200/80 text-rose-700",
       icon: X,
