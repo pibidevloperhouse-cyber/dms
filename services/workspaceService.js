@@ -5,6 +5,7 @@ import * as emailService from '@/services/emailService';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { logAuthActivity } from '@/lib/auth-audit';
 
 const FALLBACK_STORE_PATH = path.join(process.cwd(), '.vdr_workspace_requests.json');
 
@@ -70,6 +71,14 @@ function mapCompanyToRequest(company) {
  */
 export async function createWorkspaceRequest({ companyName, adminName, adminEmail, phone, planId, password }) {
   if (!companyName || !adminName || !adminEmail || !planId) {
+    await logAuthActivity({
+      userId: null,
+      email: adminEmail || 'unknown',
+      eventType: 'SIGNUP',
+      status: 'FAILURE',
+      failureReason: 'Missing required fields for workspace request',
+      companyId: null,
+    });
     throw new Error("Missing required fields for workspace request.");
   }
 
@@ -142,8 +151,26 @@ export async function createWorkspaceRequest({ companyName, adminName, adminEmai
         requestStatus: 'pending'
       });
     }
+
+    // Record successful sign-up
+    await logAuthActivity({
+      userId: userId,
+      email: adminEmail,
+      eventType: 'SIGNUP',
+      status: 'SUCCESS',
+      failureReason: null,
+      companyId: companyId,
+    });
   } catch (e) {
     console.warn("[WorkspaceService] User insert exception:", e.message);
+    await logAuthActivity({
+      userId: null,
+      email: adminEmail,
+      eventType: 'SIGNUP',
+      status: 'FAILURE',
+      failureReason: e.message || 'User insert exception',
+      companyId: companyId,
+    });
   }
 
   // 3. Send email notification

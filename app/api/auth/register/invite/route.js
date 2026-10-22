@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { invitations, groups, companies, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { logAuthActivity } from '@/lib/auth-audit';
 
 // GET: Validate invite token
 export async function GET(req) {
@@ -57,10 +58,20 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  let attemptedEmail = '';
   try {
     const { userId, companyId, name, email, password, requiresNda, role } = await req.json();
+    attemptedEmail = email || '';
 
     if (!userId || !companyId || !name || !email || !password) {
+      await logAuthActivity({
+        userId: userId || null,
+        email: attemptedEmail || 'unknown',
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: 'Missing required fields',
+        companyId: companyId || null,
+      });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -78,9 +89,30 @@ export async function POST(req) {
       ndaStatus: assignedNdaStatus,
     });
 
+    // Record successful sign-up
+    await logAuthActivity({
+      userId: userId,
+      email: attemptedEmail,
+      eventType: 'SIGNUP',
+      status: 'SUCCESS',
+      failureReason: null,
+      companyId: companyId,
+    });
+
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     console.error('API /auth/register/invite POST Error:', error);
+    if (attemptedEmail) {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail,
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: error.message || 'Failed to create user account.',
+        companyId: null,
+      });
+    }
     return NextResponse.json({ error: error.message || 'Failed to create user account.' }, { status: 500 });
   }
 }
+

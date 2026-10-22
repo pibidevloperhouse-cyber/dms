@@ -508,6 +508,7 @@ export const communicationChannels = pgTable('communication_channels', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').references(() => companies.id).notNull(),
   workspaceId: uuid('workspace_id').references(() => workspaces.id),
+  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }).unique(),
   name: text('name'),
   description: text('description'),
   type: channelTypeEnum('type').default('public').notNull(),
@@ -892,3 +893,16 @@ export const dealTaskAuditTrail = pgTable('deal_task_audit_trail', {
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const authActivityLogs = pgTable('auth_activity_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  email: text('email').notNull(),
+  eventType: text('event_type').notNull(),
+  status: text('status').notNull(),
+  attemptedAt: timestamp('attempted_at', { withTimezone: true }).defaultNow().notNull(),
+  failureReason: text('failure_reason'),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+

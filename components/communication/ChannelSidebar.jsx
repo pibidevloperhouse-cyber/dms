@@ -1,47 +1,103 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Plus, Hash, Lock, Search, Bell, Megaphone, MoreVertical } from 'lucide-react';
+import { Hash, Lock, Search, Users, RefreshCw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-
-const mockChannels = [
-  { id: '1', name: 'Legal Team', type: 'public', unread: 3, lastActivity: '10m ago' },
-  { id: '2', name: 'Finance Team', type: 'public', unread: 0, lastActivity: '1h ago' },
-  { id: '3', name: 'Executive Committee', type: 'private', unread: 1, lastActivity: '2h ago' },
-];
-
-const mockDMs = [
-  { id: 'user1', name: 'Sarah Jenkins', role: 'Deal Owner', unread: 5, online: true },
-  { id: 'user2', name: 'Michael Chang', role: 'External Counsel', unread: 0, online: false },
-];
 
 export default function ChannelSidebar() {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchChannels = useCallback(async () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const rawSession = localStorage.getItem('vdr_session');
+      if (!rawSession) {
+        setLoading(false);
+        return;
+      }
+      const session = JSON.parse(rawSession);
+      const userId = session?.id;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      const activeWorkspaceId = session?.active_workspace_id || '';
+      const url = `/api/communication/channels?userId=${encodeURIComponent(userId)}${
+        activeWorkspaceId ? `&workspaceId=${encodeURIComponent(activeWorkspaceId)}` : ''
+      }`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setChannels(data.channels || []);
+        setError(null);
+      } else {
+        setError(data.error || 'Failed to load conversations');
+      }
+    } catch (err) {
+      console.error('Failed to fetch channels:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const run = async () => {
+      if (isMounted) {
+        await fetchChannels();
+      }
+    };
+    run();
+
+    const interval = setInterval(() => {
+      fetchChannels();
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchChannels]);
+
+  const filteredChannels = channels.filter((c) =>
+    (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.department || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="w-[300px] flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full">
+    <div className="w-[300px] flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full font-sans">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-800">Communication</h2>
-        <button className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
-          <Plus size={18} />
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">Communication</h2>
+          <p className="text-xs text-slate-400 font-medium">Group Conversations</p>
+        </div>
+        <button
+          onClick={fetchChannels}
+          title="Refresh conversations"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="channels" className="w-full flex-1 flex flex-col">
-        <div className="px-4 pt-4">
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="channels">Channels</TabsTrigger>
-            <TabsTrigger value="dms">DMs</TabsTrigger>
-            <TabsTrigger value="announcements">News</TabsTrigger>
+        <div className="px-4 pt-3">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="channels">Group Channels</TabsTrigger>
+            <TabsTrigger value="info">Info</TabsTrigger>
           </TabsList>
         </div>
 
@@ -49,7 +105,7 @@ export default function ChannelSidebar() {
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search..."
+              placeholder="Search groups..."
               className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -57,82 +113,91 @@ export default function ChannelSidebar() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 px-2">
+        <ScrollArea className="flex-1 px-3">
           <TabsContent value="channels" className="mt-0 space-y-1">
-            {mockChannels.map((channel) => {
-              const isActive = pathname === `/communication/${channel.id}`;
-              return (
-                <Link
-                  key={channel.id}
-                  href={`/communication/${channel.id}`}
-                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
-                    isActive ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                      isActive ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {channel.type === 'private' ? <Lock size={16} /> : <Hash size={16} />}
-                    </div>
-                    <div className="truncate">
-                      <p className={`text-sm font-medium truncate ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                        {channel.name}
-                      </p>
-                    </div>
-                  </div>
-                  {channel.unread > 0 && (
-                    <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
-                      {channel.unread}
-                    </Badge>
-                  )}
-                </Link>
-              );
-            })}
-          </TabsContent>
-
-          <TabsContent value="dms" className="mt-0 space-y-1">
-            {mockDMs.map((dm) => (
-              <Link
-                key={dm.id}
-                href={`/communication/dm/${dm.id}`}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs bg-indigo-100 text-indigo-700">
-                        {dm.name.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    {dm.online && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">{dm.name}</p>
-                    <p className="text-[10px] text-slate-400">{dm.role}</p>
-                  </div>
-                </div>
-                {dm.unread > 0 && (
-                  <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
-                    {dm.unread}
-                  </Badge>
-                )}
-              </Link>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="announcements" className="mt-0">
-            <Link
-              href="/communication/announcements"
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors text-slate-700"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100 text-orange-600">
-                <Megaphone size={16} />
+            {loading && channels.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-medium">
+                Loading conversations...
               </div>
-              <p className="text-sm font-medium">All Announcements</p>
-            </Link>
+            ) : error ? (
+              <div className="py-6 px-3 text-center text-xs text-rose-500 font-medium">
+                {error}
+              </div>
+            ) : filteredChannels.length === 0 ? (
+              <div className="py-8 text-center px-4">
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                  <Users size={18} />
+                </div>
+                <p className="text-xs font-semibold text-slate-600">No Groups Found</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  You are not currently assigned to any group conversations.
+                </p>
+              </div>
+            ) : (
+              filteredChannels.map((channel) => {
+                const isActive = pathname === `/communication/${channel.id}`;
+                return (
+                  <Link
+                    key={channel.id}
+                    href={`/communication/${channel.id}`}
+                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 shadow-xs'
+                        : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${
+                          isActive
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'bg-slate-100 text-slate-500 font-semibold'
+                        }`}
+                      >
+                        {channel.type === 'private' ? (
+                          <Lock size={15} />
+                        ) : (
+                          <Hash size={15} />
+                        )}
+                      </div>
+                      <div className="truncate min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p
+                            className={`text-sm font-semibold truncate ${
+                              isActive ? 'text-blue-700' : 'text-slate-800'
+                            }`}
+                          >
+                            {channel.name}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {channel.latestMessage?.messageText ||
+                            `${channel.memberCount} member${channel.memberCount !== 1 ? 's' : ''}`}
+                        </p>
+                      </div>
+                    </div>
+                    {channel.memberCount > 0 && (
+                      <span className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded-md bg-slate-100 shrink-0 ml-2">
+                        {channel.memberCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })
+            )}
+          </TabsContent>
+
+          <TabsContent value="info" className="mt-0 p-3">
+            <div className="text-xs text-slate-500 space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <p className="font-semibold text-slate-700">Group-Based Chat</p>
+              <p>
+                Group conversations in Communication are strictly synchronized with your team
+                memberships in the Groups module.
+              </p>
+              <p>
+                Only authorized members of a group can view message history or post replies.
+              </p>
+            </div>
           </TabsContent>
         </ScrollArea>
       </Tabs>
