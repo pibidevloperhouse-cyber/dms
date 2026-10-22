@@ -131,7 +131,8 @@ function UnifiedWorkspace() {
 
     const canUser = (action, item = null) => {
         if (!session) return false;
-        if (session.role === 'super_admin') return true;
+        const isAdminRole = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
+        if (isAdminRole) return true;
         
         // Strict Deal Restrictions override for Guests/Buyers
         if (dealRestrictions) {
@@ -141,9 +142,9 @@ function UnifiedWorkspace() {
         }
 
         if (!item) {
-            if (action === 'can_upload' && currentFolderId === null) return false;
-            if (action === 'can_create_folder') return globalFolderPerms.can_create;
-            if (action === 'can_export') return false;
+            if (action === 'can_upload') return isAdminRole;
+            if (action === 'can_create_folder') return isAdminRole || globalFolderPerms.can_create;
+            if (action === 'can_export') return isAdminRole;
             return false;
         }
         if (item.creator_id === session.id && item.creator_revoked !== true) return true;
@@ -723,7 +724,7 @@ function UnifiedWorkspace() {
     };
 
     // UI RENDERING LOGIC
-    const isGod = session?.role === 'super_admin';
+    const isGod = ['super_admin', 'admin', 'sub_admin'].includes(session?.role);
     const selectionEnabled = !['bookmarks', 'downloads'].includes(currentView);
     const selectedItemsArray = files.filter(f => selectedIds.has(f.id));
     const canUploadHere = currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId });
@@ -1185,6 +1186,27 @@ function UnifiedWorkspace() {
                                         </tr>
                                     );
                                 })}
+                                {filteredItems.length === 0 && (
+                                    <tr>
+                                        <td colSpan={10} className="py-16 text-center text-slate-400">
+                                            <div className="flex flex-col items-center justify-center gap-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-300">
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                    <polyline points="14 2 14 8 20 8" />
+                                                </svg>
+                                                <p className="text-sm font-semibold text-slate-500">No documents or folders in this directory</p>
+                                                {canUploadHere && (
+                                                    <button
+                                                        onClick={() => { setInitialUploadFiles([]); setIsUploadModalOpen(true); }}
+                                                        className="mt-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+                                                    >
+                                                        Upload Documents
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
