@@ -329,40 +329,7 @@ export default function TaskCard({ task, onCardClick }) {
               >
                 <span>Submit Review</span>
               </button>
-            ) : isCreator ? (
-              <span
-                className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-flex items-center gap-1"
-                title="You created this task. You can monitor progress, but only assignees can complete subtasks."
-              >
-                <Clock className="w-3 h-3 text-blue-500" />
-                <span>In Progress · {task.subtasks && task.subtasks.length > 0 ? `${task.subtasks.filter(s => s.status === 'DONE').length}/${task.subtasks.length} Subtasks Done` : `${task.assigned_to_user || 'Assignee'} working`}</span>
-              </span>
-            ) : task.subtasks && task.subtasks.length > 0 ? (
-              (() => {
-                const totalSub = task.subtasks.length;
-                const doneSub = task.subtasks.filter((s) => s.status === 'DONE').length;
-                const mySubDone = displayedSubtasks.length > 0 && displayedSubtasks.every((s) => s.status === 'DONE');
-                return (
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
-                    mySubDone
-                      ? 'text-teal-800 bg-teal-50 border-teal-200'
-                      : 'text-amber-800 bg-amber-50 border-amber-200'
-                  }`}>
-                    <Clock className="w-3 h-3" />
-                    <span>
-                      {mySubDone
-                        ? `Your Subtask Done (${doneSub}/${totalSub})`
-                        : `In Progress (${doneSub}/${totalSub} Subtasks)`}
-                    </span>
-                  </span>
-                );
-              })()
-            ) : (
-              <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
-                <Clock className="w-3 h-3 text-blue-500" />
-                <span>In Motion: {task.assigned_to_user || task.assigned_to_group}</span>
-              </span>
-            )
+            ) : null
           )}
 
           {task.status === 'REVIEW' && (

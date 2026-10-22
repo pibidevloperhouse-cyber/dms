@@ -325,6 +325,13 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {}
   }, []);
 
+  // Preparation stage is strictly for internal groups - reset visibility filter if set to EXTERNAL
+  useEffect(() => {
+    if (normalizeStage(selectedDealStage) === 'Preparation' && selectedVisibility === 'EXTERNAL') {
+      setSelectedVisibility('ALL');
+    }
+  }, [selectedDealStage, selectedVisibility]);
+
   // Fetch active stage from server backend
   const fetchActiveStage = async () => {
     try {
@@ -698,11 +705,12 @@ export function DealWorkflowProvider({ children }) {
     const userName = (user.name || '').trim().toLowerCase();
     const userEmail = (user.email || '').trim().toLowerCase();
     const userId = (user.id || '').trim().toLowerCase();
-    const createdBy = (task.created_by || '').trim().toLowerCase();
+    const createdBy = (task.created_by || task.createdBy || '').trim().toLowerCase();
+    const creatorId = (task.creator_id || task.creatorId || '').trim().toLowerCase();
 
-    if (!createdBy) return false;
+    if (!createdBy && !creatorId) return false;
     if (userName && createdBy === userName) return true;
-    if (userId && createdBy === userId) return true;
+    if (userId && (createdBy === userId || creatorId === userId)) return true;
     if (userEmail && createdBy === userEmail) return true;
 
     // Fuzzy & partial name matches (e.g. 'lakshmi' in 'Lakshmi Narayanan' or vice versa)
@@ -1563,13 +1571,28 @@ export function DealWorkflowProvider({ children }) {
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
 
+    const newComment = {
+      id: `comm_${Date.now()}`,
+      author: currentUser.name,
+      company: currentUser.company,
+      scope: 'EXTERNAL',
+      text: `Changes Requested: ${reason}`,
+      timestamp: formattedDate,
+    };
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
+        const reopenedSubtasks = Array.isArray(t.subtasks)
+          ? t.subtasks.map((st) => ({ ...st, status: 'TO_DO', completedAt: null }))
+          : t.subtasks;
+
         return {
           ...t,
           status: 'IN_PROGRESS',
           updated_at: formattedDate,
+          comments: [...(t.comments || []), newComment],
+          ...(reopenedSubtasks ? { subtasks: reopenedSubtasks } : {}),
           audit_trail: [
             ...(t.audit_trail || []),
             {
@@ -1584,6 +1607,33 @@ export function DealWorkflowProvider({ children }) {
         };
       })
     );
+
+    setSelectedTask((prev) => {
+      if (!prev || prev.task_id !== taskId) return prev;
+      const reopenedSubtasks = Array.isArray(prev.subtasks)
+        ? prev.subtasks.map((st) => ({ ...st, status: 'TO_DO', completedAt: null }))
+        : prev.subtasks;
+
+      return {
+        ...prev,
+        status: 'IN_PROGRESS',
+        updated_at: formattedDate,
+        comments: [...(prev.comments || []), newComment],
+        ...(reopenedSubtasks ? { subtasks: reopenedSubtasks } : {}),
+        audit_trail: [
+          ...(prev.audit_trail || []),
+          {
+            action: 'Task Sent Back for Revisions',
+            performed_by: currentUser.name,
+            role: currentUser.role,
+            timestamp: formattedDate,
+            ip,
+            details: reason,
+          },
+        ],
+      };
+    });
+
     try {
       const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
@@ -1693,11 +1743,13 @@ export function DealWorkflowProvider({ children }) {
       const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
       const workspaceId = formData.workspaceId || currentUser?.workspaceId || session?.active_workspace_id || session?.workspace_id || null;
 
-      const targetSide = formData.target_side || getTargetSideForVisibility(formData.visibility, currentUser);
-      const targetCompany = formData.target_company || getTargetCompanyForVisibility(formData.visibility, currentUser);
-
       const resolvedDept = formData.department || formData.workstream || 'General';
       const taskStage = formData.deal_stage || 'Preparation';
+      const isPrep = normalizeStage(taskStage) === 'Preparation';
+      const finalVisibility = isPrep ? 'INTERNAL' : (formData.visibility || 'INTERNAL');
+
+      const targetSide = formData.target_side || getTargetSideForVisibility(finalVisibility, currentUser);
+      const targetCompany = formData.target_company || getTargetCompanyForVisibility(finalVisibility, currentUser);
 
       // Default is_enabled: if provided explicitly, use it;
       // otherwise, if the task belongs to the active stage, default to true, else false (staged)
@@ -1710,6 +1762,7 @@ export function DealWorkflowProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          visibility: finalVisibility,
           is_enabled: isEnabled,
           department: resolvedDept,
           workstream: resolvedDept,
@@ -1792,12 +1845,18 @@ export function DealWorkflowProvider({ children }) {
   // Action: Update / Edit Task by Creator
   const updateTask = async (taskId, updatedData) => {
     try {
+      const sanitizedData = { ...updatedData };
+      const stage = sanitizedData.deal_stage || sanitizedData.dealStage;
+      if (stage && normalizeStage(stage) === 'Preparation') {
+        sanitizedData.visibility = 'INTERNAL';
+      }
+
       const res = await fetch(`/api/deal-tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'edit_task',
-          ...updatedData,
+          ...sanitizedData,
           user: {
             name: currentUser?.name || 'Creator',
             role: currentUser?.role || 'admin',

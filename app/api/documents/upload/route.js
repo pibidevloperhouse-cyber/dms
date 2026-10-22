@@ -12,13 +12,33 @@ export async function POST(req) {
     try {
         const formData = await req.formData();
         const file = formData.get('file');
-        const company_id = formData.get('company_id');
-        const workspace_id = formData.get('workspace_id');
+        let company_id = formData.get('company_id');
+        let workspace_id = formData.get('workspace_id');
         let folder_id = formData.get('folder_id');
-        const uploaded_by = formData.get('uploaded_by');
+        let uploaded_by = formData.get('uploaded_by');
         const index = formData.get('index');
 
         if (!file) throw new Error("No file provided");
+
+        // Sanitize UUID parameters (clean empty string, "null", "undefined")
+        if (workspace_id === '' || workspace_id === 'null' || workspace_id === 'undefined') {
+            workspace_id = null;
+        }
+        if (folder_id === '' || folder_id === 'null' || folder_id === 'undefined') {
+            folder_id = null;
+        }
+        if (uploaded_by === '' || uploaded_by === 'null' || uploaded_by === 'undefined') {
+            uploaded_by = null;
+        }
+        if (!company_id || company_id === '' || company_id === 'null' || company_id === 'undefined') {
+            if (uploaded_by) {
+                const { data: u } = await supabase.from('users').select('company_id').eq('id', uploaded_by).single();
+                if (u?.company_id) company_id = u.company_id;
+            }
+        }
+        if (!company_id || company_id === 'null' || company_id === 'undefined') {
+            company_id = 'default';
+        }
 
         // Convert the uploaded file into a raw Buffer
         const arrayBuffer = await file.arrayBuffer();
@@ -26,8 +46,9 @@ export async function POST(req) {
 
         // 1. Define Dual Bucket Paths
         const timestamp = Date.now();
-        const originalStoragePath = `${company_id}/original_${timestamp}_${file.name}`;
-        const secureStoragePath = `${company_id}/secure_${timestamp}_${file.name}`;
+        const safeFileName = file.name.replace(/[^\w.-]/g, '_');
+        const originalStoragePath = `${company_id}/original_${timestamp}_${safeFileName}`;
+        const secureStoragePath = `${company_id}/secure_${timestamp}_${safeFileName}`;
 
         // 2. Upload RAW Original to the 'original-files' bucket
         const { error: origErr } = await supabase.storage
@@ -46,7 +67,7 @@ export async function POST(req) {
                 const path = require('path');
                 const fs = require('fs').promises;
                 
-                const tempInputPath = path.join(os.tmpdir(), `temp_${timestamp}_${file.name}`);
+                const tempInputPath = path.join(os.tmpdir(), `temp_${timestamp}_${safeFileName}`);
                 await fs.writeFile(tempInputPath, buffer);
                 
                 const result = await convertapi.convert('pdf', { File: tempInputPath }, fileExt);
@@ -56,8 +77,8 @@ export async function POST(req) {
                 
                 await fs.unlink(tempInputPath).catch(() => {});
             } catch (err) {
-                console.error("ConvertAPI error:", err);
-                throw new Error("PowerPoint to PDF conversion failed. Please check API key.");
+                console.warn("ConvertAPI conversion error, falling back to original buffer:", err.message);
+                bufferToEncrypt = buffer;
             }
         }
 
@@ -162,17 +183,21 @@ export async function POST(req) {
         const clientIp = forwarded ? forwarded.split(',')[0].trim() : (realIp || '127.0.0.1');
 
         if (uploaded_by) {
-            await supabase.from('document_edit_logs').insert([{
-                user_id: uploaded_by,
-                document_id: docData.id,
-                action_type: 'UPLOAD',
-                metadata: {
-                    ip_address: clientIp,
-                    file_name: file.name,
-                    folder_id: folder_id
-                },
-                changed_at: new Date().toISOString()
-            }]);
+            try {
+                await supabase.from('document_edit_logs').insert([{
+                    user_id: uploaded_by,
+                    document_id: docData.id,
+                    action_type: 'UPLOAD',
+                    metadata: {
+                        ip_address: clientIp,
+                        file_name: file.name,
+                        folder_id: folder_id
+                    },
+                    changed_at: new Date().toISOString()
+                }]);
+            } catch (logErr) {
+                console.warn("Upload log insert non-fatal warning:", logErr.message);
+            }
         }
 
         return NextResponse.json({ success: true, id: docData.id });

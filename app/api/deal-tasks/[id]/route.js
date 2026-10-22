@@ -132,9 +132,27 @@ export async function PATCH(req, { params }) {
       case 'send_back': {
         const userName = user.name || 'Reviewer';
         const reason = payload.reason || 'Revisions requested by reviewer';
+        const newComment = {
+          id: `comm_${Date.now()}`,
+          author: userName,
+          company: user.company || 'Company',
+          scope: 'EXTERNAL',
+          text: `Changes Requested: ${reason}`,
+          timestamp: formattedDate,
+        };
+        const currentComments = Array.isArray(task.comments) ? task.comments : [];
+        const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+        const reopenedSubtasks = currentSubtasks.map((st) => ({
+          ...st,
+          status: 'TO_DO',
+          completedAt: null,
+        }));
+
         updatedFields = {
           ...updatedFields,
           status: 'IN_PROGRESS',
+          comments: [...currentComments, newComment],
+          ...(reopenedSubtasks.length > 0 ? { subtasks: reopenedSubtasks } : {}),
           auditTrail: [
             ...currentAudit,
             {
@@ -308,6 +326,13 @@ export async function PATCH(req, { params }) {
         if (payload.dealStage !== undefined) updatedFields.dealStage = payload.dealStage;
         if (payload.deal_stage !== undefined) updatedFields.dealStage = payload.deal_stage;
         if (payload.visibility !== undefined) updatedFields.visibility = payload.visibility;
+
+        const effectiveStage = updatedFields.dealStage || task.dealStage || 'Preparation';
+        const isPrep = String(effectiveStage).trim().toLowerCase().includes('prep');
+        if (isPrep) {
+          updatedFields.visibility = 'INTERNAL';
+        }
+
         if (payload.targetSide !== undefined) updatedFields.targetSide = payload.targetSide;
         if (payload.target_side !== undefined) updatedFields.targetSide = payload.target_side;
         if (payload.targetCompany !== undefined) updatedFields.targetCompany = payload.targetCompany;

@@ -26,9 +26,9 @@ export default function BidDetailsPage() {
 
       <div className="pt-8 px-7 pb-6 flex justify-between items-start border-b border-slate-100 bg-white flex-wrap gap-5">
         <div className="flex gap-5 items-center">
-          <div className="w-16 h-16 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-mono shrink-0">{bid.mark}</div>
+          <div className="w-16 h-16 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-bold shrink-0">{bid.mark}</div>
           <div>
-            <h1 className="text-[28px] font-serif mb-1 mt-0 font-medium">{bid.name}</h1>
+            <h1 className="text-[28px] font-bold text-slate-900 mb-1 mt-0">{bid.name}</h1>
             <div className="text-slate-500 text-[14.5px]">{bid.type}</div>
             <div className="flex gap-2 mt-3.5 flex-wrap">
               <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1 rounded-full">NDA signed</span>
@@ -51,15 +51,15 @@ export default function BidDetailsPage() {
             <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3 mb-4">
               <div className="border border-slate-100 rounded-lg px-3.5 py-2.5 bg-[#FAFAFA]">
                 <div className="text-[11.5px] text-slate-500 mb-1 font-medium">Offer</div>
-                <div className="text-[20px] font-mono text-slate-900">{bid.offer}</div>
+                <div className="text-[20px] font-bold text-slate-900">{bid.offer}</div>
               </div>
               <div className="border border-slate-100 rounded-lg px-3.5 py-2.5 bg-[#FAFAFA]">
                 <div className="text-[11.5px] text-slate-500 mb-1 font-medium">vs. asking price</div>
-                <div className="text-[20px] font-mono" style={{ color: bid.vsColor }}>{bid.vsAsk}</div>
+                <div className="text-[20px] font-bold" style={{ color: bid.vsColor }}>{bid.vsAsk}</div>
               </div>
               <div className="border border-slate-100 rounded-lg px-3.5 py-2.5 bg-[#FAFAFA]">
                 <div className="text-[11.5px] text-slate-500 mb-1 font-medium">Expected close</div>
-                <div className="text-[20px] font-mono text-slate-900">{bid.close}</div>
+                <div className="text-[20px] font-bold text-slate-900">{bid.close}</div>
               </div>
               <div className="border border-slate-100 rounded-lg px-3.5 py-2.5 bg-[#FAFAFA]">
                 <div className="text-[11.5px] text-slate-500 mb-1 font-medium">Status</div>
@@ -84,15 +84,15 @@ export default function BidDetailsPage() {
             <div className="text-[17px] font-sans font-semibold mb-5 text-slate-900 border-b border-slate-100 pb-3">Submitted Documents</div>
             <div className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-400 transition-colors cursor-pointer">
               <span className="text-slate-900 font-medium">Letter of Intent — signed.pdf</span>
-              <span className="text-slate-400 font-mono text-[12px]">Open ↗</span>
+              <span className="text-slate-400 font-medium text-[12px]">Open ↗</span>
             </div>
             <div className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-400 transition-colors cursor-pointer">
               <span className="text-slate-900 font-medium">Financing confirmation.pdf</span>
-              <span className="text-slate-400 font-mono text-[12px]">Open ↗</span>
+              <span className="text-slate-400 font-medium text-[12px]">Open ↗</span>
             </div>
             <div className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-400 transition-colors cursor-pointer">
               <span className="text-slate-900 font-medium">Term sheet draft v2.docx</span>
-              <span className="text-slate-400 font-mono text-[12px]">Open ↗</span>
+              <span className="text-slate-400 font-medium text-[12px]">Open ↗</span>
             </div>
           </div>
         </div>

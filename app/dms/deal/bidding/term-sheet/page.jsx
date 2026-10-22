@@ -19,7 +19,7 @@ export default function SellerTermSheetPage() {
 
       <div className="pt-5 px-7 flex justify-between items-start flex-wrap gap-3.5">
         <div>
-          <h1 className="text-[22px] font-serif font-medium m-0">Term sheet — Halcyon Growth</h1>
+          <h1 className="text-[22px] font-bold text-slate-900 m-0">Term sheet — Halcyon Growth</h1>
           <div className="text-[13px] text-slate-500 mt-1">Draft v2 · editable until sent for signature</div>
         </div>
         <div className="flex gap-2.5">
@@ -31,52 +31,52 @@ export default function SellerTermSheetPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[22px] mx-7 mt-[22px] mb-10 items-start">
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden row-span-2">
           <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-[15px] font-serif font-medium m-0">Key terms</h2>
+            <h2 className="text-[15px] font-bold text-slate-900 m-0">Key terms</h2>
             <span className="text-[12px] text-slate-400">Editable draft</span>
           </div>
           <table className="w-full border-collapse">
             <tbody>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Purchase price</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="$100,000,000" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="$100,000,000" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Structure</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="60% cash at close / 40% acquirer stock, 12-month vest" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="60% cash at close / 40% acquirer stock, 12-month vest" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Expected close</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="15 December 2026" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="15 December 2026" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Exclusivity period</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="45 days from execution" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="45 days from execution" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Key employee retention</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="90% of leadership team, 24-month terms" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="90% of leadership team, 24-month terms" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Escrow</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="10% of purchase price, 18-month holdback" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="10% of purchase price, 18-month holdback" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Regulatory conditions</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="Subject to standard antitrust clearance" /></td>
+                <td className="px-5 py-3 border-b border-slate-100 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="Subject to standard antitrust clearance" /></td>
               </tr>
               <tr>
                 <td className="w-[190px] text-slate-500 px-5 py-3 align-top text-[13px]">Governing law</td>
-                <td className="px-5 py-3 align-top"><input type="text" className="w-full font-mono text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="Delaware, USA" /></td>
+                <td className="px-5 py-3 align-top"><input type="text" className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors" defaultValue="Delaware, USA" /></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100"><h2 className="text-[15px] font-serif font-medium m-0">Counsel comments</h2></div>
+          <div className="px-5 py-4 border-b border-slate-100"><h2 className="text-[15px] font-bold text-slate-900 m-0">Counsel comments</h2></div>
           <div className="p-5 flex flex-col">
             <div className="flex gap-2.5 py-2.5 border-b border-slate-100 text-[12.5px]">
-              <div className="w-[26px] h-[26px] rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">LC</div>
+              <div className="w-[26px] h-[26px] rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">LC</div>
               <div>
                 <b className="text-slate-900">Linklane LLP (your counsel)</b>
                 <div className="text-slate-500 mt-0.5">Updated exclusivity to 45 days per buyer request on the 6 Sep call.</div>
@@ -84,7 +84,7 @@ export default function SellerTermSheetPage() {
               </div>
             </div>
             <div className="flex gap-2.5 py-2.5 text-[12.5px]">
-              <div className="w-[26px] h-[26px] rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0">RO</div>
+              <div className="w-[26px] h-[26px] rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">RO</div>
               <div>
                 <b className="text-slate-900">Halcyon Growth</b>
                 <div className="text-slate-500 mt-0.5">Escrow holdback period works for us — no further changes on our side.</div>

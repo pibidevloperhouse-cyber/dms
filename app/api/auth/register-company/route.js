@@ -2,16 +2,28 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { logAuthActivity } from '@/lib/auth-audit';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export async function POST(req) {
+  let attemptedEmail = '';
   try {
     const { companyName, adminName, adminEmail, password, phone, planId } = await req.json();
+    attemptedEmail = adminEmail || '';
 
     if (!companyName || !adminName || !adminEmail || !password || !phone || !planId) {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail || 'unknown',
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: 'Missing required fields',
+        companyId: null,
+      });
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -23,6 +35,14 @@ export async function POST(req) {
       .single();
 
     if (planErr || !plan) {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail,
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: 'Selected plan is invalid or not found',
+        companyId: null,
+      });
       return NextResponse.json({ error: "Selected plan is invalid or not found." }, { status: 400 });
     }
 
@@ -136,10 +156,30 @@ export async function POST(req) {
       // We don't throw here to ensure the registration still completes successfully
     }
 
+    // Record successful sign-up
+    await logAuthActivity({
+      userId: userId,
+      email: attemptedEmail,
+      eventType: 'SIGNUP',
+      status: 'SUCCESS',
+      failureReason: null,
+      companyId: company?.id || null,
+    });
+
     return NextResponse.json({ success: true, company });
 
   } catch (err) {
     console.error("Registration error:", err);
+    if (attemptedEmail) {
+      await logAuthActivity({
+        userId: null,
+        email: attemptedEmail,
+        eventType: 'SIGNUP',
+        status: 'FAILURE',
+        failureReason: err.message || 'Registration error',
+        companyId: null,
+      });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

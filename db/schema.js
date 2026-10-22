@@ -153,21 +153,35 @@ export const folders = pgTable('folders', {
 
 export const documents = pgTable('documents', {
   id: uuid('id').defaultRandom().primaryKey(),
-  dealStage: text('deal_stage').default('Preparation'),
-  security: text('security'),
-  isBookmarked: boolean('is_bookmarked'),
-  isDownloaded: boolean('is_downloaded'),
-  fileData: text('file_data'),
-  originalFilePath: text('original_file_path'),
-  deletedBy: uuid('deleted_by'),
-  isRedacted: boolean('is_redacted').default(false),
-  storageBucket: text('storage_bucket').default('original-files'),
-  creatorRevoked: boolean('creator_revoked').default(false),
+  companyId: uuid('company_id'),
   workspaceId: uuid('workspace_id'),
+  folderId: uuid('folder_id'),
+  uploadedBy: uuid('uploaded_by'),
+  name: text('name'),
+  filePath: text('file_path'),
+  originalFilePath: text('original_file_path'),
+  mimeType: text('mime_type'),
+  fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+  dekRef: text('dek_ref'),
+  index: text('index'),
+  security: text('security'),
+  version: integer('version').default(1),
+  dealStage: text('deal_stage').default('Preparation'),
   uploadComment: text('upload_comment'),
+  storageBucket: text('storage_bucket').default('original-files'),
+  isBookmarked: boolean('is_bookmarked').default(false),
+  isDownloaded: boolean('is_downloaded').default(false),
+  isDeleted: boolean('is_deleted').default(false),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedBy: uuid('deleted_by'),
+  creatorRevoked: boolean('creator_revoked').default(false),
+  isRedacted: boolean('is_redacted').default(false),
+  fileData: text('file_data'),
   indexingStatus: text('indexing_status').default('not_indexed'),
   indexingError: text('indexing_error'),
   isPublic: boolean('is_public').default(false), // Added for public teaser documents
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 export const groups = pgTable('groups', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -508,6 +522,7 @@ export const communicationChannels = pgTable('communication_channels', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').references(() => companies.id).notNull(),
   workspaceId: uuid('workspace_id').references(() => workspaces.id),
+  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }).unique(),
   name: text('name'),
   description: text('description'),
   type: channelTypeEnum('type').default('public').notNull(),
@@ -892,3 +907,16 @@ export const dealTaskAuditTrail = pgTable('deal_task_audit_trail', {
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const authActivityLogs = pgTable('auth_activity_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  email: text('email').notNull(),
+  eventType: text('event_type').notNull(),
+  status: text('status').notNull(),
+  attemptedAt: timestamp('attempted_at', { withTimezone: true }).defaultNow().notNull(),
+  failureReason: text('failure_reason'),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+

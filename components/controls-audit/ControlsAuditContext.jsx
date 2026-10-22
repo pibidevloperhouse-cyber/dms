@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
 import {
   MOCK_DEALS,
   MOCK_STAGES,
@@ -26,7 +26,76 @@ export function ControlsAuditProvider({ children }) {
   const [deals, setDeals] = useState(MOCK_DEALS);
   const [stages, setStages] = useState(MOCK_STAGES);
   const [approvals, setApprovals] = useState(MOCK_APPROVALS);
-  const [auditLogs, setAuditLogs] = useState(MOCK_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [liveAuthLogs, setLiveAuthLogs] = useState([]);
+  const [isLoadingAuthLogs, setIsLoadingAuthLogs] = useState(false);
+
+  // Fetch live authentication activity logs from Supabase
+  const fetchAuthLogs = useCallback(async () => {
+    try {
+      setIsLoadingAuthLogs(true);
+      let session = null;
+      try {
+        const raw = localStorage.getItem("vdr_session");
+        if (raw) session = JSON.parse(raw);
+      } catch (e) {}
+
+      const companyId = session?.company_id || localStorage.getItem("companyId") || "";
+      const role = session?.role || localStorage.getItem("vdrRole") || "super_admin";
+
+      let url = "/api/control-audits/audit-trail";
+      const params = new URLSearchParams();
+      if (companyId) params.append("companyId", companyId);
+      if (role) params.append("role", role);
+
+      const queryStr = params.toString();
+      if (queryStr) url += `?${queryStr}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.logs)) {
+          setLiveAuthLogs(data.logs);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch live auth logs:", err);
+    } finally {
+      setIsLoadingAuthLogs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAuthLogs();
+
+    // Auto-refresh when tab gains focus or on storage event
+    const handleRefresh = () => fetchAuthLogs();
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+
+    // Periodic auto-poll every 12 seconds so new logins appear immediately
+    const pollInterval = setInterval(fetchAuthLogs, 12000);
+
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+      clearInterval(pollInterval);
+    };
+  }, [fetchAuthLogs]);
+
+  // Combined audit logs: live auth logs merged with other audit logs, deduplicated by id
+  const combinedAuditLogs = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const log of [...liveAuthLogs, ...auditLogs]) {
+      if (log && log.id && !seen.has(log.id)) {
+        seen.add(log.id);
+        result.push(log);
+      }
+    }
+    return result;
+  }, [liveAuthLogs, auditLogs]);
+
   const [permissionsMatrix, setPermissionsMatrix] = useState(MOCK_PERMISSIONS_MATRIX);
   const [risks, setRisks] = useState(MOCK_RISKS);
   const [policies, setPolicies] = useState(MOCK_POLICIES);
@@ -858,7 +927,11 @@ export function ControlsAuditProvider({ children }) {
     isReadyToAdvance,
     currentBlockers,
     approvals,
-    auditLogs,
+    auditLogs: combinedAuditLogs,
+    rawAuditLogs: auditLogs,
+    liveAuthLogs,
+    isLoadingAuthLogs,
+    refreshAuditLogs: fetchAuthLogs,
     permissionsMatrix,
     roles: MOCK_ROLES,
     users: MOCK_USERS,

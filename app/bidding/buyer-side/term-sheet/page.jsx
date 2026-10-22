@@ -23,19 +23,19 @@ export default function TermSheetPage() {
 
         <div className="pt-5.5 px-7 flex justify-between items-start flex-wrap gap-3.5">
           <div>
-            <h1 className="text-[22px] font-serif font-medium m-0 text-slate-900">Term sheet — Project Alpha</h1>
-            <div className="text-[13px] text-slate-500 mt-1.5">Draft v2 · last updated by seller counsel, 7 Sep 2026</div>
+            <h1 className="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Term sheet — Project Alpha</h1>
+            <div className="text-[13px] text-slate-500 font-medium mt-1.5">Draft v2 · last updated by seller counsel, 7 Sep 2026</div>
           </div>
           <div className="flex gap-2.5">
-            <a href="#" className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">Download PDF</a>
-            <a href="#" className="font-sans text-[13px] font-medium px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity shadow-sm">Send for signature</a>
+            <a href="#" className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-xs">Download PDF</a>
+            <a href="#" className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity shadow-xs">Send for signature</a>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5.5 mt-5.5 mx-7 pb-10 items-start">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden lg:row-span-2">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden lg:row-span-2">
             <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-[#FAFAFA]">
-              <h2 className="text-[15px] font-serif font-medium m-0 text-slate-900">Key terms</h2>
+              <h2 className="text-[15px] font-bold text-slate-900 m-0">Key terms</h2>
               <span className="text-[12px] text-slate-400">Redlines highlighted</span>
             </div>
             <table className="w-full border-collapse">
@@ -80,24 +80,24 @@ export default function TermSheetPage() {
             </table>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-[#FAFAFA]">
-              <h2 className="text-[15px] font-serif font-medium m-0 text-slate-900">Counsel comments</h2>
+              <h2 className="text-[15px] font-bold text-slate-900 m-0">Counsel comments</h2>
             </div>
             <div className="p-5">
               <div className="flex gap-2.5 py-2.5 border-b border-slate-100 text-[12.5px] first:pt-0">
-                <div className="w-6.5 h-6.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-mono shrink-0 border border-blue-100">LC</div>
+                <div className="w-6.5 h-6.5 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0 border border-blue-200">LC</div>
                 <div>
-                  <b className="text-slate-900 font-medium">Linklane LLP (seller counsel)</b>
-                  <div className="text-slate-600 mt-0.5 leading-relaxed">Updated exclusivity to 45 days per buyer request on the 6 Sep call.</div>
+                  <b className="text-slate-900 font-semibold">Linklane LLP (seller counsel)</b>
+                  <div className="text-slate-600 font-medium mt-0.5 leading-relaxed">Updated exclusivity to 45 days per buyer request on the 6 Sep call.</div>
                   <div className="text-slate-400 text-[11px] mt-1">7 Sep, 10:12 AM</div>
                 </div>
               </div>
               <div className="flex gap-2.5 py-2.5 text-[12.5px] pt-4 pb-0">
-                <div className="w-6.5 h-6.5 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-[10px] font-mono shrink-0 border border-amber-100">RO</div>
+                <div className="w-6.5 h-6.5 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center text-[10px] font-bold shrink-0 border border-amber-200">RO</div>
                 <div>
-                  <b className="text-slate-900 font-medium">You</b>
-                  <div className="text-slate-600 mt-0.5 leading-relaxed">Escrow holdback period works for us — no further changes on our side.</div>
+                  <b className="text-slate-900 font-semibold">You</b>
+                  <div className="text-slate-600 font-medium mt-0.5 leading-relaxed">Escrow holdback period works for us — no further changes on our side.</div>
                   <div className="text-slate-400 text-[11px] mt-1">7 Sep, 11:40 AM</div>
                 </div>
               </div>

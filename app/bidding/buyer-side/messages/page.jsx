@@ -47,10 +47,10 @@ export default function MessagesPage() {
         <div className="flex flex-col">
           <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10">
             <div>
-              <h2 className="text-[15px] font-serif font-medium m-0">General — ABC Technologies</h2>
-              <div className="text-[11.5px] text-slate-500 mt-1">Seller team: V. Sharma (Finance), Linklane LLP (Counsel)</div>
+              <h2 className="text-[15px] font-bold text-slate-900 m-0">General — ABC Technologies</h2>
+              <div className="text-[11.5px] text-slate-500 mt-1 font-medium">Seller team: V. Sharma (Finance), Linklane LLP (Counsel)</div>
             </div>
-            <span className="text-[11.5px] text-slate-400">All messages logged to audit trail</span>
+            <span className="text-[11.5px] text-slate-400 font-medium">All messages logged to audit trail</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-[#FAFAFA]">

@@ -6,33 +6,36 @@ import { cn } from '@/lib/utils';
 
 export default function MessageBubble({ message }) {
   const isMe = message.isMine;
+  const displayName = message.senderName || message.senderEmail || 'User';
+  const role = message.senderRole || message.role || '';
+  const text = message.messageText || message.text || '';
 
   return (
     <div className={cn("flex gap-3 mb-4 group", isMe ? "flex-row-reverse" : "flex-row")}>
       <Avatar className="h-8 w-8 shrink-0 mt-1">
-        <AvatarFallback className={isMe ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"}>
-          {message.senderName.substring(0, 2).toUpperCase()}
+        <AvatarFallback className={isMe ? "bg-blue-600 text-white font-bold" : "bg-slate-200 text-slate-700 font-bold"}>
+          {displayName.substring(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       
       <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
         <div className={cn("flex items-center gap-2 mb-1", isMe ? "flex-row-reverse" : "flex-row")}>
-          <span className="text-sm font-semibold text-slate-800">{message.senderName}</span>
-          {!isMe && message.role && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-slate-100 text-slate-500">
-              {message.role}
+          <span className="text-xs font-bold text-slate-800">{displayName}</span>
+          {!isMe && role && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-slate-100 text-slate-500 font-medium">
+              {role}
             </Badge>
           )}
-          <span className="text-xs text-slate-400">{message.timestamp}</span>
+          <span className="text-[11px] text-slate-400 font-medium">{message.timestamp}</span>
         </div>
 
         <div className={cn(
-          "relative px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words",
+          "relative px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words leading-relaxed shadow-xs",
           isMe 
-            ? "bg-blue-600 text-white rounded-tr-sm" 
-            : "bg-slate-100 text-slate-800 rounded-tl-sm"
+            ? "bg-blue-600 text-white rounded-tr-xs font-normal" 
+            : "bg-slate-100 text-slate-800 rounded-tl-xs font-normal"
         )}>
-          {message.text}
+          {text}
           
           {/* Attachments Preview */}
           {message.attachments && message.attachments.length > 0 && (

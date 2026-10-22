@@ -1,50 +1,62 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
-import { communicationChannels } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getAuthorizedGroupChannels, verifyChannelAccess, getGroupMembers } from '@/lib/communication/service';
 
 export async function GET(req) {
-    try {
-        const { searchParams } = new URL(req.url);
-        const workspaceId = searchParams.get('workspaceId');
-        
-        if (!workspaceId) {
-            return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 });
-        }
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+    const workspaceId = searchParams.get('workspaceId') || null;
+    const channelId = searchParams.get('channelId');
 
-        const channels = await db.select()
-            .from(communicationChannels)
-            .where(eq(communicationChannels.workspaceId, workspaceId));
-
-        return NextResponse.json({ success: true, channels });
-    } catch (error) {
-        console.error("Fetch Channels API Error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User ID is required for authorized channels' },
+        { status: 401 }
+      );
     }
-}
 
-export async function POST(req) {
-    try {
-        const payload = await req.json();
-        const { companyId, workspaceId, name, description, type, visibility, createdBy } = payload;
+    // Single channel details request
+    if (channelId) {
+      const authResult = await verifyChannelAccess(userId, channelId, workspaceId);
+      if (!authResult.authorized) {
+        return NextResponse.json(
+          { success: false, error: authResult.error },
+          { status: authResult.status || 403 }
+        );
+      }
 
-        if (!companyId || !name || !type) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-        }
+      const { channel, group } = authResult;
+      let members = [];
+      if (group) {
+        members = await getGroupMembers(group.id);
+      }
 
-        const [newChannel] = await db.insert(communicationChannels).values({
-            companyId,
-            workspaceId,
-            name,
-            description,
-            type,
-            visibility,
-            createdBy
-        }).returning();
-
-        return NextResponse.json({ success: true, channel: newChannel });
-    } catch (error) {
-        console.error("Create Channel API Error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({
+        success: true,
+        channel: {
+          ...channel,
+          groupId: group?.id || null,
+          groupName: group?.name || channel.name,
+          department: group?.department || 'General',
+          description: group?.description || channel.description,
+        },
+        group,
+        members,
+      });
     }
+
+    // List authorized channels for user
+    const result = await getAuthorizedGroupChannels(userId, workspaceId);
+    if (result.error) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: result.status || 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true, channels: result.channels });
+  } catch (error) {
+    console.error('Fetch Channels API Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
 }

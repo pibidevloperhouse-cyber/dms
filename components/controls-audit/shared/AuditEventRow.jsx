@@ -23,7 +23,8 @@ export function getActionIcon(action = "") {
   if (norm.includes("upload")) return <Upload className="w-3.5 h-3.5 text-blue-600" />;
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
   if (norm.includes("approv")) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
-  if (norm.includes("denied")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
+  if (norm.includes("login") || norm.includes("sign")) return <KeyRound className="w-3.5 h-3.5 text-indigo-600" />;
+  if (norm.includes("denied") || norm.includes("fail")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("permission")) return <KeyRound className="w-3.5 h-3.5 text-amber-600" />;
   if (norm.includes("asked")) return <HelpCircle className="w-3.5 h-3.5 text-purple-600" />;
   if (norm.includes("answered")) return <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />;
@@ -33,16 +34,41 @@ export function getActionIcon(action = "") {
 }
 
 export function formatAuditDate(dateString) {
-  if (!dateString) return "—";
+  if (!dateString) return { date: "—", time: "", full: "—" };
   try {
     const d = new Date(dateString);
+    if (isNaN(d.getTime())) {
+      return { date: String(dateString), time: "", full: String(dateString) };
+    }
+
+    // Convert to Indian Standard Time (Asia/Kolkata, UTC + 5:30 = 19,800,000 ms)
+    const istTime = new Date(d.getTime() + 19800000);
+
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+    const month = months[istTime.getUTCMonth()];
+    const day = String(istTime.getUTCDate()).padStart(2, "0");
+    const year = istTime.getUTCFullYear();
+
+    let h = istTime.getUTCHours();
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = String(h % 12 || 12).padStart(2, "0");
+    const minutes = String(istTime.getUTCMinutes()).padStart(2, "0");
+    const seconds = String(istTime.getUTCSeconds()).padStart(2, "0");
+
+    const dateFormatted = `${month} ${day}, ${year}`;
+    const timeFormatted = `${hour12}:${minutes}:${seconds} ${ampm}`;
+    const fullFormatted = `${month} ${day}, ${year} at ${timeFormatted} (IST)`;
+
     return {
-      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      time: d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
-      full: d.toLocaleString(),
+      date: dateFormatted,
+      time: timeFormatted,
+      full: fullFormatted,
     };
   } catch {
-    return { date: dateString, time: "", full: dateString };
+    return { date: String(dateString), time: "", full: String(dateString) };
   }
 }
 
@@ -73,10 +99,8 @@ export default function AuditEventRow({
           <p className="text-xs text-slate-600 font-medium truncate mb-1">
             {event.action} — <span className="text-slate-800 font-semibold">{event.resource}</span>
           </p>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-            <span>{date} {time}</span>
-            <span>•</span>
-            <span>{event.ip}</span>
+          <div suppressHydrationWarning className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+            <span>{date} {time} IST</span>
           </div>
         </div>
       </div>
@@ -99,7 +123,9 @@ export default function AuditEventRow({
             <p className="font-bold text-slate-900 truncate group-hover:text-[var(--brand)] transition-colors">
               {event.user}
             </p>
-            <p className="text-[11px] text-slate-400 truncate">{event.userRole}</p>
+            <p className="text-[11px] text-slate-400 truncate font-mono">
+              {event.userEmail || event.userRole}
+            </p>
           </div>
         </div>
       </td>
@@ -117,16 +143,21 @@ export default function AuditEventRow({
       </td>
 
       {/* Resource */}
-      <td className="px-4 py-3.5 max-w-[220px]">
-        <span className="font-medium text-slate-700 truncate block" title={event.resource}>
+      <td className="px-4 py-3.5 max-w-[240px]">
+        <span
+          className={`font-medium truncate block ${
+            event.failureReason ? "text-rose-700 font-semibold" : "text-slate-700"
+          }`}
+          title={event.resource}
+        >
           {event.resource}
         </span>
       </td>
 
-      {/* Deal */}
+      {/* Deal Context / Organization */}
       <td className="px-4 py-3.5 whitespace-nowrap text-slate-600">
         <span className="text-[11px] font-medium px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200/60">
-          {event.deal || "Acme Acquisition"}
+          {event.deal || event.companyName || "Identity & Access"}
         </span>
       </td>
 
@@ -135,35 +166,14 @@ export default function AuditEventRow({
         <StatusBadge status={event.result} size="sm" />
       </td>
 
-      {/* Date & Time */}
-      <td className="px-4 py-3.5 whitespace-nowrap font-mono text-[11px] text-slate-600" title={full}>
-        <div>{date}</div>
-        <div className="text-slate-400 text-[10px]">{time} UTC</div>
-      </td>
-
-      {/* IP Address */}
-      <td className="px-4 py-3.5 whitespace-nowrap font-mono text-[11px] text-slate-500">
-        {event.ip}
-      </td>
-
-      {/* Device */}
-      <td className="px-4 py-3.5 max-w-[150px] truncate text-slate-500" title={event.device}>
-        {event.device}
-      </td>
-
-      {/* Duration */}
-      <td className="px-4 py-3.5 whitespace-nowrap font-mono text-slate-400 text-[11px]">
-        {event.duration || "—"}
-      </td>
-
-      {/* Action button */}
-      <td className="px-3 py-3.5 text-right whitespace-nowrap">
-        <button
-          className="p-1 rounded-lg text-slate-400 group-hover:text-[var(--brand)] group-hover:bg-white transition-all shadow-xs"
-          title="View Immutable Audit Record"
-        >
-          <ChevronRight size={14} />
-        </button>
+      {/* Date & Time (Indian Standard Time - Asia/Kolkata) */}
+      <td
+        suppressHydrationWarning
+        className="px-4 py-3.5 whitespace-nowrap font-mono text-[11px] text-slate-600"
+        title={full}
+      >
+        <div suppressHydrationWarning>{date}</div>
+        <div suppressHydrationWarning className="text-slate-400 text-[10px]">{time} IST</div>
       </td>
     </tr>
   );

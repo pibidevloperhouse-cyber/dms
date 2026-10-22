@@ -30,20 +30,10 @@ import {
   DetailDrawer,
   EmptyState,
 } from "@/components/controls-audit/shared";
-
-const REQUIRED_AUDIT_MODULES = [
-  "Stage Control",
-  "Documents",
-  "Permissions",
-  "Approvals",
-  "Q&A",
-  "Policies",
-  "Communications",
-  "AI Capabilities",
-];
+import { formatAuditDate } from "@/components/controls-audit/shared/AuditEventRow";
 
 export default function AuditTrailPage() {
-  const { auditLogs, activeDeal, showToast } = useControlsAudit();
+  const { auditLogs, activeDeal, showToast, refreshAuditLogs, isLoadingAuthLogs } = useControlsAudit();
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,10 +52,12 @@ export default function AuditTrailPage() {
   // Selected event for detail drawer (READ ONLY)
   const [selectedAuditLog, setSelectedAuditLog] = useState(null);
 
-  // Extract unique modules & actions for dropdowns, including Communications & AI Capabilities
+  // Extract unique modules & actions from dynamic logs only (no dummy data)
   const uniqueModules = useMemo(() => {
     const modulesFromLogs = auditLogs.map((l) => l.module).filter(Boolean);
-    return Array.from(new Set([...REQUIRED_AUDIT_MODULES, ...modulesFromLogs]));
+    const set = new Set(modulesFromLogs);
+    if (set.size === 0) set.add("Authentication");
+    return Array.from(set);
   }, [auditLogs]);
 
   const uniqueActions = useMemo(() => {
@@ -77,8 +69,16 @@ export default function AuditTrailPage() {
     return auditLogs
       .filter((log) => {
         // Result filter
-        if (selectedResult !== "all" && log.result.toLowerCase() !== selectedResult.toLowerCase()) {
-          return false;
+        if (selectedResult !== "all") {
+          const filterNorm = selectedResult.toLowerCase();
+          const logNorm = (log.result || "").toLowerCase();
+          if (filterNorm === "failure") {
+            if (logNorm !== "failure" && logNorm !== "failed") return false;
+          } else if (filterNorm === "denied") {
+            if (logNorm !== "denied" && logNorm !== "failure" && logNorm !== "failed") return false;
+          } else if (logNorm !== filterNorm) {
+            return false;
+          }
         }
 
         // Module filter
@@ -106,12 +106,23 @@ export default function AuditTrailPage() {
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchUser = log.user?.toLowerCase().includes(q);
+          const matchEmail = log.userEmail?.toLowerCase().includes(q);
           const matchAction = log.action?.toLowerCase().includes(q);
           const matchResource = log.resource?.toLowerCase().includes(q);
           const matchDeal = log.deal?.toLowerCase().includes(q);
-          const matchIp = log.ip?.toLowerCase().includes(q);
+          const matchCompany = log.companyName?.toLowerCase().includes(q);
           const matchRole = log.userRole?.toLowerCase().includes(q);
-          if (!matchUser && !matchAction && !matchResource && !matchDeal && !matchIp && !matchRole) {
+          const matchReason = log.failureReason?.toLowerCase().includes(q);
+          if (
+            !matchUser &&
+            !matchEmail &&
+            !matchAction &&
+            !matchResource &&
+            !matchDeal &&
+            !matchCompany &&
+            !matchRole &&
+            !matchReason
+          ) {
             return false;
           }
         }
@@ -176,34 +187,30 @@ export default function AuditTrailPage() {
   const handleExportCSV = () => {
     const headers = [
       "Event ID",
-      "Timestamp",
+      "Timestamp (IST)",
       "User",
       "Email",
       "Role",
       "Action",
       "Resource",
       "Module",
-      "Deal",
+      "Organization / Deal",
       "Result",
-      "IP Address",
-      "Device",
-      "Duration",
+      "Failure Reason",
     ];
 
     const rows = processedLogs.map((log) => [
       log.id,
-      log.timestamp,
+      formatAuditDate(log.timestamp).full,
       `"${log.user}"`,
       log.userEmail || "",
       `"${log.userRole || ""}"`,
       `"${log.action}"`,
-      `"${log.resource.replace(/"/g, '""')}"`,
+      `"${(log.resource || '').replace(/"/g, '""')}"`,
       log.module || "",
-      `"${log.deal || ""}"`,
+      `"${log.companyName || log.deal || ""}"`,
       log.result,
-      log.ip,
-      `"${log.device}"`,
-      log.duration || "",
+      `"${(log.failureReason || '').replace(/"/g, '""')}"`,
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -247,6 +254,20 @@ export default function AuditTrailPage() {
         }
         actions={
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                if (refreshAuditLogs) {
+                  refreshAuditLogs();
+                  showToast("Audit trail ledger refreshed.", "info");
+                }
+              }}
+              disabled={isLoadingAuthLogs}
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Refresh audit ledger data"
+            >
+              <RotateCcw size={14} className={`text-slate-500 ${isLoadingAuthLogs ? "animate-spin" : ""}`} />
+              <span>{isLoadingAuthLogs ? "Refreshing…" : "Refresh Ledger"}</span>
+            </button>
             <button
               onClick={handleExportCSV}
               className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
@@ -292,7 +313,7 @@ export default function AuditTrailPage() {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Search user, action, resource, IP or role..."
+            placeholder="Search user, email, action, resource, organization, or failure reason..."
             className="w-full pl-10 pr-9 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-[var(--brand)] font-medium text-slate-800 placeholder:text-slate-400 transition-colors shadow-2xs"
           />
           {searchQuery && (
@@ -374,6 +395,7 @@ export default function AuditTrailPage() {
             >
               <option value="all">All Results</option>
               <option value="Success">Success</option>
+              <option value="Failure">Failure</option>
               <option value="Denied">Denied</option>
               <option value="Flagged">Flagged</option>
             </select>
@@ -406,7 +428,12 @@ export default function AuditTrailPage() {
           </span>
         </div>
 
-        {totalRecords === 0 ? (
+        {isLoadingAuthLogs && totalRecords === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3 min-h-[300px]">
+            <div className="w-8 h-8 border-3 border-[var(--brand)]/20 border-t-[var(--brand)] rounded-full animate-spin"></div>
+            <p className="text-xs font-semibold">Loading live audit records…</p>
+          </div>
+        ) : totalRecords === 0 ? (
           <EmptyState
             title="No audit records match filters"
             description="Try clearing search filters or selecting 'All Dates' to view historical events."
@@ -458,28 +485,16 @@ export default function AuditTrailPage() {
                     </div>
                   </th>
 
-                  {/* Date & Time Column */}
+                  {/* Date & Time Column (Indian Standard Time - Asia/Kolkata) */}
                   <th
                     onClick={() => handleSort("timestamp")}
                     className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>Date & Time (UTC)</span>
+                      <span>Date & Time (IST)</span>
                       <ArrowUpDown size={12} className="text-slate-400" />
                     </div>
                   </th>
-
-                  {/* IP Address */}
-                  <th className="px-4 py-3.5 font-mono">IP Address</th>
-
-                  {/* Device */}
-                  <th className="px-4 py-3.5">Device / Browser</th>
-
-                  {/* Duration */}
-                  <th className="px-4 py-3.5 font-mono">Duration</th>
-
-                  {/* Action */}
-                  <th className="px-3 py-3.5 text-right">Inspect</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
@@ -624,10 +639,22 @@ export default function AuditTrailPage() {
                 <span className="font-semibold text-slate-800">{selectedAuditLog.deal || activeDeal.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Timestamp:</span>
-                <span className="font-mono text-slate-600">{selectedAuditLog.timestamp}</span>
+                <span className="text-slate-400 font-medium">Timestamp (IST):</span>
+                <span suppressHydrationWarning className="font-mono text-slate-600 font-semibold">
+                  {formatAuditDate(selectedAuditLog.timestamp).full}
+                </span>
               </div>
             </div>
+
+            {/* Failure Reason */}
+            {selectedAuditLog.failureReason && (
+              <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-xl space-y-1">
+                <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">
+                  Authentication Failure Reason
+                </span>
+                <p className="font-semibold text-rose-900 text-xs">{selectedAuditLog.failureReason}</p>
+              </div>
+            )}
 
             {/* Actor Details */}
             <div>
@@ -641,12 +668,16 @@ export default function AuditTrailPage() {
                     {selectedAuditLog.userRole}
                   </span>
                 </div>
-                <p className="text-slate-500">{selectedAuditLog.userEmail}</p>
-                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-slate-600 font-mono text-[11px]">
-                  <div>IP: {selectedAuditLog.ip}</div>
-                  <div>Device: {selectedAuditLog.device}</div>
-                  <div>Duration: {selectedAuditLog.duration || "0.4s"}</div>
-                  <div>Result: <span className="font-bold">{selectedAuditLog.result}</span></div>
+                <p className="text-slate-500 font-mono text-[11px]">{selectedAuditLog.userEmail}</p>
+                {selectedAuditLog.companyName && (
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                    <span className="text-slate-400">Organization:</span>
+                    <span className="font-semibold text-slate-800">{selectedAuditLog.companyName}</span>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-600 font-mono text-[11px]">
+                  <div>Action: <span className="font-semibold text-slate-800">{selectedAuditLog.action}</span></div>
+                  <div>Outcome: <span className="font-bold">{selectedAuditLog.result}</span></div>
                 </div>
               </div>
             </div>
