@@ -132,9 +132,27 @@ export async function PATCH(req, { params }) {
       case 'send_back': {
         const userName = user.name || 'Reviewer';
         const reason = payload.reason || 'Revisions requested by reviewer';
+        const newComment = {
+          id: `comm_${Date.now()}`,
+          author: userName,
+          company: user.company || 'Company',
+          scope: 'EXTERNAL',
+          text: `Changes Requested: ${reason}`,
+          timestamp: formattedDate,
+        };
+        const currentComments = Array.isArray(task.comments) ? task.comments : [];
+        const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+        const reopenedSubtasks = currentSubtasks.map((st) => ({
+          ...st,
+          status: 'TO_DO',
+          completedAt: null,
+        }));
+
         updatedFields = {
           ...updatedFields,
           status: 'IN_PROGRESS',
+          comments: [...currentComments, newComment],
+          ...(reopenedSubtasks.length > 0 ? { subtasks: reopenedSubtasks } : {}),
           auditTrail: [
             ...currentAudit,
             {
