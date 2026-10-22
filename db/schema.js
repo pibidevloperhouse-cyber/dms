@@ -508,6 +508,7 @@ export const communicationChannels = pgTable('communication_channels', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id').references(() => companies.id).notNull(),
   workspaceId: uuid('workspace_id').references(() => workspaces.id),
+  groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }).unique(),
   name: text('name'),
   description: text('description'),
   type: channelTypeEnum('type').default('public').notNull(),
