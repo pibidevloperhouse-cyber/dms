@@ -543,6 +543,8 @@ function TeaserContent() {
           </div>
         </div>
       )}
+          </>
+        )}
 
       {/* Global Footer */}
       <footer className="bg-[#0b1120] text-gray-400 py-16 border-t border-white/10 mt-auto">
