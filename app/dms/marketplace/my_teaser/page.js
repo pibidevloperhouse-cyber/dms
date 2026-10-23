@@ -76,7 +76,38 @@ export default function MyTeaserPage() {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-gray-400">Loading your requested teasers...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-pulse">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col justify-between h-72 shadow-sm">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 rounded-lg bg-teal-100/60 shrink-0"></div>
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-24 bg-slate-200/80 rounded"></div>
+                    <div className="h-4 w-32 bg-slate-300/80 rounded"></div>
+                  </div>
+                </div>
+                <div className="w-5 h-5 rounded bg-slate-100"></div>
+              </div>
+              <div className="h-3 w-full bg-slate-100 rounded mb-2"></div>
+              <div className="h-3 w-3/4 bg-slate-100 rounded mb-4"></div>
+              <div className="grid grid-cols-2 gap-3 py-3 border-t border-b border-gray-100">
+                <div>
+                  <div className="h-2.5 w-12 bg-slate-200/70 rounded mb-1"></div>
+                  <div className="h-3.5 w-20 bg-slate-300/80 rounded"></div>
+                </div>
+                <div>
+                  <div className="h-2.5 w-12 bg-slate-200/70 rounded mb-1"></div>
+                  <div className="h-3.5 w-16 bg-emerald-100 rounded"></div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <div className="h-5 w-20 bg-amber-100/80 rounded-md"></div>
+                <div className="h-4 w-16 bg-teal-100 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : myTeasers.length === 0 ? (
         <div className="p-8 w-full flex flex-col items-center justify-center min-h-[400px]">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center w-full max-w-2xl">

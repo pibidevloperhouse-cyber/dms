@@ -204,6 +204,54 @@ function TeaserContent() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
 
+        {loadingTeaser ? (
+          <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12 pt-8 pb-12 animate-pulse">
+            <div className="h-4 w-32 bg-slate-200/80 rounded mb-8"></div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="h-6 w-36 bg-teal-100 rounded-lg"></div>
+              <div className="h-4 w-28 bg-slate-200 rounded"></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start mb-12">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="h-10 w-3/4 bg-slate-200/90 rounded-lg"></div>
+                <div className="h-4 w-full bg-slate-100 rounded"></div>
+                <div className="h-4 w-2/3 bg-slate-100 rounded"></div>
+                <div className="flex gap-3 pt-2">
+                  <div className="h-4 w-24 bg-teal-100/70 rounded"></div>
+                  <div className="h-4 w-24 bg-teal-100/70 rounded"></div>
+                  <div className="h-4 w-24 bg-teal-100/70 rounded"></div>
+                </div>
+              </div>
+              <div className="lg:col-span-1">
+                <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm space-y-4">
+                  <div className="h-4 w-32 bg-slate-200 rounded"></div>
+                  <div className="h-3.5 w-full bg-slate-100 rounded"></div>
+                  <div className="h-3.5 w-3/4 bg-slate-100 rounded"></div>
+                  <div className="h-10 w-full bg-slate-200 rounded"></div>
+                </div>
+              </div>
+            </div>
+            {/* Details Section Skeleton */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+              <div className="h-4 w-40 bg-slate-300 rounded mb-4"></div>
+              <div className="space-y-2 mb-8">
+                <div className="h-3.5 w-full bg-slate-100 rounded"></div>
+                <div className="h-3.5 w-4/5 bg-slate-100 rounded"></div>
+              </div>
+
+              <div className="h-4 w-32 bg-slate-300 rounded mb-4"></div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between h-20">
+                    <div className="h-2.5 w-14 bg-slate-300/80 rounded mb-2"></div>
+                    <div className="h-4 w-20 bg-slate-300 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
       {/* Hero / Header Section */}
       <div className="bg-[#f8fafc]">
         <div className="max-w-[1500px] w-full mx-auto px-4 md:px-8 lg:px-12 pt-8 pb-12">

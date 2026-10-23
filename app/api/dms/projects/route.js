@@ -22,47 +22,76 @@ export async function GET(req) {
 
     const attachPendingProposalCounts = async (projectList) => {
       if (!projectList || projectList.length === 0) return [];
-      return await Promise.all(
-        projectList.map(async (project) => {
-          try {
-            const [teaser] = await db
-              .select({ id: dmsTeasers.id })
-              .from(dmsTeasers)
-              .where(eq(dmsTeasers.projectId, project.id));
+      try {
+        const projectIds = projectList.map(p => p.id).filter(Boolean);
+        if (projectIds.length === 0) {
+          return projectList.map(p => ({ ...p, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] }));
+        }
 
-            if (!teaser) {
-              return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
-            }
+        // 1. Batch fetch all teasers for all projects
+        const allTeasers = await db
+          .select({ id: dmsTeasers.id, projectId: dmsTeasers.projectId })
+          .from(dmsTeasers)
+          .where(inArray(dmsTeasers.projectId, projectIds));
 
-            const allProposals = await db
-              .select({
-                id: dmsDealProposals.id,
-                status: dmsDealProposals.status,
-                createdAt: dmsDealProposals.createdAt
-              })
-              .from(dmsDealProposals)
-              .where(eq(dmsDealProposals.teaserId, teaser.id));
+        const teaserByProjectId = new Map();
+        const teaserIds = [];
+        allTeasers.forEach(t => {
+          if (t.projectId) {
+            teaserByProjectId.set(t.projectId, t.id);
+            teaserIds.push(t.id);
+          }
+        });
 
-            const pendingProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'pending');
-            const approvedProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'approved');
+        // 2. Batch fetch all proposals for all teasers
+        let allProposals = [];
+        if (teaserIds.length > 0) {
+          allProposals = await db
+            .select({
+              id: dmsDealProposals.id,
+              teaserId: dmsDealProposals.teaserId,
+              status: dmsDealProposals.status,
+              createdAt: dmsDealProposals.createdAt
+            })
+            .from(dmsDealProposals)
+            .where(inArray(dmsDealProposals.teaserId, teaserIds));
+        }
 
-            const latestProposalTime = pendingProposals.length > 0
-              ? Math.max(...pendingProposals.map(p => new Date(p.createdAt).getTime()))
-              : 0;
+        const proposalsByTeaserId = new Map();
+        allProposals.forEach(p => {
+          if (!proposalsByTeaserId.has(p.teaserId)) {
+            proposalsByTeaserId.set(p.teaserId, []);
+          }
+          proposalsByTeaserId.get(p.teaserId).push(p);
+        });
 
-            return {
-              ...project,
-              pendingProposalsCount: pendingProposals.length,
-              approvedDealsCount: approvedProposals.length,
-              latestProposalTime,
-              pendingProposalIds: pendingProposals.map(p => p.id)
-            };
-          } catch (e) {
-            console.error('Error attaching pending proposal count for project:', project.id, e);
+        // 3. Map in-memory
+        return projectList.map(project => {
+          const teaserId = teaserByProjectId.get(project.id);
+          if (!teaserId) {
             return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
           }
-        })
-      );
+
+          const proposals = proposalsByTeaserId.get(teaserId) || [];
+          const pendingProposals = proposals.filter(p => (p.status || '').toLowerCase() === 'pending');
+          const approvedProposals = proposals.filter(p => (p.status || '').toLowerCase() === 'approved');
+
+          const latestProposalTime = pendingProposals.length > 0
+            ? Math.max(...pendingProposals.map(p => new Date(p.createdAt).getTime()))
+            : 0;
+
+          return {
+            ...project,
+            pendingProposalsCount: pendingProposals.length,
+            approvedDealsCount: approvedProposals.length,
+            latestProposalTime,
+            pendingProposalIds: pendingProposals.map(p => p.id)
+          };
+        });
+      } catch (e) {
+        console.error('Error attaching proposal counts:', e);
+        return projectList.map(p => ({ ...p, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] }));
+      }
     };
 
     if (role === 'super_admin' || !userId) {

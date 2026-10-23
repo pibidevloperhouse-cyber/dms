@@ -35,9 +35,7 @@ export default function MarketplaceLayout({ children }) {
               const projData = await projRes.json();
               const projects = projData.projects || [];
               projects.forEach((proj) => {
-                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${proj.id}`) || '0') : '0', 10);
-                const isViewed = lastViewed > 0 && (!proj.latestProposalTime || lastViewed >= proj.latestProposalTime);
-                if ((proj.pendingProposalsCount || 0) > 0 && !isViewed) {
+                if ((proj.pendingProposalsCount || 0) > 0) {
                   allNotifs.push({
                     id: `proposal-${proj.id}`,
                     type: 'proposal',
