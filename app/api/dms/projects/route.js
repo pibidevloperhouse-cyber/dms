@@ -31,21 +31,20 @@ export async function GET(req) {
               .where(eq(dmsTeasers.projectId, project.id));
 
             if (!teaser) {
-              return { ...project, pendingProposalsCount: 0 };
+              return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
             }
 
-            const pendingProposals = await db
+            const allProposals = await db
               .select({
                 id: dmsDealProposals.id,
+                status: dmsDealProposals.status,
                 createdAt: dmsDealProposals.createdAt
               })
               .from(dmsDealProposals)
-              .where(
-                and(
-                  eq(dmsDealProposals.teaserId, teaser.id),
-                  eq(dmsDealProposals.status, 'pending')
-                )
-              );
+              .where(eq(dmsDealProposals.teaserId, teaser.id));
+
+            const pendingProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'pending');
+            const approvedProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'approved');
 
             const latestProposalTime = pendingProposals.length > 0
               ? Math.max(...pendingProposals.map(p => new Date(p.createdAt).getTime()))
@@ -54,12 +53,13 @@ export async function GET(req) {
             return {
               ...project,
               pendingProposalsCount: pendingProposals.length,
+              approvedDealsCount: approvedProposals.length,
               latestProposalTime,
               pendingProposalIds: pendingProposals.map(p => p.id)
             };
           } catch (e) {
             console.error('Error attaching pending proposal count for project:', project.id, e);
-            return { ...project, pendingProposalsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
+            return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
           }
         })
       );

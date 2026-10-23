@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
 import NDAModal from "../../../../components/NDAModal";
 
 const industrySubcategories = {
@@ -1170,32 +1170,54 @@ export default function WorkspacePage() {
                       router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
                     }}
                     key={index}
-                    className={`block h-48 bg-white rounded-2xl border p-5 relative flex flex-col transition-all duration-300 group ${
+                    className={`block h-56 bg-white rounded-2xl border p-5 relative flex flex-col justify-between transition-all duration-300 group cursor-pointer ${
                       hasPendingProposal
-                        ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] cursor-pointer hover:-translate-y-1'
+                        ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] hover:-translate-y-1'
                         : isActive
-                        ? 'border-gray-200 cursor-pointer hover:border-teal-300 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                        ? 'border-gray-200 hover:border-teal-400/80 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
                         : isRejected
                         ? 'border-red-100 cursor-not-allowed bg-red-50/20 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
                         : 'border-gray-200 cursor-not-allowed bg-gray-50/40 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-auto">
-                      <div className="flex gap-2 items-center flex-wrap">
-                        <span className={`px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-widest shadow-sm border ${isActive ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/20' : isRejected ? 'bg-red-50 text-red-600 border-red-200/50' : 'bg-orange-50 text-orange-600 border-orange-200/50'
-                          }`}>
-                          {isActive ? 'ACTIVE' : isRejected ? 'REJECTED' : 'PENDING'}
-                        </span>
+                    {/* Top Row: Left Top (Shield Icon & Workspace Name below it) | Right Top (Proposal Notification & Menu) */}
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Left Top: Shield Icon from First Image and down Workspace Name */}
+                      <div className="flex flex-col items-start min-w-0 flex-1">
+                        <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100/60 flex items-center justify-center text-teal-600 shadow-sm group-hover:bg-teal-100/50 group-hover:scale-105 transition-all duration-300 relative">
+                          <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
+                          {userRole === 'buyer' && !isNdaSigned && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[8px] shadow-xs" title="NDA signature required">
+                              <FaLock />
+                            </div>
+                          )}
+                        </div>
+                        <h3 
+                          className="font-bold text-slate-800 text-[16px] tracking-tight leading-snug line-clamp-2 mt-2.5 group-hover:text-teal-700 transition-colors"
+                          title={workspace.name}
+                        >
+                          {workspace.name}
+                        </h3>
+                      </div>
+
+                      {/* Right Top: Proposal Notification & Options */}
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {hasPendingProposal && (
-                          <span className="px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-wider bg-[#e6fbf2] text-[#008f70] border border-[#00c875]/40 shadow-xs flex items-center gap-1.5 animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#008f70]"></span>
-                            {workspace.pendingProposalsCount === 1 
-                              ? '1 New Deal Proposal' 
-                              : `${workspace.pendingProposalsCount} New Deal Proposals`}
-                          </span>
+                          <div 
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs animate-pulse"
+                            title={`${workspace.pendingProposalsCount} new deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} received`}
+                          >
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                            </span>
+                            <FaBell className="text-[10px]" />
+                            <span>{workspace.pendingProposalsCount === 1 ? '1 New' : `${workspace.pendingProposalsCount} New`}</span>
+                          </div>
                         )}
+
                         {userRole === 'buyer' && (
-                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-xs ${
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-2xs ${
                             isNdaSigned
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-amber-50 text-amber-700 border-amber-200'
@@ -1211,63 +1233,76 @@ export default function WorkspacePage() {
                             )}
                           </span>
                         )}
+
+                        {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
+                              }}
+                              className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                              title="Options"
+                            >
+                              <FaEllipsisV className="text-[12px]" />
+                            </button>
+
+                            {openDropdownId === workspace.id && (
+                              <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-20 overflow-hidden py-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteProject(workspace.id, workspace.name);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-1.5"
+                                >
+                                  <FaTimes className="text-[10px]" /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
-                          >
-                            <FaEllipsisV className="text-[11px]" />
-                          </button>
-
-                          {openDropdownId === workspace.id && (
-                            <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteProject(workspace.id, workspace.name);
-                                }}
-                                className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
 
-                    <div className="flex flex-col items-center justify-center flex-1 gap-4 pb-2 relative z-10 mt-3">
-                      {isActive ? (
-                        <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center border border-teal-100/60 group-hover:bg-teal-100/50 group-hover:scale-110 transition-all duration-300 shadow-sm relative">
-                          <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
-                          {userRole === 'buyer' && !isNdaSigned && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[9px] shadow-sm" title="NDA signature required">
-                              <FaLock />
-                            </div>
-                          )}
+                    {/* Bottom Row: Left Bottom (Current Deal Number & Created At) | Right Bottom (Deal : status of project) */}
+                    <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        {/* Left: Current Deals count */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <span>Current Deals:</span>
+                          <span className="font-bold text-slate-900">
+                            {workspace.approvedDealsCount ?? 0}
+                          </span>
                         </div>
-                      ) : isRejected ? (
-                        <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100/60 shadow-sm">
-                          <FaTimes className="text-[26px] text-red-500" />
+
+                        {/* Right: Deal : status of project (only status word highlighted in badge) */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <span>Deal :</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-md border ${
+                            isActive
+                              ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/30'
+                              : isRejected
+                              ? 'bg-red-50 text-red-600 border-red-200/50'
+                              : 'bg-orange-50 text-orange-600 border-orange-200/50'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
+                            }`}></span>
+                            {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100/60 shadow-sm">
-                          <FaLock className="text-[26px] text-orange-500" />
+                      </div>
+
+                      {/* Created at field below Current Deals */}
+                      {workspace.createdAt && (
+                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                          <span className="text-slate-400">Created at :</span>
+                          <span className="text-slate-600">
+                            {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
                         </div>
                       )}
-
-                      <div className="text-center w-full">
-                        <span className={`font-extrabold text-[15px] tracking-tight block px-2 truncate ${isActive ? 'text-gray-900 group-hover:text-teal-800 transition-colors' : 'text-gray-500'
-                          }`}>
-                          {workspace.name}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 )

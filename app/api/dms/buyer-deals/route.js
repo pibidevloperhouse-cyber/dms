@@ -63,7 +63,9 @@ export async function GET(req) {
         status: status,
         ndaStatus: p.ndaStatus || 'pending',
         proposalId: p.id,
-        createdAt: p.createdAt
+        createdAt: p.createdAt,
+        pendingProposalsCount: 0,
+        approvedDealsCount: (pStatus === 'approved' || pStatus === 'accepted') ? 1 : 0
       });
     }
 

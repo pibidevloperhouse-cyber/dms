@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
 
 export default function OverviewPage() {
   const [userRole, setUserRole] = useState(null);
@@ -862,63 +862,127 @@ export default function OverviewPage() {
               )}
 
               {/* Existing Workspaces */}
-              {workspaces.map((workspace, index) => (
-                <div
-                  onClick={() => {
-                    const pid = workspace.projectId || workspace.id;
-                    sessionStorage.removeItem(`deal_activeTab_${pid}`);
-                    router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
-                  }}
-                  key={index}
-                  className="block cursor-pointer h-44 bg-white rounded-xl border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.02)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.06)] transition-all group"
-                >
-                  <div className="flex justify-between items-start mb-auto">
-                    <div className="flex gap-2 items-center">
-                      <span className="px-2 py-0.5 bg-[#e6fbf2] text-[#00c875] text-[9px] font-bold rounded">
-                        {workspace.status || 'ACTIVE'}
-                      </span>
-                      {workspace.dealType && (
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded">
-                          {workspace.dealType}
-                        </span>
-                      )}
-                    </div>
+              {workspaces.map((workspace, index) => {
+                const isActive = workspace.status?.toLowerCase() === 'active';
+                const isRejected = workspace.status?.toLowerCase() === 'rejected';
+                const pid = workspace.projectId || workspace.id;
+                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
+                const isViewed = lastViewed > 0 && (!workspace.latestProposalTime || lastViewed >= workspace.latestProposalTime);
+                const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0 && !isViewed;
 
-                    {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-                      <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
-                          }}
-                          className="text-gray-400 hover:text-gray-600 p-1 opacity-60 hover:opacity-100"
+                return (
+                  <div
+                    onClick={() => {
+                      sessionStorage.removeItem(`deal_activeTab_${pid}`);
+                      router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
+                    }}
+                    key={index}
+                    className={`block h-56 bg-white rounded-2xl border p-5 relative flex flex-col justify-between transition-all duration-300 group cursor-pointer ${
+                      hasPendingProposal
+                        ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] hover:-translate-y-1'
+                        : isActive
+                        ? 'border-gray-200 hover:border-teal-400/80 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                        : 'border-gray-200 hover:shadow-md'
+                    }`}
+                  >
+                    {/* Top Row: Left Top (Shield Icon & Workspace Name below it) | Right Top (Proposal Notification & Menu) */}
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Left Top: Shield Icon from First Image and down Workspace Name */}
+                      <div className="flex flex-col items-start min-w-0 flex-1">
+                        <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100/60 flex items-center justify-center text-teal-600 shadow-sm group-hover:bg-teal-100/50 group-hover:scale-105 transition-all duration-300 relative">
+                          <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
+                        </div>
+                        <h3 
+                          className="font-bold text-slate-800 text-[16px] tracking-tight leading-snug line-clamp-2 mt-2.5 group-hover:text-teal-700 transition-colors"
+                          title={workspace.name}
                         >
-                          <FaEllipsisV className="text-[11px]" />
-                        </button>
+                          {workspace.name}
+                        </h3>
+                      </div>
 
-                        {openDropdownId === workspace.id && (
-                          <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-10 overflow-hidden">
+                      {/* Right Top: Proposal Notification & Options */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {hasPendingProposal && (
+                          <div 
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs animate-pulse"
+                            title={`${workspace.pendingProposalsCount} new deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} received`}
+                          >
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                            </span>
+                            <FaBell className="text-[10px]" />
+                            <span>{workspace.pendingProposalsCount === 1 ? '1 New' : `${workspace.pendingProposalsCount} New`}</span>
+                          </div>
+                        )}
+
+                        {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+                          <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteProject(workspace.id, workspace.name);
+                                setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
                               }}
-                              className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                              className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                              title="Options"
                             >
-                              Delete
+                              <FaEllipsisV className="text-[12px]" />
                             </button>
+
+                            {openDropdownId === workspace.id && (
+                              <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-20 overflow-hidden py-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteProject(workspace.id, workspace.name);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-1.5"
+                                >
+                                  <FaTimes className="text-[10px]" /> Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="flex flex-col items-center justify-center flex-1 gap-2 pb-2">
-                    <FaShieldAlt className="text-4xl text-teal-600 group-hover:scale-105 transition-transform" />
-                    <span className="font-bold text-gray-800 text-sm mt-1">{workspace.name}</span>
+                    {/* Bottom Row: Left Bottom (Current Deal Number & Created At) | Right Bottom (Deal : status of project) */}
+                    <div className="flex items-end justify-between pt-3 border-t border-slate-100 mt-auto">
+                      {/* Left Bottom: Current deal for the project displayed in number (no icon) + Created at field below it */}
+                      <div className="flex flex-col gap-1 items-start">
+                        <div className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 shadow-2xs">
+                          <span className="text-[11px] font-semibold text-slate-500">Current Deals:</span>{' '}
+                          <span className="text-xs font-black text-slate-900">
+                            {workspace.approvedDealsCount ?? 0}
+                          </span>
+                        </div>
+                        {workspace.createdAt && (
+                          <span className="text-[11px] font-medium text-slate-400 pl-0.5">
+                            Created at : {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right Bottom: Deal : status of project */}
+                      <div className="flex items-center pb-0.5">
+                        <span className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border shadow-2xs flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/25'
+                            : isRejected
+                            ? 'bg-red-50 text-red-600 border-red-200/50'
+                            : 'bg-orange-50 text-orange-600 border-orange-200/50'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
+                          }`}></span>
+                          Deal : {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
