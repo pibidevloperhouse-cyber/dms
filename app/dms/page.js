@@ -36,16 +36,16 @@ export default function DMSLanding() {
   return (
     <main className="overflow-x-hidden relative w-full bg-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 z-50 py-3.5 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-        <div className="flex items-center gap-5 lg:gap-6 xl:gap-8">
+      <nav className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 z-50 py-3.5 pl-3 sm:pl-4 lg:pl-6 pr-4 sm:pr-6 lg:pr-8 flex justify-between items-center">
+        <div className="flex items-center gap-4 lg:gap-5 xl:gap-7 2xl:gap-9 min-w-0">
           <div className="text-xl md:text-2xl font-bold text-gray-800 flex-shrink-0">
             <Link href="/" className="flex items-center">
-              <i className="fas fa-shield-alt text-[var(--brand)] mr-7"></i>
+              <i className="fas fa-shield-alt text-[var(--brand)] mr-2.5"></i>
               <span>Secure DMS</span>
             </Link>
           </div>
 
-          <div className="hidden lg:flex items-center gap-5 xl:gap-7 2xl:gap-8 text-[15px]">
+          <div className="hidden lg:flex items-center gap-3.5 lg:gap-4 xl:gap-6 2xl:gap-8 text-[13.5px] lg:text-[14px] xl:text-[15px] 2xl:text-[15.5px]">
             {/* Products Dropdown */}
             <div className="relative group">
               <button
@@ -295,9 +295,9 @@ export default function DMSLanding() {
           </div>
         </div>
 
-        <div className="hidden lg:flex gap-3 xl:gap-4 items-center justify-end ml-6 xl:ml-10 flex-shrink-0">
-          <Link href="/dms/login" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
-          <Link href="/dms/register" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Get Started</Link>
+        <div className="hidden lg:flex gap-2.5 xl:gap-3 items-center justify-end ml-3 xl:ml-5 flex-shrink-0">
+          <Link href="/dms/login" className="btn-bo-hover px-4 py-2 xl:px-5 xl:py-2 text-xs xl:text-sm border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
+          <Link href="/dms/register" className="btn-bo-hover px-4 py-2 xl:px-5 xl:py-2 text-xs xl:text-sm border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Get Started</Link>
         </div>
 
         <button
