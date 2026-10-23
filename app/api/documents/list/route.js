@@ -64,14 +64,23 @@ export async function POST(req) {
             foldersQuery = foldersQuery.eq('workspace_id', workspaceId);
             docsQuery = docsQuery.eq('workspace_id', workspaceId);
             
-            // Check Deal Restrictions for Buyers/Guests
-            if (['guest_admin', 'buyer', 'external_user'].includes(session.role)) {
+            // Check Deal Restrictions & Stage Gating for Buyers/Guests
+            if (['guest_admin', 'buyer', 'external_user', 'guest_lead'].includes(session.role) || session.dms_role === 'buyer') {
                 const { data: dealData } = await supabase
                     .from('dms_deals')
-                    .select('guest_can_upload_docs, guest_can_download_docs, guest_can_create_folders')
+                    .select('current_stage, guest_can_upload_docs, guest_can_download_docs, guest_can_create_folders')
                     .eq('id', workspaceId)
                     .single();
                 if (dealData) {
+                    const stage = (dealData.current_stage || 'Preparation').toString().trim().toLowerCase();
+                    if (stage === 'preparation') {
+                        return NextResponse.json({
+                            success: false,
+                            error: "Your deal is now in preparation stage. Once the preparation stage is completed, it is moved to the due diligence stage, then only you will be able to enter the deal.",
+                            isPreparationBlocked: true
+                        }, { status: 403 });
+                    }
+
                     dealRestrictions = {
                         guestCanUploadDocs: dealData.guest_can_upload_docs,
                         guestCanDownloadDocs: dealData.guest_can_download_docs,

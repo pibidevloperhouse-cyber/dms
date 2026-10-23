@@ -252,7 +252,10 @@ export async function GET(req) {
                     created_by: deal.buyerId,
                     created_at: deal.createdAt,
                     updated_at: deal.updatedAt,
-                    user_count: 1
+                    user_count: 1,
+                    current_stage: deal.currentStage || 'Preparation',
+                    currentStage: deal.currentStage || 'Preparation',
+                    buyer_id: deal.buyerId
                 });
             }
         } catch (e) {

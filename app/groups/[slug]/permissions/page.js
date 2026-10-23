@@ -60,7 +60,7 @@ export default function PermissionsPage() {
         const fetchCompanyData = async () => {
             const { data: users } = await supabase.from('users').select('id, name, email, role').eq('company_id', session.company_id);
             if (users) setCompanyUsers(users.filter(u => ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user'].includes(u.role)));
-            
+
             let groupQuery = supabase.from('groups').select('id, name, role, type, description, created_at').eq('company_id', session.company_id).eq('type', 'group');
             if (session.active_workspace_id) {
                 groupQuery = groupQuery.eq('workspace_id', session.active_workspace_id);
@@ -275,7 +275,7 @@ export default function PermissionsPage() {
 
                             {PERMISSION_SECTIONS.map(({ label, scope, description, subPerms }) => {
                                 const s = perms[scope] || { enabled: false, ...DEFAULT_PERMS, existingId: null };
-                                
+
                                 let visibleSubPerms = subPerms;
                                 if (session?.role === 'guest_admin') {
                                     visibleSubPerms = subPerms.filter(sub => {
@@ -337,7 +337,7 @@ export default function PermissionsPage() {
                                                                     </div>
                                                                 </div>
                                                             )}
-                                                            
+
                                                             {isModuleOn && sub.key === "can_access_groups" && (
                                                                 <div className="border-t border-slate-100 bg-white p-6 animate-in fade-in duration-300">
                                                                     <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-5">Advanced Group Visibility</h5>

@@ -89,6 +89,7 @@ export const users = pgTable('users', {
   // DMS Gap Analysis added fields
   isBroker: boolean('is_broker').default(false),
   referralSource: text('referral_source'),
+  dmsRole: text('dms_role'),
 });
 
 export const sellerProfiles = pgTable('seller_profiles', {
