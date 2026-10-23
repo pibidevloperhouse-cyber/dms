@@ -19,12 +19,10 @@ export async function GET(req) {
     const userId = searchParams.get('userId');
     const companyId = searchParams.get('companyId');
     const role = searchParams.get('role');
-    const dealId = searchParams.get('dealId'); // 'all' or specific dealId uuid
+    const dealIdParam = searchParams.get('dealId');
     const eventType = searchParams.get('eventType');
     const status = searchParams.get('status');
 
-    // Only super_admin sees all deals & users platform-wide.
-    // Regular admin (e.g. Laxmi) only sees users belonging to her company deals/workspaces.
     const isSuperAdmin = role === 'super_admin' || role === 'business_owner';
 
     // 1. Fetch active deals joined with projects, companies, and buyer user details
@@ -54,48 +52,33 @@ export async function GET(req) {
         .select({
           dealId: groups.workspaceId,
           userId: userGroups.userId,
+          userEmail: users.email,
+          userName: users.name,
         })
         .from(groups)
         .innerJoin(userGroups, eq(groups.id, userGroups.groupId))
+        .leftJoin(users, eq(userGroups.userId, users.id))
         .where(isNotNull(groups.workspaceId));
     } catch (e) {
       console.warn('[AuditTrail] Could not fetch deal group members:', e.message);
     }
 
-    // 3. Build lookup maps:
-    // - dealUsersMap: dealId -> { deal, userIds: Set, emails: Set }
-    // - userPrimaryDealMap: userId/email -> deal info
-    const dealUsersMap = new Map();
-    const userPrimaryDealMap = new Map();
-
+    // 3. Build deal members map: dealId -> { deal, userIds: Set, emails: Set }
+    const dealMembersMap = new Map();
     for (const d of allDeals) {
       const userIds = new Set();
       const emails = new Set();
 
-      if (d.buyerId) {
-        userIds.add(d.buyerId);
-        if (!userPrimaryDealMap.has(d.buyerId)) {
-          userPrimaryDealMap.set(d.buyerId, d);
-        }
-      }
-      if (d.buyerEmail) {
-        const lowerEmail = d.buyerEmail.toLowerCase();
-        emails.add(lowerEmail);
-        if (!userPrimaryDealMap.has(lowerEmail)) {
-          userPrimaryDealMap.set(lowerEmail, d);
-        }
+      if (d.buyerId) userIds.add(d.buyerId);
+      if (d.buyerEmail) emails.add(d.buyerEmail.toLowerCase());
+
+      const grps = dealGroupMembers.filter((g) => g.dealId === d.dealId);
+      for (const gm of grps) {
+        if (gm.userId) userIds.add(gm.userId);
+        if (gm.userEmail) emails.add(gm.userEmail.toLowerCase());
       }
 
-      dealUsersMap.set(d.dealId, { deal: d, userIds, emails });
-    }
-
-    for (const gm of dealGroupMembers) {
-      if (gm.dealId && dealUsersMap.has(gm.dealId)) {
-        dealUsersMap.get(gm.dealId).userIds.add(gm.userId);
-        if (!userPrimaryDealMap.has(gm.userId)) {
-          userPrimaryDealMap.set(gm.userId, dealUsersMap.get(gm.dealId).deal);
-        }
-      }
+      dealMembersMap.set(d.dealId, { deal: d, userIds, emails });
     }
 
     // 4. Determine accessible deals for the current viewer
@@ -103,51 +86,46 @@ export async function GET(req) {
     if (isSuperAdmin) {
       accessibleDeals = allDeals;
     } else if (companyId && companyId !== 'demo-company-01') {
-      // Admin sees deals whose projects belong to their company,
-      // or deals where the admin is an assigned group member
       accessibleDeals = allDeals.filter(
         (d) =>
           d.projectCompanyId === companyId ||
-          (userId && dealUsersMap.get(d.dealId)?.userIds.has(userId))
+          (userId && dealMembersMap.get(d.dealId)?.userIds.has(userId))
       );
+    } else {
+      accessibleDeals = allDeals;
     }
 
-    // 5. Determine which user IDs / emails the viewer is allowed to see
-    const allowedUserIds = new Set();
-    const allowedEmails = new Set();
-
-    if (dealId && dealId !== 'all') {
-      // Specifically filter to the selected deal
-      const target = dealUsersMap.get(dealId);
-      if (target) {
-        target.userIds.forEach((id) => allowedUserIds.add(id));
-        target.emails.forEach((em) => allowedEmails.add(em));
-      }
-    } else if (!isSuperAdmin) {
-      // Admin without specific deal filter sees all users in their accessible deals
-      for (const d of accessibleDeals) {
-        const info = dealUsersMap.get(d.dealId);
-        if (info) {
-          info.userIds.forEach((id) => allowedUserIds.add(id));
-          info.emails.forEach((em) => allowedEmails.add(em));
-        }
-      }
-
-      // Also include internal members of the admin's company
-      if (companyId && companyId !== 'demo-company-01') {
-        const compUsers = await db
-          .select({ id: users.id, email: users.email })
-          .from(users)
-          .where(eq(users.companyId, companyId));
-
-        compUsers.forEach((u) => {
-          if (u.id) allowedUserIds.add(u.id);
-          if (u.email) allowedEmails.add(u.email.toLowerCase());
-        });
-      }
+    if (accessibleDeals.length === 0) {
+      return NextResponse.json({
+        success: true,
+        logs: [],
+        availableDeals: [],
+        activeDealId: null,
+      });
     }
 
-    // 6. Query authActivityLogs
+    // 5. Strictly resolve to a SINGLE ACTIVE DEAL (no "all deals")
+    let activeDeal = null;
+    if (dealIdParam && dealIdParam !== 'all') {
+      activeDeal = accessibleDeals.find((d) => d.dealId === dealIdParam) || null;
+    }
+
+    // Fallback: If viewer belongs to a specific deal, prioritize that deal
+    if (!activeDeal && userId) {
+      activeDeal = accessibleDeals.find((d) => dealMembersMap.get(d.dealId)?.userIds.has(userId)) || null;
+    }
+
+    // Fallback: pick the first accessible deal if no valid deal was specified
+    if (!activeDeal) {
+      activeDeal = accessibleDeals[0];
+    }
+
+    // 6. Get the exact members of this active deal
+    const dealInfo = dealMembersMap.get(activeDeal.dealId);
+    const dealMemberUserIds = dealInfo?.userIds || new Set();
+    const dealMemberEmails = dealInfo?.emails || new Set();
+
+    // 7. Query authActivityLogs
     const logConditions = [];
 
     if (eventType && ['LOGIN', 'SIGNUP'].includes(eventType.toUpperCase())) {
@@ -184,44 +162,20 @@ export async function GET(req) {
 
     const rawLogs = await query;
 
-    // 7. Filter raw logs according to role and deal permissions
-    const scopedLogs = rawLogs.filter((log) => {
-      // Super Admin sees everything unless a specific dealId is selected
-      if (isSuperAdmin && (!dealId || dealId === 'all')) return true;
-
+    // 8. Filter strictly to members of this active deal ONLY
+    const dealScopedLogs = rawLogs.filter((log) => {
       const lowerEmail = (log.email || '').toLowerCase();
-      const matchesUserId = log.userId && allowedUserIds.has(log.userId);
-      const matchesEmail = lowerEmail && allowedEmails.has(lowerEmail);
+      const matchesUserId = log.userId && dealMemberUserIds.has(log.userId);
+      const matchesEmail = lowerEmail && dealMemberEmails.has(lowerEmail);
 
       return matchesUserId || matchesEmail;
     });
 
-    // 8. Transform logs with real Deal & Project metadata
-    const formattedLogs = scopedLogs.map((log) => {
+    // 9. Transform logs with active deal metadata
+    const formattedLogs = dealScopedLogs.map((log) => {
       const isSuccess = log.status === 'SUCCESS';
       const actionName = log.eventType === 'LOGIN' ? 'Login Attempt' : 'Sign-up Attempt';
       const outcomeResult = isSuccess ? 'Success' : 'Failure';
-      const lowerEmail = (log.email || '').toLowerCase();
-
-      // Find matched deal for this log entry
-      let matchedDeal = null;
-      if (dealId && dealId !== 'all') {
-        matchedDeal = allDeals.find((d) => d.dealId === dealId) || null;
-      } else {
-        matchedDeal =
-          (log.userId && userPrimaryDealMap.get(log.userId)) ||
-          (lowerEmail && userPrimaryDealMap.get(lowerEmail)) ||
-          null;
-      }
-
-      // Friendly display label for Deal column
-      const dealLabel = matchedDeal
-        ? matchedDeal.dealName || matchedDeal.projectName
-        : log.companyName
-        ? `${log.companyName} (Admin)`
-        : 'Corporate Access';
-
-      const projectName = matchedDeal?.projectName || log.companyName || 'Corporate';
 
       return {
         id: log.id,
@@ -241,10 +195,10 @@ export async function GET(req) {
             : 'Account Registration'
           : `Auth Failed: ${log.failureReason || 'Invalid Credentials'}`,
         module: 'Authentication',
-        deal: dealLabel,
-        dealId: matchedDeal ? matchedDeal.dealId : log.companyId || 'identity-auth-module',
-        projectName: projectName,
-        companyName: log.companyName || (log.companyId ? 'Associated Company' : 'Public / Unassigned'),
+        deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+        dealId: activeDeal.dealId,
+        projectName: activeDeal.projectName || 'Project',
+        companyName: activeDeal.companyName || log.companyName || 'Associated Company',
         result: outcomeResult,
         timestamp: log.attemptedAt ? new Date(log.attemptedAt).toISOString() : new Date().toISOString(),
         ip: '—', // Strictly omitted: no IP address collected or stored
@@ -266,49 +220,45 @@ export async function GET(req) {
         metadata: {
           eventType: log.eventType,
           outcome: log.status,
-          dealName: dealLabel,
-          projectName: projectName,
+          dealName: activeDeal.dealName,
+          projectName: activeDeal.projectName,
           ...(log.failureReason ? { failureReason: log.failureReason } : {}),
-          company: log.companyName || (log.companyId ? log.companyId : 'Unassigned'),
         },
         jsonPayload: {
           event_type: `auth.${log.eventType.toLowerCase()}`,
           outcome: log.status,
           email: log.email,
           user_id: log.userId,
-          deal_id: matchedDeal ? matchedDeal.dealId : null,
-          deal_name: dealLabel,
-          project_name: projectName,
+          deal_id: activeDeal.dealId,
+          deal_name: activeDeal.dealName,
+          project_name: activeDeal.projectName,
           company_id: log.companyId,
-          company_name: log.companyName || null,
           attempted_at: log.attemptedAt,
           failure_reason: log.failureReason,
         },
       };
     });
 
-    // 9. Format availableDeals for frontend Deal Selector
-    const availableDeals = [
-      {
-        id: 'all',
-        name: isSuperAdmin ? 'All Platform Deals' : 'All My Deals',
-        code: 'ALL',
-        projectName: isSuperAdmin ? 'Platform-wide' : 'My Projects',
-      },
-      ...accessibleDeals.map((d) => ({
-        id: d.dealId,
-        name: d.dealName || d.projectName || 'Untitled Deal',
-        code: d.dealName ? d.dealName.slice(0, 4).toUpperCase() : 'DEAL',
-        projectName: d.projectName || 'Project',
-        buyerName: d.buyerName || null,
-        buyerEmail: d.buyerEmail || null,
-      })),
-    ];
+    // 10. Return ONLY the current active deal (other deals are never exposed)
+    const availableDeals = activeDeal
+      ? [
+          {
+            id: activeDeal.dealId,
+            name: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+            code: activeDeal.dealName ? activeDeal.dealName.slice(0, 4).toUpperCase() : 'DEAL',
+            projectName: activeDeal.projectName || 'Project',
+            buyerName: activeDeal.buyerName || null,
+            buyerEmail: activeDeal.buyerEmail || null,
+          },
+        ]
+      : [];
 
     return NextResponse.json({
       success: true,
       logs: formattedLogs,
       availableDeals,
+      activeDealId: activeDeal.dealId,
+      activeDealName: activeDeal.dealName,
       currentRole: role,
       isSuperAdmin,
     });
