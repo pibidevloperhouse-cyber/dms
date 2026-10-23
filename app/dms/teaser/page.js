@@ -104,6 +104,10 @@ function TeaserContent() {
           localStorage.removeItem('my_requested_teasers');
         } catch (e) {}
 
+        try {
+          window.dispatchEvent(new Event('deal-proposal-submitted'));
+        } catch (e) {}
+
         setIsModalOpen(false);
         setRequestForm({
           fullName: "",

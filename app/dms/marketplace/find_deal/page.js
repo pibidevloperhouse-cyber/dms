@@ -323,6 +323,10 @@ export default function MarketplacePage() {
           localStorage.removeItem('my_requested_teasers');
         } catch (e) {}
 
+        try {
+          window.dispatchEvent(new Event('deal-proposal-submitted'));
+        } catch (e) {}
+
         setBuyerProposals(prev => [
           ...prev,
           {

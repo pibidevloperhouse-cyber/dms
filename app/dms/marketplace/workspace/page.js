@@ -351,6 +351,15 @@ export default function WorkspacePage() {
 
     fetchData();
     fetchWorkspaces();
+
+    const interval = setInterval(fetchWorkspaces, 5000);
+    const handleProposalUpdate = () => fetchWorkspaces();
+    window.addEventListener('deal-proposal-submitted', handleProposalUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('deal-proposal-submitted', handleProposalUpdate);
+    };
   }, [router]);
 
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -359,7 +368,12 @@ export default function WorkspacePage() {
   const filteredWorkspaces = workspaces.filter(ws => {
     if (projectFilter === 'All') return true;
     if (projectFilter === 'Approved') return ws.status?.toLowerCase() === 'active';
-    if (projectFilter === 'Pending') return ws.status?.toLowerCase() === 'inactive';
+    if (projectFilter === 'Pending') {
+      const pid = ws.projectId || ws.id;
+      const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
+      const isUnviewed = (ws.pendingProposalsCount || 0) > 0 && (!lastViewed || (ws.latestProposalTime || 0) > lastViewed);
+      return ws.status?.toLowerCase() === 'inactive' || isUnviewed;
+    }
     if (projectFilter === 'Rejected') return ws.status?.toLowerCase() === 'rejected';
     return true;
   });
@@ -1128,6 +1142,11 @@ export default function WorkspacePage() {
                 const isRejected = workspace.status?.toLowerCase() === 'rejected';
                 const isNdaSigned = workspace.ndaStatus?.toLowerCase() === 'signed';
 
+                const pid = workspace.projectId || workspace.id;
+                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
+                const isViewed = lastViewed > 0 && (!workspace.latestProposalTime || lastViewed >= workspace.latestProposalTime);
+                const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0 && !isViewed;
+
                 return (
                   <div
                     onClick={() => {
@@ -1147,13 +1166,19 @@ export default function WorkspacePage() {
                         return; // Block access - cannot enter without signing NDA!
                       }
 
-                      const pid = workspace.projectId || workspace.id;
                       sessionStorage.removeItem(`deal_activeTab_${pid}`);
                       router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
                     }}
                     key={index}
-                    className={`block h-48 bg-white rounded-2xl border shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] p-5 relative flex flex-col transition-all duration-300 group ${isActive ? 'border-gray-200 cursor-pointer hover:border-teal-300 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1' : isRejected ? 'border-red-100 cursor-not-allowed bg-red-50/20' : 'border-gray-200 cursor-not-allowed bg-gray-50/40'
-                      }`}
+                    className={`block h-48 bg-white rounded-2xl border p-5 relative flex flex-col transition-all duration-300 group ${
+                      hasPendingProposal
+                        ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] cursor-pointer hover:-translate-y-1'
+                        : isActive
+                        ? 'border-gray-200 cursor-pointer hover:border-teal-300 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                        : isRejected
+                        ? 'border-red-100 cursor-not-allowed bg-red-50/20 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                        : 'border-gray-200 cursor-not-allowed bg-gray-50/40 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                    }`}
                   >
                     <div className="flex justify-between items-start mb-auto">
                       <div className="flex gap-2 items-center flex-wrap">
@@ -1161,6 +1186,14 @@ export default function WorkspacePage() {
                           }`}>
                           {isActive ? 'ACTIVE' : isRejected ? 'REJECTED' : 'PENDING'}
                         </span>
+                        {hasPendingProposal && (
+                          <span className="px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-wider bg-[#e6fbf2] text-[#008f70] border border-[#00c875]/40 shadow-xs flex items-center gap-1.5 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#008f70]"></span>
+                            {workspace.pendingProposalsCount === 1 
+                              ? '1 New Deal Proposal' 
+                              : `${workspace.pendingProposalsCount} New Deal Proposals`}
+                          </span>
+                        )}
                         {userRole === 'buyer' && (
                           <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-xs ${
                             isNdaSigned
