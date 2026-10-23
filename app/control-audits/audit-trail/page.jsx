@@ -21,6 +21,7 @@ import {
   Clock,
   Layers,
   Sparkles,
+  Briefcase,
 } from "lucide-react";
 import { useControlsAudit } from "@/components/controls-audit/ControlsAuditContext";
 import {
@@ -33,7 +34,16 @@ import {
 import { formatAuditDate } from "@/components/controls-audit/shared/AuditEventRow";
 
 export default function AuditTrailPage() {
-  const { auditLogs, activeDeal, showToast, refreshAuditLogs, isLoadingAuthLogs } = useControlsAudit();
+  const {
+    auditLogs,
+    activeDeal,
+    deals,
+    selectedDealId,
+    setSelectedDealId,
+    showToast,
+    refreshAuditLogs,
+    isLoadingAuthLogs,
+  } = useControlsAudit();
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -326,8 +336,21 @@ export default function AuditTrailPage() {
           )}
         </div>
 
-        {/* Row 2: Dropdowns [All Dates] [All Modules] [All Actions] [All Results] */}
+        {/* Row 2: Dropdowns [Deal Filter] [All Dates] [All Modules] [All Actions] [All Results] */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs">
+          {/* Active Deal Context (Strictly Scoped - No Dropdown) */}
+          {activeDeal && activeDeal.name && (
+            <div
+              className="flex items-center gap-2 h-9 px-3.5 py-1.5 bg-blue-50/90 border border-blue-200/90 rounded-xl font-bold text-blue-900 text-xs shadow-2xs select-none"
+              title={`Active Deal: ${activeDeal.name} ${activeDeal.projectName ? `(${activeDeal.projectName})` : ""}`}
+            >
+              <Briefcase size={13} className="text-blue-600 shrink-0" />
+              <span className="truncate max-w-[240px]">
+                {activeDeal.name} {activeDeal.projectName ? `(${activeDeal.projectName})` : ""}
+              </span>
+            </div>
+          )}
+
           {/* All Dates */}
           <div className="relative">
             <select
@@ -636,7 +659,10 @@ export default function AuditTrailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Deal Context:</span>
-                <span className="font-semibold text-slate-800">{selectedAuditLog.deal || activeDeal.name}</span>
+                <span className="font-semibold text-slate-800">
+                  {selectedAuditLog.deal || activeDeal.name}
+                  {selectedAuditLog.projectName && ` • ${selectedAuditLog.projectName}`}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Timestamp (IST):</span>

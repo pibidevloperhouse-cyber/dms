@@ -30,7 +30,11 @@ import {
   FaDownload,
   FaShieldAlt,
   FaCheck,
-  FaChevronDown
+  FaChevronDown,
+  FaEdit,
+  FaSpinner,
+  FaChevronLeft,
+  FaChevronRight
 } from "react-icons/fa";
 
 export default function TeasersList() {
@@ -44,7 +48,153 @@ export default function TeasersList() {
   const [teaserData, setTeaserData] = useState(null);
   const [teaserLoading, setTeaserLoading] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState("company");
+  const [userRole, setUserRole] = useState("seller");
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [editStep, setEditStep] = useState(1);
+  const [isSavingTeaser, setIsSavingTeaser] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
+  const [editForm, setEditForm] = useState({
+    projectName: "",
+    projectType: "Merge",
+    projectDescription: "",
+    businessModel: "",
+    industry: "",
+    subIndustry: "",
+    yearFounded: "",
+    employees: "",
+    legalStructure: "",
+    headquarters: "",
+    operationsLocation: "",
+    revenue: "",
+    revenueBand: "",
+    ebitdaBand: "",
+    profitabilityEbitdaPercent: "",
+    grossMarginPercent: "",
+    netProfit: "",
+    recurringRevenuePercent: "",
+    growthRatePercent: "",
+    debtOnBusiness: "",
+    workingCapital: "",
+    addBacks: "",
+    totalCustomerCount: "",
+    topCustomerPercentRevenue: "",
+    askingPrice: "",
+    valuationExpectation: "",
+    investmentMandate: "",
+    preferredBuyerTypes: [],
+    reasonForSale: "",
+    businessSummary: "",
+    keyHighlights: "",
+    status: "active"
+  });
   const router = useRouter();
+
+  const stepTitles = [
+    "Project Details",
+    "Company Overview",
+    "Locations & Scale",
+    "Core Financials",
+    "Growth & Debt",
+    "Deal Expectations",
+    "Summary & Status"
+  ];
+
+  const handleOpenEditDrawer = () => {
+    if (!selectedProjectId) return;
+    setEditForm({
+      projectName: selectedProject?.name || "",
+      projectType: selectedProject?.projectType || "Merge",
+      projectDescription: selectedProject?.description || "",
+      businessModel: teaserData?.businessModel || "B2B (Business to Consumer)",
+      industry: teaserData?.industry || "Technology / SaaS",
+      subIndustry: teaserData?.subIndustry || "",
+      yearFounded: teaserData?.yearFounded || "",
+      employees: teaserData?.employees || "11-20 Employees",
+      legalStructure: teaserData?.legalStructure || "S-Corporation",
+      headquarters: teaserData?.headquarters || "",
+      operationsLocation: Array.isArray(teaserData?.operationsLocation)
+        ? teaserData.operationsLocation.join(", ")
+        : (teaserData?.operationsLocation || ""),
+      revenue: teaserData?.revenue || "",
+      revenueBand: teaserData?.revenueBand && teaserData.revenueBand !== "undefined" ? teaserData.revenueBand : "₹5–10 Crore",
+      ebitdaBand: teaserData?.ebitdaBand || "₹25 Lakhs – ₹50 Lakhs",
+      profitabilityEbitdaPercent: teaserData?.profitabilityEbitdaPercent || "",
+      grossMarginPercent: teaserData?.grossMarginPercent || "",
+      netProfit: teaserData?.netProfit || "",
+      recurringRevenuePercent: teaserData?.recurringRevenuePercent || "",
+      growthRatePercent: teaserData?.growthRatePercent || "",
+      debtOnBusiness: teaserData?.debtOnBusiness || "",
+      workingCapital: teaserData?.workingCapital || "",
+      addBacks: teaserData?.addBacks || "",
+      totalCustomerCount: teaserData?.totalCustomerCount !== undefined && teaserData?.totalCustomerCount !== null ? String(teaserData.totalCustomerCount) : "",
+      topCustomerPercentRevenue: teaserData?.topCustomerPercentRevenue || "",
+      askingPrice: teaserData?.askingPrice || "",
+      valuationExpectation: teaserData?.valuationExpectation || "",
+      investmentMandate: teaserData?.investmentMandate || selectedProject?.projectType || "Majority Acquisition",
+      preferredBuyerTypes: Array.isArray(teaserData?.preferredBuyerTypes)
+        ? teaserData.preferredBuyerTypes
+        : ["Strategic Buyer", "Financial Investor"],
+      reasonForSale: teaserData?.reasonForSale || "",
+      businessSummary: teaserData?.businessSummary || "",
+      keyHighlights: teaserData?.keyHighlights || "",
+      status: teaserData?.status || "active"
+    });
+    setEditStep(1);
+    setIsEditDrawerOpen(true);
+  };
+
+  const handleFormFieldChange = (field, value) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleBuyerType = (type) => {
+    setEditForm(prev => {
+      const current = Array.isArray(prev.preferredBuyerTypes) ? prev.preferredBuyerTypes : [];
+      if (current.includes(type)) {
+        return { ...prev, preferredBuyerTypes: current.filter(t => t !== type) };
+      } else {
+        return { ...prev, preferredBuyerTypes: [...current, type] };
+      }
+    });
+  };
+
+  const handleSaveTeaserChanges = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedProjectId) return;
+    setIsSavingTeaser(true);
+    try {
+      const res = await fetch("/api/dms/teasers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          ...editForm,
+          operationsLocation: editForm.operationsLocation
+            ? editForm.operationsLocation.split(",").map(s => s.trim()).filter(Boolean)
+            : []
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.teaser) {
+          setTeaserData(data.teaser);
+        }
+        if (data.project) {
+          setProjects(prev => prev.map(p => p.id === selectedProjectId ? { ...p, ...data.project } : p));
+        }
+        setIsEditDrawerOpen(false);
+        setSaveSuccessMsg("Teaser updated successfully!");
+        setTimeout(() => setSaveSuccessMsg(""), 3500);
+      } else {
+        alert("Failed to update teaser details.");
+      }
+    } catch (err) {
+      console.error("Failed to update teaser:", err);
+      alert("An error occurred while updating teaser.");
+    } finally {
+      setIsSavingTeaser(false);
+    }
+  };
 
   // Fetch teaser details from dms_teasers table for the selected project
   useEffect(() => {
@@ -102,6 +252,9 @@ export default function TeasersList() {
   };
 
   useEffect(() => {
+    const role = (localStorage.getItem("userRole") || "seller").toLowerCase();
+    setUserRole(role);
+
     try {
       const saved = JSON.parse(localStorage.getItem("dms_saved_teasers") || "[]");
       setBookmarkedIds(saved);
@@ -399,6 +552,16 @@ export default function TeasersList() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 text-gray-400">
+                      {userRole !== 'buyer' && (
+                        <button
+                          onClick={handleOpenEditDrawer}
+                          className="text-[#1f6fb2] hover:text-[#185a92] p-1 transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
+                          title="Edit"
+                          aria-label="Edit"
+                        >
+                          <FaEdit className="w-3.5 h-3.5 text-[#1f6fb2]" />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => toggleBookmark(e, selectedProject.id)}
                         className="p-1 hover:text-[#1f6fb2] transition-colors rounded hover:bg-gray-50"
@@ -511,14 +674,24 @@ export default function TeasersList() {
                       </div>
                     </div>
 
-                    {/* Title Block: Avatar + Big Project Title */}
-                    <div className="flex items-center gap-3.5 mb-2 shrink-0">
+                    {/* Title Block: Avatar + Big Project Title + Edit Button */}
+                    <div className="flex items-center gap-3.5 mb-2 shrink-0 flex-wrap">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] text-white flex items-center justify-center font-bold text-base tracking-wide shrink-0 shadow-sm">
                         {(selectedProject.name || "UN").substring(0, 2).toUpperCase()}
                       </div>
                       <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight truncate">
                         {selectedProject.name}
                       </h2>
+                      {userRole !== 'buyer' && (
+                        <button
+                          onClick={handleOpenEditDrawer}
+                          className="text-[#1f6fb2] hover:text-[#185a92] transition-colors p-1 cursor-pointer inline-flex items-center justify-center shrink-0 hover:scale-110 active:scale-95"
+                          title="Edit"
+                          aria-label="Edit"
+                        >
+                          <FaEdit className="w-4 h-4 text-[#1f6fb2]" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Description */}
@@ -1001,6 +1174,648 @@ export default function TeasersList() {
             );
           })()}
 
+        </div>
+      )}
+
+      {/* ========================================================
+         MULTI-STEP EDIT TEASER POPUP MODAL (Fixed, Static, Zero Scroll)
+         ======================================================== */}
+      {isEditDrawerOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[580px] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-white shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Edit Teaser Details</h3>
+                <div className="flex items-center gap-1.5 mt-2">
+                  {stepTitles.map((title, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setEditStep(idx + 1)}
+                      className={`h-1.5 rounded-full cursor-pointer transition-all ${
+                        editStep === idx + 1
+                          ? "w-8 bg-[#1f6fb2]"
+                          : editStep > idx + 1
+                          ? "w-4 bg-[#1f6fb2]/60"
+                          : "w-4 bg-gray-200 hover:bg-gray-300"
+                      }`}
+                      title={`Step ${idx + 1}: ${title}`}
+                    />
+                  ))}
+                  <span className="text-xs text-gray-500 font-medium ml-2">
+                    Step {editStep} of 7 • {stepTitles[editStep - 1]}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSavingTeaser && setIsEditDrawerOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <FaTimes className="text-base" />
+              </button>
+            </div>
+
+            {/* Form Body - Completely static without scrolling */}
+            <div className="flex-1 px-6 py-5 overflow-hidden flex flex-col justify-between">
+              
+              {/* STEP 1: PROJECT OVERVIEW */}
+              {editStep === 1 && (
+                <div className="flex flex-col gap-3.5 animate-in fade-in duration-200">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      Project Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter project name..."
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] transition-shadow font-medium text-gray-800"
+                      value={editForm.projectName}
+                      onChange={(e) => handleFormFieldChange("projectName", e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">Project Type</label>
+                    <div className="relative">
+                      <select
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] appearance-none bg-white transition-shadow font-medium text-gray-800 cursor-pointer"
+                        value={editForm.projectType}
+                        onChange={(e) => handleFormFieldChange("projectType", e.target.value)}
+                      >
+                        <option value="Merge">Merge</option>
+                        <option value="Acquisition">Acquisition</option>
+                        <option value="Investment">Investment</option>
+                        <option value="Fundraising">Fundraising</option>
+                      </select>
+                      <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">Project Description</label>
+                    <textarea
+                      placeholder="Enter a brief project description..."
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] resize-none transition-shadow font-medium text-gray-800"
+                      value={editForm.projectDescription}
+                      onChange={(e) => handleFormFieldChange("projectDescription", e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: COMPANY STRUCTURE */}
+              {editStep === 2 && (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Company Structure & Details
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">2 of 7</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Business Model</label>
+                      <select
+                        value={editForm.businessModel}
+                        onChange={(e) => handleFormFieldChange("businessModel", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="B2B (Business to Business)">B2B (Business to Business)</option>
+                        <option value="B2C (Business to Consumer)">B2C (Business to Consumer)</option>
+                        <option value="B2B2C">B2B2C</option>
+                        <option value="D2C (Direct to Consumer)">D2C (Direct to Consumer)</option>
+                        <option value="SaaS (Software as a Service)">SaaS (Software as a Service)</option>
+                        <option value="Marketplace">Marketplace</option>
+                        <option value="E-commerce">E-commerce</option>
+                        <option value="Subscription">Subscription</option>
+                        <option value="Enterprise">Enterprise</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Industry</label>
+                      <select
+                        value={editForm.industry}
+                        onChange={(e) => handleFormFieldChange("industry", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="Technology / SaaS">Technology / SaaS</option>
+                        <option value="Healthcare / Life Sciences">Healthcare / Life Sciences</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Industrials">Industrials</option>
+                        <option value="Financial Services">Financial Services</option>
+                        <option value="Real Estate">Real Estate</option>
+                        <option value="Consumer Goods & Retail">Consumer Goods & Retail</option>
+                        <option value="Energy & Utilities">Energy & Utilities</option>
+                        <option value="Telecommunications">Telecommunications</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Sub-Industry</label>
+                      <input
+                        type="text"
+                        value={editForm.subIndustry}
+                        onChange={(e) => handleFormFieldChange("subIndustry", e.target.value)}
+                        placeholder="e.g. Software Development"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Legal Structure</label>
+                      <select
+                        value={editForm.legalStructure}
+                        onChange={(e) => handleFormFieldChange("legalStructure", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="LLC (Limited Liability Company)">LLC (Limited Liability Company)</option>
+                        <option value="C-Corporation">C-Corporation</option>
+                        <option value="S-Corporation">S-Corporation</option>
+                        <option value="Sole Proprietorship">Sole Proprietorship</option>
+                        <option value="Partnership">Partnership</option>
+                        <option value="Limited Partnership (LP)">Limited Partnership (LP)</option>
+                        <option value="Private Limited (Pvt Ltd)">Private Limited (Pvt Ltd)</option>
+                        <option value="Public Limited">Public Limited</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Year Founded</label>
+                      <input
+                        type="text"
+                        value={editForm.yearFounded}
+                        onChange={(e) => handleFormFieldChange("yearFounded", e.target.value)}
+                        placeholder="e.g. 2018"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Employees / Team Size</label>
+                      <select
+                        value={editForm.employees}
+                        onChange={(e) => handleFormFieldChange("employees", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="1-10 Employees">1-10 Employees</option>
+                        <option value="11-20 Employees">11-20 Employees</option>
+                        <option value="21-30 Employees">21-30 Employees</option>
+                        <option value="31-50 Employees">31-50 Employees</option>
+                        <option value="51-100 Employees">51-100 Employees</option>
+                        <option value="100+ Employees">100+ Employees</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: LOCATIONS & SCALE */}
+              {editStep === 3 && (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Locations & Customer Scale
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">3 of 7</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Headquarters</label>
+                      <input
+                        type="text"
+                        value={editForm.headquarters}
+                        onChange={(e) => handleFormFieldChange("headquarters", e.target.value)}
+                        placeholder="e.g. Karnataka, India or Delaware, USA"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Primary registered office location</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Operating Locations</label>
+                      <input
+                        type="text"
+                        value={editForm.operationsLocation}
+                        onChange={(e) => handleFormFieldChange("operationsLocation", e.target.value)}
+                        placeholder="Comma-separated: Bengaluru, Mumbai"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Key regions where operations are based</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Total Customer Count</label>
+                      <input
+                        type="number"
+                        value={editForm.totalCustomerCount}
+                        onChange={(e) => handleFormFieldChange("totalCustomerCount", e.target.value)}
+                        placeholder="e.g. 5000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Total active customer or client base</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Top Customer % Revenue</label>
+                      <input
+                        type="text"
+                        value={editForm.topCustomerPercentRevenue}
+                        onChange={(e) => handleFormFieldChange("topCustomerPercentRevenue", e.target.value)}
+                        placeholder="e.g. 15% or USD 45K"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Revenue share of the single largest customer</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: CORE FINANCIALS */}
+              {editStep === 4 && (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Core Financial Metrics
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">4 of 7</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Revenue</label>
+                      <input
+                        type="text"
+                        value={editForm.revenue}
+                        onChange={(e) => handleFormFieldChange("revenue", e.target.value)}
+                        placeholder="e.g. $1M or $5,000,000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Revenue Band</label>
+                      <select
+                        value={editForm.revenueBand}
+                        onChange={(e) => handleFormFieldChange("revenueBand", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="Under ₹1 Crore">Under ₹1 Crore</option>
+                        <option value="₹1–5 Crore">₹1–5 Crore</option>
+                        <option value="₹5–10 Crore">₹5–10 Crore</option>
+                        <option value="₹10–25 Crore">₹10–25 Crore</option>
+                        <option value="₹25 Crore+">₹25 Crore+</option>
+                        <option value="Available upon qualified access">Available upon qualified access</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">EBITDA Band</label>
+                      <select
+                        value={editForm.ebitdaBand}
+                        onChange={(e) => handleFormFieldChange("ebitdaBand", e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                      >
+                        <option value="Negative">Negative</option>
+                        <option value="₹0 – ₹25 Lakhs">₹0 – ₹25 Lakhs</option>
+                        <option value="₹25 Lakhs – ₹50 Lakhs">₹25 Lakhs – ₹50 Lakhs</option>
+                        <option value="₹50 Lakhs – ₹1 Crore">₹50 Lakhs – ₹1 Crore</option>
+                        <option value="₹1 Crore – ₹5 Crore">₹1 Crore – ₹5 Crore</option>
+                        <option value="₹5 Crore+">₹5 Crore+</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">EBITDA Margin (%)</label>
+                      <input
+                        type="text"
+                        value={editForm.profitabilityEbitdaPercent}
+                        onChange={(e) => handleFormFieldChange("profitabilityEbitdaPercent", e.target.value)}
+                        placeholder="e.g. 24"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Gross Margin (%)</label>
+                      <input
+                        type="text"
+                        value={editForm.grossMarginPercent}
+                        onChange={(e) => handleFormFieldChange("grossMarginPercent", e.target.value)}
+                        placeholder="e.g. 45"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Net Profit</label>
+                      <input
+                        type="text"
+                        value={editForm.netProfit}
+                        onChange={(e) => handleFormFieldChange("netProfit", e.target.value)}
+                        placeholder="e.g. $45K or 45"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 5: GROWTH & CAPITAL */}
+              {editStep === 5 && (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Growth, Debt & Working Capital
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">5 of 7</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Recurring Revenue (%)</label>
+                      <input
+                        type="text"
+                        value={editForm.recurringRevenuePercent}
+                        onChange={(e) => handleFormFieldChange("recurringRevenuePercent", e.target.value)}
+                        placeholder="e.g. 35"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">YoY Growth Rate (%)</label>
+                      <input
+                        type="text"
+                        value={editForm.growthRatePercent}
+                        onChange={(e) => handleFormFieldChange("growthRatePercent", e.target.value)}
+                        placeholder="e.g. 22"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Debt on Business</label>
+                      <input
+                        type="text"
+                        value={editForm.debtOnBusiness}
+                        onChange={(e) => handleFormFieldChange("debtOnBusiness", e.target.value)}
+                        placeholder="e.g. 500000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Working Capital</label>
+                      <input
+                        type="text"
+                        value={editForm.workingCapital}
+                        onChange={(e) => handleFormFieldChange("workingCapital", e.target.value)}
+                        placeholder="e.g. 25000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Add-Backs</label>
+                      <input
+                        type="text"
+                        value={editForm.addBacks}
+                        onChange={(e) => handleFormFieldChange("addBacks", e.target.value)}
+                        placeholder="e.g. 50000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 6: DEAL EXPECTATIONS */}
+              {editStep === 6 && (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Deal Expectations & Structure
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">6 of 7</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Asking Price</label>
+                      <input
+                        type="text"
+                        value={editForm.askingPrice}
+                        onChange={(e) => handleFormFieldChange("askingPrice", e.target.value)}
+                        placeholder="e.g. $1,000,000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Valuation Expectation</label>
+                      <input
+                        type="text"
+                        value={editForm.valuationExpectation}
+                        onChange={(e) => handleFormFieldChange("valuationExpectation", e.target.value)}
+                        placeholder="e.g. $1,500,000"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Investment Mandate</label>
+                      <input
+                        type="text"
+                        value={editForm.investmentMandate}
+                        onChange={(e) => handleFormFieldChange("investmentMandate", e.target.value)}
+                        placeholder="e.g. Majority Acquisition, Full Buyout"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Reason for Sale</label>
+                      <input
+                        type="text"
+                        value={editForm.reasonForSale}
+                        onChange={(e) => handleFormFieldChange("reasonForSale", e.target.value)}
+                        placeholder="e.g. Strategic Focus, Expansion"
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800"
+                      />
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">Preferred Buyer Types</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          "Strategic Buyer",
+                          "Financial Investor",
+                          "Individual Buyer",
+                          "Private Equity",
+                          "Family Office"
+                        ].map((type) => {
+                          const isSelected = Array.isArray(editForm.preferredBuyerTypes) && editForm.preferredBuyerTypes.includes(type);
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => toggleBuyerType(type)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#eef6fc] text-[#1f6fb2] border-[#1f6fb2] shadow-xs"
+                                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                              }`}
+                            >
+                              {isSelected ? "✓ " : "+ "}{type}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 7: SUMMARY & VISIBILITY */}
+              {editStep === 7 && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1f6fb2]">
+                      Summary, Highlights & Visibility
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-semibold">7 of 7</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Teaser Visibility Status</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => handleFormFieldChange("status", e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] bg-white font-medium text-gray-800"
+                    >
+                      <option value="active">Active (Visible in Marketplace)</option>
+                      <option value="draft">Draft (Hidden)</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Business Summary / Overview</label>
+                    <textarea
+                      rows={3}
+                      value={editForm.businessSummary}
+                      onChange={(e) => handleFormFieldChange("businessSummary", e.target.value)}
+                      placeholder="Provide a confidential executive summary of the business..."
+                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Key Highlights</label>
+                    <textarea
+                      rows={3}
+                      value={editForm.keyHighlights}
+                      onChange={(e) => handleFormFieldChange("keyHighlights", e.target.value)}
+                      placeholder="Bullet points or key selling points..."
+                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1f6fb2]/30 focus:border-[#1f6fb2] font-medium text-gray-800 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isSavingTeaser}
+                  onClick={() => setIsEditDrawerOpen(false)}
+                  className="text-xs sm:text-sm font-semibold text-gray-600 bg-white hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors border border-gray-200 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                {editStep > 1 && (
+                  <button
+                    type="button"
+                    disabled={isSavingTeaser}
+                    onClick={() => setEditStep(s => s - 1)}
+                    className="text-xs sm:text-sm font-semibold text-gray-700 bg-white hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors border border-gray-200 cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <FaChevronLeft className="text-[10px]" /> Back
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {editStep < 7 ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={isSavingTeaser}
+                      onClick={handleSaveTeaserChanges}
+                      className="text-xs sm:text-sm font-semibold text-[#1f6fb2] bg-white hover:bg-sky-50 border border-[#1f6fb2]/40 hover:border-[#1f6fb2] px-4 py-2 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingTeaser ? (
+                        <>
+                          <FaSpinner className="animate-spin text-xs" /> Saving...
+                        </>
+                      ) : (
+                        <>
+                          <FaCheck className="text-xs" /> Save Changes
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingTeaser}
+                      onClick={() => setEditStep(s => s + 1)}
+                      className="text-xs sm:text-sm font-bold text-white px-5 sm:px-6 py-2 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 bg-[#1f6fb2] hover:bg-[#185a92] cursor-pointer"
+                    >
+                      Continue <FaArrowRight className="text-xs" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isSavingTeaser}
+                    onClick={handleSaveTeaserChanges}
+                    className="text-xs sm:text-sm font-bold text-white px-7 sm:px-8 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2 bg-[#1f6fb2] hover:bg-[#185a92] cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingTeaser ? (
+                      <>
+                        <FaSpinner className="animate-spin text-xs" /> Saving Changes...
+                      </>
+                    ) : (
+                      <>
+                        <FaCheck className="text-xs" /> Save Changes
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Floating Success Notification */}
+      {saveSuccessMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#1f6fb2] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold animate-bounce">
+          <FaCheck className="text-xs" />
+          <span>{saveSuccessMsg}</span>
         </div>
       )}
 

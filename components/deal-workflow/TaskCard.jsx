@@ -16,10 +16,11 @@ import {
   Building2,
   FileCheck2,
   AlertCircle,
-  CheckSquare
+  CheckSquare,
+  MessageSquare
 } from 'lucide-react';
 
-export default function TaskCard({ task, onCardClick }) {
+export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
   const {
     currentUser,
     isAuditModeActive,
@@ -99,8 +100,15 @@ export default function TaskCard({ task, onCardClick }) {
 
   return (
     <div
-      onClick={() => onCardClick?.(task)}
-      className="group bg-white rounded-xl border border-slate-200/90 hover:border-teal-400/80 shadow-xs hover:shadow-md transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden"
+      onClick={() => {
+        if (onOpenChat) onOpenChat(task);
+        else onCardClick?.(task);
+      }}
+      className={`group bg-white rounded-xl border transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden ${
+        isActive
+          ? 'ring-2 ring-[#006666] border-[#006666] shadow-md bg-teal-50/15'
+          : 'border-slate-200/90 hover:border-teal-400/80 shadow-xs hover:shadow-md'
+      }`}
     >
       {/* Top Accent Stripe based on status and side */}
       <div
@@ -358,6 +366,40 @@ export default function TaskCard({ task, onCardClick }) {
               <span>Marked as Done ✓</span>
             </span>
           )}
+        </div>
+
+        {/* Card Quick Action Bar: Task-Based Communication & Details */}
+        <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOpenChat) onOpenChat(task);
+              else onCardClick?.(task);
+            }}
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 hover:text-teal-900 bg-teal-50/80 hover:bg-teal-100 border border-teal-200/90 px-2 py-1 rounded-md transition-all cursor-pointer shadow-2xs"
+            title="Open Task Communication Channel"
+          >
+            <MessageSquare className="w-3 h-3 text-teal-600" />
+            <span>Task Chat</span>
+            {Array.isArray(task.comments) && task.comments.length > 0 && (
+              <span className="text-[9px] bg-[#006666] text-white font-bold px-1.5 py-0.2 rounded-full ml-0.5">
+                {task.comments.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOpenDetails) onOpenDetails(task);
+              else onCardClick?.(task);
+            }}
+            className="text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+          >
+            Details →
+          </button>
         </div>
       </div>
     </div>
