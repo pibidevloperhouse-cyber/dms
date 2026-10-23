@@ -19,19 +19,28 @@ const ControlsAuditContext = createContext(null);
 
 export function ControlsAuditProvider({ children }) {
   // Selected Deal & Workspace
-  const [selectedDealId, setSelectedDealId] = useState("deal-acme-001");
+  const [selectedDealId, setSelectedDealId] = useState(() => {
+    try {
+      const raw = localStorage.getItem("vdr_session");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.active_workspace_id) return parsed.active_workspace_id;
+      }
+    } catch (e) {}
+    return "all";
+  });
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("ws-buyer-abc");
 
   // Core entities in local React state
-  const [deals, setDeals] = useState(MOCK_DEALS);
+  const [deals, setDeals] = useState([]);
   const [stages, setStages] = useState(MOCK_STAGES);
   const [approvals, setApprovals] = useState(MOCK_APPROVALS);
   const [auditLogs, setAuditLogs] = useState([]);
   const [liveAuthLogs, setLiveAuthLogs] = useState([]);
   const [isLoadingAuthLogs, setIsLoadingAuthLogs] = useState(false);
 
-  // Fetch live authentication activity logs from Supabase
-  const fetchAuthLogs = useCallback(async () => {
+  // Fetch live authentication activity logs from Supabase scoped to user & deal
+  const fetchAuthLogs = useCallback(async (overrideDealId) => {
     try {
       setIsLoadingAuthLogs(true);
       let session = null;
@@ -40,13 +49,17 @@ export function ControlsAuditProvider({ children }) {
         if (raw) session = JSON.parse(raw);
       } catch (e) {}
 
+      const userId = session?.id || localStorage.getItem("userId") || "";
       const companyId = session?.company_id || localStorage.getItem("companyId") || "";
       const role = session?.role || localStorage.getItem("vdrRole") || "super_admin";
+      const currentDeal = overrideDealId !== undefined ? overrideDealId : selectedDealId;
 
       let url = "/api/control-audits/audit-trail";
       const params = new URLSearchParams();
+      if (userId) params.append("userId", userId);
       if (companyId) params.append("companyId", companyId);
       if (role) params.append("role", role);
+      if (currentDeal) params.append("dealId", currentDeal);
 
       const queryStr = params.toString();
       if (queryStr) url += `?${queryStr}`;
@@ -57,13 +70,16 @@ export function ControlsAuditProvider({ children }) {
         if (data.success && Array.isArray(data.logs)) {
           setLiveAuthLogs(data.logs);
         }
+        if (data.availableDeals && Array.isArray(data.availableDeals) && data.availableDeals.length > 0) {
+          setDeals(data.availableDeals);
+        }
       }
     } catch (err) {
       console.warn("Failed to fetch live auth logs:", err);
     } finally {
       setIsLoadingAuthLogs(false);
     }
-  }, []);
+  }, [selectedDealId]);
 
   useEffect(() => {
     fetchAuthLogs();
@@ -198,6 +214,9 @@ export function ControlsAuditProvider({ children }) {
 
   // Active Deal info
   const activeDeal = useMemo(() => {
+    if (!deals || deals.length === 0) {
+      return { id: "all", name: "All Deals", code: "ALL", status: "Active" };
+    }
     return deals.find((d) => d.id === selectedDealId) || deals[0];
   }, [deals, selectedDealId]);
 

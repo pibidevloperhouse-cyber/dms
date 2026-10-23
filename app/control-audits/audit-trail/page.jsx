@@ -33,7 +33,16 @@ import {
 import { formatAuditDate } from "@/components/controls-audit/shared/AuditEventRow";
 
 export default function AuditTrailPage() {
-  const { auditLogs, activeDeal, showToast, refreshAuditLogs, isLoadingAuthLogs } = useControlsAudit();
+  const {
+    auditLogs,
+    activeDeal,
+    deals,
+    selectedDealId,
+    setSelectedDealId,
+    showToast,
+    refreshAuditLogs,
+    isLoadingAuthLogs,
+  } = useControlsAudit();
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -326,8 +335,29 @@ export default function AuditTrailPage() {
           )}
         </div>
 
-        {/* Row 2: Dropdowns [All Dates] [All Modules] [All Actions] [All Results] */}
+        {/* Row 2: Dropdowns [Deal Filter] [All Dates] [All Modules] [All Actions] [All Results] */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs">
+          {/* Deal Filter */}
+          {deals && deals.length > 0 && (
+            <div className="relative">
+              <select
+                value={selectedDealId}
+                onChange={(e) => {
+                  setSelectedDealId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-9 px-3.5 py-1.5 bg-blue-50/90 hover:bg-blue-100/90 border border-blue-200/90 rounded-xl font-bold text-blue-900 focus:outline-none focus:border-[var(--brand)] cursor-pointer text-xs transition-colors shadow-2xs max-w-[220px] truncate"
+                title="Filter records by specific deal"
+              >
+                {deals.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} {d.projectName && d.id !== "all" ? `(${d.projectName})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* All Dates */}
           <div className="relative">
             <select
@@ -636,7 +666,10 @@ export default function AuditTrailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Deal Context:</span>
-                <span className="font-semibold text-slate-800">{selectedAuditLog.deal || activeDeal.name}</span>
+                <span className="font-semibold text-slate-800">
+                  {selectedAuditLog.deal || activeDeal.name}
+                  {selectedAuditLog.projectName && ` • ${selectedAuditLog.projectName}`}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Timestamp (IST):</span>
