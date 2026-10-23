@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
 import { dmsDealProposals, dmsTeasers, users, dmsDeals, companies, buyerProfiles } from '../../../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, inArray } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
@@ -12,12 +12,15 @@ export async function GET(req) {
       return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
     }
 
-    // First find the teaser for this project
-    const [teaser] = await db.select().from(dmsTeasers).where(eq(dmsTeasers.projectId, projectId));
+    // Find the teaser(s) for this project
+    const teasers = await db.select().from(dmsTeasers)
+      .where(or(eq(dmsTeasers.projectId, projectId), eq(dmsTeasers.id, projectId)));
     
-    if (!teaser) {
+    if (!teasers || teasers.length === 0) {
       return NextResponse.json({ proposals: [] }, { status: 200 });
     }
+
+    const teaserIds = teasers.map(t => t.id);
 
     // Now get proposals and join with users and buyerProfiles to get buyer details
     const proposals = await db.select({
@@ -40,7 +43,7 @@ export async function GET(req) {
       timelineToCloseDays: buyerProfiles.timelineToCloseDays,
     })
     .from(dmsDealProposals)
-    .where(eq(dmsDealProposals.teaserId, teaser.id))
+    .where(inArray(dmsDealProposals.teaserId, teaserIds))
     .leftJoin(users, eq(dmsDealProposals.buyerId, users.id))
     .leftJoin(companies, eq(users.companyId, companies.id))
     .leftJoin(buyerProfiles, eq(users.id, buyerProfiles.userId));

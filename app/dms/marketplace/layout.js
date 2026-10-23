@@ -21,29 +21,67 @@ export default function MarketplaceLayout({ children }) {
       try {
         const userId = localStorage.getItem('userId');
         const userName = localStorage.getItem('userName');
+        const companyId = localStorage.getItem('companyId');
         if (!userId && !userName) return;
 
-        // Fetch messages
-        const res = await fetch(`/api/dms/messages?userId=${userId || 'seller-123'}`);
-        if (res.ok) {
-          const data = await res.json();
-          // Filter unread messages sent TO me
-          const unread = data.messages.filter(msg => {
-            const isFromMe = (msg.senderRole === userRole) || (msg.senderId === userId) || (msg.senderName === userName);
-            return !msg.isRead && !isFromMe;
-          });
-          
-          // Map to notification format
-          const formattedNotifs = unread.map(msg => ({
-            id: msg.id,
-            message: `New message from ${msg.senderName}`,
-            time: new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            link: '/dms/marketplace/inbox',
-            senderId: msg.senderId
-          }));
-          
-          setNotifications(formattedNotifs);
+        let allNotifs = [];
+
+        // 1. If seller, fetch project deal proposals
+        if (userRole === 'seller' && companyId) {
+          try {
+            const vdrRoleItem = localStorage.getItem('vdrRole') || 'super_admin';
+            const projRes = await fetch(`/api/dms/projects?companyId=${companyId}&userId=${userId}&role=${vdrRoleItem}`);
+            if (projRes.ok) {
+              const projData = await projRes.json();
+              const projects = projData.projects || [];
+              projects.forEach((proj) => {
+                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${proj.id}`) || '0') : '0', 10);
+                const isViewed = lastViewed > 0 && (!proj.latestProposalTime || lastViewed >= proj.latestProposalTime);
+                if ((proj.pendingProposalsCount || 0) > 0 && !isViewed) {
+                  allNotifs.push({
+                    id: `proposal-${proj.id}`,
+                    type: 'proposal',
+                    projectId: proj.id,
+                    message: `${proj.pendingProposalsCount === 1 ? '1 new deal proposal' : `${proj.pendingProposalsCount} new deal proposals`} for "${proj.name}"`,
+                    time: 'Proposal Awaiting Review',
+                    link: `/dms/deal?projectId=${proj.id}&projectName=${encodeURIComponent(proj.name)}`
+                  });
+                }
+              });
+            }
+          } catch (projErr) {
+            console.error("Failed to fetch deal proposals for notifications", projErr);
+          }
         }
+
+        // 2. Fetch messages
+        try {
+          const res = await fetch(`/api/dms/messages?userId=${userId || 'seller-123'}`);
+          if (res.ok) {
+            const data = await res.json();
+            // Filter unread messages sent TO me
+            const unread = (data.messages || []).filter(msg => {
+              const isFromMe = (msg.senderRole === userRole) || (msg.senderId === userId) || (msg.senderName === userName);
+              return !msg.isRead && !isFromMe;
+            });
+            
+            // Map to notification format
+            const formattedNotifs = unread.map(msg => ({
+              id: msg.id,
+              type: 'message',
+              message: `New message from ${msg.senderName}`,
+              time: new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+              link: '/dms/marketplace/inbox',
+              senderId: msg.senderId
+            }));
+
+            allNotifs = [...allNotifs, ...formattedNotifs];
+          }
+        } catch (msgErr) {
+          console.error("Failed to fetch messages for notifications", msgErr);
+        }
+
+        setNotifications(allNotifs);
       } catch (e) {
         console.error("Failed to fetch notifications");
       }
@@ -51,7 +89,13 @@ export default function MarketplaceLayout({ children }) {
 
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000); // Poll every 5s
-    return () => clearInterval(interval);
+    const handleProposalUpdate = () => fetchNotifications();
+    window.addEventListener('deal-proposal-submitted', handleProposalUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('deal-proposal-submitted', handleProposalUpdate);
+    };
   }, [isMounted, userRole]);
 
   useEffect(() => {
@@ -225,7 +269,7 @@ export default function MarketplaceLayout({ children }) {
               >
                 <FaRegBell className="w-[20px] h-[20px]" />
                 {notifications.length > 0 && (
-                  <span className="absolute -top-[2px] -right-[2px] w-2.5 h-2.5 bg-red-600 rounded-full border border-white"></span>
+                  <span className="absolute -top-[2px] -right-[2px] w-2.5 h-2.5 bg-[#008f70] rounded-full border-2 border-white shadow-xs"></span>
                 )}
               </button>
 
@@ -234,7 +278,7 @@ export default function MarketplaceLayout({ children }) {
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                     <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
                     {notifications.length > 0 && (
-                      <span className="text-xs font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">{notifications.length} new</span>
+                      <span className="text-xs font-bold bg-[#e6fbf2] text-[#008f70] px-2 py-0.5 rounded-full">{notifications.length} new</span>
                     )}
                   </div>
                   <div className="max-h-[350px] overflow-y-auto">
@@ -253,27 +297,34 @@ export default function MarketplaceLayout({ children }) {
                             key={idx} 
                             className="p-4 hover:bg-gray-50 cursor-pointer transition-colors flex gap-3"
                             onClick={async () => {
-                              try {
-                                await fetch('/api/dms/messages', {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ messageIds: [notif.id] })
-                                });
-                                setNotifications(prev => prev.filter(n => n.id !== notif.id));
-                              } catch (e) {
-                                console.error(e);
+                              if (notif.type === 'message') {
+                                try {
+                                  await fetch('/api/dms/messages', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ messageIds: [notif.id] })
+                                  });
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                                if (notif.senderId) {
+                                  sessionStorage.setItem('openPartnerId', notif.senderId);
+                                }
+                              } else if (notif.type === 'proposal' && notif.projectId) {
+                                try {
+                                  localStorage.setItem(`viewed_deal_${notif.projectId}`, Date.now().toString());
+                                  window.dispatchEvent(new Event('deal-proposal-submitted'));
+                                } catch (e) {}
                               }
+                              setNotifications(prev => prev.filter(n => n.id !== notif.id));
                               setShowNotifications(false);
-                              if (notif.senderId) {
-                                sessionStorage.setItem('openPartnerId', notif.senderId);
-                              }
                               router.push(notif.link || '/dms/marketplace/inbox');
                             }}
                           >
-                            <div className="w-2 h-2 mt-1.5 bg-teal-500 rounded-full shrink-0"></div>
+                            <div className="w-2 h-2 mt-1.5 bg-[#008f70] rounded-full shrink-0"></div>
                             <div>
                               <p className="text-sm text-gray-800 font-medium leading-tight mb-1">{notif.message}</p>
-                              <p className="text-xs text-gray-400">{notif.time}</p>
+                              <p className="text-xs text-[#008f70] font-medium">{notif.time}</p>
                             </div>
                           </div>
                         ))}
@@ -291,13 +342,19 @@ export default function MarketplaceLayout({ children }) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ userId: userId || 'seller-123' })
                           });
+                          notifications.forEach(n => {
+                            if (n.type === 'proposal' && n.projectId) {
+                              localStorage.setItem(`viewed_deal_${n.projectId}`, Date.now().toString());
+                            }
+                          });
+                          window.dispatchEvent(new Event('deal-proposal-submitted'));
                           setNotifications([]);
                         } catch (e) {
                           console.error(e);
                         }
                       }}
                     >
-                      <span className="text-xs font-bold text-teal-600">Mark all as read</span>
+                      <span className="text-xs font-bold text-[#008f70]">Mark all as read</span>
                     </div>
                   )}
                 </div>

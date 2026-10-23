@@ -156,9 +156,22 @@ export default function AuditEventRow({
 
       {/* Deal Context / Organization */}
       <td className="px-4 py-3.5 whitespace-nowrap text-slate-600">
-        <span className="text-[11px] font-medium px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200/60">
-          {event.deal || event.companyName || "Identity & Access"}
-        </span>
+        <div className="flex flex-col min-w-0">
+          <span
+            className="text-[11px] font-bold text-slate-800 px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200/80 inline-block truncate max-w-[200px]"
+            title={event.deal}
+          >
+            {event.deal || event.companyName || "Corporate Access"}
+          </span>
+          {event.projectName && event.projectName !== event.deal && (
+            <span
+              className="text-[10px] text-slate-400 font-medium px-1 mt-0.5 truncate max-w-[200px]"
+              title={event.projectName}
+            >
+              {event.projectName}
+            </span>
+          )}
+        </div>
       </td>
 
       {/* Result */}

@@ -32,13 +32,57 @@ function DealDashboardContent() {
   const [activeTab, setActiveTab] = useState('deals');
   const [userRole, setUserRole] = useState('seller');
   const [vdrRole, setVdrRole] = useState('external_user');
+  const [viewedProposalTime, setViewedProposalTime] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId) {
+      const storedTime = parseInt(localStorage.getItem(`viewed_proposals_timestamp_${projectId}`) || '0', 10);
+      setViewedProposalTime(storedTime);
+    }
+  }, [projectId]);
+
+  const markProposalsAsViewed = () => {
+    const now = Date.now();
+    setViewedProposalTime(now);
+    if (typeof window !== 'undefined' && projectId) {
+      try {
+        localStorage.setItem(`viewed_proposals_timestamp_${projectId}`, now.toString());
+        localStorage.setItem(`viewed_deal_${projectId}`, now.toString());
+        window.dispatchEvent(new Event('deal-proposal-submitted'));
+      } catch (e) {}
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'proposals') {
+      markProposalsAsViewed();
+    }
+  }, [activeTab]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (projectId) {
       sessionStorage.setItem(`deal_activeTab_${projectId}`, tab);
+      if (tab === 'proposals') {
+        markProposalsAsViewed();
+      }
     }
   };
+
+  const handleSelectRequest = (req) => {
+    setSelectedRequest(req);
+    markProposalsAsViewed();
+  };
+
+  const unviewedPendingProposals = activeTab === 'proposals'
+    ? []
+    : requests.filter(r => {
+        if ((r.status || '').toLowerCase() !== 'pending') return false;
+        if (!viewedProposalTime) return true;
+        const pTime = r.createdAt ? new Date(r.createdAt).getTime() : 0;
+        return pTime > viewedProposalTime;
+      });
+  const unviewedCount = unviewedPendingProposals.length;
 
   const formatFoundedDate = (val) => {
     if (!val) return 'Not provided';
@@ -150,10 +194,18 @@ function DealDashboardContent() {
       .catch(console.error);
 
     // Fetch Proposals
-    fetch(`/api/dms/proposals?projectId=${projectId}`)
-      .then(res => res.json())
-      .then(data => setRequests(data.proposals || []))
-      .catch(console.error);
+    const fetchProposals = () => {
+      fetch(`/api/dms/proposals?projectId=${projectId}`)
+        .then(res => res.json())
+        .then(data => {
+          setRequests(data.proposals || []);
+        })
+        .catch(console.error);
+    };
+
+    fetchProposals();
+    const proposalInterval = setInterval(fetchProposals, 5000);
+    window.addEventListener('deal-proposal-submitted', fetchProposals);
 
     // Fetch Teaser
     fetch(`/api/dms/teasers?projectId=${projectId}`)
@@ -178,6 +230,11 @@ function DealDashboardContent() {
         }
       })
       .catch(console.error);
+
+    return () => {
+      clearInterval(proposalInterval);
+      window.removeEventListener('deal-proposal-submitted', fetchProposals);
+    };
   }, [projectId]);
 
   const handleCreateDeal = async (e) => {
@@ -370,7 +427,7 @@ function DealDashboardContent() {
               <span>Deals</span>
             </button>
 
-            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && (vdrRole === 'super_admin' || userRole === 'seller') && (
               <button
                 onClick={() => handleTabChange('permissions')}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'permissions' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -380,7 +437,7 @@ function DealDashboardContent() {
               </button>
             )}
 
-            {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+            {userRole !== 'buyer' && !userRole.includes('guest') && (vdrRole === 'super_admin' || userRole === 'seller') && (
               <>
                 <button
                   onClick={() => handleTabChange('proposals')}
@@ -390,9 +447,9 @@ function DealDashboardContent() {
                     <FaBell className="text-lg" />
                     <span>Deal Proposal</span>
                   </div>
-                  {requests.filter(r => r.status === 'PENDING').length > 0 && (
-                    <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {requests.filter(r => r.status === 'PENDING').length}
+                  {unviewedCount > 0 && (
+                    <span className="w-5 h-5 bg-[#008f70] text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+                      {unviewedCount}
                     </span>
                   )}
                 </button>
@@ -410,7 +467,7 @@ function DealDashboardContent() {
 
         {/* Bottom Actions */}
         <div className="px-4 flex flex-col gap-2 relative">
-          {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+          {userRole !== 'buyer' && !userRole.includes('guest') && (vdrRole === 'super_admin' || userRole === 'seller') && (
             <button
               onClick={() => handleTabChange('trash')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'trash' ? 'bg-[#00c875]/10 text-[#00c875]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
@@ -751,9 +808,13 @@ function DealDashboardContent() {
             {activeTab === 'proposals' && (
               <div className="w-full">
                 <div className="mb-6 flex justify-between items-center">
-                  <div>
+                  <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-900">Deal Proposals</h2>
-                    <p className="text-sm text-gray-500 mt-1">Review and manage access requests for this deal.</p>
+                    {unviewedCount > 0 && (
+                      <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-[#e6fbf2] text-[#008f70] border border-[#00c875]/30">
+                        {unviewedCount} New
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => {
@@ -783,7 +844,7 @@ function DealDashboardContent() {
                       {requests.map((req) => (
                         <tr
                           key={req.id}
-                          onClick={() => setSelectedRequest(req)}
+                          onClick={() => handleSelectRequest(req)}
                           className="hover:bg-[#f4f7f9] cursor-pointer transition-colors group"
                         >
                           <td className="py-5 px-6 text-base font-bold text-gray-800 group-hover:text-[#00c875] transition-colors">{req.fullName}</td>
@@ -794,7 +855,7 @@ function DealDashboardContent() {
                             <span className={`px-3 py-1.5 text-xs font-bold rounded-md tracking-wide capitalize ${req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? 'bg-[#e6fbf2] text-[#00c875]' :
                               req.status?.toLowerCase() === 'rejected' ? 'bg-red-50 text-red-600' :
                                 req.status?.toLowerCase() === 'revoked' ? 'bg-orange-50 text-orange-600' :
-                                  'bg-blue-50 text-blue-600' // default for pending, etc
+                                  'bg-[#e6fbf2] text-[#008f70] border border-[#00c875]/30' // pending proposal uses product theme!
                               }`}>
                               {req.status?.toLowerCase() === 'accepted' ? 'Approved' : req.status}
                             </span>
@@ -1159,6 +1220,7 @@ function DealDashboardContent() {
                           });
                           if (res.ok) {
                             setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'rejected' } : r));
+                            try { window.dispatchEvent(new Event('deal-proposal-submitted')); } catch(e){}
                             setSelectedRequest(null);
                           }
                         } catch (err) {
@@ -1180,6 +1242,7 @@ function DealDashboardContent() {
                           });
                           if (res.ok) {
                             setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'approved' } : r));
+                            try { window.dispatchEvent(new Event('deal-proposal-submitted')); } catch(e){}
                             // Refresh deals
                             const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
                             const dealsData = await dealsRes.json();

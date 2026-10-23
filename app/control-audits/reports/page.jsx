@@ -33,6 +33,7 @@ import {
   StatusBadge,
   DetailDrawer,
   EmptyState,
+  formatAuditDate,
 } from "@/components/controls-audit/shared";
 import ModalPortal from "@/components/ui/ModalPortal";
 
@@ -329,16 +330,20 @@ export default function ReportsPage() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Records Indexed
                     </span>
-                    <span className="font-extrabold text-slate-800 text-sm mt-0.5 block">
-                      {report.recordsCount.toLocaleString()} Entries
+                    <span className="font-extrabold text-slate-800 text-sm mt-0.5 block" suppressHydrationWarning>
+                      {Number(report.recordsCount).toLocaleString("en-US")} Entries
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Last Generated
                     </span>
-                    <span className="font-mono text-slate-600 text-xs mt-0.5 block truncate">
-                      {new Date(report.generatedAt).toLocaleString()}
+                    <span
+                      className="font-mono text-slate-600 text-xs mt-0.5 block truncate"
+                      title={formatAuditDate(report.generatedAt).full}
+                      suppressHydrationWarning
+                    >
+                      {formatAuditDate(report.generatedAt).full}
                     </span>
                   </div>
                 </div>

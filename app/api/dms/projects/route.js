@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dmsProjects, dmsDeals, userGroups, groups, companies } from '@/db/schema';
+import { dmsProjects, dmsDeals, userGroups, groups, companies, dmsTeasers, dmsDealProposals } from '@/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 
@@ -20,9 +20,55 @@ export async function GET(req) {
       return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
     }
 
+    const attachPendingProposalCounts = async (projectList) => {
+      if (!projectList || projectList.length === 0) return [];
+      return await Promise.all(
+        projectList.map(async (project) => {
+          try {
+            const [teaser] = await db
+              .select({ id: dmsTeasers.id })
+              .from(dmsTeasers)
+              .where(eq(dmsTeasers.projectId, project.id));
+
+            if (!teaser) {
+              return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
+            }
+
+            const allProposals = await db
+              .select({
+                id: dmsDealProposals.id,
+                status: dmsDealProposals.status,
+                createdAt: dmsDealProposals.createdAt
+              })
+              .from(dmsDealProposals)
+              .where(eq(dmsDealProposals.teaserId, teaser.id));
+
+            const pendingProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'pending');
+            const approvedProposals = allProposals.filter(p => (p.status || '').toLowerCase() === 'approved');
+
+            const latestProposalTime = pendingProposals.length > 0
+              ? Math.max(...pendingProposals.map(p => new Date(p.createdAt).getTime()))
+              : 0;
+
+            return {
+              ...project,
+              pendingProposalsCount: pendingProposals.length,
+              approvedDealsCount: approvedProposals.length,
+              latestProposalTime,
+              pendingProposalIds: pendingProposals.map(p => p.id)
+            };
+          } catch (e) {
+            console.error('Error attaching pending proposal count for project:', project.id, e);
+            return { ...project, pendingProposalsCount: 0, approvedDealsCount: 0, latestProposalTime: 0, pendingProposalIds: [] };
+          }
+        })
+      );
+    };
+
     if (role === 'super_admin' || !userId) {
       const projects = await db.select().from(dmsProjects).where(eq(dmsProjects.companyId, companyId));
-      return NextResponse.json({ projects }, { status: 200 });
+      const projectsWithCounts = await attachPendingProposalCounts(projects);
+      return NextResponse.json({ projects: projectsWithCounts }, { status: 200 });
     }
 
     const userGroupsQuery = await db.select().from(userGroups).where(eq(userGroups.userId, userId));
@@ -55,7 +101,8 @@ export async function GET(req) {
         )
       );
 
-    return NextResponse.json({ projects }, { status: 200 });
+    const projectsWithCounts = await attachPendingProposalCounts(projects);
+    return NextResponse.json({ projects: projectsWithCounts }, { status: 200 });
   } catch (error) {
     console.error('Failed to fetch projects:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

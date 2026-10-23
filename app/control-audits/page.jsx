@@ -24,6 +24,7 @@ import {
   RiskBadge,
   AuditEventRow,
   DetailDrawer,
+  formatAuditDate,
 } from "@/components/controls-audit/shared";
 
 export default function ControlsAuditOverviewPage() {
@@ -573,23 +574,15 @@ export default function ControlsAuditOverviewPage() {
                   Assigned Role
                 </span>
                 <span className="font-semibold text-slate-800 text-xs mt-0.5 block">
-                  {selectedAuditLog.userRole}
+                  {selectedAuditLog.userRole || "User"}
                 </span>
               </div>
-              <div>
+              <div className="col-span-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Timestamp (UTC)
+                  Timestamp (IST)
                 </span>
-                <span className="font-mono text-slate-800 text-xs mt-0.5 block truncate">
-                  {new Date(selectedAuditLog.timestamp).toISOString()}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Client IP Address
-                </span>
-                <span className="font-mono text-slate-800 text-xs mt-0.5 block">
-                  {selectedAuditLog.ip}
+                <span className="font-mono text-slate-800 text-xs mt-0.5 block truncate" suppressHydrationWarning>
+                  {formatAuditDate(selectedAuditLog.timestamp).full}
                 </span>
               </div>
             </div>
