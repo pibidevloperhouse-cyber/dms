@@ -50,24 +50,19 @@ export const CONTROLS_AUDIT_SIDEBAR_ITEMS = [
     badge: 3,
     badgeType: "rose",
   },
-  {
-    key: "policies",
-    name: "Policies",
-    href: "/control-audits/policies",
-    icon: Shield,
-  },
+  // {
+  //   key: "policies",
+  //   name: "Policies",
+  //   href: "/control-audits/policies",
+  //   icon: Shield,
+  // },
   {
     key: "reports",
     name: "Reports",
     href: "/control-audits/reports",
     icon: BarChart3,
   },
-  {
-    key: "settings",
-    name: "Settings",
-    href: "/control-audits/settings",
-    icon: Settings,
-  },
+
 ];
 
 export default function ControlsAuditSidebar({ isOpen = true }) {
@@ -98,9 +93,8 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
 
   return (
     <aside
-      className={`${
-        isOpen ? "w-64 border-r" : "w-0 border-r-0"
-      } transition-all duration-300 overflow-hidden bg-white border-gray-200 shrink-0 h-full flex flex-col justify-between font-sans select-none z-20`}
+      className={`${isOpen ? "w-64 border-r" : "w-0 border-r-0"
+        } transition-all duration-300 overflow-hidden bg-white border-gray-200 shrink-0 h-full flex flex-col justify-between font-sans select-none z-20`}
     >
       <div className="w-64 flex-1 flex flex-col h-full overflow-y-auto">
         {/* Module Sidebar Header */}
@@ -120,19 +114,17 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
               <Link
                 key={item.key}
                 href={item.href}
-                className={`group flex items-center justify-between px-6 py-2.5 text-[14px] transition-all ${
-                  active
-                    ? "bg-[var(--brand-50)] border-r-2 border-[var(--brand)] text-[var(--brand)] font-bold"
-                    : "text-gray-600 hover:bg-gray-50 font-medium"
-                }`}
+                className={`group flex items-center justify-between px-6 py-2.5 text-[14px] transition-all ${active
+                  ? "bg-[var(--brand-50)] border-r-2 border-[var(--brand)] text-[var(--brand)] font-bold"
+                  : "text-gray-600 hover:bg-gray-50 font-medium"
+                  }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon
-                    className={`w-4 h-4 shrink-0 transition-colors ${
-                      active
-                        ? "text-[var(--brand)]"
-                        : "text-gray-400 group-hover:text-gray-600"
-                    }`}
+                    className={`w-4 h-4 shrink-0 transition-colors ${active
+                      ? "text-[var(--brand)]"
+                      : "text-gray-400 group-hover:text-gray-600"
+                      }`}
                     strokeWidth={active ? 2.2 : 1.8}
                   />
                   <span className="truncate">{item.name}</span>
