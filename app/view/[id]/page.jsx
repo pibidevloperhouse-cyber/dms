@@ -54,6 +54,7 @@ export default function SecureViewer({ params }) {
 
     const accessLogIdRef = useRef(null);
     const activeSecondsRef = useRef(0);
+    const viewStartTimeRef = useRef(null);
     const heartbeatIntervalRef = useRef(null);
 
     const userInfoRef = useRef(userInfo);
@@ -96,11 +97,18 @@ export default function SecureViewer({ params }) {
     // ── Heartbeat Ping Engine ──────────────────────────────────────────────────
     useEffect(() => {
         if (!loading && docPayload) {
+            viewStartTimeRef.current = Date.now();
             const sendHeartbeat = (final = false) => {
                 if (!accessLogIdRef.current) return;
+                const elapsed = viewStartTimeRef.current
+                    ? Math.max(1, Math.round((Date.now() - viewStartTimeRef.current) / 1000))
+                    : activeSecondsRef.current;
+                const duration = Math.max(activeSecondsRef.current, elapsed);
+                activeSecondsRef.current = duration;
+
                 const payload = JSON.stringify({
                     accessLogId: accessLogIdRef.current,
-                    durationSeconds: activeSecondsRef.current
+                    durationSeconds: duration
                 });
                 if (final && typeof navigator !== 'undefined' && navigator.sendBeacon) {
                     const blob = new Blob([payload], { type: 'application/json' });
@@ -117,17 +125,22 @@ export default function SecureViewer({ params }) {
 
             heartbeatIntervalRef.current = setInterval(() => {
                 if (document.hasFocus() && !document.hidden) {
-                    activeSecondsRef.current += 5;
+                    const elapsed = viewStartTimeRef.current
+                        ? Math.max(1, Math.round((Date.now() - viewStartTimeRef.current) / 1000))
+                        : activeSecondsRef.current + 5;
+                    activeSecondsRef.current = Math.max(activeSecondsRef.current + 5, elapsed);
                     sendHeartbeat(false);
                 }
             }, 5000);
 
             const handleUnload = () => sendHeartbeat(true);
             window.addEventListener('beforeunload', handleUnload);
+            window.addEventListener('pagehide', handleUnload);
 
             return () => {
                 if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
                 window.removeEventListener('beforeunload', handleUnload);
+                window.removeEventListener('pagehide', handleUnload);
                 sendHeartbeat(true);
             };
         }
