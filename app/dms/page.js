@@ -110,7 +110,7 @@ export default function DMSLanding() {
                   <div className="grid grid-cols-2 gap-x-10 gap-y-4">
                     <Link href="/business-owner/login" className="block group/item">
                       <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
-                        Sell Your Business
+                        Seller
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
                         Sharpen Your Exit Plan. Assemble Your Deal Team. Avoid Costly Mistakes.
@@ -119,7 +119,7 @@ export default function DMSLanding() {
 
                     <Link href="/dms/marketplace" className="block group/item">
                       <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
-                        Buyer Demand Report
+                        Buyer
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
                         How Many Buyers Are Interested In Your Business?
@@ -144,7 +144,7 @@ export default function DMSLanding() {
                 type="button"
                 className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
               >
-                <span>Acquirers</span>
+                <span>Investors</span>
                 <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
               </button>
 
@@ -351,11 +351,11 @@ export default function DMSLanding() {
                     <div className="text-xs text-gray-500 font-normal">Partner With an Exit Consultant to Hire a Great M&A Advisor.</div>
                   </Link>
                   <Link href="/business-owner/login" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
-                    <div>Sell Your Business</div>
+                    <div>Seller</div>
                     <div className="text-xs text-gray-500 font-normal">Sharpen Your Exit Plan. Assemble Your Deal Team.</div>
                   </Link>
                   <Link href="/dms/marketplace" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
-                    <div>Buyer Demand Report</div>
+                    <div>Buyer</div>
                     <div className="text-xs text-gray-500 font-normal">How Many Buyers Are Interested In Your Business?</div>
                   </Link>
                 </div>
@@ -373,7 +373,7 @@ export default function DMSLanding() {
                 onClick={() => toggleMobileSubmenu('acquirers')}
                 className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
               >
-                <span>Acquirers</span>
+                <span>Investors</span>
                 <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.acquirers ? 'rotate-180' : ''}`} />
               </button>
               {mobileExpanded.acquirers && (
