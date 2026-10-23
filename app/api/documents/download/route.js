@@ -64,7 +64,12 @@ export async function POST(req) {
                 user_id: session.id,
                 document_id: targetDocumentId,
                 action_type: 'DOWNLOAD_ORIGINAL',
-                metadata: { ip_address: clientIp, file_name: doc.name, folder_id: doc.folder_id }
+                metadata: {
+                    ip_address: clientIp,
+                    file_name: doc.name,
+                    folder_id: doc.folder_id,
+                    workspace_id: doc.workspace_id || session.active_workspace_id || null,
+                }
             }]);
 
             let buffer = Buffer.from(await data.arrayBuffer());
@@ -121,7 +126,12 @@ export async function POST(req) {
                 user_id: session.id,
                 document_id: targetDocumentId,
                 action_type: 'DOWNLOAD_SECURE',
-                metadata: { ip_address: clientIp, file_name: doc.name, folder_id: doc.folder_id }
+                metadata: {
+                    ip_address: clientIp,
+                    file_name: doc.name,
+                    folder_id: doc.folder_id,
+                    workspace_id: doc.workspace_id || session.active_workspace_id || null,
+                }
             }]);
 
             

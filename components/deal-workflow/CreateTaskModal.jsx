@@ -114,7 +114,6 @@ export default function CreateTaskModal() {
       if (allowedRoles.length > 0) {
         list = list.filter((g) => {
           const gRole = resolveGroupRole(g);
-          if (gRole === creatorRole) return false;
           return allowedRoles.includes(gRole);
         });
       }

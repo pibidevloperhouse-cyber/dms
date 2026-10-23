@@ -14,11 +14,13 @@ import {
   Lock,
   Zap,
   ArrowRight,
-  ChevronDown
+  ChevronDown,
+  MessageSquare
 } from 'lucide-react';
 import { PRIORITIES, DEAL_STAGES, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import StageTracker from './StageTracker';
 import TaskCreationStudio from './TaskCreationStudio';
+import TaskCommunicationPanel from './TaskCommunicationPanel';
 
 export default function TaskBoardView() {
   const {
@@ -58,6 +60,22 @@ export default function TaskBoardView() {
     stageNotification,
     dismissStageNotification,
   } = useDealWorkflow();
+
+  // Task-Based Communication Overlay Drawer state
+  const [activeChatTaskId, setActiveChatTaskId] = useState(null);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+
+  // Dynamically resolve active chat task (defaults to first available task)
+  const activeChatTask = useMemo(() => {
+    if (!visibleTasks || visibleTasks.length === 0) return null;
+    if (activeChatTaskId) {
+      const found = visibleTasks.find(
+        (t) => t.id === activeChatTaskId || t.task_id === activeChatTaskId || t.taskId === activeChatTaskId
+      );
+      if (found) return found;
+    }
+    return visibleTasks[0] || null;
+  }, [activeChatTaskId, visibleTasks]);
 
   // 1. Available groups inside the selected department
   const availableGroups = useMemo(() => {
@@ -189,13 +207,29 @@ export default function TaskBoardView() {
       {/* ========================================================================= */}
       {/* PAGE HEADER: TASK & WORKFLOW */}
       {/* ========================================================================= */}
-      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          Task & Workflow
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Track deal milestones, manage team responsibilities, and execute workflow tasks.
-        </p>
+      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <span>Task & Workflow</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Track deal milestones, manage team responsibilities, and collaborate via task-based communication.
+          </p>
+        </div>
+
+        {/* Header Actions: Toggle Task Chat Overlay */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsChatPanelOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-2xs bg-white hover:bg-teal-50 text-slate-700 hover:text-[#006666] border-slate-200 hover:border-teal-300"
+            title="Open Task Communication Overlay"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-[#006666]" />
+            <span>Task Chat Overlay</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+          </button>
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -515,12 +549,10 @@ export default function TaskBoardView() {
           )}
 
           {/* ========================================================================= */}
-          {/* KANBAN TASK BOARD COLUMNS */}
+          {/* FULL-WIDTH KANBAN TASK BOARD (DOES NOT SHRINK) */}
           {/* ========================================================================= */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-2 flex-1">
-
-            {/* Desktop & Tablet: Horizontal columns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          <div className="px-4 sm:px-6 lg:px-8 pt-2 flex-1 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start w-full">
               {columns.map((col) => {
                 const colTasks = visibleTasks.filter((t) => t.status === col.id);
                 const isHiddenOnMobile = mobileTab !== col.id;
@@ -566,13 +598,30 @@ export default function TaskBoardView() {
                           )}
                         </div>
                       ) : (
-                        colTasks.map((task) => (
-                          <TaskCard
-                            key={task.task_id}
-                            task={task}
-                            onCardClick={setSelectedTask}
-                          />
-                        ))
+                        colTasks.map((task) => {
+                          const isTaskActive = activeChatTask && (
+                            activeChatTask.task_id === task.task_id ||
+                            activeChatTask.id === task.id ||
+                            activeChatTask.taskId === task.taskId
+                          );
+
+                          return (
+                            <TaskCard
+                              key={task.task_id}
+                              task={task}
+                              isActive={isTaskActive && isChatPanelOpen}
+                              onOpenChat={(t) => {
+                                setActiveChatTaskId(t.id || t.task_id || t.taskId);
+                                setIsChatPanelOpen(true);
+                              }}
+                              onOpenDetails={(t) => setSelectedTask(t)}
+                              onCardClick={(t) => {
+                                setActiveChatTaskId(t.id || t.task_id || t.taskId);
+                                setIsChatPanelOpen(true);
+                              }}
+                            />
+                          );
+                        })
                       )}
                     </div>
 
@@ -580,8 +629,32 @@ export default function TaskBoardView() {
                 );
               })}
             </div>
-
           </div>
+
+          {/* ========================================================================= */}
+          {/* SLIDE-OVER OVERLAY DRAWER: TASK-BASED COMMUNICATION */}
+          {/* ========================================================================= */}
+          {isChatPanelOpen && (
+            <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+              {/* Soft blur backdrop */}
+              <div
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
+                onClick={() => setIsChatPanelOpen(false)}
+              />
+
+              {/* Slide-over drawer */}
+              <div className="relative z-50 w-full max-w-xl md:max-w-2xl h-full shadow-2xl border-l border-slate-200 transform transition-transform duration-300 ease-in-out animate-in slide-in-from-right">
+                <TaskCommunicationPanel
+                  activeTask={activeChatTask}
+                  onClose={() => setIsChatPanelOpen(false)}
+                  onOpenTaskDetails={(t) => {
+                    setIsChatPanelOpen(false);
+                    setSelectedTask(t);
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </>
       )}
 

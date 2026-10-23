@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import {
   authActivityLogs,
+  documentEditLogs,
+  documents,
   users,
   companies,
   dmsDeals,
@@ -160,10 +162,28 @@ export async function GET(req) {
       query = query.where(and(...logConditions));
     }
 
-    const rawLogs = await query;
+    const rawAuthLogs = await query;
 
-    // 8. Filter strictly to members of this active deal ONLY
-    const dealScopedLogs = rawLogs.filter((log) => {
+    // Helper: format user role
+    const formatRoleName = (r) => {
+      if (!r) return 'Authorized User';
+      const map = {
+        super_admin: 'Super Admin',
+        admin: 'Admin',
+        sub_admin: 'Sub Admin',
+        internal_user: 'Internal User',
+        guest_admin: 'Guest Admin',
+        guest_lead: 'Guest Lead',
+        external_user: 'External User',
+        buyer: 'Buyer',
+        seller: 'Seller',
+        business_owner: 'Business Owner',
+      };
+      return map[r.toLowerCase()] || r.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    // 8. Filter strictly to members of this active deal ONLY for Auth Logs
+    const dealScopedAuthLogs = rawAuthLogs.filter((log) => {
       const lowerEmail = (log.email || '').toLowerCase();
       const matchesUserId = log.userId && dealMemberUserIds.has(log.userId);
       const matchesEmail = lowerEmail && dealMemberEmails.has(lowerEmail);
@@ -171,8 +191,8 @@ export async function GET(req) {
       return matchesUserId || matchesEmail;
     });
 
-    // 9. Transform logs with active deal metadata
-    const formattedLogs = dealScopedLogs.map((log) => {
+    // 9. Transform Auth Logs with active deal metadata
+    const formattedAuthLogs = dealScopedAuthLogs.map((log) => {
       const isSuccess = log.status === 'SUCCESS';
       const actionName = log.eventType === 'LOGIN' ? 'Login Attempt' : 'Sign-up Attempt';
       const outcomeResult = isSuccess ? 'Success' : 'Failure';
@@ -181,13 +201,7 @@ export async function GET(req) {
         id: log.id,
         user: log.userName || (log.email ? log.email.split('@')[0] : 'Unknown User'),
         userEmail: log.email,
-        userRole:
-          log.userRole ||
-          (isSuccess
-            ? log.eventType === 'LOGIN'
-              ? 'Authorized User'
-              : 'New Registrant'
-            : 'Unauthenticated'),
+        userRole: formatRoleName(log.userRole) || (isSuccess ? (log.eventType === 'LOGIN' ? 'Authorized User' : 'New Registrant') : 'Unauthenticated'),
         action: actionName,
         resource: isSuccess
           ? log.eventType === 'LOGIN'
@@ -239,7 +253,130 @@ export async function GET(req) {
       };
     });
 
-    // 10. Return ONLY the current active deal (other deals are never exposed)
+    // 10. Query documentEditLogs (Document Actions: download, upload, view, delete)
+    let rawDocLogs = [];
+    try {
+      rawDocLogs = await db
+        .select({
+          id: documentEditLogs.id,
+          userId: documentEditLogs.userId,
+          documentId: documentEditLogs.documentId,
+          actionType: documentEditLogs.actionType,
+          metadata: documentEditLogs.metadata,
+          changedAt: documentEditLogs.changedAt,
+          userName: users.name,
+          userEmail: users.email,
+          userRole: users.role,
+          docName: documents.name,
+          docWorkspaceId: documents.workspaceId,
+          docCompanyId: documents.companyId,
+          companyName: companies.name,
+        })
+        .from(documentEditLogs)
+        .leftJoin(users, eq(documentEditLogs.userId, users.id))
+        .leftJoin(documents, eq(documentEditLogs.documentId, documents.id))
+        .leftJoin(companies, eq(documents.companyId, companies.id))
+        .orderBy(desc(documentEditLogs.changedAt))
+        .limit(300);
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch documentEditLogs:', e.message);
+    }
+
+    // Helper: format document action name
+    const getDocumentActionName = (actionType, metadata) => {
+      const type = (actionType || '').toUpperCase();
+      if (type === 'UPLOAD') return 'Document Upload';
+      if (type === 'VIEW') return 'Document View';
+      if (type === 'DOWNLOAD_ORIGINAL') return 'Document Download (Original)';
+      if (type === 'DOWNLOAD_SECURE') return 'Document Download (Secure)';
+      if (type.includes('DOWNLOAD')) return 'Document Download';
+      if (type === 'DELETE') {
+        return metadata?.mode === 'permanent'
+          ? 'Document Permanently Deleted'
+          : 'Document Moved to Trash';
+      }
+      const pretty = type
+        .toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      return `Document ${pretty}`;
+    };
+
+    // 11. Filter Document Logs strictly to this active deal
+    const dealScopedDocLogs = rawDocLogs.filter((log) => {
+      // If the document has a specific workspace_id, it MUST match this active deal
+      if (log.docWorkspaceId) {
+        return log.docWorkspaceId === activeDeal.dealId;
+      }
+      // If metadata has workspace_id, check it
+      if (log.metadata?.workspace_id) {
+        return log.metadata.workspace_id === activeDeal.dealId;
+      }
+      // Fallback: check if the acting user is a member of this active deal
+      const lowerEmail = (log.userEmail || '').toLowerCase();
+      const matchesUserId = log.userId && dealMemberUserIds.has(log.userId);
+      const matchesEmail = lowerEmail && dealMemberEmails.has(lowerEmail);
+      return matchesUserId || matchesEmail;
+    });
+
+    // 12. Transform Document Logs with active deal metadata
+    const formattedDocLogs = dealScopedDocLogs.map((log) => {
+      const actionName = getDocumentActionName(log.actionType, log.metadata);
+      const fileName = log.docName || log.metadata?.file_name || 'Document File';
+
+      return {
+        id: log.id,
+        user: log.userName || (log.userEmail ? log.userEmail.split('@')[0] : 'Unknown User'),
+        userEmail: log.userEmail,
+        userRole: formatRoleName(log.userRole),
+        action: actionName,
+        resource: fileName,
+        module: 'Documents',
+        deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+        dealId: activeDeal.dealId,
+        projectName: activeDeal.projectName || 'Project',
+        companyName: activeDeal.companyName || log.companyName || 'Associated Company',
+        result: 'Success',
+        timestamp: log.changedAt ? new Date(log.changedAt).toISOString() : new Date().toISOString(),
+        ip: '—', // Strictly omitted per privacy policy
+        device: '—',
+        duration: '—',
+        eventType: log.actionType,
+        outcome: 'SUCCESS',
+        failureReason: null,
+        permissionDecision: {
+          rule: 'Document Operation Authorization',
+          verdict: 'Permitted',
+        },
+        metadata: {
+          actionType: log.actionType,
+          fileName,
+          dealName: activeDeal.dealName,
+          projectName: activeDeal.projectName,
+          ...(log.metadata || {}),
+        },
+        jsonPayload: {
+          event_type: `document.${(log.actionType || '').toLowerCase()}`,
+          outcome: 'SUCCESS',
+          email: log.userEmail,
+          user_id: log.userId,
+          document_id: log.documentId,
+          file_name: fileName,
+          deal_id: activeDeal.dealId,
+          deal_name: activeDeal.dealName,
+          project_name: activeDeal.projectName,
+          company_id: log.docCompanyId,
+          changed_at: log.changedAt,
+        },
+      };
+    });
+
+    // 13. Merge and sort all audit logs (Auth + Document events) by timestamp DESC
+    const allFormattedLogs = [...formattedAuthLogs, ...formattedDocLogs].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // 14. Return ONLY the current active deal (other deals are never exposed)
     const availableDeals = activeDeal
       ? [
           {
@@ -255,7 +392,7 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      logs: formattedLogs,
+      logs: allFormattedLogs,
       availableDeals,
       activeDealId: activeDeal.dealId,
       activeDealName: activeDeal.dealName,

@@ -306,7 +306,7 @@ export default function DMSLanding() {
 
         <div className="hidden lg:flex gap-3 xl:gap-4 items-center justify-end ml-6 xl:ml-10 flex-shrink-0">
           <Link href="/dms/login" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
-          <Link href="/dms/register" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Sign Up</Link>
+          <Link href="/dms/register" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Get Started</Link>
         </div>
 
         <button
@@ -468,7 +468,7 @@ export default function DMSLanding() {
             </div>
           </div>
           <Link href="/dms/login" className="btn-bo-hover w-full text-center px-5 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
-          <Link href="/dms/register" className="btn-bo-hover w-full text-center px-5 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 bg-[var(--brand)]/5" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+          <Link href="/dms/register" className="btn-bo-hover w-full text-center px-5 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 bg-[var(--brand)]/5" onClick={() => setIsMobileMenuOpen(false)}>Get Started</Link>
         </div>
       )}
 

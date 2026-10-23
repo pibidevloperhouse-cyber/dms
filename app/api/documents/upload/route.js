@@ -191,7 +191,8 @@ export async function POST(req) {
                     metadata: {
                         ip_address: clientIp,
                         file_name: file.name,
-                        folder_id: folder_id
+                        folder_id: folder_id,
+                        workspace_id: workspace_id || docData.workspace_id || null,
                     },
                     changed_at: new Date().toISOString()
                 }]);

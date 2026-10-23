@@ -14,6 +14,7 @@ import {
   AlertOctagon,
   Activity,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -22,6 +23,7 @@ export function getActionIcon(action = "") {
   if (norm.includes("download")) return <Download className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("upload")) return <Upload className="w-3.5 h-3.5 text-blue-600" />;
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
+  if (norm.includes("delet") || norm.includes("trash")) return <Trash2 className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("approv")) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("login") || norm.includes("sign")) return <KeyRound className="w-3.5 h-3.5 text-indigo-600" />;
   if (norm.includes("denied") || norm.includes("fail")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
