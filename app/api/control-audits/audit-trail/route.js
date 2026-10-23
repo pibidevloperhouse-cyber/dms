@@ -3,6 +3,7 @@ import { db } from '@/db';
 import {
   authActivityLogs,
   documentEditLogs,
+  documentAccessLogs,
   documents,
   users,
   companies,
@@ -218,6 +219,9 @@ export async function GET(req) {
         ip: '—', // Strictly omitted: no IP address collected or stored
         device: '—', // Strictly omitted: no user-agent collected or stored
         duration: '—',
+        durationSeconds: null,
+        durationFormatted: '—',
+        durationText: '—',
         eventType: log.eventType,
         outcome: log.status,
         failureReason: log.failureReason,
@@ -236,6 +240,10 @@ export async function GET(req) {
           outcome: log.status,
           dealName: activeDeal.dealName,
           projectName: activeDeal.projectName,
+          duration: '—',
+          duration_seconds: null,
+          duration_formatted: '—',
+          duration_text: '—',
           ...(log.failureReason ? { failureReason: log.failureReason } : {}),
         },
         jsonPayload: {
@@ -249,6 +257,9 @@ export async function GET(req) {
           company_id: log.companyId,
           attempted_at: log.attemptedAt,
           failure_reason: log.failureReason,
+          duration_seconds: null,
+          duration_formatted: '—',
+          duration_text: '—',
         },
       };
     });
@@ -281,6 +292,87 @@ export async function GET(req) {
     } catch (e) {
       console.warn('[AuditTrail] Could not fetch documentEditLogs:', e.message);
     }
+
+    // Query documentAccessLogs to link view durations for VIEW actions
+    let rawAccessLogs = [];
+    try {
+      rawAccessLogs = await db
+        .select({
+          id: documentAccessLogs.id,
+          userId: documentAccessLogs.userId,
+          documentId: documentAccessLogs.documentId,
+          openedAt: documentAccessLogs.openedAt,
+          closedAt: documentAccessLogs.closedAt,
+          durationSeconds: documentAccessLogs.durationSeconds,
+          durationFormatted: documentAccessLogs.durationFormatted,
+        })
+        .from(documentAccessLogs)
+        .orderBy(desc(documentAccessLogs.openedAt))
+        .limit(500);
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch documentAccessLogs:', e.message);
+    }
+
+    const accessLogsById = new Map();
+    rawAccessLogs.forEach((al) => {
+      if (al.id) accessLogsById.set(al.id, al);
+    });
+
+    // Helper: format duration to human friendly text
+    const formatDurationDisplay = (durationSeconds, durationFormatted) => {
+      let secs = null;
+      if (durationSeconds !== null && durationSeconds !== undefined) {
+        secs = parseInt(durationSeconds, 10);
+      } else if (durationFormatted && durationFormatted !== '—' && durationFormatted !== '00:00') {
+        const parts = String(durationFormatted).split(':');
+        if (parts.length === 2) {
+          secs = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+        } else if (parts.length === 3) {
+          secs = (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0);
+        }
+      }
+
+      if (secs === null || isNaN(secs) || secs < 0) {
+        return {
+          durationSeconds: 0,
+          durationFormatted: durationFormatted || '00:00',
+          durationText: '< 5s',
+        };
+      }
+
+      if (secs === 0) {
+        return {
+          durationSeconds: 0,
+          durationFormatted: durationFormatted || '00:00',
+          durationText: '< 5s',
+        };
+      }
+
+      const hours = Math.floor(secs / 3600);
+      const mins = Math.floor((secs % 3600) / 60);
+      const remSecs = secs % 60;
+
+      let text = '';
+      if (hours > 0) {
+        text = `${hours}h ${mins}m ${remSecs > 0 ? `${remSecs}s` : ''}`.trim();
+      } else if (mins > 0) {
+        text = `${mins}m ${remSecs > 0 ? `${remSecs}s` : ''}`.trim();
+      } else {
+        text = `${remSecs}s`;
+      }
+
+      const formatted = durationFormatted && durationFormatted !== '00:00' && durationFormatted !== '—'
+        ? durationFormatted
+        : (hours > 0
+            ? `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`
+            : `${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`);
+
+      return {
+        durationSeconds: secs,
+        durationFormatted: formatted,
+        durationText: text,
+      };
+    };
 
     // Helper: format document action name
     const getDocumentActionName = (actionType, metadata) => {
@@ -324,6 +416,53 @@ export async function GET(req) {
       const actionName = getDocumentActionName(log.actionType, log.metadata);
       const fileName = log.docName || log.metadata?.file_name || 'Document File';
 
+      const isView = (log.actionType || '').toUpperCase() === 'VIEW';
+      let durationSeconds = null;
+      let durationFormatted = '—';
+      let durationText = '—';
+
+      if (isView) {
+        // 1. Check metadata
+        if (log.metadata?.duration_seconds !== undefined && log.metadata?.duration_seconds !== null) {
+          durationSeconds = log.metadata.duration_seconds;
+        }
+        if (log.metadata?.duration_formatted) {
+          durationFormatted = log.metadata.duration_formatted;
+        }
+
+        // 2. Check direct access_log_id in metadata
+        if (log.metadata?.access_log_id && accessLogsById.has(log.metadata.access_log_id)) {
+          const al = accessLogsById.get(log.metadata.access_log_id);
+          if (al.durationSeconds !== null && al.durationSeconds !== undefined) {
+            durationSeconds = al.durationSeconds;
+          }
+          if (al.durationFormatted) {
+            durationFormatted = al.durationFormatted;
+          }
+        }
+
+        // 3. Fallback: match by user_id and document_id close in time (within 30s)
+        if (durationSeconds === null || durationSeconds === undefined) {
+          const logTime = new Date(log.changedAt).getTime();
+          const matched = rawAccessLogs.find((al) => {
+            if (al.userId === log.userId && al.documentId === log.documentId) {
+              const openTime = new Date(al.openedAt).getTime();
+              return Math.abs(openTime - logTime) <= 30000;
+            }
+            return false;
+          });
+          if (matched) {
+            durationSeconds = matched.durationSeconds;
+            durationFormatted = matched.durationFormatted || '00:00';
+          }
+        }
+
+        const durationInfo = formatDurationDisplay(durationSeconds, durationFormatted);
+        durationSeconds = durationInfo.durationSeconds;
+        durationFormatted = durationInfo.durationFormatted;
+        durationText = durationInfo.durationText;
+      }
+
       return {
         id: log.id,
         user: log.userName || (log.userEmail ? log.userEmail.split('@')[0] : 'Unknown User'),
@@ -340,7 +479,10 @@ export async function GET(req) {
         timestamp: log.changedAt ? new Date(log.changedAt).toISOString() : new Date().toISOString(),
         ip: '—', // Strictly omitted per privacy policy
         device: '—',
-        duration: '—',
+        duration: durationText,
+        durationSeconds,
+        durationFormatted,
+        durationText,
         eventType: log.actionType,
         outcome: 'SUCCESS',
         failureReason: null,
@@ -353,6 +495,10 @@ export async function GET(req) {
           fileName,
           dealName: activeDeal.dealName,
           projectName: activeDeal.projectName,
+          duration: durationText,
+          duration_seconds: durationSeconds,
+          duration_formatted: durationFormatted,
+          duration_text: durationText,
           ...(log.metadata || {}),
         },
         jsonPayload: {
@@ -367,6 +513,9 @@ export async function GET(req) {
           project_name: activeDeal.projectName,
           company_id: log.docCompanyId,
           changed_at: log.changedAt,
+          duration_seconds: durationSeconds,
+          duration_formatted: durationFormatted,
+          duration_text: durationText,
         },
       };
     });

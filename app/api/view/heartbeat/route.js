@@ -43,6 +43,32 @@ export async function POST(req) {
             return NextResponse.json({ success: false, error: updateErr.message }, { status: 500 });
         }
 
+        // Also update matching document_edit_logs row metadata in real time
+        try {
+            const { data: editLogs } = await supabase
+                .from('document_edit_logs')
+                .select('id, metadata')
+                .filter('metadata->>access_log_id', 'eq', accessLogId)
+                .limit(1);
+
+            if (editLogs && editLogs.length > 0) {
+                const currentMeta = editLogs[0].metadata || {};
+                await supabase
+                    .from('document_edit_logs')
+                    .update({
+                        metadata: {
+                            ...currentMeta,
+                            duration_seconds: duration,
+                            duration_formatted: formatted,
+                            closed_at: closedAt
+                        }
+                    })
+                    .eq('id', editLogs[0].id);
+            }
+        } catch (syncErr) {
+            console.warn('[HEARTBEAT API] document_edit_logs sync notice:', syncErr.message);
+        }
+
         return NextResponse.json({
             success: true,
             durationSeconds: duration,
