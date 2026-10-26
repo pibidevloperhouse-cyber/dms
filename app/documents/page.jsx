@@ -137,8 +137,7 @@ function UnifiedWorkspace() {
 
     const canUser = (action, item = null) => {
         if (!session) return false;
-        const isAdminRole = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
-        if (isAdminRole) return true;
+        if (session.role === 'super_admin') return true;
         
         // Strict Deal Restrictions override for Guests/Buyers
         if (dealRestrictions) {
@@ -146,6 +145,8 @@ function UnifiedWorkspace() {
             if ((action === 'can_download_secure' || action === 'can_download_original' || action === 'can_download') && dealRestrictions.guestCanDownloadDocs === false) return false;
             if (action === 'can_create_folder' && dealRestrictions.guestCanCreateFolders === false) return false;
         }
+
+        const isAdminRole = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
 
         if (!item) {
             if (action === 'can_upload') return isAdminRole;
@@ -730,12 +731,12 @@ function UnifiedWorkspace() {
     };
 
     // UI RENDERING LOGIC
-    const isGod = ['super_admin', 'admin', 'sub_admin'].includes(session?.role);
+    const isGod = session?.role === 'super_admin';
     const selectionEnabled = !['bookmarks', 'downloads'].includes(currentView);
     const selectedItemsArray = files.filter(f => selectedIds.has(f.id));
     const canUploadHere = currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId });
-    const canCreateFolder = isGod || globalFolderPerms.can_create;
-    const canMergeFolder = isGod || globalFolderPerms.can_merge;
+    const canCreateFolder = isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_create;
+    const canMergeFolder = isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_merge;
     const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_secure', item));
     const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_original', item));
     const canDeleteSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type === 'folder' ? (isGod || globalFolderPerms.can_delete) : canUser('can_delete', item));

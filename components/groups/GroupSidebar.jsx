@@ -496,7 +496,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 const folderNameToCreate = !isIndividual && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
-                        const res = await fetch('/api/documents/action', {
+                        await fetch('/api/documents/action', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -508,22 +508,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                                 session
                             })
                         });
-                        const resData = await res.json();
-                        if (resData.success && resData.folder?.id) {
-                            // Assign group permission to this newly created folder
-                            await supabase.from('permissions').insert([{
-                                company_id: session.company_id,
-                                group_id: data.id,
-                                folder_id: resData.folder.id,
-                                scope: 'folder',
-                                can_view: true,
-                                can_upload: true,
-                                can_download_secure: true,
-                                can_download_original: true
-                            }]);
-                        }
+                        // Do NOT auto-assign folder permissions to the newly created group.
+                        // The folder is created with created_by: session.id (super admin)
+                        // and remains strictly visible only to the creator until they explicitly grant access.
                     } catch (permErr) {
-                        console.warn("Could not create folder or assign permission:", permErr);
+                        console.warn("Could not create folder:", permErr);
                     }
                 }
 

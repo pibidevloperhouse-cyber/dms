@@ -18,7 +18,7 @@ export async function POST(req) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const isGodMode = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
+        const isGodMode = session.role === 'super_admin';
         let myPerms = {};
         let globalTemp = { can_create: false, can_merge: false, can_delete: false };
         let dealRestrictions = null;
