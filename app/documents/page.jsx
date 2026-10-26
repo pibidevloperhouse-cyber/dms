@@ -28,6 +28,7 @@ function UnifiedWorkspace() {
 
     // UI State
     const [loading, setLoading] = useState(true);
+    const [preparationBlockedMessage, setPreparationBlockedMessage] = useState(null);
     const [currentFolderId, setCurrentFolderId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -80,7 +81,12 @@ function UnifiedWorkspace() {
                 body: JSON.stringify({ session: userSession || session })
             });
             const data = await res.json();
-            if (!data.success) throw new Error(data.error);
+            if (!data.success) {
+                if (data.isPreparationBlocked) {
+                    setPreparationBlockedMessage(data.error);
+                }
+                throw new Error(data.error);
+            }
 
             setFiles(data.files);
             setMergedPerms(data.mergedPerms);
@@ -737,6 +743,30 @@ function UnifiedWorkspace() {
     const hasAnyDownloadAccess = isGod || canUser('can_download_secure', { type: 'folder', id: currentFolderId }) || canUser('can_download_original', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_download_secure', f) || canUser('can_download_original', f));
     const hasAnyDeleteAccess = isGod || globalFolderPerms.can_delete || canUser('can_delete', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_delete', f));
     const hasAnyExportAccess = isGod || canUser('can_export');
+
+    if (preparationBlockedMessage) {
+        return (
+            <div className="flex items-center justify-center w-full h-full min-h-[500px] bg-[#F8F9FB] p-6">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-200 border border-slate-100">
+                    <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4 shadow-inner text-amber-600">
+                        <span className="text-3xl">⚠️</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800 mb-2">Deal in Preparation</h2>
+                    <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 mb-6 text-left">
+                        <p className="text-slate-700 font-medium text-[14px] leading-relaxed">
+                            {preparationBlockedMessage}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => router.push('/workspace')}
+                        className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
+                    >
+                        Back to Workspaces
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (loading && files.length === 0) return <div className="flex items-center justify-center w-full h-full bg-[#FAFBFD]"><div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin" /></div>;
 

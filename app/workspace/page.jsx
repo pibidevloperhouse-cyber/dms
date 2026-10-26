@@ -97,6 +97,20 @@ export default function WorkspacePage() {
     const sessionData = localStorage.getItem('vdr_session');
     if (sessionData) {
       const session = JSON.parse(sessionData);
+      const targetWs = workspaces.find(w => w.id === workspaceId);
+
+      const dmsRole = localStorage.getItem('userRole') || session.dms_role;
+      const role = session.role || userRole;
+      const isBuyerRole = dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(role);
+
+      if (isBuyerRole && targetWs) {
+        const stage = (targetWs.current_stage || targetWs.currentStage || 'Preparation').toString().trim().toLowerCase();
+        if (stage === 'preparation') {
+          setToastMessage("Your deal is now in preparation stage. Once the preparation stage is completed, it is moved to the due diligence stage, then only you will be able to enter the deal.");
+          return;
+        }
+      }
+
       session.active_workspace_id = workspaceId;
       localStorage.setItem('vdr_session', JSON.stringify(session));
       router.push('/documents');
@@ -134,17 +148,19 @@ export default function WorkspacePage() {
               100% { transform: scale(1); opacity: 1; }
             }
           `}</style>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full flex flex-col items-center text-center animate-[popIn_0.3s_cubic-bezier(0.16,1,0.3,1)]">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full flex flex-col items-center text-center animate-[popIn_0.3s_cubic-bezier(0.16,1,0.3,1)]">
             <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4 shadow-inner">
               <span className="text-amber-500 text-3xl">⚠️</span>
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Access Denied</h3>
-            <p className="text-slate-600 font-medium text-[15px] mb-6">{toastMessage}</p>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Deal in Preparation</h3>
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 mb-6 text-left">
+              <p className="text-slate-700 font-medium text-[14px] leading-relaxed">{toastMessage}</p>
+            </div>
             <button
               onClick={() => setToastMessage("")}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors duration-200"
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors duration-200 cursor-pointer shadow-sm"
             >
-              Okie
+              Understood
             </button>
           </div>
         </div>

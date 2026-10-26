@@ -94,7 +94,7 @@ const mapToSnake = (obj) => {
 export async function POST(req) {
     try {
         const { action, session, groupId, userId, permissionsPayload } = await req.json();
-        
+
         if (!session || !session.company_id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }

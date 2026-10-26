@@ -18,13 +18,13 @@ export async function POST(req) {
             fetchedGroups = await db.select()
                 .from(groups)
                 .where(and(eq(groups.companyId, companyId), eq(groups.id, groupSlug)));
-            
+
             // If it's not a group, check if it's an internal user (Seller Member)
             if (!fetchedGroups || fetchedGroups.length === 0) {
                 const fetchedUsers = await db.select()
                     .from(users)
                     .where(and(eq(users.companyId, companyId), eq(users.id, groupSlug)));
-                    
+
                 if (fetchedUsers && fetchedUsers.length > 0) {
                     const u = fetchedUsers[0];
                     fetchedGroups = [{
@@ -43,7 +43,7 @@ export async function POST(req) {
         }
 
         if (!fetchedGroups || fetchedGroups.length === 0) return NextResponse.json({ error: "Group not found" }, { status: 404 });
-        
+
         // Map to snake_case for frontend
         const group = {
             id: fetchedGroups[0].id,
@@ -63,11 +63,11 @@ export async function POST(req) {
         const ugRows = await db.select({ userId: userGroups.userId })
             .from(userGroups)
             .where(eq(userGroups.groupId, group.id));
-            
+
         const userIds = ugRows.map(r => r.userId);
-        
+
         let members = [];
-        
+
         // If the "group" is actually just a single internal user, return that user directly
         if (groupSlug !== 'buyer-member' && fetchedGroups[0].id === groupSlug && !groupSlug.includes('-')) {
             // Note: UUIDs have hyphens. Wait, groupSlug is a UUID!
@@ -84,14 +84,14 @@ export async function POST(req) {
                 phone_number: users.phoneNumber,
                 status: users.status
             })
-            .from(users)
-            .where(
-                and(
-                    inArray(users.id, userIds),
-                    eq(users.companyId, companyId)
-                )
-            );
-            
+                .from(users)
+                .where(
+                    and(
+                        inArray(users.id, userIds),
+                        eq(users.companyId, companyId)
+                    )
+                );
+
             members = fetchedUsers;
         } else if (groupSlug !== 'buyer-member') {
             // Check if this groupSlug is actually the user we just faked
@@ -102,9 +102,9 @@ export async function POST(req) {
                 phone_number: users.phoneNumber,
                 status: users.status
             })
-            .from(users)
-            .where(and(eq(users.id, groupSlug), eq(users.companyId, companyId)));
-            
+                .from(users)
+                .where(and(eq(users.id, groupSlug), eq(users.companyId, companyId)));
+
             if (fetchedUser && fetchedUser.length > 0) {
                 members = fetchedUser;
             }
@@ -127,10 +127,10 @@ export async function POST(req) {
                     status: users.status,
                     role: users.role
                 })
-                .from(users)
-                .where(eq(users.id, dealRows[0].buyerId))
-                .limit(1);
-                
+                    .from(users)
+                    .where(eq(users.id, dealRows[0].buyerId))
+                    .limit(1);
+
                 if (guestLeadRows && guestLeadRows.length > 0) {
                     guestLead = guestLeadRows[0];
                 }
@@ -159,23 +159,23 @@ export async function POST(req) {
             const myGroups = await db.select({ groupId: userGroups.groupId })
                 .from(userGroups)
                 .where(eq(userGroups.userId, session.id));
-                
+
             const myGroupIds = myGroups.map(r => r.groupId);
-            
+
             if (myGroupIds.length > 0) {
                 const perms = await db.select({
                     can_add_members: permissions.canAddMembers,
                     can_remove_members: permissions.canRemoveMembers,
                     can_access_edit_permissions: permissions.canAccessEditPermissions
                 })
-                .from(permissions)
-                .where(
-                    and(
-                        eq(permissions.companyId, companyId),
-                        eq(permissions.scope, 'workspace'),
-                        inArray(permissions.groupId, myGroupIds)
-                    )
-                );
+                    .from(permissions)
+                    .where(
+                        and(
+                            eq(permissions.companyId, companyId),
+                            eq(permissions.scope, 'workspace'),
+                            inArray(permissions.groupId, myGroupIds)
+                        )
+                    );
 
                 if (perms && perms.length > 0) {
                     canAddMembers = perms.some(p => p.can_add_members);

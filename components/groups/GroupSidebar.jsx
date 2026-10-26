@@ -12,21 +12,21 @@ const GROUP_ICON = (
 
 const DEPT_ICON = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
 );
 
 const ROLE_LABELS = {
-    super_admin:   'Super Admin',
-    admin:         'Admin',
-    sub_admin:     'Sub Admin',
+    super_admin: 'Super Admin',
+    admin: 'Admin',
+    sub_admin: 'Sub Admin',
     internal_user: 'Internal User',
-    user:          'User',
-    guest_admin:   'Guest Admin',
-    guest_lead:    'Guest Lead',
+    user: 'User',
+    guest_admin: 'Guest Admin',
+    guest_lead: 'Guest Lead',
     external_user: 'External User',
-    buyer:         'Buyer',
+    buyer: 'Buyer',
 };
 
 const TRASH_ICON = (
@@ -104,7 +104,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             setIsBuyerSide(isBuyer);
             setCurrentUserRole(userRole || '');
             let individualGroups = [];
-            
+
             let localCanViewBuyer = false;
             let localCanViewSellerMembers = false;
             let localCanViewSellerGroups = false;
@@ -150,11 +150,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                     if (perms && perms.length > 0) {
                         if (perms.some(p => p.can_create_group)) setCanCreateGroup(true);
                         if (perms.some(p => p.can_delete_group)) setCanDeleteGroup(true);
-                        
+
                         localCanViewBuyer = perms.some(p => p.can_view_buyer);
                         localCanViewSellerMembers = perms.some(p => p.can_view_seller_members);
                         localCanViewSellerGroups = perms.some(p => p.can_view_seller_groups);
-                        
+
                         setCanViewBuyer(localCanViewBuyer);
                         setCanViewSellerMembers(localCanViewSellerMembers);
                         setCanViewSellerGroups(localCanViewSellerGroups);
@@ -201,14 +201,14 @@ export default function GroupsSidebar({ isOpen = true }) {
                 individualGroups = [];
             }
 
-            const roleOrder = { 
-                'super_admin': 1, 
-                'admin': 2, 
-                'sub_admin': 3, 
+            const roleOrder = {
+                'super_admin': 1,
+                'admin': 2,
+                'sub_admin': 3,
                 'internal_user': 4,
-                'guest_admin': 5, 
-                'guest_lead': 6, 
-                'external_user': 7 
+                'guest_admin': 5,
+                'guest_lead': 6,
+                'external_user': 7
             };
             groups.sort((a, b) => {
                 const orderA = roleOrder[a.role] || 99;
@@ -221,7 +221,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             try {
                 localStorage.removeItem('dms_custom_departments');
                 localStorage.removeItem('dms_group_departments');
-            } catch (e) {}
+            } catch (e) { }
 
             const loadedGroups = groups.map(g => ({
                 id: g.id,
@@ -243,7 +243,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     .select('buyer_id')
                     .eq('id', session.active_workspace_id)
                     .single();
-                    
+
                 if (deal?.buyer_id) {
                     const { data: lead } = await supabase
                         .from('users')
@@ -261,12 +261,12 @@ export default function GroupsSidebar({ isOpen = true }) {
                     .select('id, name, email, role')
                     .eq('company_id', companyId)
                     .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
-                
+
                 if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
                     // Dummy condition to fetch nothing
                     sellersQuery = sellersQuery.eq('id', '00000000-0000-0000-0000-000000000000');
                 }
-                
+
                 const { data: sellers } = await sellersQuery;
 
                 const formattedIndividuals = individualGroups.map(g => ({
@@ -276,7 +276,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     role: g.role || '',
                     isIndividualGroup: true
                 }));
-                
+
                 if (sellers) {
                     setSellerMembers([...formattedIndividuals, ...sellers]);
                 } else {
@@ -364,10 +364,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
             } else {
                 await supabase.from('invitations').delete().eq('group_id', deleteTarget.id);
-                
+
                 const { error } = await supabase.from('groups').delete().eq('id', deleteTarget.id);
                 if (error) throw error;
-                
+
                 if (deleteTarget.isIndividualGroup) {
                     setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
                 } else {
@@ -427,7 +427,7 @@ export default function GroupsSidebar({ isOpen = true }) {
         try {
             const session = JSON.parse(localStorage.getItem('vdr_session'));
             const finalGroupName = isIndividual ? newGroupEmail.trim() : newGroupName.trim();
-            
+
             const insertPayload = {
                 name: finalGroupName,
                 description: newGroupDescription.trim() || null,
@@ -450,7 +450,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     group_id: data.id,
                     scope: 'workspace',
                 };
-                
+
                 if (newGroupRole === 'admin') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_redaction: true, can_access_qa: true, can_access_settings: true };
                 } else if (newGroupRole === 'sub_admin') {
@@ -464,7 +464,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 } else if (newGroupRole === 'external_user') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_qa: true };
                 }
-                
+
                 if (['admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
                     await supabase.from('permissions').insert([workspacePerms]);
                 }
@@ -589,11 +589,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                             <nav className="py-3 space-y-1 mb-2">
                                 <Link
                                     href="/groups/buyer-member"
-                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
-                                        pathname === '/groups/buyer-member' 
-                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
+                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                        }`}
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
                                         ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
@@ -613,54 +612,52 @@ export default function GroupsSidebar({ isOpen = true }) {
                             <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
                                 <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
                             </div>
-                    
-                    <nav className="py-3 space-y-1 mb-2">
-                        {sellerMembers.map((seller) => (
-                            <Link 
-                                href={`/groups/${seller.id}`}
-                                key={seller.id} 
-                                className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
-                                    pathname === `/groups/${seller.id}` 
-                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3 truncate">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${
-                                        pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
-                                    }`}>
-                                        <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                    <div className="flex flex-col flex-1 truncate">
-                                        <span className="font-sans text-[14px] truncate">{seller.name}</span>
-                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
-                                            {seller.role.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                    {canDeleteGroup && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setDeleteTarget({ 
-                                                    id: seller.id, 
-                                                    name: seller.name, 
-                                                    isUser: !seller.isIndividualGroup,
-                                                    isIndividualGroup: seller.isIndividualGroup 
-                                                });
-                                            }}
-                                            className="text-gray-400 hover:text-red-500 transition-colors"
-                                            title="Delete member"
-                                        >
-                                            {TRASH_ICON}
-                                        </button>
-                                    )}
-                                </div>
-                            </Link>
-                        ))}
-                    </nav>
+
+                            <nav className="py-3 space-y-1 mb-2">
+                                {sellerMembers.map((seller) => (
+                                    <Link
+                                        href={`/groups/${seller.id}`}
+                                        key={seller.id}
+                                        className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
+                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                : 'text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3 truncate">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
+                                                }`}>
+                                                <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                            </div>
+                                            <div className="flex flex-col flex-1 truncate">
+                                                <span className="font-sans text-[14px] truncate">{seller.name}</span>
+                                                <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
+                                                    {seller.role.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 shrink-0">
+                                            {canDeleteGroup && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setDeleteTarget({
+                                                            id: seller.id,
+                                                            name: seller.name,
+                                                            isUser: !seller.isIndividualGroup,
+                                                            isIndividualGroup: seller.isIndividualGroup
+                                                        });
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Delete member"
+                                                >
+                                                    {TRASH_ICON}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </nav>
                         </>
                     )}
 
@@ -695,19 +692,17 @@ export default function GroupsSidebar({ isOpen = true }) {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleDept(deptName)}
-                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${
-                                                    isExpanded 
-                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold' 
+                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${isExpanded
+                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold'
                                                         : 'text-gray-700 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center truncate">
                                                     <span className="font-sans text-[13px] tracking-tight truncate capitalize font-medium">{deptName}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 shrink-0">
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                                        deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
-                                                    }`}>
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
+                                                        }`}>
                                                         {deptGroups.length}
                                                     </span>
                                                     <svg
@@ -747,11 +742,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                                 <Link
                                                                     key={item.id}
                                                                     href={item.href}
-                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${
-                                                                        active
+                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${active
                                                                             ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
                                                                             : 'text-gray-600 hover:bg-gray-50'
-                                                                    }`}
+                                                                        }`}
                                                                 >
                                                                     <div className="flex items-center gap-2 truncate">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>

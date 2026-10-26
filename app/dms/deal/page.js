@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaBuilding, FaMapMarkerAlt, FaUser, FaEnvelope, FaFileAlt, FaSlidersH, FaCommentDots } from "react-icons/fa";
+import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaBuilding, FaMapMarkerAlt, FaUser, FaEnvelope, FaFileAlt, FaSlidersH, FaCommentDots, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
@@ -104,6 +104,9 @@ function DealDashboardContent() {
   // NDA Modal State
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [ndaTarget, setNdaTarget] = useState(null);
+
+  // Stage Block Modal State
+  const [stageBlockModal, setStageBlockModal] = useState({ isOpen: false, dealName: '' });
 
   // Features Modal State
   const [isManageFeaturesModalOpen, setIsManageFeaturesModalOpen] = useState(false);
@@ -672,6 +675,22 @@ function DealDashboardContent() {
                     <div
                       key={deal.id}
                       onClick={() => {
+                        const dmsRole = localStorage.getItem('userRole');
+                        const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
+                        const isBuyerRole = userRole === 'buyer' || dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(actualVdrRole) || ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(vdrRole);
+
+                        // If deal is in Preparation stage, block buyer & buyer team from entering
+                        if (isBuyerRole) {
+                          const stage = (deal.currentStage || 'Preparation').toString().trim().toLowerCase();
+                          if (stage === 'preparation') {
+                            setStageBlockModal({
+                              isOpen: true,
+                              dealName: deal.name || projectName || 'Deal'
+                            });
+                            return;
+                          }
+                        }
+
                         if (userRole === 'buyer' && deal.ndaStatus !== 'signed') {
                           setNdaTarget({
                             proposalId: deal.proposalId,
@@ -683,10 +702,6 @@ function DealDashboardContent() {
                           setShowNDAModal(true);
                           return;
                         }
-
-                        const dmsRole = localStorage.getItem('userRole');
-                        // Fix: Use the actual role from the database that we saved on login!
-                        const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
 
                         const vdrSession = {
                           id: localStorage.getItem('userId'),
@@ -1454,6 +1469,29 @@ function DealDashboardContent() {
           }
         }}
       />
+
+      {/* Deal Preparation Stage Blocking Modal */}
+      {stageBlockModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4 shadow-inner text-amber-600">
+              <FaLock size={26} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Deal in Preparation</h3>
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 mb-6 text-left">
+              <p className="text-slate-700 font-medium text-[14px] leading-relaxed">
+                Your deal is now in <span className="font-bold text-amber-800 uppercase tracking-wide">preparation stage</span>. Once the preparation stage is completed, it is moved to the <span className="font-bold text-emerald-700 uppercase tracking-wide">due diligence stage</span>, then only you will be able to enter the deal.
+              </p>
+            </div>
+            <button
+              onClick={() => setStageBlockModal({ isOpen: false, dealName: '' })}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors duration-200 shadow-md cursor-pointer"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Granular Permissions Modal */}
       {selectedDealForPermissions && (

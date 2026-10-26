@@ -325,6 +325,7 @@ export default function TokenRegisterPage() {
             const assignedNdaStatus = invitationDetails.requires_nda ? "pending" : "not_required";
 
             // 2. Insert user with nda_status and dms_role
+            const assignedDmsRole = invitationDetails?.dms_role || "seller";
             const { data: newUser, error: userError } = await supabase
                 .from("users")
                 .insert({
@@ -336,7 +337,7 @@ export default function TokenRegisterPage() {
                     company_id: targetCompany,
                     status: "active",
                     nda_status: assignedNdaStatus,
-                    dms_role: "seller", // <-- Set dms_role to seller
+                    dms_role: assignedDmsRole,
                 })
                 .select("id")
                 .single();
@@ -369,8 +370,10 @@ export default function TokenRegisterPage() {
                     name: formData.name,
                     email: invitationDetails.email,
                     role: targetRole,
+                    dms_role: assignedDmsRole,
                     nda_status: assignedNdaStatus
                 }));
+                localStorage.setItem('userRole', assignedDmsRole);
                 router.push("/sign-nda?from=register");
             } else {
                 // If NDA is OFF: Show the "Registration Successful" Step 2 UI
@@ -536,155 +539,155 @@ export default function TokenRegisterPage() {
                                 </button>
                             </div>
                         ) : (
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Full Name
-                                </label>
-                                <div className="relative">
-                                    <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        placeholder="Enter your full name"
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand"
-                                        required
-                                    />
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Full Name
+                                    </label>
+                                    <div className="relative">
+                                        <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            placeholder="Enter your full name"
+                                            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Email Address
-                                </label>
-                                <div className="relative">
-                                    <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        disabled={true}
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-slate-500"
-                                        required
-                                    />
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Email Address
+                                    </label>
+                                    <div className="relative">
+                                        <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            disabled={true}
+                                            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-slate-500"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Type
-                                </label>
-                                <div className="relative">
-                                    <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        name="type"
-                                        value="Seller"
-                                        disabled={true}
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-slate-500 font-bold"
-                                        required
-                                    />
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Type
+                                    </label>
+                                    <div className="relative">
+                                        <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            name="type"
+                                            value={invitationDetails?.invite_type || "Seller"}
+                                            disabled={true}
+                                            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-slate-500 font-bold"
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Mobile Number
-                                </label>
-                                <div className="relative">
-                                    <FaPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="tel"
-                                        name="mobile"
-                                        value={formData.mobile}
-                                        onChange={handleChange}
-                                        placeholder="Enter your mobile number"
-                                        className={`w-full pl-12 pr-4 py-3 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${mobileError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
-                                        required
-                                    />
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Mobile Number
+                                    </label>
+                                    <div className="relative">
+                                        <FaPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="tel"
+                                            name="mobile"
+                                            value={formData.mobile}
+                                            onChange={handleChange}
+                                            placeholder="Enter your mobile number"
+                                            className={`w-full pl-12 pr-4 py-3 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${mobileError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                                            required
+                                        />
+                                    </div>
+                                    {mobileError && (
+                                        <p className="text-red-500 text-xs mt-1 font-semibold">{mobileError}</p>
+                                    )}
                                 </div>
-                                {mobileError && (
-                                    <p className="text-red-500 text-xs mt-1 font-semibold">{mobileError}</p>
-                                )}
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Password
-                                </label>
-                                <div className="relative">
-                                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        name="password"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                        placeholder="Create password"
-                                        className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                                    >
-                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                    </button>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            placeholder="Create password"
+                                            className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                        >
+                                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Confirm Password
-                                </label>
-                                <div className="relative">
-                                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        placeholder="Confirm password"
-                                        className={`w-full pl-12 pr-12 py-3 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                                    >
-                                        {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                                    </button>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Confirm Password
+                                    </label>
+                                    <div className="relative">
+                                        <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            name="confirmPassword"
+                                            value={formData.confirmPassword}
+                                            onChange={handleChange}
+                                            placeholder="Confirm password"
+                                            className={`w-full pl-12 pr-12 py-3 border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                        >
+                                            {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                                        </button>
+                                    </div>
+                                    {passwordError && (
+                                        <p className="text-red-500 text-xs mt-1 font-semibold">{passwordError}</p>
+                                    )}
                                 </div>
-                                {passwordError && (
-                                    <p className="text-red-500 text-xs mt-1 font-semibold">{passwordError}</p>
-                                )}
-                            </div>
 
-                            <button
-                                onClick={() => {
-                                    if (!formData.name || !formData.email || !formData.mobile || !formData.password) {
-                                        alert("Please fill all required fields.");
-                                        return;
-                                    }
-                                    if (mobileError) {
-                                        alert("Please resolve the errors before continuing.");
-                                        return;
-                                    }
-                                    if (passwordError || formData.password !== formData.confirmPassword) {
-                                        alert("Passwords do not match.");
-                                        return;
-                                    }
-                                    handleFinalSubmit();
-                                }}
-                                className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold transition"
-                            >
-                                Verify & Create Account
-                            </button>
-                        </div>
+                                <button
+                                    onClick={() => {
+                                        if (!formData.name || !formData.email || !formData.mobile || !formData.password) {
+                                            alert("Please fill all required fields.");
+                                            return;
+                                        }
+                                        if (mobileError) {
+                                            alert("Please resolve the errors before continuing.");
+                                            return;
+                                        }
+                                        if (passwordError || formData.password !== formData.confirmPassword) {
+                                            alert("Passwords do not match.");
+                                            return;
+                                        }
+                                        handleFinalSubmit();
+                                    }}
+                                    className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold transition"
+                                >
+                                    Verify & Create Account
+                                </button>
+                            </div>
                         )
                     )}
 

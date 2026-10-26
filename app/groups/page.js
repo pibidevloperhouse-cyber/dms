@@ -89,10 +89,10 @@ export default function GroupsPage() {
           'external_user': 6
         };
         groups.sort((a, b) => {
-            const orderA = roleOrder[a.role] || 99;
-            const orderB = roleOrder[b.role] || 99;
-            if (orderA !== orderB) return orderA - orderB;
-            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+          const orderA = roleOrder[a.role] || 99;
+          const orderB = roleOrder[b.role] || 99;
+          if (orderA !== orderB) return orderA - orderB;
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         });
 
         if (groups && groups.length > 0) {

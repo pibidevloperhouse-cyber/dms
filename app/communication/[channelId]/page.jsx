@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Hash, Lock, ShieldX, RefreshCw, MessageSquare } from 'lucide-react';
+import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu } from 'lucide-react';
 import MessageTimeline from '@/components/communication/MessageTimeline';
 import RichComposer from '@/components/communication/RichComposer';
 import ContextPanel from '@/components/communication/ContextPanel';
@@ -34,6 +34,7 @@ export default function ChannelPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     if (!session?.id && typeof window !== 'undefined') {
@@ -244,6 +245,13 @@ export default function ChannelPage({ params }) {
             >
               <RefreshCw size={18} />
             </button>
+            <button
+              onClick={() => setShowDetails((prev) => !prev)}
+              title="Toggle Group Details"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden"
+            >
+              <Menu size={18} />
+            </button>
           </div>
         </div>
 
@@ -262,13 +270,15 @@ export default function ChannelPage({ params }) {
           <MessageTimeline messages={messages} />
         )}
 
-        <RichComposer onSend={handleSendMessage} disabled={sending} />
+        <RichComposer onSend={handleSendMessage} disabled={sending} members={members} />
       </div>
 
       <ContextPanel
         channel={channelData}
         group={channelData}
         members={members}
+        showOnMobile={showDetails}
+        onClose={() => setShowDetails(false)}
       />
     </div>
   );
