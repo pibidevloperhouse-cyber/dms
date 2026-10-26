@@ -146,6 +146,7 @@ export default function WorkspacePage() {
   const [buyerProfiles, setBuyerProfiles] = useState([]);
   const [sentInterests, setSentInterests] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [vdrRole, setVdrRole] = useState('external_user');
   const [isMounted, setIsMounted] = useState(false);
   const [isDistrictDropdownOpen, setIsDistrictDropdownOpen] = useState(false);
@@ -308,10 +309,14 @@ export default function WorkspacePage() {
       }
     };
 
-    const fetchWorkspaces = async () => {
+    const fetchWorkspaces = async (isInitial = false) => {
+      if (isInitial) setIsLoadingWorkspaces(true);
       if (lowerRole === 'buyer') {
         const userId = localStorage.getItem('userId');
-        if (!userId) return;
+        if (!userId) {
+          setIsLoadingWorkspaces(false);
+          return;
+        }
         try {
           const res = await fetch(`/api/dms/buyer-deals?buyerId=${userId}&role=${lowerRole || ''}`);
           if (res.ok) {
@@ -328,6 +333,8 @@ export default function WorkspacePage() {
           }
         } catch (error) {
           console.error("Failed to fetch buyer deals", error);
+        } finally {
+          setIsLoadingWorkspaces(false);
         }
       } else {
         const companyId = localStorage.getItem('companyId');
@@ -335,7 +342,10 @@ export default function WorkspacePage() {
         const vdrRoleItem = localStorage.getItem('vdrRole') || 'external_user';
         setVdrRole(vdrRoleItem);
 
-        if (!companyId) return;
+        if (!companyId) {
+          setIsLoadingWorkspaces(false);
+          return;
+        }
 
         try {
           const res = await fetch(`/api/dms/projects?companyId=${companyId}&userId=${userId}&role=${vdrRoleItem}`);
@@ -345,15 +355,17 @@ export default function WorkspacePage() {
           }
         } catch (error) {
           console.error("Failed to fetch projects", error);
+        } finally {
+          setIsLoadingWorkspaces(false);
         }
       }
     };
 
     fetchData();
-    fetchWorkspaces();
+    fetchWorkspaces(true);
 
-    const interval = setInterval(fetchWorkspaces, 5000);
-    const handleProposalUpdate = () => fetchWorkspaces();
+    const interval = setInterval(() => fetchWorkspaces(false), 5000);
+    const handleProposalUpdate = () => fetchWorkspaces(false);
     window.addEventListener('deal-proposal-submitted', handleProposalUpdate);
 
     return () => {
@@ -369,10 +381,7 @@ export default function WorkspacePage() {
     if (projectFilter === 'All') return true;
     if (projectFilter === 'Approved') return ws.status?.toLowerCase() === 'active';
     if (projectFilter === 'Pending') {
-      const pid = ws.projectId || ws.id;
-      const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
-      const isUnviewed = (ws.pendingProposalsCount || 0) > 0 && (!lastViewed || (ws.latestProposalTime || 0) > lastViewed);
-      return ws.status?.toLowerCase() === 'inactive' || isUnviewed;
+      return ws.status?.toLowerCase() === 'inactive' || (ws.pendingProposalsCount || 0) > 0;
     }
     if (projectFilter === 'Rejected') return ws.status?.toLowerCase() === 'rejected';
     return true;
@@ -1136,177 +1145,235 @@ export default function WorkspacePage() {
             {/* Content Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-              {/* Existing Workspaces */}
-              {filteredWorkspaces.map((workspace, index) => {
-                const isActive = workspace.status?.toLowerCase() === 'active';
-                const isRejected = workspace.status?.toLowerCase() === 'rejected';
-                const isNdaSigned = workspace.ndaStatus?.toLowerCase() === 'signed';
-
-                const pid = workspace.projectId || workspace.id;
-                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
-                const isViewed = lastViewed > 0 && (!workspace.latestProposalTime || lastViewed >= workspace.latestProposalTime);
-                const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0 && !isViewed;
-
-                return (
+              {isLoadingWorkspaces ? (
+                // Realistic skeleton cards matching the card layout and design
+                Array.from({ length: 4 }).map((_, index) => (
                   <div
-                    onClick={() => {
-                      if (!isActive) {
-                        if (workspace.status?.toLowerCase() === 'inactive') {
-                          alert("Access request is pending approval from the seller.");
-                        } else if (workspace.status?.toLowerCase() === 'rejected') {
-                          alert("Access request was declined by the seller.");
-                        }
-                        return; // Prevent clicking if not active
-                      }
-                      
-                      // For buyers, require signed NDA before entering project
-                      if (userRole === 'buyer' && !isNdaSigned) {
-                        setNdaTarget(workspace);
-                        setShowNDAModal(true);
-                        return; // Block access - cannot enter without signing NDA!
-                      }
-
-                      sessionStorage.removeItem(`deal_activeTab_${pid}`);
-                      router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
-                    }}
-                    key={index}
-                    className={`block h-56 bg-white rounded-2xl border p-5 relative flex flex-col justify-between transition-all duration-300 group cursor-pointer ${
-                      hasPendingProposal
-                        ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] hover:-translate-y-1'
-                        : isActive
-                        ? 'border-gray-200 hover:border-teal-400/80 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
-                        : isRejected
-                        ? 'border-red-100 cursor-not-allowed bg-red-50/20 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
-                        : 'border-gray-200 cursor-not-allowed bg-gray-50/40 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
-                    }`}
+                    key={`skeleton-${index}`}
+                    className="h-56 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col justify-between shadow-xs animate-pulse relative overflow-hidden"
                   >
-                    {/* Top Row: Left Top (Shield Icon & Workspace Name below it) | Right Top (Proposal Notification & Menu) */}
+                    {/* Top Row Skeleton */}
                     <div className="flex items-start justify-between gap-3">
-                      {/* Left Top: Shield Icon from First Image and down Workspace Name */}
                       <div className="flex flex-col items-start min-w-0 flex-1">
-                        <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100/60 flex items-center justify-center text-teal-600 shadow-sm group-hover:bg-teal-100/50 group-hover:scale-105 transition-all duration-300 relative">
-                          <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
-                          {userRole === 'buyer' && !isNdaSigned && (
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[8px] shadow-xs" title="NDA signature required">
-                              <FaLock />
-                            </div>
-                          )}
+                        {/* Squircle Icon Skeleton with soft teal tint */}
+                        <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200/60 flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-xl bg-teal-200"></div>
                         </div>
-                        <h3 
-                          className="font-bold text-slate-800 text-[16px] tracking-tight leading-snug line-clamp-2 mt-2.5 group-hover:text-teal-700 transition-colors"
-                          title={workspace.name}
-                        >
-                          {workspace.name}
-                        </h3>
+                        {/* Project Name Skeleton */}
+                        <div className="mt-3 space-y-1.5 w-full">
+                          <div className="h-4 bg-slate-300 rounded-md w-3/4"></div>
+                          <div className="h-3 bg-slate-200 rounded-md w-1/2"></div>
+                        </div>
                       </div>
 
-                      {/* Right Top: Proposal Notification & Options */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {hasPendingProposal && (
-                          <div 
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs animate-pulse"
-                            title={`${workspace.pendingProposalsCount} new deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} received`}
-                          >
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                            </span>
-                            <FaBell className="text-[10px]" />
-                            <span>{workspace.pendingProposalsCount === 1 ? '1 New' : `${workspace.pendingProposalsCount} New`}</span>
-                          </div>
-                        )}
+                      {/* Top Right Skeleton */}
+                      <div className="w-5 h-5 rounded-md bg-slate-200 shrink-0"></div>
+                    </div>
 
-                        {userRole === 'buyer' && (
-                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-2xs ${
-                            isNdaSigned
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>
-                            {isNdaSigned ? (
-                              <>
-                                <FaCheck className="text-[8px]" /> NDA Signed
-                              </>
-                            ) : (
-                              <>
-                                <FaLock className="text-[8px]" /> NDA Required
-                              </>
-                            )}
-                          </span>
-                        )}
+                    {/* Bottom Row Skeleton */}
+                    <div className="pt-3 border-t border-gray-100 mt-auto flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        {/* Current Deals Skeleton */}
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-3.5 w-20 bg-slate-300 rounded-md"></div>
+                          <div className="h-3.5 w-4 bg-slate-400 rounded"></div>
+                        </div>
 
-                        {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
-                              }}
-                              className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
-                              title="Options"
-                            >
-                              <FaEllipsisV className="text-[12px]" />
-                            </button>
+                        {/* Deal : Active Skeleton with soft mint accent */}
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-3.5 w-9 bg-slate-300 rounded-md"></div>
+                          <div className="h-5 w-14 bg-emerald-100 border border-emerald-200 rounded-md"></div>
+                        </div>
+                      </div>
 
-                            {openDropdownId === workspace.id && (
-                              <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-20 overflow-hidden py-0.5">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteProject(workspace.id, workspace.name);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-1.5"
-                                >
-                                  <FaTimes className="text-[10px]" /> Delete
-                                </button>
+                      {/* Created at Skeleton */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-3 w-16 bg-slate-200 rounded"></div>
+                        <div className="h-3 w-20 bg-slate-200 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : filteredWorkspaces.length > 0 ? (
+                filteredWorkspaces.map((workspace, index) => {
+                  const isActive = workspace.status?.toLowerCase() === 'active';
+                  const isRejected = workspace.status?.toLowerCase() === 'rejected';
+                  const isNdaSigned = workspace.ndaStatus?.toLowerCase() === 'signed';
+
+                  const pid = workspace.projectId || workspace.id;
+                  const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0;
+
+                  return (
+                    <div
+                      onClick={() => {
+                        if (!isActive) {
+                          if (workspace.status?.toLowerCase() === 'inactive') {
+                            alert("Access request is pending approval from the seller.");
+                          } else if (workspace.status?.toLowerCase() === 'rejected') {
+                            alert("Access request was declined by the seller.");
+                          }
+                          return; // Prevent clicking if not active
+                        }
+                        
+                        // For buyers, require signed NDA before entering project
+                        if (userRole === 'buyer' && !isNdaSigned) {
+                          setNdaTarget(workspace);
+                          setShowNDAModal(true);
+                          return; // Block access - cannot enter without signing NDA!
+                        }
+
+                        sessionStorage.removeItem(`deal_activeTab_${pid}`);
+                        router.push(`/dms/deal?projectId=${pid}&projectName=${encodeURIComponent(workspace.name)}`);
+                      }}
+                      key={index}
+                      className={`block h-56 bg-white rounded-2xl border p-5 relative flex flex-col justify-between transition-all duration-300 group cursor-pointer ${
+                        hasPendingProposal
+                          ? 'border-[#00c875] ring-2 ring-[#008f70]/20 shadow-[0_4px_20px_-4px_rgba(0,143,112,0.18)] hover:-translate-y-1'
+                          : isActive
+                          ? 'border-gray-200 hover:border-teal-400/80 hover:shadow-[0_8px_24px_-4px_rgba(0,143,112,0.12)] hover:-translate-y-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                          : isRejected
+                          ? 'border-red-100 cursor-not-allowed bg-red-50/20 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                          : 'border-gray-200 cursor-not-allowed bg-gray-50/40 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)]'
+                      }`}
+                    >
+                      {/* Top Row: Left Top (Shield Icon & Workspace Name below it) | Right Top (Proposal Notification & Menu) */}
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Left Top: Shield Icon from First Image and down Workspace Name */}
+                        <div className="flex flex-col items-start min-w-0 flex-1">
+                          <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100/60 flex items-center justify-center text-teal-600 shadow-sm group-hover:bg-teal-100/50 group-hover:scale-105 transition-all duration-300 relative">
+                            <FaShieldAlt className="text-[26px] text-teal-600 drop-shadow-sm" />
+                            {userRole === 'buyer' && !isNdaSigned && (
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[8px] shadow-xs" title="NDA signature required">
+                                <FaLock />
                               </div>
                             )}
                           </div>
+                          <h3 
+                            className="font-bold text-slate-800 text-[16px] tracking-tight leading-snug line-clamp-2 mt-2.5 group-hover:text-teal-700 transition-colors"
+                            title={workspace.name}
+                          >
+                            {workspace.name}
+                          </h3>
+                        </div>
+
+                        {/* Right Top: Proposal Notification & Options */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {hasPendingProposal && (
+                            <div 
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs animate-pulse"
+                              title={`${workspace.pendingProposalsCount} deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} awaiting review`}
+                            >
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                              </span>
+                              <FaBell className="text-[10px]" />
+                              <span>{workspace.pendingProposalsCount}</span>
+                            </div>
+                          )}
+
+                          {userRole === 'buyer' && (
+                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1 border shadow-2xs ${
+                              isNdaSigned
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {isNdaSigned ? (
+                                <>
+                                  <FaCheck className="text-[8px]" /> NDA Signed
+                                </>
+                              ) : (
+                                <>
+                                  <FaLock className="text-[8px]" /> NDA Required
+                                </>
+                              )}
+                            </span>
+                          )}
+
+                          {userRole !== 'buyer' && !userRole.includes('guest') && vdrRole === 'super_admin' && (
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenDropdownId(openDropdownId === workspace.id ? null : workspace.id);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                title="Options"
+                              >
+                                <FaEllipsisV className="text-[12px]" />
+                              </button>
+
+                              {openDropdownId === workspace.id && (
+                                <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-100 z-20 overflow-hidden py-0.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteProject(workspace.id, workspace.name);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-1.5"
+                                  >
+                                    <FaTimes className="text-[10px]" /> Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: Left Bottom (Current Deal Number & Created At) | Right Bottom (Deal : status of project) */}
+                      <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          {/* Left: Current Deals count */}
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                            <span>Current Deals:</span>
+                            <span className="font-bold text-slate-900">
+                              {workspace.approvedDealsCount ?? 0}
+                            </span>
+                          </div>
+
+                          {/* Right: Deal : status of project (only status word highlighted in badge) */}
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                            <span>Deal :</span>
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-md border ${
+                              isActive
+                                ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/30'
+                                : isRejected
+                                ? 'bg-red-50 text-red-600 border-red-200/50'
+                                : 'bg-orange-50 text-orange-600 border-orange-200/50'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
+                              }`}></span>
+                              {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Created at field below Current Deals */}
+                        {workspace.createdAt && (
+                          <div className="flex items-center gap-1.5 text-xs font-medium">
+                            <span className="text-slate-400">Created at :</span>
+                            <span className="text-slate-600">
+                              {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
-
-                    {/* Bottom Row: Left Bottom (Current Deal Number & Created At) | Right Bottom (Deal : status of project) */}
-                    <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        {/* Left: Current Deals count */}
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                          <span>Current Deals:</span>
-                          <span className="font-bold text-slate-900">
-                            {workspace.approvedDealsCount ?? 0}
-                          </span>
-                        </div>
-
-                        {/* Right: Deal : status of project (only status word highlighted in badge) */}
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                          <span>Deal :</span>
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-md border ${
-                            isActive
-                              ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/30'
-                              : isRejected
-                              ? 'bg-red-50 text-red-600 border-red-200/50'
-                              : 'bg-orange-50 text-orange-600 border-orange-200/50'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
-                            }`}></span>
-                            {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Created at field below Current Deals */}
-                      {workspace.createdAt && (
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
-                          <span className="text-slate-400">Created at :</span>
-                          <span className="text-slate-600">
-                            {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-3 shadow-sm">
+                    <FaShieldAlt className="text-2xl text-teal-600" />
                   </div>
-                )
-              })}
+                  <h3 className="text-base font-bold text-slate-800 mb-1">No Projects Found</h3>
+                  <p className="text-xs text-slate-400 max-w-xs">
+                    {projectFilter === 'All' ? 'You do not have any projects created yet.' : `No projects found under "${projectFilter}".`}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

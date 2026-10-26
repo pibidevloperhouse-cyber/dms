@@ -21,15 +21,29 @@ export async function POST(req) {
 
         switch (action) {
             case 'create_folder':
-                const { parentId, name, index } = payload;
-                const { error: cfErr } = await supabase.from('folders').insert({
+                let { parentId, name, index } = payload;
+                if (!index) {
+                    let idxQ = supabase
+                        .from('folders')
+                        .select('index_number')
+                        .eq('company_id', companyId)
+                        .eq('is_deleted', false);
+                    if (session.active_workspace_id) idxQ = idxQ.eq('workspace_id', session.active_workspace_id);
+                    else idxQ = idxQ.is('workspace_id', null);
+                    if (parentId) idxQ = idxQ.eq('parent_folder_id', parentId);
+                    else idxQ = idxQ.is('parent_folder_id', null);
+                    const { data: existing } = await idxQ;
+                    const maxIdx = (existing || []).reduce((max, f) => Math.max(max, parseInt(f.index_number, 10) || 0), 0);
+                    index = maxIdx + 1;
+                }
+                const { data: newFolData, error: cfErr } = await supabase.from('folders').insert({
                     company_id: companyId, 
                     workspace_id: session.active_workspace_id || null,
-                    parent_folder_id: parentId,
+                    parent_folder_id: parentId || null,
                     name: name, index_number: index, created_by: userId
-                });
+                }).select().single();
                 if (cfErr) throw cfErr;
-                break;
+                return NextResponse.json({ success: true, folder: newFolData });
 
             case 'rename':
                 const { itemId, type, newName } = payload;
@@ -49,13 +63,23 @@ export async function POST(req) {
             case 'trash':
                 const { docIds: tDocs, folderIds: tFolders } = payload;
                 if (tDocs.length > 0) {
+                    let docMap = {};
+                    try {
+                        const { data: dItems } = await supabase.from('documents').select('id, name, workspace_id').in('id', tDocs);
+                        if (dItems) docMap = dItems.reduce((acc, d) => ({ ...acc, [d.id]: d }), {});
+                    } catch (e) {}
                     await supabase.from('documents').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId }).in('id', tDocs);
                     for (const dId of tDocs) {
                         await supabase.from('document_edit_logs').insert([{
                             user_id: userId,
                             document_id: dId,
                             action_type: 'DELETE',
-                            metadata: { ip_address: clientIp, mode: 'trash' },
+                            metadata: {
+                                ip_address: clientIp,
+                                mode: 'trash',
+                                file_name: docMap[dId]?.name || null,
+                                workspace_id: docMap[dId]?.workspace_id || null,
+                            },
                             changed_at: new Date().toISOString()
                         }]);
                     }
@@ -72,12 +96,22 @@ export async function POST(req) {
             case 'permanent_delete':
                 const { docIds: pDocs, folderIds: pFolders } = payload;
                 if (pDocs.length > 0) {
+                    let docMap = {};
+                    try {
+                        const { data: dItems } = await supabase.from('documents').select('id, name, workspace_id').in('id', pDocs);
+                        if (dItems) docMap = dItems.reduce((acc, d) => ({ ...acc, [d.id]: d }), {});
+                    } catch (e) {}
                     for (const dId of pDocs) {
                         await supabase.from('document_edit_logs').insert([{
                             user_id: userId,
                             document_id: dId,
                             action_type: 'DELETE',
-                            metadata: { ip_address: clientIp, mode: 'permanent' },
+                            metadata: {
+                                ip_address: clientIp,
+                                mode: 'permanent',
+                                file_name: docMap[dId]?.name || null,
+                                workspace_id: docMap[dId]?.workspace_id || null,
+                            },
                             changed_at: new Date().toISOString()
                         }]);
                     }

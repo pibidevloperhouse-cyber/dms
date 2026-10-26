@@ -74,15 +74,8 @@ function DealDashboardContent() {
     markProposalsAsViewed();
   };
 
-  const unviewedPendingProposals = activeTab === 'proposals'
-    ? []
-    : requests.filter(r => {
-        if ((r.status || '').toLowerCase() !== 'pending') return false;
-        if (!viewedProposalTime) return true;
-        const pTime = r.createdAt ? new Date(r.createdAt).getTime() : 0;
-        return pTime > viewedProposalTime;
-      });
-  const unviewedCount = unviewedPendingProposals.length;
+  const pendingProposalsCount = requests.filter(r => (r.status || '').toLowerCase() === 'pending').length;
+  const unviewedCount = pendingProposalsCount;
 
   const formatFoundedDate = (val) => {
     if (!val) return 'Not provided';
@@ -827,7 +820,7 @@ function DealDashboardContent() {
                     <h2 className="text-2xl font-bold text-gray-900">Deal Proposals</h2>
                     {unviewedCount > 0 && (
                       <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-[#e6fbf2] text-[#008f70] border border-[#00c875]/30">
-                        {unviewedCount} New
+                        {unviewedCount}
                       </span>
                     )}
                   </div>
@@ -921,6 +914,7 @@ function DealDashboardContent() {
                                         if (res.ok) {
                                           const updatedReqs = requests.map(r => r.id === req.id ? { ...r, status: 'revoked' } : r);
                                           setRequests(updatedReqs);
+                                          try { window.dispatchEvent(new Event('deal-proposal-submitted')); } catch(e){}
                                         }
                                       } catch (err) {
                                         console.error("Failed to revoke proposal", err);

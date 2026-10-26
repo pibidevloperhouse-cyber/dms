@@ -10,7 +10,6 @@ import {
   CheckSquare,
   ScrollText,
   AlertTriangle,
-  Shield,
   BarChart3,
   Settings,
 } from "lucide-react";
@@ -50,12 +49,6 @@ export const CONTROLS_AUDIT_NAV_ITEMS = [
     icon: AlertTriangle,
     badge: 3,
     badgeType: "rose",
-  },
-  {
-    key: "policies",
-    label: "Policies",
-    href: "/control-audits/policies",
-    icon: Shield,
   },
   {
     key: "reports",

@@ -14,6 +14,8 @@ import {
   AlertOctagon,
   Activity,
   ChevronRight,
+  Trash2,
+  Clock,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -22,6 +24,7 @@ export function getActionIcon(action = "") {
   if (norm.includes("download")) return <Download className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("upload")) return <Upload className="w-3.5 h-3.5 text-blue-600" />;
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
+  if (norm.includes("delet") || norm.includes("trash")) return <Trash2 className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("approv")) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("login") || norm.includes("sign")) return <KeyRound className="w-3.5 h-3.5 text-indigo-600" />;
   if (norm.includes("denied") || norm.includes("fail")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
@@ -99,8 +102,14 @@ export default function AuditEventRow({
           <p className="text-xs text-slate-600 font-medium truncate mb-1">
             {event.action} — <span className="text-slate-800 font-semibold">{event.resource}</span>
           </p>
-          <div suppressHydrationWarning className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+          <div suppressHydrationWarning className="flex items-center gap-2 text-[11px] text-slate-400 font-mono flex-wrap">
             <span>{date} {time} IST</span>
+            {event.durationText && event.durationText !== '—' && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[10px] font-mono font-bold border border-sky-200/70">
+                <Clock size={10} className="text-sky-600" />
+                <span>{event.durationText}</span>
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -152,6 +161,18 @@ export default function AuditEventRow({
         >
           {event.resource}
         </span>
+      </td>
+
+      {/* Duration / View Time */}
+      <td className="px-4 py-3.5 whitespace-nowrap">
+        {event.durationText && event.durationText !== "—" ? (
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-mono font-semibold text-[11px] border border-sky-200/80">
+            <Clock size={11} className="text-sky-600 shrink-0" />
+            <span>{event.durationText}</span>
+          </div>
+        ) : (
+          <span className="text-slate-400 text-[11px] font-mono">—</span>
+        )}
       </td>
 
       {/* Deal Context / Organization */}

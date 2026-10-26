@@ -1262,9 +1262,7 @@ export default function MarketplacePage() {
                 const isActive = workspace.status?.toLowerCase() === 'active';
                 const isRejected = workspace.status?.toLowerCase() === 'rejected';
                 const pid = workspace.projectId || workspace.id;
-                const lastViewed = parseInt(typeof window !== 'undefined' ? (localStorage.getItem(`viewed_deal_${pid}`) || '0') : '0', 10);
-                const isViewed = lastViewed > 0 && (!workspace.latestProposalTime || lastViewed >= workspace.latestProposalTime);
-                const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0 && !isViewed;
+                const hasPendingProposal = userRole === 'seller' && (workspace.pendingProposalsCount || 0) > 0;
 
                 return (
                   <div
@@ -1301,14 +1299,14 @@ export default function MarketplacePage() {
                         {hasPendingProposal && (
                           <div 
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs animate-pulse"
-                            title={`${workspace.pendingProposalsCount} new deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} received`}
+                            title={`${workspace.pendingProposalsCount} deal proposal${workspace.pendingProposalsCount > 1 ? 's' : ''} awaiting review`}
                           >
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                             </span>
                             <FaBell className="text-[10px]" />
-                            <span>{workspace.pendingProposalsCount === 1 ? '1 New' : `${workspace.pendingProposalsCount} New`}</span>
+                            <span>{workspace.pendingProposalsCount}</span>
                           </div>
                         )}
 
@@ -1344,37 +1342,43 @@ export default function MarketplacePage() {
                     </div>
 
                     {/* Bottom Row: Left Bottom (Current Deal Number & Created At) | Right Bottom (Deal : status of project) */}
-                    <div className="flex items-end justify-between pt-3 border-t border-slate-100 mt-auto">
-                      {/* Left Bottom: Current deal for the project displayed in number (no icon) + Created at field below it */}
-                      <div className="flex flex-col gap-1 items-start">
-                        <div className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 shadow-2xs">
-                          <span className="text-[11px] font-semibold text-slate-500">Current Deals:</span>{' '}
-                          <span className="text-xs font-black text-slate-900">
+                    <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        {/* Left: Current Deals count */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <span>Current Deals:</span>
+                          <span className="font-bold text-slate-900">
                             {workspace.approvedDealsCount ?? 0}
                           </span>
                         </div>
-                        {workspace.createdAt && (
-                          <span className="text-[11px] font-medium text-slate-400 pl-0.5">
-                            Created at : {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+
+                        {/* Right: Deal : status of project (only status word highlighted in badge) */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <span>Deal :</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-md border ${
+                            isActive
+                              ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/30'
+                              : isRejected
+                              ? 'bg-red-50 text-red-600 border-red-200/50'
+                              : 'bg-orange-50 text-orange-600 border-orange-200/50'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
+                            }`}></span>
+                            {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
                           </span>
-                        )}
+                        </div>
                       </div>
 
-                      {/* Right Bottom: Deal : status of project */}
-                      <div className="flex items-center pb-0.5">
-                        <span className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border shadow-2xs flex items-center gap-1.5 ${
-                          isActive
-                            ? 'bg-[#e6fbf2] text-[#00c875] border-[#00c875]/25'
-                            : isRejected
-                            ? 'bg-red-50 text-red-600 border-red-200/50'
-                            : 'bg-orange-50 text-orange-600 border-orange-200/50'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            isActive ? 'bg-[#00c875]' : isRejected ? 'bg-red-500' : 'bg-orange-500'
-                          }`}></span>
-                          Deal : {workspace.status ? (workspace.status.charAt(0).toUpperCase() + workspace.status.slice(1).toLowerCase()) : 'Active'}
-                        </span>
-                      </div>
+                      {/* Created at field below Current Deals */}
+                      {workspace.createdAt && (
+                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                          <span className="text-slate-400">Created at :</span>
+                          <span className="text-slate-600">
+                            {new Date(workspace.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

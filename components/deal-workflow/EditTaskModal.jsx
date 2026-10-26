@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDealWorkflow } from './DealWorkflowContext';
 import { ChevronDown, User, Calendar, Trash2, Paperclip, X, Users, Edit3, Plus, ShieldCheck, Globe } from 'lucide-react';
-import { PRIORITIES, DEAL_STAGES } from './DealWorkflowContext';
+import { PRIORITIES, DEAL_STAGES, normalizeStage } from './DealWorkflowContext';
 
 export default function EditTaskModal({ task, isOpen, onClose }) {
   const {

@@ -116,7 +116,7 @@ export async function POST(req) {
 
         const accessLogId = logRes?.id || null;
 
-        // Also record VIEW entry in document_edit_logs with IP address
+        // Also record VIEW entry in document_edit_logs with IP address and access_log_id
         await supabase.from('document_edit_logs').insert([{
             user_id: session.id,
             document_id: docId,
@@ -124,7 +124,11 @@ export async function POST(req) {
             metadata: {
                 ip_address: clientIp,
                 file_name: doc.name,
-                folder_id: doc.folder_id
+                folder_id: doc.folder_id,
+                workspace_id: doc.workspace_id || session.active_workspace_id || null,
+                access_log_id: accessLogId,
+                duration_seconds: 0,
+                duration_formatted: '00:00',
             },
             changed_at: new Date().toISOString()
         }]);

@@ -310,18 +310,10 @@ export default function TeasersList() {
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || filteredProjects[0] || null;
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1f6fb2]"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-[calc(100dvh-72px)] md:h-[calc(100vh-72px)] flex flex-col bg-white text-gray-900 font-sans selection:bg-[#1f6fb2]/20 overflow-hidden">
       
-      {/* Top Navigation Bar: Tabs + Search + Filter */}
+      {/* Top Navigation Bar: Tabs + Search + Filter (STATIC & IMMEDIATE - NEVER SKELETONIZED) */}
       <div className="border-b border-gray-200 bg-white sticky top-0 z-20 px-3 sm:px-8 py-2 sm:py-3.5 flex items-center justify-between shrink-0">
         
         {/* Tabs: Active teasers vs Archived */}
@@ -405,7 +397,183 @@ export default function TeasersList() {
         </div>
       </div>
 
-      {projects.length === 0 ? (
+      {loading ? (
+        /* Master-Detail Split Screen Layout Skeleton (Below Static Top Bar) */
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden animate-pulse">
+          {/* LEFT COLUMN: OPPORTUNITIES LIST (Desktop Only) */}
+          <div className="hidden md:flex md:w-80 lg:w-[340px] border-r border-gray-200 bg-white flex-col shrink-0 h-full overflow-hidden p-4 space-y-3">
+            <div className="px-2 pt-2 pb-1">
+              <div className="h-3 w-28 bg-slate-300/80 rounded uppercase"></div>
+            </div>
+
+            {/* Opportunity 1 (Selected) */}
+            <div className="p-3.5 rounded-xl border border-sky-200 bg-sky-50/70 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1f6fb2]/25 to-[#2ec4b6]/35 border border-[#2ec4b6]/40 flex items-center justify-center shrink-0">
+                <div className="w-5 h-4 bg-[#1f6fb2]/40 rounded"></div>
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="h-4 w-32 bg-slate-300 rounded"></div>
+                <div className="h-3 w-16 bg-slate-200 rounded"></div>
+              </div>
+              <div className="h-4 w-12 bg-emerald-100 border border-emerald-200 rounded-md shrink-0"></div>
+            </div>
+
+            {/* Opportunity 2 */}
+            <div className="p-3.5 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 shrink-0"></div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="h-4 w-28 bg-slate-300/80 rounded"></div>
+                <div className="h-3 w-14 bg-slate-200 rounded"></div>
+              </div>
+              <div className="h-4 w-12 bg-slate-100 border border-slate-200 rounded-md shrink-0"></div>
+            </div>
+
+            {/* Opportunity 3 */}
+            <div className="p-3.5 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 shrink-0"></div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="h-4 w-24 bg-slate-300/80 rounded"></div>
+                <div className="h-3 w-16 bg-slate-200 rounded"></div>
+              </div>
+              <div className="h-4 w-12 bg-slate-100 border border-slate-200 rounded-md shrink-0"></div>
+            </div>
+
+            {/* Opportunity 4 */}
+            <div className="p-3.5 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 shrink-0"></div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="h-4 w-30 bg-slate-300/80 rounded"></div>
+                <div className="h-3 w-14 bg-slate-200 rounded"></div>
+              </div>
+              <div className="h-4 w-12 bg-slate-100 border border-slate-200 rounded-md shrink-0"></div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: TEASER PRODUCT VIEW (Selected Opportunity) */}
+          <div className="flex-1 min-h-0 bg-white p-3 sm:p-6 lg:p-8 flex flex-col justify-between h-full overflow-hidden">
+            <div className="flex flex-col min-h-0 flex-1">
+              
+              {/* Top Sub-Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-200 mb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-36 bg-slate-300 rounded"></div>
+                  <span className="text-gray-300">/</span>
+                  <div className="h-3 w-24 bg-slate-200 rounded"></div>
+                  <span className="text-gray-300">/</span>
+                  <div className="h-3 w-28 bg-slate-200 rounded"></div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200"></div>
+                  <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200"></div>
+                </div>
+              </div>
+
+              {/* Title Block: Avatar + Project Title + Edit Button */}
+              <div className="flex items-center gap-3.5 mb-2 shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1f6fb2]/25 to-[#2ec4b6]/35 border border-[#1f6fb2]/30 shrink-0 flex items-center justify-center">
+                  <div className="w-5 h-4 bg-[#1f6fb2]/50 rounded"></div>
+                </div>
+                <div className="h-7 w-64 sm:w-80 bg-slate-300 rounded-lg"></div>
+                <div className="w-6 h-6 rounded bg-slate-100 border border-slate-200 shrink-0"></div>
+              </div>
+
+              {/* Description line */}
+              <div className="h-4 w-full max-w-2xl bg-slate-200 rounded mb-4 shrink-0"></div>
+
+              {/* 4 Key Specifications Horizontal Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-3 border-t border-b border-gray-200 mb-4 shrink-0 bg-slate-50/60 rounded-lg px-3">
+                <div>
+                  <div className="h-2.5 w-12 bg-slate-300/80 rounded mb-1.5 uppercase"></div>
+                  <div className="h-4 w-24 bg-slate-300 rounded"></div>
+                </div>
+                <div>
+                  <div className="h-2.5 w-12 bg-slate-300/80 rounded mb-1.5 uppercase"></div>
+                  <div className="h-4 w-20 bg-emerald-100 border border-emerald-200 text-emerald-700 rounded px-1.5 font-bold"></div>
+                </div>
+                <div>
+                  <div className="h-2.5 w-16 bg-slate-300/80 rounded mb-1.5 uppercase"></div>
+                  <div className="h-4 w-20 bg-slate-300 rounded"></div>
+                </div>
+                <div>
+                  <div className="h-2.5 w-12 bg-slate-300/80 rounded mb-1.5 uppercase"></div>
+                  <div className="h-4 w-12 bg-slate-300 rounded"></div>
+                </div>
+              </div>
+
+              {/* Feature Tabs: [Company Information] [Financials] [Customers] [Deal Terms] [Documents] */}
+              <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-200 shrink-0 overflow-x-auto">
+                <div className="px-3.5 py-1.5 rounded-lg bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] opacity-90 shadow-xs flex items-center justify-center shrink-0">
+                  <div className="h-3.5 w-28 bg-white/90 rounded"></div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-lg bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center">
+                  <div className="h-3.5 w-24 bg-slate-300 rounded"></div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-lg bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center">
+                  <div className="h-3.5 w-20 bg-slate-300 rounded"></div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-lg bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center">
+                  <div className="h-3.5 w-20 bg-slate-300 rounded"></div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-lg bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center">
+                  <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
+                </div>
+              </div>
+
+              {/* ACTIVE DETAIL SECTION: Company Information Table Grid */}
+              <div className="flex-1 min-h-0 overflow-y-auto py-1">
+                <div className="h-3 w-36 bg-[#1f6fb2]/50 rounded mb-4"></div>
+
+                {/* 2-Column Table Grid matching real Company Information tab */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-sm">
+                  {/* Row 1 */}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-28 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-32 bg-slate-300 rounded"></div>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-24 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-36 bg-slate-300 rounded"></div>
+                  </div>
+                  {/* Row 2 */}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-24 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-28 bg-slate-300 rounded"></div>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-28 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-32 bg-slate-300 rounded"></div>
+                  </div>
+                  {/* Row 3 */}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-24 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-32 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-24 bg-slate-300 rounded"></div>
+                  </div>
+                  {/* Row 4 */}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-28 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-32 bg-slate-300 rounded"></div>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div className="h-3.5 w-36 bg-slate-300/80 rounded"></div>
+                    <div className="h-3.5 w-40 bg-slate-300 rounded"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Documents Notice Footer */}
+            <div className="flex items-center gap-2 text-xs text-gray-400 font-medium pt-3 mt-auto border-t border-gray-200 shrink-0">
+              <div className="w-4 h-4 rounded bg-slate-200"></div>
+              <div className="h-3 w-56 bg-slate-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      ) : projects.length === 0 ? (
         <div className="p-16 text-center max-w-md mx-auto">
           <div className="w-14 h-14 bg-sky-50 rounded-xl flex items-center justify-center mb-4 text-[#1f6fb2] mx-auto">
             <FaBriefcase className="text-2xl" />
@@ -770,6 +938,20 @@ export default function TeasersList() {
                      ACTIVE DETAIL SECTION (Shared, Responsive, Non-Scrollable)
                      ======================================================== */}
                   <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-1">
+                    {teaserLoading ? (
+                      <div className="h-full py-1 animate-pulse">
+                        <div className="h-3 w-36 bg-[#1f6fb2]/40 rounded mb-4"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-sm">
+                          {Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="flex justify-between items-center py-2 border-b border-gray-100">
+                              <div className="h-3.5 w-28 bg-slate-300/80 rounded"></div>
+                              <div className="h-3.5 w-32 bg-slate-300 rounded"></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
                     {/* 1. Company Overview & Basic Info */}
                     {activeTabId === "company" && (
                       <div>
@@ -1160,6 +1342,8 @@ export default function TeasersList() {
                           </div>
                         </div>
                       </div>
+                    )}
+                      </>
                     )}
                   </div>
                 </div>
