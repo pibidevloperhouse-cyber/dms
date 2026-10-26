@@ -195,6 +195,16 @@ export async function POST(req) {
       ipAddress = '127.0.0.1',
       is_enabled,
       isEnabled,
+      folder_id,
+      folder_name,
+      subfolder_id,
+      subfolder_name,
+      assigned_folder_id,
+      assigned_folder_name,
+      assigned_subfolder_id,
+      assigned_subfolder_name,
+      assigned_folder,
+      assigned_subfolder,
     } = payload;
 
     const finalIsEnabled = is_enabled !== undefined
@@ -216,6 +226,11 @@ export async function POST(req) {
     const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (effectiveVisibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (effectiveVisibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
     const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : 'Buyer Legal Team');
     const resolvedCreatedBy = created_by || 'Admin';
+
+    const resolvedFolderId = isPrep ? (folder_id || assigned_folder_id || null) : null;
+    const resolvedFolderName = isPrep ? (folder_name || assigned_folder_name || assigned_folder || null) : null;
+    const resolvedSubfolderId = isPrep ? (subfolder_id || assigned_subfolder_id || null) : null;
+    const resolvedSubfolderName = isPrep ? (subfolder_name || assigned_subfolder_name || assigned_subfolder || null) : null;
 
     const existingTasks = await db.select({ taskId: dealTasks.taskId }).from(dealTasks);
     let maxNum = 1000;
@@ -240,6 +255,16 @@ export async function POST(req) {
         ip: ipAddress,
       },
     ];
+
+    if (resolvedFolderName) {
+      initialAudit.push({
+        action: `Assigned Upload Folder: ${resolvedFolderName}${resolvedSubfolderName ? ` / ${resolvedSubfolderName}` : ''}`,
+        performed_by: resolvedCreatedBy,
+        role: creator_role,
+        timestamp: formattedDate,
+        ip: ipAddress,
+      });
+    }
 
     const [newTask] = await db
       .insert(dealTasks)
@@ -269,6 +294,10 @@ export async function POST(req) {
         subtasks: subtasks || [],
         auditTrail: initialAudit,
         comments: [],
+        folderId: resolvedFolderId,
+        folderName: resolvedFolderName,
+        subfolderId: resolvedSubfolderId,
+        subfolderName: resolvedSubfolderName,
       })
       .returning();
 

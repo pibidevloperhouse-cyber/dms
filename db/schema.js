@@ -846,6 +846,12 @@ export const dealTasks = pgTable('deal_tasks', {
   claimableByRole: boolean('claimable_by_role').default(true),
   isEnabled: boolean('is_enabled').default(true),
 
+  // Assigned Folder and Subfolder in Preparation Stage
+  folderId: text('folder_id'),
+  folderName: text('folder_name'),
+  subfolderId: text('subfolder_id'),
+  subfolderName: text('subfolder_name'),
+
   // JSON structures matching frontend
   subtasks: jsonb('subtasks').default('[]'),
   auditTrail: jsonb('audit_trail').default('[]'),

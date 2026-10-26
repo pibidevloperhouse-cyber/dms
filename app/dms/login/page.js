@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaArrowLeft, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -11,12 +11,22 @@ export default function DMSLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(0);
+  const [modal, setModal] = useState(null); // { type: 'success' | 'info' | 'error', title: string, message: string, buttonText?: string }
+
+  // Cooldown countdown to avoid multiple rapid clicks
+  useEffect(() => {
+    if (resetCooldown > 0) {
+      const timer = setTimeout(() => setResetCooldown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resetCooldown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setErrorMsg("");
+    setModal(null);
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -26,8 +36,31 @@ export default function DMSLogin() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        setErrorMsg(errorData.error || 'Login failed');
+        const errorData = await res.json().catch(() => ({}));
+        const errText = errorData.error || 'Login failed';
+
+        if (res.status === 403 && (errText.includes('verification') || errText.includes('approval'))) {
+          setModal({
+            type: 'info',
+            title: 'Company Verification',
+            message: errText,
+            buttonText: 'OK'
+          });
+        } else if (res.status === 403 && errText.includes('suspended')) {
+          setModal({
+            type: 'error',
+            title: 'Account Suspended',
+            message: errText,
+            buttonText: 'OK'
+          });
+        } else {
+          setModal({
+            type: 'error',
+            title: 'Invalid Credentials',
+            message: '',
+            buttonText: 'Try again'
+          });
+        }
         setIsSubmitting(false);
         return;
       }
@@ -61,52 +94,200 @@ export default function DMSLogin() {
       localStorage.setItem('verificationStatus', data.verification_status || 'unverified');
       localStorage.setItem('loginTimestamp', Date.now().toString());
 
-      // 3. Role-based redirect logic:
-      // ONLY super_admin (seller owner) and guest_admin (buyer owner) access Marketplace!
-      // All other invited team members (admin, sub_admin, internal_user, guest_lead, external_user) go DIRECTLY to VDR (/workspace)!
-      const isMarketplaceAccessible = data.role === 'super_admin' || data.role === 'guest_admin';
+      // Show real-time success modal card (tick mark + Login successful only, no redirect message)
+      setModal({
+        type: 'success',
+        title: 'Login successful',
+        message: ''
+      });
 
-      if (!isMarketplaceAccessible) {
-        if (data.nda_status === 'pending') {
-          router.push('/sign-nda');
-        } else {
-          router.push('/workspace');
-        }
-        return;
-      }
+      // 3. Role-based redirect logic after brief delay
+      setTimeout(async () => {
+        const isMarketplaceAccessible = data.role === 'super_admin' || data.role === 'guest_admin';
 
-      // Marketplace owners redirect
-      if (data.role === 'guest_admin') {
-        try {
-          const dealsRes = await fetch(`/api/dms/buyer-deals?buyerId=${data.id}`);
-          const dealsData = await dealsRes.json();
-          if (dealsData.deals && dealsData.deals.length > 0) {
-            // Check if they have ANY deal that was created from a direct invite (known buyer)
-            const hasDirectInviteDeals = dealsData.deals.some(deal => !deal.proposalId);
-
-            if (hasDirectInviteDeals) {
-              router.push('/dms/marketplace/workspace');
-              return;
-            }
+        if (!isMarketplaceAccessible) {
+          if (data.nda_status === 'pending') {
+            router.push('/sign-nda');
+          } else {
+            router.push('/workspace');
           }
-        } catch (e) {
-          console.error("Failed to check buyer deals", e);
+          return;
         }
-        // If they only have deals from proposals (unknown buyer), or no deals at all, go to marketplace
-        router.push('/dms/marketplace/find_deal');
-      } else {
-        // super_admin (seller owner)
-        router.push('/dms/marketplace/overview');
-      }
+
+        // Marketplace owners redirect
+        if (data.role === 'guest_admin') {
+          try {
+            const dealsRes = await fetch(`/api/dms/buyer-deals?buyerId=${data.id}`);
+            const dealsData = await dealsRes.json();
+            if (dealsData.deals && dealsData.deals.length > 0) {
+              const hasDirectInviteDeals = dealsData.deals.some(deal => !deal.proposalId);
+
+              if (hasDirectInviteDeals) {
+                router.push('/dms/marketplace/workspace');
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to check buyer deals", e);
+          }
+          router.push('/dms/marketplace/find_deal');
+        } else {
+          router.push('/dms/marketplace/overview');
+        }
+      }, 1400);
     } catch (error) {
       console.error(error);
-      setErrorMsg(error.message);
+      setModal({
+        type: 'error',
+        title: 'Invalid Credentials',
+        message: '',
+        buttonText: 'Try again'
+      });
       setIsSubmitting(false);
     }
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!email || !email.trim()) {
+      setModal({
+        type: 'info',
+        title: 'Work Email Required',
+        message: 'Please enter your work email in the field above to receive a password reset link.',
+        buttonText: 'OK',
+      });
+      return;
+    }
+
+    setIsResetting(true);
+    setModal(null);
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          setModal({
+            type: 'error',
+            title: 'Account Not Found',
+            message: data.error || 'No account was found with this work email address.',
+            buttonText: 'Try again',
+          });
+        } else {
+          setModal({
+            type: 'error',
+            title: 'Reset Failed',
+            message: data.error || 'Failed to send password reset email. Please try again.',
+            buttonText: 'Try again',
+          });
+        }
+        setIsResetting(false);
+        return;
+      }
+
+      setResetCooldown(60); // 60-second cooldown to prevent spamming
+      setModal({
+        type: 'info',
+        title: 'Reset Link Sent',
+        message: `A password reset link has been sent to ${email.trim()}. Please check your inbox.`,
+        buttonText: 'OK',
+      });
+      setIsResetting(false);
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setModal({
+        type: 'error',
+        title: 'Connection Error',
+        message: 'Could not connect to the server. Please check your connection and try again.',
+        buttonText: 'Try again',
+      });
+      setIsResetting(false);
+    }
+  };
+
   return (
-    <div className="h-screen bg-gray-100 flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
+    <div className="h-screen bg-gray-100 flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden relative">
+      {/* Real-time Toast/Card Notification Modal - Center of Screen with Light Grey Tint & Subtle Blur */}
+      {modal && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-slate-900/25 backdrop-blur-[2px] flex items-center justify-center p-4 transition-all duration-300 animate-in fade-in"
+          onClick={() => {
+            if (modal.type !== 'success') setModal(null);
+          }}
+        >
+          <style>{`
+            @keyframes swalScale {
+              0% { opacity: 0; transform: scale(0.75); }
+              100% { opacity: 1; transform: scale(1); }
+            }
+            @keyframes swalIconPop {
+              0% { opacity: 0; transform: scale(0.5); }
+              60% { opacity: 1; transform: scale(1.08); }
+              100% { transform: scale(1); }
+            }
+          `}</style>
+          <div 
+            className="bg-white rounded-[5px] shadow-2xl pt-9 pb-8 px-6 sm:px-10 w-[92%] sm:w-[440px] max-w-[440px] flex flex-col items-center text-center animate-[swalScale_0.2s_cubic-bezier(0.16,1,0.3,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 1. Success Icon (Image 2) */}
+            {modal.type === 'success' && (
+              <div className="w-[88px] h-[88px] rounded-full border-[4px] border-[#a5dc86] flex items-center justify-center mb-6 animate-[swalIconPop_0.35s_cubic-bezier(0.16,1,0.3,1)] select-none">
+                <svg className="w-12 h-12 text-[#a5dc86]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+            )}
+
+            {/* 2. Alert Icon for Company Verification (Alert / Warning) */}
+            {modal.type === 'info' && (
+              <div className="w-[88px] h-[88px] rounded-full border-[4px] border-[#f8bb86] flex items-center justify-center mb-6 animate-[swalIconPop_0.35s_cubic-bezier(0.16,1,0.3,1)] select-none">
+                <span className="text-[#f8bb86] text-[58px] font-normal leading-none font-sans select-none -mt-1">!</span>
+              </div>
+            )}
+
+            {/* 3. Error / Invalid Credentials Icon (Image 3) */}
+            {modal.type === 'error' && (
+              <div className="w-[88px] h-[88px] rounded-full border-[4px] border-[#f27474] flex items-center justify-center mb-6 animate-[swalIconPop_0.35s_cubic-bezier(0.16,1,0.3,1)] select-none">
+                <svg className="w-11 h-11 text-[#f27474]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </div>
+            )}
+
+            {/* Title */}
+            <h3 className={`text-[27px] sm:text-[30px] font-semibold text-[#545454] tracking-tight ${modal.message ? 'mb-2' : (modal.type === 'success' ? 'mb-2' : 'mb-6')}`}>
+              {modal.title}
+            </h3>
+
+            {/* Subtitle / Description (Only displayed when message exists) */}
+            {modal.message ? (
+              <p className="text-[16px] sm:text-[17px] text-[#545454] font-normal leading-relaxed max-w-[320px] mb-7">
+                {modal.message}
+              </p>
+            ) : null}
+
+            {/* Action Button: 'Try again' for error, 'OK' for info, Hidden on success */}
+            {modal.type !== 'success' && (
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="px-8 py-2.5 bg-[#7066e0] hover:bg-[#5e54d1] active:bg-[#4d43be] active:scale-95 text-white font-medium text-[15px] rounded-[4px] shadow-sm transition-all cursor-pointer min-w-[95px]"
+              >
+                {modal.buttonText || 'Try again'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-6xl h-[95vh] max-h-[900px] min-h-[500px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
         {/* Left Panel */}
         <div className="relative md:w-[50%] lg:w-[45%] bg-[#0b1120] text-white p-10 md:p-16 flex flex-col justify-center">
@@ -130,21 +311,6 @@ export default function DMSLogin() {
               <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">Sign in</h2>
               <p className="text-gray-500 text-lg">Don't have an account? <Link href="/dms/register" className="text-[#3b82f6] font-semibold hover:underline">Create one</Link></p>
             </div>
-
-            {errorMsg && (
-              <div className={`mb-6 p-4 rounded-lg border text-sm flex items-start gap-3 ${
-                errorMsg.includes('verification') 
-                  ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                  : 'bg-red-50 border-red-200 text-red-700'
-              }`}>
-                {errorMsg.includes('verification') ? (
-                  <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                ) : (
-                  <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                )}
-                <p className="font-medium">{errorMsg}</p>
-              </div>
-            )}
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
@@ -173,7 +339,14 @@ export default function DMSLogin() {
                   </button>
                 </div>
                 <div className="flex justify-end mt-2">
-                  <a href="#" className="text-sm font-medium text-[#3b82f6] hover:underline">Forgot password?</a>
+                  <button
+                    type="button"
+                    disabled={isResetting || isSubmitting || resetCooldown > 0}
+                    onClick={handleForgotPassword}
+                    className="text-sm font-medium text-[#3b82f6] hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  >
+                    {isResetting ? "Sending reset link..." : (resetCooldown > 0 ? `Resend link in ${resetCooldown}s` : "Forgot password?")}
+                  </button>
                 </div>
               </div>
 

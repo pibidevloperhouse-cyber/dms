@@ -340,6 +340,17 @@ export async function PATCH(req, { params }) {
         if (payload.status !== undefined) updatedFields.status = payload.status;
         if (payload.subtasks !== undefined) updatedFields.subtasks = payload.subtasks;
 
+        if (payload.folderId !== undefined) updatedFields.folderId = payload.folderId;
+        if (payload.folder_id !== undefined) updatedFields.folderId = payload.folder_id;
+        if (payload.folderName !== undefined) updatedFields.folderName = payload.folderName;
+        if (payload.folder_name !== undefined) updatedFields.folderName = payload.folder_name;
+        if (payload.assigned_folder !== undefined) updatedFields.folderName = payload.assigned_folder;
+        if (payload.subfolderId !== undefined) updatedFields.subfolderId = payload.subfolderId;
+        if (payload.subfolder_id !== undefined) updatedFields.subfolderId = payload.subfolder_id;
+        if (payload.subfolderName !== undefined) updatedFields.subfolderName = payload.subfolderName;
+        if (payload.subfolder_name !== undefined) updatedFields.subfolderName = payload.subfolder_name;
+        if (payload.assigned_subfolder !== undefined) updatedFields.subfolderName = payload.assigned_subfolder;
+
         if (action === 'edit_task' || action === 'update_task') {
           const userName = user.name || 'Task Creator';
           updatedFields.auditTrail = [

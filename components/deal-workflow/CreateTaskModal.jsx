@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import { useDealWorkflow } from './DealWorkflowContext';
-import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X, Users, Lock, Globe } from 'lucide-react';
+import { ChevronDown, User, Calendar, Trash2, Paperclip, FileText, X, Users, Lock, Globe, Folder, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { PRIORITIES, DEAL_STAGES, normalizeStage } from './DealWorkflowContext';
 
 export default function CreateTaskModal() {
@@ -23,6 +24,8 @@ export default function CreateTaskModal() {
     getRoleLabel,
     selectedDealStage,
     activeDealStage,
+    dealFolders = [],
+    fetchFolders,
   } = useDealWorkflow();
 
   const userSide = currentUser?.side || 'seller';
@@ -44,6 +47,16 @@ export default function CreateTaskModal() {
   const [dueDate, setDueDate] = useState('');
   const [subtasks, setSubtasks] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Folder assignment state (for Preparation stage)
+  const [assignedFolderId, setAssignedFolderId] = useState('');
+  const [assignedFolderName, setAssignedFolderName] = useState('');
+  const [assignedSubfolderId, setAssignedSubfolderId] = useState('');
+  const [assignedSubfolderName, setAssignedSubfolderName] = useState('');
+  const [localFolders, setLocalFolders] = useState([]);
+  const [folderPermissions, setFolderPermissions] = useState([]);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(false);
+  const [liveAccessResult, setLiveAccessResult] = useState(null);
 
   // Subtask modal state
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
@@ -209,6 +222,140 @@ export default function CreateTaskModal() {
     }
   }, [subtaskAssignableMembers, subtaskMember, isAddSubtaskModalOpen]);
 
+  // Selected group object matching assignedGroup
+  const selectedGroupObj = useMemo(() => {
+    return (
+      availableGroups.find((g) => g.name === assignedGroup || g.id === assignedGroup) ||
+      (Array.isArray(workflowGroups) ? workflowGroups.find((g) => g.name === assignedGroup || g.id === assignedGroup) : null) ||
+      null
+    );
+  }, [availableGroups, workflowGroups, assignedGroup]);
+
+  // Fetch folders and permissions from documents section when modal opens
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      if (fetchFolders) {
+        fetchFolders();
+      }
+      fetch('/api/deal-workflow/folders')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+            if (Array.isArray(d.folders)) setLocalFolders(d.folders);
+            if (Array.isArray(d.permissions)) setFolderPermissions(d.permissions);
+          }
+        })
+        .catch((e) => console.error('Error fetching folders in modal:', e));
+    }
+  }, [isCreateModalOpen, fetchFolders]);
+
+  const availableFolders = useMemo(() => {
+    if (Array.isArray(dealFolders) && dealFolders.length > 0) {
+      return dealFolders;
+    }
+    return localFolders;
+  }, [dealFolders, localFolders]);
+
+  const selectedMainFolder = useMemo(() => {
+    return availableFolders.find((f) => f.id === assignedFolderId);
+  }, [availableFolders, assignedFolderId]);
+
+  const availableSubfolders = useMemo(() => {
+    return selectedMainFolder?.subfolders || [];
+  }, [selectedMainFolder]);
+
+  const handleFolderChange = (folderId) => {
+    setAssignedFolderId(folderId);
+    const sel = availableFolders.find((f) => f.id === folderId);
+    setAssignedFolderName(sel?.name || '');
+    // Reset subfolder whenever main folder changes
+    setAssignedSubfolderId('');
+    setAssignedSubfolderName('');
+    setLiveAccessResult(null);
+  };
+
+  const handleSubfolderChange = (subId) => {
+    setAssignedSubfolderId(subId);
+    const selSub = availableSubfolders.find((sf) => sf.id === subId);
+    setAssignedSubfolderName(selSub?.name || '');
+    setLiveAccessResult(null);
+  };
+
+  // Re-check access dynamically against backend
+  const recheckAccess = useCallback(async () => {
+    if (!assignedFolderId || !selectedGroupObj) return;
+    setIsCheckingAccess(true);
+    try {
+      const targetId = assignedSubfolderId || assignedFolderId;
+      const res = await fetch(
+        `/api/deal-workflow/check-folder-access?groupId=${selectedGroupObj.id}&groupName=${encodeURIComponent(
+          selectedGroupObj.name
+        )}&folderId=${targetId}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setLiveAccessResult(data);
+      }
+      const folRes = await fetch('/api/deal-workflow/folders');
+      const folData = await folRes.json();
+      if (folData.success && Array.isArray(folData.permissions)) {
+        setFolderPermissions(folData.permissions);
+      }
+    } catch (e) {
+      console.error('Error rechecking folder access:', e);
+    } finally {
+      setIsCheckingAccess(false);
+    }
+  }, [assignedFolderId, assignedSubfolderId, selectedGroupObj]);
+
+  // Trigger real-time access verification whenever folder, subfolder, or assigned group changes
+  useEffect(() => {
+    if (isCreateModalOpen && normalizeStage(dealStage) === 'Preparation' && assignedFolderId && selectedGroupObj?.id) {
+      recheckAccess();
+    }
+  }, [dealStage, assignedFolderId, assignedSubfolderId, selectedGroupObj?.id, isCreateModalOpen, recheckAccess]);
+
+  // Window focus listener: auto re-check if user was in Access Control granting access
+  useEffect(() => {
+    const onFocus = () => {
+      if (isCreateModalOpen && assignedFolderId && selectedGroupObj) {
+        recheckAccess();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isCreateModalOpen, assignedFolderId, selectedGroupObj, recheckAccess]);
+
+  // Live access status determination
+  const folderAccessStatus = useMemo(() => {
+    if (normalizeStage(dealStage) !== 'Preparation' || !assignedFolderId || !selectedGroupObj) {
+      return null;
+    }
+
+    const targetId = assignedSubfolderId || assignedFolderId;
+    if (
+      liveAccessResult &&
+      liveAccessResult.folderId === targetId &&
+      (liveAccessResult.groupId === selectedGroupObj.id || liveAccessResult.groupName === selectedGroupObj.name)
+    ) {
+      return liveAccessResult;
+    }
+
+    const hasPerm = folderPermissions.some((p) => {
+      const groupMatches = p.groupId === selectedGroupObj.id;
+      const folderMatches = p.folderId === targetId || (selectedMainFolder && p.folderId === selectedMainFolder.id);
+      return groupMatches && folderMatches && (p.canView || p.canUpload);
+    });
+
+    return {
+      hasAccess: hasPerm,
+      folderName: assignedFolderName,
+      groupName: selectedGroupObj.name,
+      groupId: selectedGroupObj.id,
+      accessUrl: `/documents/access?group=${selectedGroupObj.id}`,
+    };
+  }, [dealStage, assignedFolderId, assignedSubfolderId, assignedFolderName, selectedGroupObj, selectedMainFolder, folderPermissions, liveAccessResult]);
+
   if (!isCreateModalOpen) return null;
 
   const isSeller = currentUser?.side === 'seller';
@@ -220,6 +367,11 @@ export default function CreateTaskModal() {
     setDepartment(departments[0] || '');
     setAssignedGroup(availableGroups[0]?.name || '');
     setAssignedMember('');
+    setAssignedFolderId('');
+    setAssignedFolderName('');
+    setAssignedSubfolderId('');
+    setAssignedSubfolderName('');
+    setLiveAccessResult(null);
     setPriority('High');
     setDealStage('Preparation');
     setDueDate('');
@@ -244,6 +396,13 @@ export default function CreateTaskModal() {
     }
 
     const isPrep = normalizeStage(dealStage) === 'Preparation';
+
+    // Access Validation Guard: In preparation stage, assigned group must have access to assigned folder
+    if (isPrep && assignedFolderId && folderAccessStatus && !folderAccessStatus.hasAccess) {
+      alert(`"${selectedGroupObj?.name || 'Assigned Group'}" does not have access to folder "${assignedFolderName}". Please grant access in the Access section before assigning this task.`);
+      return;
+    }
+
     const effectiveVisibility = isPrep ? 'INTERNAL' : visibility;
     const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
     const isExternal = effectiveVisibility === 'EXTERNAL';
@@ -275,6 +434,12 @@ export default function CreateTaskModal() {
         claimable_by_role: true,
         created_by: currentUser?.name || 'Creator',
         creator_role: currentUser?.role || 'admin',
+        folder_id: isPrep ? (assignedFolderId || null) : null,
+        folder_name: isPrep ? (assignedFolderName || null) : null,
+        subfolder_id: isPrep ? (assignedSubfolderId || null) : null,
+        subfolder_name: isPrep ? (assignedSubfolderName || null) : null,
+        assigned_folder: isPrep ? (assignedFolderName || null) : null,
+        assigned_subfolder: isPrep ? (assignedSubfolderName || null) : null,
       });
 
       if (created) {
@@ -496,6 +661,135 @@ export default function CreateTaskModal() {
               </div>
             </div>
 
+            {/* Preparation Stage Folder Assignment: Assign folder & Assign subfolder */}
+            {normalizeStage(dealStage) === 'Preparation' && (
+              <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="grid grid-cols-2 gap-3.5">
+                  {/* Assign folder */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Folder className="w-3.5 h-3.5 text-[#006666]" />
+                        <span>Assign folder *</span>
+                      </span>
+                      <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200 font-medium">
+                        Documents
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={assignedFolderId}
+                        onChange={(e) => handleFolderChange(e.target.value)}
+                        className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
+                        required={availableFolders.length > 0}
+                      >
+                        <option value="">-- Select Folder --</option>
+                        {availableFolders.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            📁 {f.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Assign subfolder (Optional) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Folder className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Assign subfolder</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        Optional
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={assignedSubfolderId}
+                        onChange={(e) => handleSubfolderChange(e.target.value)}
+                        disabled={!assignedFolderId || availableSubfolders.length === 0}
+                        className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {!assignedFolderId
+                            ? 'Select a main folder first'
+                            : availableSubfolders.length === 0
+                              ? 'No subfolders in this folder'
+                              : '-- None (Entire Folder) --'}
+                        </option>
+                        {availableSubfolders.map((sf) => (
+                          <option key={sf.id} value={sf.id}>
+                            📂 {sf.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ACCESS CHECK NOTIFICATION / WARNING */}
+                {assignedFolderId && selectedGroupObj && (
+                  <div className="mt-1">
+                    {folderAccessStatus?.hasAccess ? (
+                      /* ACCESS CONFIRMED - WHITE CARD WITH BLACK TEXT */
+                      <div className="bg-white border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-slate-900 text-xs shadow-xs animate-in fade-in duration-150">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-emerald-700 font-bold">Access Confirmed:</span>
+                            <span className="bg-slate-100 text-slate-800 px-1.5 py-0.2 rounded font-mono text-[11px] border border-slate-200">
+                              {selectedGroupObj.name}
+                            </span>
+                            <span>has access to</span>
+                            <span className="font-medium underline decoration-emerald-500">
+                              {assignedSubfolderName ? `${assignedFolderName} / ${assignedSubfolderName}` : assignedFolderName}
+                            </span>
+                          </div>
+                          <p className="text-slate-600 text-[11px] mt-1">
+                            This group can view and upload documents into this folder during the Preparation stage. Task can be assigned safely.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      /* NO ACCESS - WHITE CARD WITH BLACK TEXT */
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900 text-sm">
+                                This group does not have access to this folder. Please grant access.
+                              </span>
+                              <span className="bg-amber-100 text-amber-900 text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
+                                Access Required
+                              </span>
+                            </div>
+                            <p className="text-slate-700 text-xs mt-1.5 leading-relaxed">
+                              Group <strong className="font-semibold text-slate-900 underline">{selectedGroupObj.name}</strong> does not have permission to view or upload to folder <strong className="font-semibold text-slate-900 underline">{assignedSubfolderName ? `${assignedFolderName} / ${assignedSubfolderName}` : assignedFolderName}</strong>. Please grant access in the documents access section before assigning this task.
+                            </p>
+
+                            {/* Direct Action - navigates in the SAME tab */}
+                            <div className="mt-3 flex items-center">
+                              <Link
+                                href={folderAccessStatus?.accessUrl || `/documents/access?group=${selectedGroupObj.id}`}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+                              >
+                                <span>Grant Access in Access Section</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Row 3: Priority & Due date */}
             <div className="grid grid-cols-2 gap-3.5">
               <div>
@@ -638,8 +932,22 @@ export default function CreateTaskModal() {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="px-5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                disabled={
+                  isSubmitting ||
+                  (normalizeStage(dealStage) === 'Preparation' &&
+                    Boolean(assignedFolderId) &&
+                    folderAccessStatus &&
+                    !folderAccessStatus.hasAccess)
+                }
+                title={
+                  normalizeStage(dealStage) === 'Preparation' &&
+                  Boolean(assignedFolderId) &&
+                  folderAccessStatus &&
+                  !folderAccessStatus.hasAccess
+                    ? 'This group does not have access to this folder. Please grant access.'
+                    : undefined
+                }
+                className="px-5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>

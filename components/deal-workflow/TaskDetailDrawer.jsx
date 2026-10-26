@@ -21,7 +21,8 @@ import {
   ArrowRight,
   Edit3,
   RotateCcw,
-  X
+  X,
+  Folder,
 } from 'lucide-react';
 import EditTaskModal from './EditTaskModal';
 
@@ -316,6 +317,24 @@ export default function TaskDetailDrawer() {
                       <p className="font-bold text-indigo-950">Task Creator Mode (Cannot Claim)</p>
                       <p className="text-[11px] text-indigo-700 mt-0.5">
                         You created this task. Task creators cannot claim their own task. It is awaiting claim by the assigned member or group.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Assigned Folder Upload Target Banner */}
+                {(selectedTask.folder_name || selectedTask.assigned_folder) && (
+                  <div className="mb-3 p-3 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-950 flex items-start gap-2.5">
+                    <Folder className="w-4 h-4 text-[#006666] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-[#006666]">
+                        Assigned Documents Folder: <span className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</span>
+                        {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
+                          <span className="text-teal-700 font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-teal-800 mt-0.5">
+                        Assigned team members should upload requested preparation documents into this folder under Documents.
                       </p>
                     </div>
                   </div>
@@ -647,6 +666,23 @@ export default function TaskDetailDrawer() {
                     {selectedTask.assigned_to_group}
                   </span>
                 </div>
+
+                {(selectedTask.folder_name || selectedTask.assigned_folder) && (
+                  <div className="grid grid-cols-3 py-2 bg-teal-50/50 px-2 rounded-lg my-1">
+                    <span className="text-teal-800 font-semibold flex items-center gap-1">
+                      <Folder className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>Assigned folder</span>
+                    </span>
+                    <span className="col-span-2 text-slate-900 font-bold flex items-center gap-1.5 truncate">
+                      <span>{selectedTask.folder_name || selectedTask.assigned_folder}</span>
+                      {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
+                        <span className="text-[#006666] font-semibold">
+                          / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 py-2">
                   <span className="text-slate-500 font-medium">Assignee</span>
