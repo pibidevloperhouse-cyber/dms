@@ -4,6 +4,139 @@ import { Badge } from '@/components/ui/badge';
 import { Check, CheckCheck, Smile, MessageSquare, MoreHorizontal, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+function renderFormattedContent(text, isMe) {
+  if (!text) return null;
+  const lines = text.split('\n');
+
+  return lines.map((line, lineIdx) => {
+    let lineType = 'normal';
+    let content = line;
+    let listMarker = null;
+
+    if (/^[\u2022\u2219\*\-]\s+/.test(line)) {
+      lineType = 'bullet';
+      content = line.replace(/^[\u2022\u2219\*\-]\s+/, '');
+    } else if (/^(\d+)\.\s+/.test(line)) {
+      lineType = 'numbered';
+      const m = line.match(/^(\d+)\.\s+/);
+      listMarker = m ? m[1] : '1';
+      content = line.replace(/^(\d+)\.\s+/, '');
+    } else if (/^>\s*/.test(line)) {
+      lineType = 'quote';
+      content = line.replace(/^>\s*/, '');
+    }
+
+    if (content === '' && lineType === 'normal') {
+      return <div key={lineIdx} className="h-3" />;
+    }
+
+    // Tokenize line content for bold, italic, code, mentions
+    const regex = /(\*\*[^*]+?\*\*|\*[^*]+?\*|`[^`]+?`|@[A-Za-z0-9_]+(?:\s[A-Za-z0-9_]+)?)/g;
+    const tokens = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        tokens.push({ type: 'text', content: content.substring(lastIndex, match.index) });
+      }
+      const token = match[0];
+      if (token.startsWith('**') && token.endsWith('**')) {
+        tokens.push({ type: 'bold', content: token.slice(2, -2) });
+      } else if (token.startsWith('*') && token.endsWith('*')) {
+        tokens.push({ type: 'italic', content: token.slice(1, -1) });
+      } else if (token.startsWith('`') && token.endsWith('`')) {
+        tokens.push({ type: 'code', content: token.slice(1, -1) });
+      } else if (token.startsWith('@')) {
+        tokens.push({ type: 'mention', content: token });
+      }
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+      tokens.push({ type: 'text', content: content.substring(lastIndex) });
+    }
+
+    const renderedTokens = tokens.map((t, idx) => {
+      if (t.type === 'bold') {
+        return <strong key={idx} className="font-bold">{t.content}</strong>;
+      }
+      if (t.type === 'italic') {
+        return <em key={idx} className="italic">{t.content}</em>;
+      }
+      if (t.type === 'code') {
+        return (
+          <code
+            key={idx}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-xs font-mono font-medium mx-0.5",
+              isMe ? "bg-white/20 text-white" : "bg-slate-200 text-slate-800"
+            )}
+          >
+            {t.content}
+          </code>
+        );
+      }
+      if (t.type === 'mention') {
+        return (
+          <span
+            key={idx}
+            className={cn(
+              "inline-flex items-center px-1.5 py-0.5 rounded-md font-semibold text-xs mx-0.5 select-none transition-colors",
+              isMe
+                ? "bg-white/25 text-white underline decoration-white/30"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            )}
+          >
+            {t.content}
+          </span>
+        );
+      }
+      return <span key={idx}>{t.content}</span>;
+    });
+
+    if (lineType === 'bullet') {
+      return (
+        <div key={lineIdx} className="flex items-start gap-2 my-0.5">
+          <span className={cn("shrink-0 select-none font-bold", isMe ? "text-white/80" : "text-blue-500")}>•</span>
+          <div className="flex-1">{renderedTokens}</div>
+        </div>
+      );
+    }
+
+    if (lineType === 'numbered') {
+      return (
+        <div key={lineIdx} className="flex items-start gap-2 my-0.5">
+          <span className={cn("shrink-0 select-none font-mono text-xs font-bold mt-0.5", isMe ? "text-white/80" : "text-blue-600")}>
+            {listMarker}.
+          </span>
+          <div className="flex-1">{renderedTokens}</div>
+        </div>
+      );
+    }
+
+    if (lineType === 'quote') {
+      return (
+        <div
+          key={lineIdx}
+          className={cn(
+            "border-l-2 pl-2.5 my-1.5 italic",
+            isMe ? "border-white/50 text-white/90" : "border-slate-300 text-slate-600 bg-slate-50/50 py-0.5 rounded-r"
+          )}
+        >
+          {renderedTokens}
+        </div>
+      );
+    }
+
+    return (
+      <div key={lineIdx} className={lineIdx > 0 ? "min-h-[1.25rem]" : ""}>
+        {renderedTokens}
+      </div>
+    );
+  });
+}
+
 export default function MessageBubble({ message }) {
   const isMe = message.isMine;
   const displayName = message.senderName || message.senderEmail || 'User';
@@ -35,7 +168,7 @@ export default function MessageBubble({ message }) {
             ? "bg-blue-600 text-white rounded-tr-xs font-normal" 
             : "bg-slate-100 text-slate-800 rounded-tl-xs font-normal"
         )}>
-          {text}
+          {renderFormattedContent(text, isMe)}
           
           {/* Attachments Preview */}
           {message.attachments && message.attachments.length > 0 && (
