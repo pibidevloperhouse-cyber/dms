@@ -147,6 +147,9 @@ export default function AuditTrailPage() {
         if (column === "timestamp") {
           valA = new Date(valA).getTime();
           valB = new Date(valB).getTime();
+        } else if (column === "durationSeconds") {
+          valA = a.durationSeconds !== null && a.durationSeconds !== undefined ? a.durationSeconds : -1;
+          valB = b.durationSeconds !== null && b.durationSeconds !== undefined ? b.durationSeconds : -1;
         } else {
           valA = (valA || "").toString().toLowerCase();
           valB = (valB || "").toString().toLowerCase();
@@ -203,6 +206,7 @@ export default function AuditTrailPage() {
       "Role",
       "Action",
       "Resource",
+      "View Time",
       "Module",
       "Organization / Deal",
       "Result",
@@ -217,6 +221,7 @@ export default function AuditTrailPage() {
       `"${log.userRole || ""}"`,
       `"${log.action}"`,
       `"${(log.resource || '').replace(/"/g, '""')}"`,
+      `"${log.durationText || log.duration || "—"}"`,
       log.module || "",
       `"${log.companyName || log.deal || ""}"`,
       log.result,
@@ -494,6 +499,17 @@ export default function AuditTrailPage() {
                   {/* Resource Column */}
                   <th className="px-4 py-3.5 min-w-[200px]">Resource / Target</th>
 
+                  {/* View Duration Column */}
+                  <th
+                    onClick={() => handleSort("durationSeconds")}
+                    className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>View Time</span>
+                      <ArrowUpDown size={12} className="text-slate-400" />
+                    </div>
+                  </th>
+
                   {/* Deal Column */}
                   <th className="px-4 py-3.5">Deal Context</th>
 
@@ -670,7 +686,43 @@ export default function AuditTrailPage() {
                   {formatAuditDate(selectedAuditLog.timestamp).full}
                 </span>
               </div>
+              {selectedAuditLog.durationText && selectedAuditLog.durationText !== "—" && (
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200/70">
+                  <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                    <Clock size={13} className="text-sky-600" />
+                    <span>View Duration:</span>
+                  </span>
+                  <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 text-xs">
+                    {selectedAuditLog.durationText} ({selectedAuditLog.durationFormatted || "00:00"})
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Document View Time Forensic Insight */}
+            {selectedAuditLog.action?.toLowerCase().includes("view") && (
+              <div className="p-3.5 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Clock size={18} />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-slate-900 text-xs">Document Viewing Duration</h5>
+                    <p className="text-[11px] text-slate-500">
+                      Total tracked reading time recorded by secure heartbeat monitor
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-3 py-1 bg-white border border-sky-200 rounded-lg font-mono font-extrabold text-sm text-sky-800 shadow-xs">
+                    {selectedAuditLog.durationText || "< 5s"}
+                  </span>
+                  <span className="block text-[10px] font-mono text-slate-500 mt-0.5">
+                    Formatted: {selectedAuditLog.durationFormatted || "00:00"}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Failure Reason */}
             {selectedAuditLog.failureReason && (

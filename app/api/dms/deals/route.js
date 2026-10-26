@@ -28,6 +28,7 @@ export async function GET(req) {
       featureQa: dmsDeals.featureQa,
       featureBidding: dmsDeals.featureBidding,
       featureTasks: dmsDeals.featureTasks,
+      currentStage: dmsDeals.currentStage,
     })
     .from(dmsDeals)
     .leftJoin(users, eq(dmsDeals.buyerId, users.id));

@@ -410,9 +410,9 @@ export default function StageControlPage() {
             </p>
             <div className="text-[11px] text-slate-400 font-mono border-t border-slate-100 pt-2 flex justify-between">
               <span>Authority: Victoria Sterling</span>
-              <Link href="/control-audits/policies" className="text-[var(--brand)] font-semibold hover:underline">
-                View Policy
-              </Link>
+              <span className="text-slate-500 font-semibold">
+                Enforced by Stage Gate
+              </span>
             </div>
           </div>
         </div>

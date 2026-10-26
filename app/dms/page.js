@@ -36,16 +36,16 @@ export default function DMSLanding() {
   return (
     <main className="overflow-x-hidden relative w-full bg-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 z-50 py-3.5 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-        <div className="flex items-center gap-5 lg:gap-6 xl:gap-8">
+      <nav className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 z-50 py-3.5 pl-3 sm:pl-4 lg:pl-6 pr-4 sm:pr-6 lg:pr-8 flex justify-between items-center">
+        <div className="flex items-center gap-4 lg:gap-5 xl:gap-7 2xl:gap-9 min-w-0">
           <div className="text-xl md:text-2xl font-bold text-gray-800 flex-shrink-0">
             <Link href="/" className="flex items-center">
-              <i className="fas fa-shield-alt text-[var(--brand)] mr-7"></i>
+              <i className="fas fa-shield-alt text-[var(--brand)] mr-2.5"></i>
               <span>Secure DMS</span>
             </Link>
           </div>
 
-          <div className="hidden lg:flex items-center gap-5 xl:gap-7 2xl:gap-8 text-[15px]">
+          <div className="hidden lg:flex items-center gap-3.5 lg:gap-4 xl:gap-6 2xl:gap-8 text-[13.5px] lg:text-[14px] xl:text-[15px] 2xl:text-[15.5px]">
             {/* Products Dropdown */}
             <div className="relative group">
               <button
@@ -86,7 +86,7 @@ export default function DMSLanding() {
                 type="button"
                 className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
               >
-                <span>Owners</span>
+                <span>Business Owners</span>
                 <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
               </button>
 
@@ -102,7 +102,7 @@ export default function DMSLanding() {
                       </h4>
                     </Link>
                     <p className="text-[14.5px] text-[#4b5568] font-normal mt-1 leading-normal">
-                      Partner With an Axial Exit Consultant to Hire a Great M&A Advisor.
+                      Partner With an Exit Consultant to Hire a Great M&A Advisor.
                     </p>
                   </div>
 
@@ -144,7 +144,7 @@ export default function DMSLanding() {
                 type="button"
                 className="flex items-center gap-1.5 font-semibold text-[#283244] hover:text-[#2563eb] transition-colors py-2 whitespace-nowrap group-hover:text-[#2563eb] cursor-pointer"
               >
-                <span>Acquirers</span>
+                <span>Investors</span>
                 <FaChevronDown className="text-[11px] text-[#2563eb] transition-transform duration-300 group-hover:rotate-180" />
               </button>
 
@@ -210,23 +210,14 @@ export default function DMSLanding() {
                     </p>
                   </div>
 
-                  {/* 2 Columns */}
-                  <div className="grid grid-cols-2 gap-x-10 gap-y-4">
-                    <Link href="/dms" className="block group/item">
+                  {/* Resource Link */}
+                  <div className="text-center">
+                    <Link href="/dms" className="inline-block group/item">
                       <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
                         Owner Resource Center
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
                         Articles & Resources for Owners Preparing for an Exit.
-                      </p>
-                    </Link>
-
-                    <Link href="/dms" className="block group/item">
-                      <h5 className="text-[19px] font-bold text-[#1f2738] group-hover/item:text-[#2563eb] transition-colors tracking-[-0.015em] leading-snug">
-                        Axial's Podcast
-                      </h5>
-                      <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
-                        The Masters in Small Business Podcast, Hosted by Axial's CEO.
                       </p>
                     </Link>
                   </div>
@@ -252,11 +243,11 @@ export default function DMSLanding() {
                   <div className="text-center pb-4 mb-5 border-b border-[#eef1f6]">
                     <Link href="/dms" className="inline-block group/title">
                       <h4 className="text-[21px] font-bold text-[#1f2738] group-hover/title:text-[#2563eb] transition-colors tracking-[-0.01em]">
-                        About Axial
+                        About Us
                       </h4>
                     </Link>
                     <p className="text-[14.5px] text-[#4b5568] font-normal mt-1 leading-normal">
-                      The Story Behind Axial's Private Deal Platform & the Team Building It.
+                      The Story Behind Our Private Deal Platform & the Team Building It.
                     </p>
                   </div>
 
@@ -267,7 +258,7 @@ export default function DMSLanding() {
                         Closed Deals
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
-                        A Selection of Closed Transactions on Axial, Sorted by Industry.
+                        A Selection of Closed Transactions, Sorted by Industry.
                       </p>
                     </Link>
 
@@ -276,7 +267,7 @@ export default function DMSLanding() {
                         Member Reviews
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
-                        Video Testimonials and Written Reviews From Current Axial Members.
+                        Video Testimonials and Written Reviews From Current Platform Members.
                       </p>
                     </Link>
 
@@ -285,7 +276,7 @@ export default function DMSLanding() {
                         Network Overview
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
-                        Review Network Composition and Recent Deal Activity on Axial.
+                        Review Network Composition and Recent Deal Activity.
                       </p>
                     </Link>
 
@@ -294,7 +285,7 @@ export default function DMSLanding() {
                         Deal Flow Dashboard
                       </h5>
                       <p className="text-[13.5px] text-[#505b6f] font-normal mt-1.5 leading-[1.45]">
-                        Analyze Live Deal Flow Activity and Market Trends on Axial.
+                        Analyze Live Deal Flow Activity and Market Trends.
                       </p>
                     </Link>
                   </div>
@@ -304,9 +295,9 @@ export default function DMSLanding() {
           </div>
         </div>
 
-        <div className="hidden lg:flex gap-3 xl:gap-4 items-center justify-end ml-6 xl:ml-10 flex-shrink-0">
-          <Link href="/dms/login" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
-          <Link href="/dms/register" className="btn-bo-hover px-5 py-2 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Get Started</Link>
+        <div className="hidden lg:flex gap-2.5 xl:gap-3 items-center justify-end ml-3 xl:ml-5 flex-shrink-0">
+          <Link href="/dms/login" className="btn-bo-hover px-4 py-2 xl:px-5 xl:py-2 text-xs xl:text-sm border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap">Sign In</Link>
+          <Link href="/dms/register" className="btn-bo-hover px-4 py-2 xl:px-5 xl:py-2 text-xs xl:text-sm border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold transition-all duration-700 whitespace-nowrap bg-[var(--brand)]/5">Get Started</Link>
         </div>
 
         <button
@@ -350,14 +341,14 @@ export default function DMSLanding() {
                 onClick={() => toggleMobileSubmenu('owners')}
                 className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
               >
-                <span>Owners</span>
+                <span>Business Owners</span>
                 <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.owners ? 'rotate-180' : ''}`} />
               </button>
               {mobileExpanded.owners && (
                 <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
                   <Link href="/dms/register?role=advisor" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
                     <div>Hire an M&A Advisor</div>
-                    <div className="text-xs text-gray-500 font-normal">Partner With an Axial Exit Consultant to Hire a Great M&A Advisor.</div>
+                    <div className="text-xs text-gray-500 font-normal">Partner With an Exit Consultant to Hire a Great M&A Advisor.</div>
                   </Link>
                   <Link href="/business-owner/login" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
                     <div>Sell Your Business</div>
@@ -382,7 +373,7 @@ export default function DMSLanding() {
                 onClick={() => toggleMobileSubmenu('acquirers')}
                 className="flex justify-between items-center w-full px-5 py-3 font-semibold text-gray-700 bg-gray-50 rounded-lg hover:text-[var(--brand)] transition-colors text-left"
               >
-                <span>Acquirers</span>
+                <span>Investors</span>
                 <FaChevronDown className={`text-xs text-blue-600 transition-transform duration-300 ${mobileExpanded.acquirers ? 'rotate-180' : ''}`} />
               </button>
               {mobileExpanded.acquirers && (
@@ -423,10 +414,6 @@ export default function DMSLanding() {
                     <div>Owner Resource Center</div>
                     <div className="text-xs text-gray-500 font-normal">Articles & Resources for Owners Preparing for an Exit.</div>
                   </Link>
-                  <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
-                    <div>Axial's Podcast</div>
-                    <div className="text-xs text-gray-500 font-normal">The Masters in Small Business Podcast, Hosted by Axial's CEO.</div>
-                  </Link>
                 </div>
               )}
             </div>
@@ -444,12 +431,12 @@ export default function DMSLanding() {
               {mobileExpanded.company && (
                 <div className="flex flex-col gap-2 pl-4 py-2 animate-fade-in border-l-2 border-blue-100 ml-3">
                   <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
-                    <div>About Axial</div>
-                    <div className="text-xs text-gray-500 font-normal">The Story Behind Axial's Private Deal Platform.</div>
+                    <div>About Us</div>
+                    <div className="text-xs text-gray-500 font-normal">The Story Behind Our Private Deal Platform.</div>
                   </Link>
                   <Link href="/dms/marketplace" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
                     <div>Closed Deals</div>
-                    <div className="text-xs text-gray-500 font-normal">A Selection of Closed Transactions on Axial.</div>
+                    <div className="text-xs text-gray-500 font-normal">A Selection of Closed Transactions.</div>
                   </Link>
                   <Link href="/dms" className="p-2 text-sm text-gray-700 hover:text-[var(--brand)] font-semibold" onClick={() => setIsMobileMenuOpen(false)}>
                     <div>Member Reviews</div>

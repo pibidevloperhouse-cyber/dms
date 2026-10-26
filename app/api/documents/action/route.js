@@ -21,15 +21,29 @@ export async function POST(req) {
 
         switch (action) {
             case 'create_folder':
-                const { parentId, name, index } = payload;
-                const { error: cfErr } = await supabase.from('folders').insert({
+                let { parentId, name, index } = payload;
+                if (!index) {
+                    let idxQ = supabase
+                        .from('folders')
+                        .select('index_number')
+                        .eq('company_id', companyId)
+                        .eq('is_deleted', false);
+                    if (session.active_workspace_id) idxQ = idxQ.eq('workspace_id', session.active_workspace_id);
+                    else idxQ = idxQ.is('workspace_id', null);
+                    if (parentId) idxQ = idxQ.eq('parent_folder_id', parentId);
+                    else idxQ = idxQ.is('parent_folder_id', null);
+                    const { data: existing } = await idxQ;
+                    const maxIdx = (existing || []).reduce((max, f) => Math.max(max, parseInt(f.index_number, 10) || 0), 0);
+                    index = maxIdx + 1;
+                }
+                const { data: newFolData, error: cfErr } = await supabase.from('folders').insert({
                     company_id: companyId, 
                     workspace_id: session.active_workspace_id || null,
-                    parent_folder_id: parentId,
+                    parent_folder_id: parentId || null,
                     name: name, index_number: index, created_by: userId
-                });
+                }).select().single();
                 if (cfErr) throw cfErr;
-                break;
+                return NextResponse.json({ success: true, folder: newFolData });
 
             case 'rename':
                 const { itemId, type, newName } = payload;

@@ -9,7 +9,6 @@ import {
   Milestone,
   ScrollText,
   AlertTriangle,
-  Shield,
   BarChart3,
   Settings,
 } from "lucide-react";
@@ -50,12 +49,6 @@ export const CONTROLS_AUDIT_SIDEBAR_ITEMS = [
     badge: 3,
     badgeType: "rose",
   },
-  // {
-  //   key: "policies",
-  //   name: "Policies",
-  //   href: "/control-audits/policies",
-  //   icon: Shield,
-  // },
   {
     key: "reports",
     name: "Reports",

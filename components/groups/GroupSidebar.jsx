@@ -12,21 +12,21 @@ const GROUP_ICON = (
 
 const DEPT_ICON = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
 );
 
 const ROLE_LABELS = {
-    super_admin:   'Super Admin',
-    admin:         'Admin',
-    sub_admin:     'Sub Admin',
+    super_admin: 'Super Admin',
+    admin: 'Admin',
+    sub_admin: 'Sub Admin',
     internal_user: 'Internal User',
-    user:          'User',
-    guest_admin:   'Guest Admin',
-    guest_lead:    'Guest Lead',
+    user: 'User',
+    guest_admin: 'Guest Admin',
+    guest_lead: 'Guest Lead',
     external_user: 'External User',
-    buyer:         'Buyer',
+    buyer: 'Buyer',
 };
 
 const TRASH_ICON = (
@@ -62,6 +62,23 @@ export default function GroupsSidebar({ isOpen = true }) {
     const [isCreatingNewDept, setIsCreatingNewDept] = useState(false);
     const [customDeptInput, setCustomDeptInput] = useState('');
 
+    // Folder suggestion dialog state when creating a new department
+    const [folderSuggestion, setFolderSuggestion] = useState({
+        isOpen: false,
+        deptName: '',
+        mode: 'dept_name', // 'dept_name' | 'custom' | 'skip'
+        customName: '',
+        isSubmitting: false,
+        proceedWithGroupCreation: false
+    });
+    const [pendingFolderToCreate, setPendingFolderToCreate] = useState(null);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
+
     // Accordion expand/collapse state for departments in sidebar
     const [expandedDepts, setExpandedDepts] = useState({});
 
@@ -87,7 +104,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             setIsBuyerSide(isBuyer);
             setCurrentUserRole(userRole || '');
             let individualGroups = [];
-            
+
             let localCanViewBuyer = false;
             let localCanViewSellerMembers = false;
             let localCanViewSellerGroups = false;
@@ -133,11 +150,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                     if (perms && perms.length > 0) {
                         if (perms.some(p => p.can_create_group)) setCanCreateGroup(true);
                         if (perms.some(p => p.can_delete_group)) setCanDeleteGroup(true);
-                        
+
                         localCanViewBuyer = perms.some(p => p.can_view_buyer);
                         localCanViewSellerMembers = perms.some(p => p.can_view_seller_members);
                         localCanViewSellerGroups = perms.some(p => p.can_view_seller_groups);
-                        
+
                         setCanViewBuyer(localCanViewBuyer);
                         setCanViewSellerMembers(localCanViewSellerMembers);
                         setCanViewSellerGroups(localCanViewSellerGroups);
@@ -184,14 +201,14 @@ export default function GroupsSidebar({ isOpen = true }) {
                 individualGroups = [];
             }
 
-            const roleOrder = { 
-                'super_admin': 1, 
-                'admin': 2, 
-                'sub_admin': 3, 
+            const roleOrder = {
+                'super_admin': 1,
+                'admin': 2,
+                'sub_admin': 3,
                 'internal_user': 4,
-                'guest_admin': 5, 
-                'guest_lead': 6, 
-                'external_user': 7 
+                'guest_admin': 5,
+                'guest_lead': 6,
+                'external_user': 7
             };
             groups.sort((a, b) => {
                 const orderA = roleOrder[a.role] || 99;
@@ -204,7 +221,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             try {
                 localStorage.removeItem('dms_custom_departments');
                 localStorage.removeItem('dms_group_departments');
-            } catch (e) {}
+            } catch (e) { }
 
             const loadedGroups = groups.map(g => ({
                 id: g.id,
@@ -226,7 +243,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     .select('buyer_id')
                     .eq('id', session.active_workspace_id)
                     .single();
-                    
+
                 if (deal?.buyer_id) {
                     const { data: lead } = await supabase
                         .from('users')
@@ -244,12 +261,12 @@ export default function GroupsSidebar({ isOpen = true }) {
                     .select('id, name, email, role')
                     .eq('company_id', companyId)
                     .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
-                
+
                 if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
                     // Dummy condition to fetch nothing
                     sellersQuery = sellersQuery.eq('id', '00000000-0000-0000-0000-000000000000');
                 }
-                
+
                 const { data: sellers } = await sellersQuery;
 
                 const formattedIndividuals = individualGroups.map(g => ({
@@ -259,7 +276,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     role: g.role || '',
                     isIndividualGroup: true
                 }));
-                
+
                 if (sellers) {
                     setSellerMembers([...formattedIndividuals, ...sellers]);
                 } else {
@@ -288,7 +305,45 @@ export default function GroupsSidebar({ isOpen = true }) {
     const handleConfirmNewDept = () => {
         const trimmed = customDeptInput.trim();
         if (!trimmed) return;
-        handleCreateNewDepartment(trimmed);
+        const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        setFolderSuggestion({
+            isOpen: true,
+            deptName: formatted,
+            mode: 'dept_name',
+            customName: formatted,
+            isSubmitting: false,
+            proceedWithGroupCreation: false
+        });
+    };
+
+    const handleConfirmFolderDecision = async () => {
+        const { deptName, mode, customName, proceedWithGroupCreation } = folderSuggestion;
+        const formattedDept = (deptName || '').trim();
+        if (!formattedDept) return;
+
+        const targetFolderName = (mode === 'custom' ? customName.trim() : formattedDept) || formattedDept;
+
+        // Save department and store pending folder name (do NOT create in DB yet!)
+        setPendingFolderToCreate(targetFolderName);
+        setDepartments(prev => Array.from(new Set([...prev, formattedDept])));
+        setNewGroupDepartment(formattedDept);
+        setIsCreatingNewDept(false);
+        setCustomDeptInput('');
+        setExpandedDepts(prev => ({ ...prev, [formattedDept]: true }));
+
+        setFolderSuggestion({
+            isOpen: false,
+            deptName: '',
+            mode: 'dept_name',
+            customName: '',
+            isSubmitting: false,
+            proceedWithGroupCreation: false
+        });
+
+        // If user originally clicked the main "Create" button for the group, proceed with group creation now
+        if (proceedWithGroupCreation) {
+            await handleCreateGroup(formattedDept, targetFolderName);
+        }
     };
 
     const toggleDept = (dept) => {
@@ -309,10 +364,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
             } else {
                 await supabase.from('invitations').delete().eq('group_id', deleteTarget.id);
-                
+
                 const { error } = await supabase.from('groups').delete().eq('id', deleteTarget.id);
                 if (error) throw error;
-                
+
                 if (deleteTarget.isIndividualGroup) {
                     setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
                 } else {
@@ -332,17 +387,38 @@ export default function GroupsSidebar({ isOpen = true }) {
         setDeleteTarget(null);
     };
 
-    const handleCreateGroup = async () => {
+    const handleCreateGroup = async (overrideDept, linkedFolderId) => {
         const isIndividual = newGroupType === 'individual';
         if (isSubmitting) return;
         if (isIndividual && !newGroupEmail.trim()) return;
         if (!isIndividual && !newGroupName.trim()) return;
 
+        // Safely extract string if overrideDept is passed (prevent event objects from onClick)
+        const safeOverrideDept = typeof overrideDept === 'string' ? overrideDept.trim() : null;
+
+        // If in department creation mode and user typed a custom dept without clicking the small Create button
+        const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
+        if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
+            const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
+            setFolderSuggestion({
+                isOpen: true,
+                deptName: formatted,
+                mode: 'dept_name',
+                customName: formatted,
+                isSubmitting: false,
+                proceedWithGroupCreation: true
+            });
+            return;
+        }
+
         // Resolve final department from user input / selection
-        let finalDept = (newGroupDepartment || customDeptInput || '').trim();
+        const candidateDept = safeOverrideDept || (typeof newGroupDepartment === 'string' ? newGroupDepartment : '') || rawCustom;
+        let finalDept = candidateDept.trim();
         if (finalDept) {
             finalDept = finalDept.charAt(0).toUpperCase() + finalDept.slice(1);
-            handleCreateNewDepartment(finalDept);
+            if (!departments.includes(finalDept)) {
+                setDepartments(prev => Array.from(new Set([...prev, finalDept])));
+            }
         } else {
             finalDept = 'General';
         }
@@ -351,7 +427,7 @@ export default function GroupsSidebar({ isOpen = true }) {
         try {
             const session = JSON.parse(localStorage.getItem('vdr_session'));
             const finalGroupName = isIndividual ? newGroupEmail.trim() : newGroupName.trim();
-            
+
             const insertPayload = {
                 name: finalGroupName,
                 description: newGroupDescription.trim() || null,
@@ -374,7 +450,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     group_id: data.id,
                     scope: 'workspace',
                 };
-                
+
                 if (newGroupRole === 'admin') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_redaction: true, can_access_qa: true, can_access_settings: true };
                 } else if (newGroupRole === 'sub_admin') {
@@ -388,9 +464,44 @@ export default function GroupsSidebar({ isOpen = true }) {
                 } else if (newGroupRole === 'external_user') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_qa: true };
                 }
-                
+
                 if (['admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
                     await supabase.from('permissions').insert([workspacePerms]);
+                }
+
+                // Create Documents folder now (after full form submission) if pending!
+                const folderNameToCreate = (typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate;
+                if (folderNameToCreate && session?.company_id) {
+                    try {
+                        const res = await fetch('/api/documents/action', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'create_folder',
+                                payload: {
+                                    parentId: null,
+                                    name: folderNameToCreate
+                                },
+                                session
+                            })
+                        });
+                        const resData = await res.json();
+                        if (resData.success && resData.folder?.id) {
+                            // Assign group permission to this newly created folder
+                            await supabase.from('permissions').insert([{
+                                company_id: session.company_id,
+                                group_id: data.id,
+                                folder_id: resData.folder.id,
+                                scope: 'folder',
+                                can_view: true,
+                                can_upload: true,
+                                can_download_secure: true,
+                                can_download_original: true
+                            }]);
+                        }
+                    } catch (permErr) {
+                        console.warn("Could not create folder or assign permission:", permErr);
+                    }
                 }
 
                 if (newGroupType === 'individual' && newGroupEmail.trim()) {
@@ -410,7 +521,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                         if (inviteData.error) {
                             alert(`Group created but invite failed: ${inviteData.error}`);
                         } else {
-                            alert(`Individual created and invite generated successfully!\\n\\nInvite Link (also printed in terminal):\\n${inviteData.registrationUrl}`);
+                            alert(`Individual created and invite generated successfully!\n\nInvite Link (also printed in terminal):\n${inviteData.registrationUrl}`);
                         }
                     } catch (err) {
                         console.error("Failed to send invite:", err);
@@ -439,6 +550,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                     setExpandedDepts(prev => ({ ...prev, [finalDept]: true }));
                 }
                 
+                showToast(isIndividual ? "Individual member created successfully!" : "Group created successfully!", 'success');
+
                 setIsAddGroupModalOpen(false);
                 setNewGroupName('');
                 setNewGroupDescription('');
@@ -448,6 +561,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setNewGroupDepartment('');
                 setCustomDeptInput('');
                 setIsCreatingNewDept(false);
+                setPendingFolderToCreate(null);
             } else {
                 alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
                 console.error("Group creation error:", error);
@@ -475,11 +589,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                             <nav className="py-3 space-y-1 mb-2">
                                 <Link
                                     href="/groups/buyer-member"
-                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
-                                        pathname === '/groups/buyer-member' 
-                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
+                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                        }`}
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
                                         ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
@@ -499,54 +612,52 @@ export default function GroupsSidebar({ isOpen = true }) {
                             <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
                                 <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
                             </div>
-                    
-                    <nav className="py-3 space-y-1 mb-2">
-                        {sellerMembers.map((seller) => (
-                            <Link 
-                                href={`/groups/${seller.id}`}
-                                key={seller.id} 
-                                className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${
-                                    pathname === `/groups/${seller.id}` 
-                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3 truncate">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${
-                                        pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
-                                    }`}>
-                                        <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                    <div className="flex flex-col flex-1 truncate">
-                                        <span className="font-sans text-[14px] truncate">{seller.name}</span>
-                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
-                                            {seller.role.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                    {canDeleteGroup && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setDeleteTarget({ 
-                                                    id: seller.id, 
-                                                    name: seller.name, 
-                                                    isUser: !seller.isIndividualGroup,
-                                                    isIndividualGroup: seller.isIndividualGroup 
-                                                });
-                                            }}
-                                            className="text-gray-400 hover:text-red-500 transition-colors"
-                                            title="Delete member"
-                                        >
-                                            {TRASH_ICON}
-                                        </button>
-                                    )}
-                                </div>
-                            </Link>
-                        ))}
-                    </nav>
+
+                            <nav className="py-3 space-y-1 mb-2">
+                                {sellerMembers.map((seller) => (
+                                    <Link
+                                        href={`/groups/${seller.id}`}
+                                        key={seller.id}
+                                        className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
+                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                : 'text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3 truncate">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
+                                                }`}>
+                                                <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                            </div>
+                                            <div className="flex flex-col flex-1 truncate">
+                                                <span className="font-sans text-[14px] truncate">{seller.name}</span>
+                                                <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
+                                                    {seller.role.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 shrink-0">
+                                            {canDeleteGroup && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setDeleteTarget({
+                                                            id: seller.id,
+                                                            name: seller.name,
+                                                            isUser: !seller.isIndividualGroup,
+                                                            isIndividualGroup: seller.isIndividualGroup
+                                                        });
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Delete member"
+                                                >
+                                                    {TRASH_ICON}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </nav>
                         </>
                     )}
 
@@ -581,19 +692,17 @@ export default function GroupsSidebar({ isOpen = true }) {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleDept(deptName)}
-                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${
-                                                    isExpanded 
-                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold' 
+                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${isExpanded
+                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold'
                                                         : 'text-gray-700 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center truncate">
                                                     <span className="font-sans text-[13px] tracking-tight truncate capitalize font-medium">{deptName}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 shrink-0">
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                                        deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
-                                                    }`}>
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
+                                                        }`}>
                                                         {deptGroups.length}
                                                     </span>
                                                     <svg
@@ -633,11 +742,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                                 <Link
                                                                     key={item.id}
                                                                     href={item.href}
-                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${
-                                                                        active
+                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${active
                                                                             ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
                                                                             : 'text-gray-600 hover:bg-gray-50'
-                                                                    }`}
+                                                                        }`}
                                                                 >
                                                                     <div className="flex items-center gap-2 truncate">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>
@@ -754,6 +862,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     setIsCreatingNewDept(false);
                                     setCustomDeptInput('');
                                     setNewGroupDepartment('');
+                                    setFolderSuggestion({ isOpen: false, deptName: '', mode: 'dept_name', customName: '', isSubmitting: false, proceedWithGroupCreation: false });
+                                    setPendingFolderToCreate(null);
                                 }}
                                 className="text-gray-400 hover:text-black font-sans"
                             >
@@ -890,13 +1000,15 @@ export default function GroupsSidebar({ isOpen = true }) {
                                         setIsCreatingNewDept(false);
                                         setCustomDeptInput('');
                                         setNewGroupDepartment('');
+                                        setFolderSuggestion({ isOpen: false, deptName: '', mode: 'dept_name', customName: '', isSubmitting: false, proceedWithGroupCreation: false });
+                                        setPendingFolderToCreate(null);
                                     }}
                                     className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={handleCreateGroup}
+                                    onClick={() => handleCreateGroup()}
                                     disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || !(newGroupDepartment.trim() || customDeptInput.trim()) || isSubmitting}
                                     className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50"
                                 >
@@ -905,6 +1017,166 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* ── Compact Folder Suggestion Modal ───────────────────────── */}
+            {folderSuggestion.isOpen && (
+                <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[250] p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 font-sans animate-in zoom-in-95 duration-150">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[var(--brand,#1C7F9F)] border border-teal-100 flex items-center justify-center shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                                        <line x1="12" y1="10" x2="12" y2="16" />
+                                        <line x1="9" y1="13" x2="15" y2="13" />
+                                    </svg>
+                                </div>
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-bold text-gray-900 leading-tight truncate">Folder Suggestion</h4>
+                                    <p className="text-[11px] text-gray-500 truncate">Documents Section</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition text-xs font-bold shrink-0"
+                                title="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Question */}
+                        <p className="text-xs text-gray-600 mb-3 leading-snug">
+                            Create a documents folder for <span className="font-bold text-gray-900">"{folderSuggestion.deptName}"</span>?
+                        </p>
+
+                        {/* 2 Options */}
+                        <div className="space-y-2 mb-4">
+                            {/* Option 1: Use Department Name */}
+                            <div
+                                onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
+                                className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                                    folderSuggestion.mode === 'dept_name'
+                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <input
+                                        type="radio"
+                                        id="compact_choice_dept"
+                                        name="compact_folder_choice"
+                                        checked={folderSuggestion.mode === 'dept_name'}
+                                        onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
+                                        className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
+                                    />
+                                    <label htmlFor="compact_choice_dept" className="text-xs font-semibold text-gray-800 cursor-pointer flex items-center gap-1.5 truncate">
+                                        <span>📁</span>
+                                        <span className="truncate">{folderSuggestion.deptName}</span>
+                                    </label>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--brand,#1C7F9F)] text-white shrink-0">
+                                    Default
+                                </span>
+                            </div>
+
+                            {/* Option 2: Custom / Suggested Name */}
+                            <div
+                                onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
+                                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                                    folderSuggestion.mode === 'custom'
+                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <input
+                                        type="radio"
+                                        id="compact_choice_custom"
+                                        name="compact_folder_choice"
+                                        checked={folderSuggestion.mode === 'custom'}
+                                        onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
+                                        className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
+                                    />
+                                    <label htmlFor="compact_choice_custom" className="text-xs font-semibold text-gray-800 cursor-pointer">
+                                        Custom folder name
+                                    </label>
+                                </div>
+
+                                {folderSuggestion.mode === 'custom' && (
+                                    <div className="mt-2 pt-1 border-t border-teal-100">
+                                        <input
+                                            type="text"
+                                            value={folderSuggestion.customName}
+                                            onChange={(e) => setFolderSuggestion(prev => ({ ...prev, customName: e.target.value }))}
+                                            placeholder="Enter folder name..."
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleConfirmFolderDecision();
+                                                }
+                                            }}
+                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-sans text-gray-900 outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-[var(--brand)]"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
+                                disabled={folderSuggestion.isSubmitting}
+                                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold font-sans text-xs transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmFolderDecision}
+                                disabled={folderSuggestion.mode === 'custom' && !folderSuggestion.customName.trim()}
+                                className="flex-1 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans text-xs transition shadow-xs disabled:opacity-50 flex items-center justify-center gap-1"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Toast Notifications ────────────────────────────────────── */}
+            {toast && (
+                <div
+                    className={`fixed top-5 right-5 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border bg-white animate-in slide-in-from-top-3 duration-300 text-sm font-sans ${
+                        toast.type === 'error'
+                            ? 'border-red-200 bg-red-50 text-red-900'
+                            : toast.type === 'info'
+                            ? 'border-blue-200 bg-blue-50 text-blue-900'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    }`}
+                >
+                    <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                            toast.type === 'error'
+                                ? 'bg-red-500'
+                                : toast.type === 'info'
+                                ? 'bg-blue-500'
+                                : 'bg-emerald-500'
+                        }`}
+                    />
+                    <span className="font-semibold text-xs leading-normal">{toast.message}</span>
+                    <button
+                        onClick={() => setToast(null)}
+                        className="ml-2 text-gray-400 hover:text-gray-700 font-bold text-xs"
+                    >
+                        ✕
+                    </button>
                 </div>
             )}
         </>

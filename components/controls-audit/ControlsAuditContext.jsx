@@ -10,7 +10,6 @@ import {
   MOCK_APPROVALS,
   MOCK_AUDIT_LOGS,
   MOCK_RISKS,
-  MOCK_POLICIES,
   MOCK_REPORTS,
   MOCK_SETTINGS,
 } from "@/lib/mock-controls-audit-data";
@@ -128,7 +127,6 @@ export function ControlsAuditProvider({ children }) {
 
   const [permissionsMatrix, setPermissionsMatrix] = useState(MOCK_PERMISSIONS_MATRIX);
   const [risks, setRisks] = useState(MOCK_RISKS);
-  const [policies, setPolicies] = useState(MOCK_POLICIES);
   const [reports, setReports] = useState(MOCK_REPORTS);
   const [settings, setSettings] = useState(MOCK_SETTINGS);
   const [accessGrants, setAccessGrants] = useState([
@@ -773,105 +771,6 @@ export function ControlsAuditProvider({ children }) {
     return newRisk;
   }, [selectedDealId, activeDeal, addAuditEvent, showToast]);
 
-  // ── WORKFLOW ACTION: TOGGLE POLICY STATUS ──
-  const togglePolicyStatus = useCallback((policyId) => {
-    let policyName = "";
-    let nextStatus = "Active";
-
-    setPolicies((prev) =>
-      prev.map((p) => {
-        if (p.id !== policyId) return p;
-        policyName = p.name;
-        nextStatus = p.status === "Active" ? "Inactive" : "Active";
-        return {
-          ...p,
-          status: nextStatus,
-          lastUpdated: new Date().toISOString().slice(0, 10),
-        };
-      })
-    );
-
-    addAuditEvent({
-      action: "Policy Status Changed",
-      resource: `${policyName} [${nextStatus}]`,
-      module: "Policies",
-      result: nextStatus === "Active" ? "Success" : "Flagged",
-      metadata: {
-        policyId,
-        newStatus: nextStatus,
-      },
-      jsonPayload: {
-        policy_id: policyId,
-        policy_name: policyName,
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      },
-    });
-
-    showToast(`Policy "${policyName}" is now ${nextStatus}.`, nextStatus === "Active" ? "success" : "info");
-  }, [addAuditEvent, showToast]);
-
-  // ── WORKFLOW ACTION: CREATE GOVERNANCE POLICY ──
-  const createPolicy = useCallback((policyData) => {
-    const newPolicy = {
-      id: `pol-${Date.now().toString().slice(-4)}`,
-      lastUpdated: new Date().toISOString().slice(0, 10),
-      owner: "Victoria Sterling",
-      dealId: selectedDealId,
-      status: "Active",
-      ...policyData,
-    };
-
-    setPolicies((prev) => [newPolicy, ...prev]);
-
-    addAuditEvent({
-      action: "Created Governance Policy",
-      resource: newPolicy.name,
-      module: "Policies",
-      result: "Success",
-      metadata: {
-        policyId: newPolicy.id,
-        scope: newPolicy.scope,
-        enforcementLevel: newPolicy.enforcementLevel,
-      },
-      jsonPayload: {
-        policy_id: newPolicy.id,
-        policy_name: newPolicy.name,
-        scope: newPolicy.scope,
-      },
-    });
-
-    showToast(`Governance Policy "${newPolicy.name}" created and enforced.`, "success");
-    return newPolicy;
-  }, [selectedDealId, addAuditEvent, showToast]);
-
-  // ── WORKFLOW ACTION: UPDATE POLICY ──
-  const updatePolicy = useCallback((policyId, updatedFields) => {
-    let policyName = "";
-
-    setPolicies((prev) =>
-      prev.map((p) => {
-        if (p.id !== policyId) return p;
-        policyName = p.name;
-        return {
-          ...p,
-          ...updatedFields,
-          lastUpdated: new Date().toISOString().slice(0, 10),
-        };
-      })
-    );
-
-    addAuditEvent({
-      action: "Updated Governance Policy",
-      resource: policyName,
-      module: "Policies",
-      result: "Success",
-      metadata: { policyId, updatedFields },
-    });
-
-    showToast(`Governance Policy "${policyName}" updated.`, "success");
-  }, [addAuditEvent, showToast]);
-
   // ── WORKFLOW ACTION: GENERATE COMPLIANCE REPORT ──
   const generateReport = useCallback((reportId, format = "PDF") => {
     let reportTitle = "";
@@ -970,7 +869,6 @@ export function ControlsAuditProvider({ children }) {
     users: MOCK_USERS,
     accessGrants,
     risks,
-    policies,
     reports,
     settings,
     kpis,
@@ -986,9 +884,6 @@ export function ControlsAuditProvider({ children }) {
     createAccessGrant,
     updateRiskStatus,
     createRisk,
-    togglePolicyStatus,
-    createPolicy,
-    updatePolicy,
     generateReport,
     updateSettings,
     resetSettingsToDefault,

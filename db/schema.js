@@ -89,6 +89,7 @@ export const users = pgTable('users', {
   // DMS Gap Analysis added fields
   isBroker: boolean('is_broker').default(false),
   referralSource: text('referral_source'),
+  dmsRole: text('dms_role'),
 });
 
 export const sellerProfiles = pgTable('seller_profiles', {
@@ -844,6 +845,12 @@ export const dealTasks = pgTable('deal_tasks', {
   linkedDocument: text('linked_document'),
   claimableByRole: boolean('claimable_by_role').default(true),
   isEnabled: boolean('is_enabled').default(true),
+
+  // Assigned Folder and Subfolder in Preparation Stage
+  folderId: text('folder_id'),
+  folderName: text('folder_name'),
+  subfolderId: text('subfolder_id'),
+  subfolderName: text('subfolder_name'),
 
   // JSON structures matching frontend
   subtasks: jsonb('subtasks').default('[]'),

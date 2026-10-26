@@ -119,8 +119,8 @@ export default function MainSidebar() {
       // If ANY group this user belongs to has can_access_tasks enabled,
       // OR direct user permission has can_access_tasks enabled,
       // OR dealFeatures explicitly has featureTasks enabled:
-      const canAccessTasks = 
-        Boolean(perms?.some(p => p.can_access_tasks)) || 
+      const canAccessTasks =
+        Boolean(perms?.some(p => p.can_access_tasks)) ||
         dealFeatures?.featureTasks === true;
 
       const isGuest = ['guest_admin', 'buyer', 'external_user'].includes(role);

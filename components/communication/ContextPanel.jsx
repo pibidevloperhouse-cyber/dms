@@ -1,24 +1,42 @@
 "use client";
 
 import React from 'react';
-import { Users, FileText, Info, Pin, ShieldCheck } from 'lucide-react';
+import { Users, FileText, Info, Pin, ShieldCheck, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
-export default function ContextPanel({ channel, group, members = [] }) {
+export default function ContextPanel({ channel, group, members = [], showOnMobile = false, onClose }) {
   const channelName = group?.name || channel?.name || 'Group Conversation';
   const department = group?.department || channel?.department || 'General';
   const description = group?.description || channel?.description || 'Collaborative group conversation';
 
   return (
-    <div className="w-[320px] flex-shrink-0 border-l border-slate-200 bg-white h-full flex flex-col hidden lg:flex font-sans">
+    <div
+      className={cn(
+        "w-[320px] flex-shrink-0 border-l border-slate-200 bg-white h-full flex flex-col font-sans transition-all",
+        showOnMobile
+          ? "fixed inset-y-0 right-0 z-50 shadow-2xl flex"
+          : "hidden lg:flex"
+      )}
+    >
       <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div>
           <h3 className="font-bold text-slate-800 text-sm">Group Details</h3>
           <p className="text-[11px] text-slate-400 font-medium">{department}</p>
         </div>
-        <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-          {members.length}
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+            {members.length}
+          </div>
+          {showOnMobile && onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
       </div>
 
