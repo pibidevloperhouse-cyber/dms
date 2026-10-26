@@ -118,7 +118,7 @@ export default function DynamicGroupPage() {
                                 {groupData?.name?.charAt(0).toUpperCase() || "G"}
                             </div>
                             <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-                                {groupData ? `${groupData.name} Group` : "Loading..."}
+                                {groupData ? (groupData.type === 'individual' ? groupData.name : `${groupData.name} Group`) : "Loading..."}
                             </h1>
                         </div>
                         <p className="text-slate-500 text-sm font-medium ml-13 pl-13 max-w-2xl">

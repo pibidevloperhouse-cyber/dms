@@ -387,40 +387,59 @@ export default function GroupsSidebar({ isOpen = true }) {
         setDeleteTarget(null);
     };
 
+    const closeAddGroupModal = () => {
+        setIsAddGroupModalOpen(false);
+        setIsCreatingNewDept(false);
+        setCustomDeptInput('');
+        setNewGroupDepartment('');
+        setNewGroupType('group');
+        setNewGroupRole('');
+        setNewGroupName('');
+        setNewGroupEmail('');
+        setNewGroupDescription('');
+        setFolderSuggestion({ isOpen: false, deptName: '', mode: 'dept_name', customName: '', isSubmitting: false, proceedWithGroupCreation: false });
+        setPendingFolderToCreate(null);
+    };
+
     const handleCreateGroup = async (overrideDept, linkedFolderId) => {
         const isIndividual = newGroupType === 'individual';
         if (isSubmitting) return;
         if (isIndividual && !newGroupEmail.trim()) return;
         if (!isIndividual && !newGroupName.trim()) return;
+        if (!newGroupRole) return;
 
-        // Safely extract string if overrideDept is passed (prevent event objects from onClick)
-        const safeOverrideDept = typeof overrideDept === 'string' ? overrideDept.trim() : null;
+        let finalDept = null;
 
-        // If in department creation mode and user typed a custom dept without clicking the small Create button
-        const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
-        if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
-            const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
-            setFolderSuggestion({
-                isOpen: true,
-                deptName: formatted,
-                mode: 'dept_name',
-                customName: formatted,
-                isSubmitting: false,
-                proceedWithGroupCreation: true
-            });
-            return;
-        }
+        if (!isIndividual) {
+            // Safely extract string if overrideDept is passed (prevent event objects from onClick)
+            const safeOverrideDept = typeof overrideDept === 'string' ? overrideDept.trim() : null;
 
-        // Resolve final department from user input / selection
-        const candidateDept = safeOverrideDept || (typeof newGroupDepartment === 'string' ? newGroupDepartment : '') || rawCustom;
-        let finalDept = candidateDept.trim();
-        if (finalDept) {
-            finalDept = finalDept.charAt(0).toUpperCase() + finalDept.slice(1);
-            if (!departments.includes(finalDept)) {
-                setDepartments(prev => Array.from(new Set([...prev, finalDept])));
+            // If in department creation mode and user typed a custom dept without clicking the small Create button
+            const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
+            if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
+                const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
+                setFolderSuggestion({
+                    isOpen: true,
+                    deptName: formatted,
+                    mode: 'dept_name',
+                    customName: formatted,
+                    isSubmitting: false,
+                    proceedWithGroupCreation: true
+                });
+                return;
             }
-        } else {
-            finalDept = 'General';
+
+            // Resolve final department from user input / selection
+            const candidateDept = safeOverrideDept || (typeof newGroupDepartment === 'string' ? newGroupDepartment : '') || rawCustom;
+            finalDept = candidateDept.trim();
+            if (finalDept) {
+                finalDept = finalDept.charAt(0).toUpperCase() + finalDept.slice(1);
+                if (!departments.includes(finalDept)) {
+                    setDepartments(prev => Array.from(new Set([...prev, finalDept])));
+                }
+            } else {
+                finalDept = 'General';
+            }
         }
 
         setIsSubmitting(true);
@@ -431,7 +450,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             const insertPayload = {
                 name: finalGroupName,
                 description: newGroupDescription.trim() || null,
-                department: finalDept || null,
+                department: isIndividual ? null : (finalDept || null),
                 role: newGroupRole,
                 type: newGroupType,
                 company_id: (session?.company_id && session?.company_id !== 'null') ? session?.company_id : null,
@@ -442,7 +461,9 @@ export default function GroupsSidebar({ isOpen = true }) {
             const { data, error } = await supabase.from('groups').insert(insertPayload).select().single();
 
             if (!error && data) {
-                setDepartments(prev => Array.from(new Set([...prev, finalDept])));
+                if (!isIndividual && finalDept) {
+                    setDepartments(prev => Array.from(new Set([...prev, finalDept])));
+                }
 
                 // Insert Default Permissions based on Role
                 let workspacePerms = {
@@ -451,7 +472,9 @@ export default function GroupsSidebar({ isOpen = true }) {
                     scope: 'workspace',
                 };
 
-                if (newGroupRole === 'admin') {
+                if (newGroupRole === 'super_admin') {
+                    workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_redaction: true, can_access_qa: true, can_access_settings: true, can_create_group: true, can_delete_group: true, can_view_buyer: true, can_view_seller_members: true, can_view_seller_groups: true };
+                } else if (newGroupRole === 'admin') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_redaction: true, can_access_qa: true, can_access_settings: true };
                 } else if (newGroupRole === 'sub_admin') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_access_qa: true, can_access_settings: true };
@@ -465,12 +488,12 @@ export default function GroupsSidebar({ isOpen = true }) {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_qa: true };
                 }
 
-                if (['admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
+                if (['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
                     await supabase.from('permissions').insert([workspacePerms]);
                 }
 
                 // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = (typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate;
+                const folderNameToCreate = !isIndividual && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
                         const res = await fetch('/api/documents/action', {
@@ -532,8 +555,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                 if (isIndividual) {
                     setSellerMembers(prev => [{
                         id: data.id,
-                        name: data.name,
-                        email: data.name,
+                        name: data.name || finalGroupName,
+                        email: newGroupEmail.trim(),
                         role: data.role || '',
                         isIndividualGroup: true
                     }, ...prev]);
@@ -552,16 +575,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 
                 showToast(isIndividual ? "Individual member created successfully!" : "Group created successfully!", 'success');
 
-                setIsAddGroupModalOpen(false);
-                setNewGroupName('');
-                setNewGroupDescription('');
-                setNewGroupRole('');
-                setNewGroupType('group');
-                setNewGroupEmail('');
-                setNewGroupDepartment('');
-                setCustomDeptInput('');
-                setIsCreatingNewDept(false);
-                setPendingFolderToCreate(null);
+                closeAddGroupModal();
             } else {
                 alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
                 console.error("Group creation error:", error);
@@ -801,6 +815,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     setCustomDeptInput('');
                                     setNewGroupDepartment(departments[0] || '');
                                 }
+                                setNewGroupType('group');
+                                setNewGroupRole('');
                                 setIsAddGroupModalOpen(true);
                             }}
                             className="w-full py-2.5 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-[13px] hover:bg-[var(--brand-dark)] transition-all flex items-center justify-center gap-2 shadow-sm"
@@ -857,110 +873,112 @@ export default function GroupsSidebar({ isOpen = true }) {
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold font-sans text-gray-800 uppercase">Create New Group</h3>
                             <button
-                                onClick={() => {
-                                    setIsAddGroupModalOpen(false);
-                                    setIsCreatingNewDept(false);
-                                    setCustomDeptInput('');
-                                    setNewGroupDepartment('');
-                                    setFolderSuggestion({ isOpen: false, deptName: '', mode: 'dept_name', customName: '', isSubmitting: false, proceedWithGroupCreation: false });
-                                    setPendingFolderToCreate(null);
-                                }}
+                                onClick={closeAddGroupModal}
                                 className="text-gray-400 hover:text-black font-sans"
                             >
                                 ✕
                             </button>
                         </div>
                         <div className="space-y-4">
-                            {/* 1st Field: Department */}
-                            <div>
-                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">
-                                    Department
-                                </label>
-                                {!isCreatingNewDept ? (
-                                    <select
-                                        value={newGroupDepartment || ''}
-                                        onChange={(e) => {
-                                            if (e.target.value === '__new__') {
-                                                setIsCreatingNewDept(true);
-                                                setCustomDeptInput('');
-                                            } else {
-                                                setNewGroupDepartment(e.target.value);
-                                            }
-                                        }}
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                    >
-                                        <option value="" disabled>Select Department</option>
-                                        {departments.map((dept) => (
-                                            <option key={dept} value={dept}>
-                                                {dept}
-                                            </option>
-                                        ))}
-                                        <option value="__new__">+ Create New Department...</option>
-                                    </select>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={customDeptInput}
-                                            onChange={(e) => setCustomDeptInput(e.target.value)}
-                                            placeholder="Enter department name..."
-                                            autoFocus
-                                            className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleConfirmNewDept();
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handleConfirmNewDept}
-                                            disabled={!customDeptInput.trim()}
-                                            className="px-4 py-3 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-xs hover:bg-[var(--brand-dark)] transition-all disabled:opacity-50 shrink-0"
-                                        >
-                                            Create
-                                        </button>
-                                        {departments.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setIsCreatingNewDept(false);
-                                                    setCustomDeptInput('');
-                                                }}
-                                                className="px-3 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold font-sans text-xs hover:bg-gray-200 transition-all shrink-0"
-                                                title="Back to dropdown"
-                                            >
-                                                ✕
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
+                            {/* 1st Field: Type */}
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Type</label>
                                 <select
                                     value={newGroupType}
-                                    onChange={e => setNewGroupType(e.target.value)}
+                                    onChange={e => {
+                                        setNewGroupType(e.target.value);
+                                        setNewGroupRole('');
+                                    }}
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
                                 >
                                     <option value="group">Group</option>
                                     <option value="individual">Individual</option>
                                 </select>
                             </div>
+
+                            {/* 2nd Field: Department (hidden if Individual) */}
                             {newGroupType !== 'individual' && (
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">
+                                        Department
+                                    </label>
+                                    {!isCreatingNewDept ? (
+                                        <select
+                                            value={newGroupDepartment || ''}
+                                            onChange={(e) => {
+                                                if (e.target.value === '__new__') {
+                                                    setIsCreatingNewDept(true);
+                                                    setCustomDeptInput('');
+                                                } else {
+                                                    setNewGroupDepartment(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                        >
+                                            <option value="" disabled>Select Department</option>
+                                            {departments.map((dept) => (
+                                                <option key={dept} value={dept}>
+                                                    {dept}
+                                                </option>
+                                            ))}
+                                            <option value="__new__">+ Create New Department...</option>
+                                        </select>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={customDeptInput}
+                                                onChange={(e) => setCustomDeptInput(e.target.value)}
+                                                placeholder="Enter department name..."
+                                                autoFocus
+                                                className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleConfirmNewDept();
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleConfirmNewDept}
+                                                disabled={!customDeptInput.trim()}
+                                                className="px-4 py-3 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-xs hover:bg-[var(--brand-dark)] transition-all disabled:opacity-50 shrink-0"
+                                            >
+                                                Create
+                                            </button>
+                                            {departments.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsCreatingNewDept(false);
+                                                        setCustomDeptInput('');
+                                                    }}
+                                                    className="px-3 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold font-sans text-xs hover:bg-gray-200 transition-all shrink-0"
+                                                    title="Back to dropdown"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 3rd Field: Group Name or Email Address */}
+                            {newGroupType !== 'individual' ? (
                                 <div>
                                     <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
                                     <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
                                 </div>
-                            )}
-                            {newGroupType === 'individual' && (
+                            ) : (
                                 <div>
                                     <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Email Address</label>
                                     <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
                                 </div>
                             )}
+
+                            {/* 4th Field: Role */}
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Role</label>
                                 <select
@@ -971,45 +989,49 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     <option value="" disabled>Select Role</option>
                                     {isBuyerSide ? (
                                         <>
-                                            {newGroupType === 'individual' && (
+                                            {newGroupType === 'individual' ? (
                                                 <option value="guest_admin">Guest Admin</option>
+                                            ) : (
+                                                <>
+                                                    <option value="guest_lead">Guest Lead</option>
+                                                    <option value="external_user">External User</option>
+                                                </>
                                             )}
-                                            <option value="guest_lead">Guest Lead</option>
-                                            <option value="external_user">External User</option>
                                         </>
                                     ) : (
                                         <>
-                                            {newGroupType === 'individual' && (
-                                                <option value="super_admin">Super Admin</option>
+                                            {newGroupType === 'individual' ? (
+                                                <>
+                                                    <option value="super_admin">Super Admin</option>
+                                                    <option value="admin">Admin</option>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <option value="sub_admin">Sub Admin</option>
+                                                    <option value="internal_user">Internal User</option>
+                                                </>
                                             )}
-                                            <option value="admin">Admin</option>
-                                            <option value="sub_admin">Sub Admin</option>
-                                            <option value="internal_user">Internal User</option>
                                         </>
                                     )}
                                 </select>
                             </div>
+
+                            {/* 5th Field: Description */}
                             <div>
                                 <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Description</label>
                                 <textarea value={newGroupDescription} onChange={e => setNewGroupDescription(e.target.value)} placeholder="Description (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] resize-none text-black font-sans text-sm" rows="3" />
                             </div>
+
                             <div className="flex gap-3 pt-2">
                                 <button
-                                    onClick={() => {
-                                        setIsAddGroupModalOpen(false);
-                                        setIsCreatingNewDept(false);
-                                        setCustomDeptInput('');
-                                        setNewGroupDepartment('');
-                                        setFolderSuggestion({ isOpen: false, deptName: '', mode: 'dept_name', customName: '', isSubmitting: false, proceedWithGroupCreation: false });
-                                        setPendingFolderToCreate(null);
-                                    }}
+                                    onClick={closeAddGroupModal}
                                     className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleCreateGroup()}
-                                    disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || !(newGroupDepartment.trim() || customDeptInput.trim()) || isSubmitting}
+                                    disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || (newGroupType !== 'individual' && !(newGroupDepartment.trim() || customDeptInput.trim())) || isSubmitting}
                                     className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50"
                                 >
                                     {isSubmitting ? "Creating..." : "Create"}

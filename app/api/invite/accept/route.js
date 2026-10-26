@@ -21,6 +21,21 @@ export async function POST(request) {
       
     if (ugError) throw new Error("Failed to add user to group: " + ugError.message);
 
+    // 1b. Update group name to user's registered name if individual
+    const { data: userRec } = await supabase
+      .from("users")
+      .select("name")
+      .eq("id", user_id)
+      .single();
+
+    if (userRec?.name) {
+      await supabase
+        .from("groups")
+        .update({ name: userRec.name })
+        .eq("id", group_id)
+        .eq("type", "individual");
+    }
+
     // 2. Insert into workspace_members (if applicable)
     if (workspace_id) {
       const { error: wsError } = await supabase
