@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ScrollText,
   Shield,
@@ -43,7 +43,17 @@ export default function AuditTrailPage() {
     showToast,
     refreshAuditLogs,
     isLoadingAuthLogs,
+    selectedSide,
+    setSelectedSide,
+    callerSide,
+    sideCounts,
   } = useControlsAudit();
+
+  // Mounted status to prevent SSR hydration mismatch
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -186,21 +196,28 @@ export default function AuditTrailPage() {
     setSelectedModule("all");
     setSelectedAction("all");
     setSelectedDateRange("all");
+    if (callerSide === "super_admin" && selectedSide !== "all") {
+      setSelectedSide("all");
+      refreshAuditLogs(selectedDealId, "all");
+    }
     setCurrentPage(1);
   };
 
   const hasActiveFilters =
-    searchQuery !== "" ||
-    selectedResult !== "all" ||
-    selectedModule !== "all" ||
-    selectedAction !== "all" ||
-    selectedDateRange !== "all";
+    isMounted &&
+    (searchQuery !== "" ||
+      selectedResult !== "all" ||
+      selectedModule !== "all" ||
+      selectedAction !== "all" ||
+      selectedDateRange !== "all" ||
+      (callerSide === "super_admin" && selectedSide !== "all"));
 
   // ── EXPORT CSV ──
   const handleExportCSV = () => {
     const headers = [
       "Event ID",
       "Timestamp (IST)",
+      "Party Side",
       "User",
       "Email",
       "Role",
@@ -216,6 +233,7 @@ export default function AuditTrailPage() {
     const rows = processedLogs.map((log) => [
       log.id,
       formatAuditDate(log.timestamp).full,
+      `"${log.sideLabel || (log.side === 'buyer' ? 'Buyer Side' : 'Seller Side')}"`,
       `"${log.user}"`,
       log.userEmail || "",
       `"${log.userRole || ""}"`,
@@ -258,7 +276,7 @@ export default function AuditTrailPage() {
       {/* ── HEADER ── */}
       <PageHeader
         title="Enterprise Audit Trail"
-        subtitle="Forensic, read-only ledger capturing historical user interactions, document access, security authorizations, and administrative actions."
+        // subtitle="Forensic, read-only ledger capturing historical user interactions, document access, security authorizations, and administrative actions."
         badge={
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-300/80 shadow-2xs font-mono">
@@ -304,7 +322,7 @@ export default function AuditTrailPage() {
       />
 
       {/* Immutability Banner */}
-      <div className="p-3.5 bg-slate-100/90 border border-slate-200 rounded-2xl flex items-center justify-between text-xs text-slate-600 shadow-2xs">
+      {/* <div className="p-3.5 bg-slate-100/90 border border-slate-200 rounded-2xl flex items-center justify-between text-xs text-slate-600 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <Lock size={15} className="text-slate-500 shrink-0" />
           <span>
@@ -314,7 +332,7 @@ export default function AuditTrailPage() {
         <span className="font-mono text-[11px] text-slate-500 hidden md:block">
           SHA-256 Block Verification Active
         </span>
-      </div>
+      </div> */}
 
       {/* ── FILTER & SEARCH NAVIGATION BAR ── */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3 relative z-20">
@@ -353,6 +371,66 @@ export default function AuditTrailPage() {
               <span className="truncate max-w-[240px]">
                 {activeDeal.name} {activeDeal.projectName ? `(${activeDeal.projectName})` : ""}
               </span>
+            </div>
+          )}
+
+          {/* Party Side Filtering: Super Admin Toggle vs Buyer/Seller Security Lock */}
+          {!isMounted ? (
+            <div className="h-9 w-64 bg-slate-100/80 rounded-xl animate-pulse" />
+          ) : callerSide === "super_admin" ? (
+            <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/90 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSide("buyer");
+                  setCurrentPage(1);
+                  refreshAuditLogs(selectedDealId, "buyer");
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedSide === "buyer"
+                    ? "bg-sky-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-sky-700"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span>Buyer Side</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  selectedSide === "buyer" ? "bg-sky-700 text-white" : "bg-slate-200 text-slate-700"
+                }`}>
+                  {sideCounts.buyer}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSide("seller");
+                  setCurrentPage(1);
+                  refreshAuditLogs(selectedDealId, "seller");
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedSide === "seller"
+                    ? "bg-sky-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-sky-700"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span>Seller Side</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  selectedSide === "seller" ? "bg-sky-700 text-white" : "bg-slate-200 text-slate-700"
+                }`}>
+                  {sideCounts.seller}
+                </span>
+              </button>
+            </div>
+          ) : callerSide === "buyer" ? (
+            <div className="flex items-center gap-2 h-9 px-3.5 py-1.5 bg-sky-50 border border-sky-200/90 rounded-xl text-sky-800 font-bold text-xs shadow-2xs select-none">
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              <span>Buyer View</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 h-9 px-3.5 py-1.5 bg-sky-50 border border-sky-200/90 rounded-xl text-sky-800 font-bold text-xs shadow-2xs select-none">
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              <span>Seller View</span>
             </div>
           )}
 
@@ -448,7 +526,7 @@ export default function AuditTrailPage() {
           <div className="flex items-center gap-2">
             <ScrollText className="w-4 h-4 text-[var(--brand)]" />
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Forensic Transaction Ledger
+              Audit Trail Ledger
             </h3>
           </div>
           <span className="text-xs font-mono text-slate-500">
@@ -742,9 +820,20 @@ export default function AuditTrailPage() {
               <div className="p-3 border border-slate-200 rounded-xl space-y-1.5 bg-white">
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-slate-800 text-sm">{selectedAuditLog.user}</p>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
-                    {selectedAuditLog.userRole}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {selectedAuditLog.side === "buyer" ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                        Buyer Side
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                        Seller Side
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
+                      {selectedAuditLog.userRole}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-slate-500 font-mono text-[11px]">{selectedAuditLog.userEmail}</p>
                 {selectedAuditLog.companyName && (

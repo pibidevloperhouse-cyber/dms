@@ -43,6 +43,9 @@ export default function ReportsPage() {
     reports,
     generateReport,
     showToast,
+    selectedSide,
+    setSelectedSide,
+    callerSide,
   } = useControlsAudit();
 
   // Search & Filters
@@ -63,9 +66,12 @@ export default function ReportsPage() {
     fileFormat: "PDF Legal Package",
   });
 
-  // Filtered reports
+  // Filtered reports by search, category, and party side
   const filteredReports = useMemo(() => {
     return reports.filter((rep) => {
+      if (selectedSide === "buyer" && rep.id === "rep-003") return false;
+      if (selectedSide === "seller" && rep.id === "rep-002") return false;
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = rep.title.toLowerCase().includes(q);
@@ -80,7 +86,7 @@ export default function ReportsPage() {
 
       return true;
     });
-  }, [reports, searchQuery, selectedCategory]);
+  }, [reports, searchQuery, selectedCategory, selectedSide]);
 
   const handleGenerateClick = (report, format = "PDF") => {
     generateReport(report.id, format);
@@ -124,7 +130,7 @@ export default function ReportsPage() {
       {/* ── HEADER ── */}
       <PageHeader
         title="Compliance & Governance Reports"
-        subtitle="Generate, preview, and export formal diligence intelligence packages, access logs, engagement heatmaps, and approval trails."
+
         badge={
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
@@ -134,7 +140,58 @@ export default function ReportsPage() {
           </div>
         }
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Party Side Toggle for Super Admin */}
+            {callerSide === "super_admin" ? (
+              <div className="inline-flex p-1 bg-white border border-slate-200 rounded-xl shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("all")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    selectedSide === "all"
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Sides
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("buyer")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    selectedSide === "buyer"
+                      ? "bg-sky-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                  Buyer Side
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("seller")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    selectedSide === "seller"
+                      ? "bg-sky-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                  Seller Side
+                </button>
+              </div>
+            ) : callerSide === "buyer" ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                Buyer Diligence Reports
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                Seller Room Reports
+              </span>
+            )}
+
             <button
               onClick={() => setIsScheduleModalOpen(true)}
               className="px-3.5 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
@@ -305,9 +362,24 @@ export default function ReportsPage() {
                       {getReportIcon(report.id)}
                     </div>
                     <div>
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80 mb-1">
-                        {report.category}
-                      </span>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                          {report.category}
+                        </span>
+                        {report.id === "rep-002" ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                            Buyer Side
+                          </span>
+                        ) : report.id === "rep-003" ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            Seller Side
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-50 text-slate-600 border border-slate-200/60">
+                            Both Sides
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-base font-bold text-slate-900 group-hover:text-[var(--brand)] transition-colors">
                         {report.title}
                       </h3>

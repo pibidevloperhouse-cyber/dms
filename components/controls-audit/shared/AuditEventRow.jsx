@@ -94,9 +94,20 @@ export default function AuditEventRow({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="text-xs font-bold text-slate-900 truncate">
-              {event.user}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-900 truncate">
+                {event.user}
+              </span>
+              {event.side === "buyer" ? (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                  Buyer
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                  Seller
+                </span>
+              )}
+            </div>
             <StatusBadge status={event.result} size="sm" showIcon={false} />
           </div>
           <p className="text-xs text-slate-600 font-medium truncate mb-1">
@@ -129,9 +140,20 @@ export default function AuditEventRow({
             {event.user ? event.user.split(" ").map((n) => n[0]).join("") : "?"}
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-slate-900 truncate group-hover:text-[var(--brand)] transition-colors">
-              {event.user}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="font-bold text-slate-900 truncate group-hover:text-[var(--brand)] transition-colors">
+                {event.user}
+              </p>
+              {event.side === "buyer" ? (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
+                  Buyer
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
+                  Seller
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-400 truncate font-mono">
               {event.userEmail || event.userRole}
             </p>

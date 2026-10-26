@@ -32,6 +32,9 @@ export default function PermissionsPage() {
     users,
     permissionsMatrix,
     accessGrants,
+    selectedSide,
+    setSelectedSide,
+    callerSide,
   } = useControlsAudit();
 
   // View toggle: 'role' | 'user'
@@ -77,7 +80,58 @@ export default function PermissionsPage() {
         subtitle="Inspect role-based and user-level resource permissions, inheritance chains, and active access grants."
         badge={<StatusBadge status="active" label="Inheritance Active" size="sm" />}
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Party Side Toggle for Super Admin */}
+            {callerSide === "super_admin" ? (
+              <div className="inline-flex p-1 bg-white border border-slate-200 rounded-xl shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("all")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    selectedSide === "all"
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Sides
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("buyer")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    selectedSide === "buyer"
+                      ? "bg-sky-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                  Buyer Side
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide("seller")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    selectedSide === "seller"
+                      ? "bg-sky-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                  Seller Side
+                </button>
+              </div>
+            ) : callerSide === "buyer" ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                Buyer Roles & Permissions
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                Seller Roles & Permissions
+              </span>
+            )}
+
             {/* View Toggle */}
             <div className="inline-flex p-1 bg-white border border-slate-200 rounded-xl shadow-2xs">
               <button

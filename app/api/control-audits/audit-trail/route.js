@@ -25,6 +25,8 @@ export async function GET(req) {
     const dealIdParam = searchParams.get('dealId');
     const eventType = searchParams.get('eventType');
     const status = searchParams.get('status');
+    const sideParam = (searchParams.get('side') || '').toLowerCase(); // 'all' | 'buyer' | 'seller'
+    const dmsRoleParam = (searchParams.get('dmsRole') || '').toLowerCase();
 
     const isSuperAdmin = role === 'super_admin' || role === 'business_owner';
 
@@ -151,6 +153,7 @@ export async function GET(req) {
         companyId: authActivityLogs.companyId,
         userName: users.name,
         userRole: users.role,
+        userDmsRole: users.dmsRole,
         companyName: companies.name,
       })
       .from(authActivityLogs)
@@ -164,6 +167,25 @@ export async function GET(req) {
     }
 
     const rawAuthLogs = await query;
+
+    // Pre-fetch all users to accurately resolve party side and caller identity
+    const allUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        dmsRole: users.dmsRole,
+        companyId: users.companyId,
+      })
+      .from(users);
+
+    const userByEmailMap = new Map();
+    const userByIdMap = new Map();
+    for (const u of allUsers) {
+      if (u.email) userByEmailMap.set(u.email.toLowerCase(), u);
+      if (u.id) userByIdMap.set(u.id, u);
+    }
 
     // Helper: format user role
     const formatRoleName = (r) => {
@@ -183,6 +205,60 @@ export async function GET(req) {
       return map[r.toLowerCase()] || r.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     };
 
+    // Helper: Determine whether an activity belongs to Buyer Side or Seller Side with DB fidelity
+    const getUserPartySide = ({ userId, userEmail, userRole, userDmsRole, companyId }) => {
+      const dbUser = (userId && userByIdMap.get(userId)) || (userEmail && userByEmailMap.get(userEmail.toLowerCase())) || null;
+      const effectiveDmsRole = (dbUser?.dmsRole || userDmsRole || '').toLowerCase();
+      const effectiveRole = (dbUser?.role || userRole || '').toLowerCase();
+      const effectiveCompanyId = dbUser?.companyId || companyId || null;
+
+      if (effectiveDmsRole === 'buyer') return 'buyer';
+      if (effectiveDmsRole === 'seller') return 'seller';
+
+      if (activeDeal && activeDeal.buyerId && (userId === activeDeal.buyerId || dbUser?.id === activeDeal.buyerId)) return 'buyer';
+      if (activeDeal && activeDeal.buyerEmail && userEmail && userEmail.toLowerCase() === activeDeal.buyerEmail.toLowerCase()) return 'buyer';
+
+      if (['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(effectiveRole)) return 'buyer';
+
+      if (activeDeal && activeDeal.projectCompanyId && effectiveCompanyId) {
+        if (effectiveCompanyId === activeDeal.projectCompanyId) return 'seller';
+        return 'buyer';
+      }
+
+      if (['super_admin', 'admin', 'sub_admin', 'internal_user', 'seller', 'business_owner'].includes(effectiveRole)) return 'seller';
+
+      return 'buyer';
+    };
+
+    // Lookup caller user details directly from database to ensure 100% role/dmsRole fidelity
+    const callerUser = (userId && userByIdMap.get(userId)) || null;
+
+    const effectiveCallerDmsRole = (callerUser?.dmsRole || dmsRoleParam || '').toLowerCase();
+    const effectiveCallerRole = (callerUser?.role || role || '').toLowerCase();
+
+    // Caller Side & Strict Security Enforcement:
+    // Buyer Admin -> Strictly locked to 'buyer'
+    // Seller -> Strictly locked to 'seller'
+    // Super Admin -> 'all' (default), or toggle to 'buyer' / 'seller'
+    const callerIsSuperAdmin = isSuperAdmin || effectiveCallerRole === 'super_admin' || effectiveCallerRole === 'business_owner';
+    const callerIsBuyer = !callerIsSuperAdmin && (
+      effectiveCallerDmsRole === 'buyer' ||
+      ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(effectiveCallerRole) ||
+      (activeDeal && activeDeal.buyerId && (userId === activeDeal.buyerId || callerUser?.id === activeDeal.buyerId)) ||
+      (activeDeal && activeDeal.buyerEmail && callerUser?.email && callerUser.email.toLowerCase() === activeDeal.buyerEmail.toLowerCase()) ||
+      (callerUser && activeDeal && activeDeal.projectCompanyId && callerUser.companyId && callerUser.companyId !== activeDeal.projectCompanyId)
+    );
+    const callerIsSeller = !callerIsSuperAdmin && !callerIsBuyer;
+
+    let effectiveSide = 'all';
+    if (callerIsBuyer) {
+      effectiveSide = 'buyer';
+    } else if (callerIsSeller) {
+      effectiveSide = 'seller';
+    } else if (callerIsSuperAdmin) {
+      effectiveSide = ['buyer', 'seller'].includes(sideParam) ? sideParam : 'all';
+    }
+
     // 8. Filter strictly to members of this active deal ONLY for Auth Logs
     const dealScopedAuthLogs = rawAuthLogs.filter((log) => {
       const lowerEmail = (log.email || '').toLowerCase();
@@ -197,12 +273,21 @@ export async function GET(req) {
       const isSuccess = log.status === 'SUCCESS';
       const actionName = log.eventType === 'LOGIN' ? 'Login Attempt' : 'Sign-up Attempt';
       const outcomeResult = isSuccess ? 'Success' : 'Failure';
+      const userSide = getUserPartySide({
+        userId: log.userId,
+        userEmail: log.email,
+        userRole: log.userRole,
+        userDmsRole: log.userDmsRole,
+        companyId: log.companyId,
+      });
 
       return {
         id: log.id,
         user: log.userName || (log.email ? log.email.split('@')[0] : 'Unknown User'),
         userEmail: log.email,
         userRole: formatRoleName(log.userRole) || (isSuccess ? (log.eventType === 'LOGIN' ? 'Authorized User' : 'New Registrant') : 'Unauthenticated'),
+        side: userSide,
+        sideLabel: userSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
         action: actionName,
         resource: isSuccess
           ? log.eventType === 'LOGIN'
@@ -278,6 +363,7 @@ export async function GET(req) {
           userName: users.name,
           userEmail: users.email,
           userRole: users.role,
+          userDmsRole: users.dmsRole,
           docName: documents.name,
           docWorkspaceId: documents.workspaceId,
           docCompanyId: documents.companyId,
@@ -463,11 +549,21 @@ export async function GET(req) {
         durationText = durationInfo.durationText;
       }
 
+      const userSide = getUserPartySide({
+        userId: log.userId,
+        userEmail: log.userEmail,
+        userRole: log.userRole,
+        userDmsRole: log.userDmsRole,
+        companyId: log.docCompanyId,
+      });
+
       return {
         id: log.id,
         user: log.userName || (log.userEmail ? log.userEmail.split('@')[0] : 'Unknown User'),
         userEmail: log.userEmail,
         userRole: formatRoleName(log.userRole),
+        side: userSide,
+        sideLabel: userSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
         action: actionName,
         resource: fileName,
         module: 'Documents',
@@ -525,7 +621,22 @@ export async function GET(req) {
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    // 14. Return ONLY the current active deal (other deals are never exposed)
+    // 14. Compute counts for Buyer vs Seller vs Total before filtering
+    const counts = {
+      total: allFormattedLogs.length,
+      buyer: allFormattedLogs.filter((l) => l.side === 'buyer').length,
+      seller: allFormattedLogs.filter((l) => l.side === 'seller').length,
+    };
+
+    // 15. Apply side filtering strictly:
+    // Buyer Admin / Buyer -> ONLY buyer logs
+    // Seller Admin / Seller -> ONLY seller logs
+    // Super Admin -> can view 'all' or filter to 'buyer' / 'seller'
+    const finalLogs = effectiveSide === 'all'
+      ? allFormattedLogs
+      : allFormattedLogs.filter((l) => l.side === effectiveSide);
+
+    // 16. Return ONLY the current active deal (other deals are never exposed)
     const availableDeals = activeDeal
       ? [
           {
@@ -541,7 +652,11 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      logs: allFormattedLogs,
+      logs: finalLogs,
+      counts,
+      callerSide: callerIsSuperAdmin ? 'super_admin' : callerIsBuyer ? 'buyer' : 'seller',
+      effectiveSide,
+      activeSideFilter: effectiveSide,
       availableDeals,
       activeDealId: activeDeal.dealId,
       activeDealName: activeDeal.dealName,

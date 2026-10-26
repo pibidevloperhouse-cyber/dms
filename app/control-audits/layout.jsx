@@ -41,8 +41,17 @@ export default function ControlAuditsLayout({ children }) {
         } catch (e) {}
       }
 
-      // Super admin or dev preview gets full access
-      if (session.role === "super_admin" || session.id === "demo-admin-01") {
+      // Admin roles (super_admin, seller admin, sub_admin, business_owner, buyer guest_admin) have full module access
+      const userRole = (session.role || "").toLowerCase();
+      const isAdminRole = [
+        "super_admin",
+        "admin",
+        "sub_admin",
+        "business_owner",
+        "guest_admin",
+      ].includes(userRole);
+
+      if (isAdminRole || session.id === "demo-admin-01") {
         setHasAccess(true);
         setLoading(false);
         return;

@@ -42,6 +42,8 @@ export default function DMSLogin() {
         name: data.name,
         email: data.email,
         role: data.role,
+        dms_role: data.dmsRole || 'buyer',
+        dmsRole: data.dmsRole || 'buyer',
         nda_status: data.nda_status || 'not_required',
         request_status: data.request_status || 'approved'
       };
@@ -49,6 +51,7 @@ export default function DMSLogin() {
 
       // 2. Store DMS session keys
       localStorage.setItem('userRole', data.dmsRole || 'buyer');
+      localStorage.setItem('dmsRole', data.dmsRole || 'buyer');
       localStorage.setItem('vdrRole', data.role || 'external_user');
       localStorage.setItem('companyId', data.company_id || '');
       localStorage.setItem('companyName', data.companyName || '');

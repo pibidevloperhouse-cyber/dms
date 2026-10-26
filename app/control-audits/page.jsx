@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -40,7 +40,16 @@ export default function ControlsAuditOverviewPage() {
     auditLogs,
     risks,
     approvals,
+    selectedSide,
+    setSelectedSide,
+    callerSide,
+    sideCounts,
   } = useControlsAudit();
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const [selectedAuditLog, setSelectedAuditLog] = useState(null);
 
@@ -84,10 +93,63 @@ export default function ControlsAuditOverviewPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Deal: {activeDeal.name} ({activeDeal.status})</span>
             </span>
-            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-              • Workspace: Buyer ABC Corp
-            </span>
+            {isMounted && (
+              callerSide === "buyer" ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                  Buyer View
+                </span>
+              ) : callerSide === "seller" ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                  Seller View
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  Super Admin Auditor
+                </span>
+              )
+            )}
           </div>
+        }
+        actions={
+          isMounted && callerSide === "super_admin" ? (
+            <div className="inline-flex p-1 bg-white border border-slate-200 rounded-xl shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setSelectedSide("all")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  selectedSide === "all"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                All Sides
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSide("buyer")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  selectedSide === "buyer"
+                    ? "bg-sky-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-sky-700"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                Buyer Side
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSide("seller")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  selectedSide === "seller"
+                    ? "bg-sky-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-sky-700"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                Seller Side
+              </button>
+            </div>
+          ) : null
         }
       />
 

@@ -73,12 +73,15 @@ export default function LoginPage() {
         name: user.name,
         email: user.email,
         role: user.role,
+        dms_role: user.dmsRole || 'seller',
+        dmsRole: user.dmsRole || 'seller',
         nda_status: user.nda_status,
         request_status: requestStatus
       };
       localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
 
       localStorage.setItem('userRole', user.dmsRole || 'seller');
+      localStorage.setItem('dmsRole', user.dmsRole || 'seller');
       localStorage.setItem('vdrRole', user.role || 'external_user');
       localStorage.setItem('companyId', user.company_id || '');
       localStorage.setItem('companyName', user.companyName || '');

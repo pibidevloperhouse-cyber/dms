@@ -131,7 +131,9 @@ export default function MainSidebar() {
       const canAccessDeals = !isGuest && (perms?.some(p => p.can_access_deals) || dealFeatures?.featureBidding === true);
       const canAccessBidding = dealFeatures?.featureBidding || false;
       const canAccessCommunication = perms?.some(p => p.can_access_communication) || dealFeatures?.featureCommunication === true;
-      const canAccessControlAudits = !isGuest && perms?.some((p) => p.can_access_control_audits);
+      const canAccessControlAudits =
+        ['super_admin', 'admin', 'sub_admin', 'business_owner', 'guest_admin'].includes(role) ||
+        Boolean(perms?.some((p) => p.can_access_control_audits));
       const canAccessRedaction = !isGuest && perms?.some((p) => p.can_redaction);
 
       setHasGroupsAccess(!!canAccessGroups);

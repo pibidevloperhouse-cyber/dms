@@ -18,19 +18,7 @@ const ControlsAuditContext = createContext(null);
 
 export function ControlsAuditProvider({ children }) {
   // Selected Deal & Workspace (Strictly Scoped to current deal context)
-  const [selectedDealId, setSelectedDealId] = useState(() => {
-    try {
-      const raw = localStorage.getItem("vdr_session");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.active_workspace_id) return parsed.active_workspace_id;
-        if (parsed.workspace_id) return parsed.workspace_id;
-      }
-      const direct = localStorage.getItem("active_workspace_id");
-      if (direct) return direct;
-    } catch (e) {}
-    return "";
-  });
+  const [selectedDealId, setSelectedDealId] = useState("");
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("ws-buyer-abc");
 
   // Core entities in local React state
@@ -41,8 +29,55 @@ export function ControlsAuditProvider({ children }) {
   const [liveAuthLogs, setLiveAuthLogs] = useState([]);
   const [isLoadingAuthLogs, setIsLoadingAuthLogs] = useState(false);
 
-  // Fetch live authentication activity logs from Supabase scoped strictly to active deal
-  const fetchAuthLogs = useCallback(async (overrideDealId) => {
+  // Party Side Filtering State: 'all' | 'buyer' | 'seller'
+  const [selectedSide, setSelectedSide] = useState("all");
+  const [callerSide, setCallerSide] = useState("super_admin"); // 'super_admin' | 'buyer' | 'seller'
+  const [sideCounts, setSideCounts] = useState({ total: 0, buyer: 0, seller: 0 });
+
+  // Client-side initialization after mount to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("vdr_session");
+      let dmsRole = localStorage.getItem("dmsRole") || localStorage.getItem("userRole") || "";
+      let role = localStorage.getItem("vdrRole") || "";
+      let dealId = localStorage.getItem("active_workspace_id") || "";
+
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.dms_role || parsed.dmsRole) dmsRole = parsed.dms_role || parsed.dmsRole;
+        if (parsed.role) role = parsed.role;
+        if (parsed.active_workspace_id) dealId = parsed.active_workspace_id;
+        else if (parsed.workspace_id) dealId = parsed.workspace_id;
+      }
+      if (dealId) setSelectedDealId(dealId);
+
+      const lowerDms = (dmsRole || "").toLowerCase();
+      const lowerRole = (role || "").toLowerCase();
+      const isSuper = lowerRole === "super_admin" || lowerRole === "business_owner";
+      const isBuyer = !isSuper && (lowerDms === "buyer" || ["guest_admin", "guest_lead", "external_user", "buyer"].includes(lowerRole));
+      const isSeller = !isSuper && !isBuyer && (lowerDms === "seller" || ["admin", "sub_admin", "internal_user", "seller"].includes(lowerRole));
+
+      if (isBuyer) {
+        setSelectedSide("buyer");
+        setCallerSide("buyer");
+      } else if (isSeller) {
+        setSelectedSide("seller");
+        setCallerSide("seller");
+      }
+    } catch (e) {}
+  }, []);
+
+  // Role & User classification helper by side
+  const getRoleSide = useCallback((roleName) => {
+    const r = (roleName || "").toLowerCase();
+    if (r.includes("buyer") || r.includes("advisor") || r.includes("guest") || r.includes("clean room")) {
+      return "buyer";
+    }
+    return "seller";
+  }, []);
+
+  // Fetch live authentication activity logs from Supabase scoped strictly to active deal & side
+  const fetchAuthLogs = useCallback(async (overrideDealId, overrideSide) => {
     try {
       setIsLoadingAuthLogs(true);
       let session = null;
@@ -54,6 +89,7 @@ export function ControlsAuditProvider({ children }) {
       const userId = session?.id || localStorage.getItem("userId") || "";
       const companyId = session?.company_id || localStorage.getItem("companyId") || "";
       const role = session?.role || localStorage.getItem("vdrRole") || "super_admin";
+      const dmsRole = session?.dms_role || session?.dmsRole || localStorage.getItem("dmsRole") || localStorage.getItem("userRole") || "";
       const sessionActiveDeal =
         session?.active_workspace_id ||
         session?.workspace_id ||
@@ -66,12 +102,16 @@ export function ControlsAuditProvider({ children }) {
           ? selectedDealId
           : sessionActiveDeal;
 
+      const currentSide = overrideSide !== undefined ? overrideSide : selectedSide;
+
       let url = "/api/control-audits/audit-trail";
       const params = new URLSearchParams();
       if (userId) params.append("userId", userId);
       if (companyId) params.append("companyId", companyId);
       if (role) params.append("role", role);
+      if (dmsRole) params.append("dmsRole", dmsRole);
       if (currentDeal) params.append("dealId", currentDeal);
+      if (currentSide && currentSide !== "all") params.append("side", currentSide);
 
       const queryStr = params.toString();
       if (queryStr) url += `?${queryStr}`;
@@ -81,6 +121,17 @@ export function ControlsAuditProvider({ children }) {
         const data = await res.json();
         if (data.success && Array.isArray(data.logs)) {
           setLiveAuthLogs(data.logs);
+        }
+        if (data.counts) {
+          setSideCounts(data.counts);
+        }
+        if (data.callerSide) {
+          setCallerSide(data.callerSide);
+          if (data.callerSide === "buyer") {
+            setSelectedSide("buyer");
+          } else if (data.callerSide === "seller") {
+            setSelectedSide("seller");
+          }
         }
         if (data.availableDeals && Array.isArray(data.availableDeals) && data.availableDeals.length > 0) {
           setDeals(data.availableDeals);
@@ -92,7 +143,7 @@ export function ControlsAuditProvider({ children }) {
     } finally {
       setIsLoadingAuthLogs(false);
     }
-  }, [selectedDealId]);
+  }, [selectedDealId, selectedSide]);
 
   useEffect(() => {
     fetchAuthLogs();
@@ -112,18 +163,49 @@ export function ControlsAuditProvider({ children }) {
     };
   }, [fetchAuthLogs]);
 
-  // Combined audit logs: live auth logs merged with other audit logs, deduplicated by id
+  // Combined audit logs: live auth logs merged with other audit logs, deduplicated by id & filtered by selectedSide
   const combinedAuditLogs = useMemo(() => {
     const seen = new Set();
     const result = [];
     for (const log of [...liveAuthLogs, ...auditLogs]) {
       if (log && log.id && !seen.has(log.id)) {
         seen.add(log.id);
-        result.push(log);
+        const logSide = log.side || (getRoleSide(log.userRole) === 'buyer' ? 'buyer' : 'seller');
+        const enriched = {
+          ...log,
+          side: logSide,
+          sideLabel: log.sideLabel || (logSide === 'buyer' ? 'Buyer Side' : 'Seller Side'),
+        };
+
+        if (selectedSide === 'all' || enriched.side === selectedSide) {
+          result.push(enriched);
+        }
       }
     }
     return result;
-  }, [liveAuthLogs, auditLogs]);
+  }, [liveAuthLogs, auditLogs, selectedSide, getRoleSide]);
+
+  // Filtered Roles based on selected party side
+  const filteredRoles = useMemo(() => {
+    if (selectedSide === "buyer") {
+      return MOCK_ROLES.filter((r) => getRoleSide(r.name) === "buyer");
+    }
+    if (selectedSide === "seller") {
+      return MOCK_ROLES.filter((r) => getRoleSide(r.name) === "seller");
+    }
+    return MOCK_ROLES;
+  }, [selectedSide, getRoleSide]);
+
+  // Filtered Users based on selected party side
+  const filteredUsers = useMemo(() => {
+    if (selectedSide === "buyer") {
+      return MOCK_USERS.filter((u) => getRoleSide(u.role) === "buyer");
+    }
+    if (selectedSide === "seller") {
+      return MOCK_USERS.filter((u) => getRoleSide(u.role) === "seller");
+    }
+    return MOCK_USERS;
+  }, [selectedSide, getRoleSide]);
 
   const [permissionsMatrix, setPermissionsMatrix] = useState(MOCK_PERMISSIONS_MATRIX);
   const [risks, setRisks] = useState(MOCK_RISKS);
@@ -851,6 +933,13 @@ export function ControlsAuditProvider({ children }) {
     setSelectedWorkspaceId,
     activeDeal,
 
+    // Party Side State
+    selectedSide,
+    setSelectedSide,
+    callerSide,
+    sideCounts,
+    getRoleSide,
+
     // Entities
     deals,
     stages,
@@ -865,8 +954,10 @@ export function ControlsAuditProvider({ children }) {
     isLoadingAuthLogs,
     refreshAuditLogs: fetchAuthLogs,
     permissionsMatrix,
-    roles: MOCK_ROLES,
-    users: MOCK_USERS,
+    roles: filteredRoles,
+    allRoles: MOCK_ROLES,
+    users: filteredUsers,
+    allUsers: MOCK_USERS,
     accessGrants,
     risks,
     reports,
