@@ -94,19 +94,20 @@ export default function ChannelSidebar() {
 
       {/* Tabs */}
       <Tabs defaultValue="channels" className="w-full flex-1 flex flex-col">
-        <div className="px-4 pt-3">
-          <TabsList className="w-full grid grid-cols-2">
+        <div className="px-3.5 pt-3">
+          <TabsList className="w-full grid grid-cols-2 bg-slate-100/80 p-1 rounded-xl h-9">
             <TabsTrigger value="channels">Group Channels</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="px-4 py-3">
+        <div className="px-3.5 py-2.5">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
               placeholder="Search groups..."
-              className="pl-9 h-9 bg-slate-50 border-slate-200 text-sm"
+              className="w-full pl-9 pr-3 h-9 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/90 focus:border-blue-500 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/15 transition-all shadow-2xs font-normal"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -142,15 +143,15 @@ export default function ChannelSidebar() {
                     href={`/communication/${channel.id}`}
                     className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
                       isActive
-                        ? 'bg-blue-50 text-blue-700 shadow-xs'
-                        : 'hover:bg-slate-50 text-slate-700'
+                        ? 'bg-blue-50/90 text-blue-900 border border-blue-200/70 shadow-2xs font-medium'
+                        : 'hover:bg-slate-50/90 text-slate-700 border border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-3 overflow-hidden min-w-0">
                       <div
                         className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${
                           isActive
-                            ? 'bg-blue-600 text-white font-bold'
+                            ? 'bg-blue-600 text-white font-bold shadow-xs'
                             : 'bg-slate-100 text-slate-500 font-semibold'
                         }`}
                       >
@@ -164,7 +165,7 @@ export default function ChannelSidebar() {
                         <div className="flex items-center gap-1.5">
                           <p
                             className={`text-sm font-semibold truncate ${
-                              isActive ? 'text-blue-700' : 'text-slate-800'
+                              isActive ? 'text-blue-900 font-bold' : 'text-slate-800'
                             }`}
                           >
                             {channel.name}
@@ -177,7 +178,7 @@ export default function ChannelSidebar() {
                       </div>
                     </div>
                     {channel.memberCount > 0 && (
-                      <span className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded-md bg-slate-100 shrink-0 ml-2">
+                      <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 shrink-0 ml-2">
                         {channel.memberCount}
                       </span>
                     )}

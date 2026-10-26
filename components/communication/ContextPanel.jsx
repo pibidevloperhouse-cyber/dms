@@ -41,17 +41,17 @@ export default function ContextPanel({ channel, group, members = [], showOnMobil
       </div>
 
       <Tabs defaultValue="members" className="flex-1 flex flex-col">
-        <div className="px-4 pt-3 border-b border-slate-100">
-          <TabsList className="w-full grid grid-cols-2 bg-transparent">
+        <div className="px-3.5 pt-3 pb-2 border-b border-slate-100">
+          <TabsList className="w-full grid grid-cols-2 bg-slate-100/80 p-1 rounded-xl h-9">
             <TabsTrigger
               value="members"
-              className="data-[state=active]:bg-slate-100 data-[state=active]:shadow-none text-xs font-semibold"
+              className="text-xs font-semibold rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800"
             >
               Members ({members.length})
             </TabsTrigger>
             <TabsTrigger
               value="about"
-              className="data-[state=active]:bg-slate-100 data-[state=active]:shadow-none text-xs font-semibold"
+              className="text-xs font-semibold rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800"
             >
               About
             </TabsTrigger>
