@@ -17,7 +17,8 @@ import {
   FileCheck2,
   AlertCircle,
   CheckSquare,
-  MessageSquare
+  MessageSquare,
+  Folder,
 } from 'lucide-react';
 
 export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
@@ -196,6 +197,20 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
             </span>
           </div>
         </div>
+
+        {/* Assigned Folder / Subfolder badge (Preparation Stage) */}
+        {(task.folder_name || task.assigned_folder) && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-teal-50/70 border border-teal-200/70 text-[11px] text-teal-900 mb-3">
+            <Folder className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+            <span className="font-semibold text-[#006666]">Folder:</span>
+            <span className="truncate font-medium text-slate-800">
+              {task.folder_name || task.assigned_folder}
+              {(task.subfolder_name || task.assigned_subfolder) && (
+                <span className="text-teal-700 font-semibold"> / {task.subfolder_name || task.assigned_subfolder}</span>
+              )}
+            </span>
+          </div>
+        )}
 
         {/* Subtasks Count Pill if present */}
         {displayedSubtasks && displayedSubtasks.length > 0 && (

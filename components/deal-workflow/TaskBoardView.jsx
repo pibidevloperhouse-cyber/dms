@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDealWorkflow } from './DealWorkflowContext';
 import TaskCard from './TaskCard';
 import {
@@ -15,10 +15,12 @@ import {
   Zap,
   ArrowRight,
   ChevronDown,
-  MessageSquare
+  MessageSquare,
+  Bell
 } from 'lucide-react';
 import { PRIORITIES, DEAL_STAGES, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import StageTracker from './StageTracker';
+import StageReviewNotification from './StageReviewNotification';
 import TaskCreationStudio from './TaskCreationStudio';
 import TaskCommunicationPanel from './TaskCommunicationPanel';
 
@@ -59,6 +61,8 @@ export default function TaskBoardView() {
     stageTrackerInfo,
     stageNotification,
     dismissStageNotification,
+    activeDealStage,
+    stageQuery,
   } = useDealWorkflow();
 
   // Task-Based Communication Overlay Drawer state
@@ -201,6 +205,42 @@ export default function TaskBoardView() {
     );
   }, [stageTrackerInfo, selectedDealStage]);
 
+  // Notification popover state & outside click handler
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    if (isNotificationOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotificationOpen]);
+
+  // Active notification metrics
+  const activeStageObj = stageTrackerInfo?.stages?.find(
+    (s) => normalizeStage(s.name) === normalizeStage(activeDealStage)
+  );
+  const activeStageTotalTasks = activeStageObj?.total || 0;
+  const activeStageDoneTasks = activeStageObj?.done || 0;
+  const isStageAllDone = activeStageTotalTasks > 0 && activeStageDoneTasks === activeStageTotalTasks;
+  const hasActiveQuery = Boolean(
+    stageQuery &&
+    stageQuery.status === 'PENDING_RESOLUTION' &&
+    normalizeStage(stageQuery.stage) === normalizeStage(activeDealStage)
+  );
+  const hasStageNotice = Boolean(stageNotification);
+
+  let notificationCount = 0;
+  if (isStageAllDone || hasActiveQuery) notificationCount += 1;
+  if (hasStageNotice) notificationCount += 1;
+
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-2">
 
@@ -217,8 +257,121 @@ export default function TaskBoardView() {
           </p>
         </div>
 
-        {/* Header Actions: Toggle Task Chat Overlay */}
+        {/* Header Actions: Notification Bell + Toggle Task Chat Overlay */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Notification Bell Button & Dropdown */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              type="button"
+              onClick={() => setIsNotificationOpen((prev) => !prev)}
+              className={`relative inline-flex items-center justify-center w-8 h-8 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-2xs ${isNotificationOpen
+                ? 'bg-teal-50 border-teal-300 text-[#006666]'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              title="Stage Notifications"
+            >
+              <Bell className="w-4 h-4 text-slate-700" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
+                  {notificationCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Popover */}
+            {isNotificationOpen && (
+              <div className="absolute right-0 top-full mt-2 z-50 w-[92vw] sm:w-[620px] md:w-[700px] bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 sm:p-4 animate-in fade-in zoom-in-95 duration-150">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-teal-50 text-[#006666] flex items-center justify-center border border-teal-200/80">
+                      <Bell className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900">Stage Notifications</span>
+                    {notificationCount > 0 && (
+                      <span className="text-[10px] font-bold bg-teal-100 text-[#006666] px-2 py-0.5 rounded-full">
+                        {notificationCount} active
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNotificationOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Notifications List (The cards in the user image) */}
+                <div className="space-y-3">
+                  {/* Card 1: Stage Review Notification / Super Admin Review Card / Query */}
+                  <StageReviewNotification inDropdown={true} />
+
+                  {/* Card 2: Stage Activated Banner */}
+                  {stageNotification && (
+                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl shadow-xs flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap mb-2">
+                            <span>Stage Activated:</span>
+                            <span className="text-[#006666] bg-slate-200 px-2 py-0.5 rounded-md font-extrabold text-xs">
+                              {stageNotification.stage}
+                            </span>
+                            <span className="text-[10px] text-slate-600 bg-white border border-slate-300 px-1.5 py-0.5 rounded-full font-medium">
+                              By Super Admin
+                            </span>
+                          </div>
+                          <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
+                            Super Admin has activated the <strong className="text-slate-800">{stageNotification.stage}</strong> stage. You can now enable the tasks you created for this stage in Task Creation!
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {trackingSection !== 'TASK_CREATION' && !isInternalUser && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsNotificationOpen(false);
+                              setTrackingSection('TASK_CREATION');
+                              if (setSelectedDealStage) {
+                                setSelectedDealStage(stageNotification.stage);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-[#006666] hover:bg-[#005555] text-white text-xs font-semibold rounded-lg shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Enable Tasks</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={dismissStageNotification}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-md transition-colors cursor-pointer"
+                          title="Dismiss notification"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Empty state if nothing active */}
+                  {notificationCount === 0 && (
+                    <div className="py-6 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-1.5">
+                      <Bell className="w-5 h-5 text-slate-300" />
+                      <p className="font-semibold text-slate-700">No active stage notifications</p>
+                      <p className="text-[11px] text-slate-400">
+                        Notifications for stage completions and activations will appear here.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => setIsChatPanelOpen(true)}
@@ -238,59 +391,6 @@ export default function TaskBoardView() {
       <div className="px-4 sm:px-6 lg:px-8 pt-1 pb-4 mb-1 sm:mb-1.5">
         <StageTracker />
       </div>
-
-      {/* ========================================================================= */}
-      {/* STAGE ACTIVATION NOTIFICATION BANNER */}
-      {/* ========================================================================= */}
-      {stageNotification && (
-        <div className="px-4 sm:px-6 lg:px-8 pt-1 pb-2 mb-2">
-          <div className="p-3 bg-gradient-to-r from-teal-50 via-emerald-50 to-teal-50 border border-teal-200/90 rounded-xl shadow-xs flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center gap-3 min-w-0">
-
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
-                  <span>Stage Activated:</span>
-                  <span className="text-[#006666] bg-teal-100/80 px-2 py-0.5 rounded-md font-extrabold text-xs">
-                    {stageNotification.stage}
-                  </span>
-                  <span className="text-[10px] text-teal-700 bg-white/80 border border-teal-200 px-1.5 py-0.5 rounded-full font-medium">
-                    By Super Admin
-                  </span>
-                </div>
-                <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
-                  Super Admin has activated the <strong className="text-slate-800">{stageNotification.stage}</strong> stage. You can now enable the tasks you created for this stage in Task Creation!
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {trackingSection !== 'TASK_CREATION' && !isInternalUser && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTrackingSection('TASK_CREATION');
-                    if (setSelectedDealStage) {
-                      setSelectedDealStage(stageNotification.stage);
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-[#006666] hover:bg-[#005555] text-white text-xs font-semibold rounded-lg shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Enable Tasks</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={dismissStageNotification}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-md transition-colors cursor-pointer"
-                title="Dismiss notification"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* VIEW SWITCH BAR (MATCHING NDA TABS STYLE) */}

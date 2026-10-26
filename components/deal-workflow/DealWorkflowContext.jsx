@@ -237,6 +237,15 @@ export const getStageIndex = (stage) => {
   return 0;
 };
 
+export const getNextStage = (stage) => {
+  const norm = normalizeStage(stage);
+  const idx = getStageIndex(norm);
+  if (idx < DEAL_STAGES.length - 1) {
+    return DEAL_STAGES[idx + 1];
+  }
+  return null;
+};
+
 // Tasks are loaded dynamically from the backend PostgreSQL database
 const INITIAL_DEMO_TASKS = [];
 
@@ -289,7 +298,7 @@ export function DealWorkflowProvider({ children }) {
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
   const [externalDepartments, setExternalDepartments] = useState(['Finance', 'Legal', 'Operations', 'General']);
-
+  const [dealFolders, setDealFolders] = useState([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isAuditModeActive, setIsAuditModeActive] = useState(false);
@@ -313,6 +322,7 @@ export function DealWorkflowProvider({ children }) {
   // ============================================================================
   const [activeDealStage, setActiveDealStage] = useState('Preparation');
   const [stageNotification, setStageNotification] = useState(null);
+  const [stageQuery, setStageQuery] = useState(null);
 
   // Load saved stage on client mount after hydration
   useEffect(() => {
@@ -321,6 +331,10 @@ export function DealWorkflowProvider({ children }) {
       if (saved && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(saved))) {
         setActiveDealStage(saved);
         setSelectedDealStage(saved);
+      }
+      const savedQuery = localStorage.getItem('dms_stage_query');
+      if (savedQuery) {
+        setStageQuery(JSON.parse(savedQuery));
       }
     } catch (e) {}
   }, []);
@@ -347,6 +361,10 @@ export function DealWorkflowProvider({ children }) {
           return prev;
         });
 
+        if (data.stageQuery !== undefined) {
+          setStageQuery(data.stageQuery);
+        }
+
         if (data.notificationPayload) {
           const isDismissed = typeof window !== 'undefined'
             ? localStorage.getItem(`dms_stage_dismissed_${data.notificationPayload.id}`)
@@ -371,6 +389,7 @@ export function DealWorkflowProvider({ children }) {
     const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(stageName)) || stageName;
     setActiveDealStage(matched);
     setSelectedDealStage(matched);
+    setStageQuery(null);
 
     // Automatically enable all tasks belonging to the newly activated stage in state
     setTasks((prev) =>
@@ -394,8 +413,10 @@ export function DealWorkflowProvider({ children }) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('dms_active_deal_stage', matched);
       localStorage.setItem('dms_stage_notification', JSON.stringify(notificationPayload));
+      localStorage.removeItem('dms_stage_query');
       window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
       window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
+      window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: null }));
     }
 
     try {
@@ -405,11 +426,101 @@ export function DealWorkflowProvider({ children }) {
         body: JSON.stringify({
           stage: matched,
           notificationPayload,
+          stageQuery: null,
         }),
       });
     } catch (err) {
       console.error('Error saving active stage to server:', err);
     }
+  };
+
+  // Super Admin stage review query handler (when results are not OK)
+  const submitStageQuery = async ({ stageName, queryText, targetTaskIds = [] }) => {
+    const normRole = normalizeRole(currentUser?.role);
+    if (normRole !== 'super_admin') {
+      alert('Only Super Admin can raise a stage review query.');
+      return false;
+    }
+    if (!queryText || !queryText.trim()) {
+      alert('Please enter your query or feedback description.');
+      return false;
+    }
+
+    const currentStageName = stageName || activeDealStage;
+    const queryPayload = {
+      id: `query_${Date.now()}`,
+      stage: currentStageName,
+      queryText: queryText.trim(),
+      queryBy: currentUser?.name || 'Super Admin',
+      createdAt: new Date().toISOString(),
+      status: 'PENDING_RESOLUTION',
+      targetTaskIds: Array.isArray(targetTaskIds) ? targetTaskIds : [],
+    };
+
+    setStageQuery(queryPayload);
+
+    // If specific tasks were selected for revision, reopen them
+    if (Array.isArray(targetTaskIds) && targetTaskIds.length > 0) {
+      for (const tId of targetTaskIds) {
+        try {
+          await sendBack(tId, `Super Admin Stage Review Query: ${queryText.trim()}`);
+        } catch (e) {
+          console.error('Error reopening task for stage query:', e);
+        }
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dms_stage_query', JSON.stringify(queryPayload));
+      window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: queryPayload }));
+    }
+
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: activeDealStage,
+          stageQuery: queryPayload,
+        }),
+      });
+    } catch (e) {
+      console.error('Error saving stage query to server:', e);
+    }
+
+    return true;
+  };
+
+  // Clear / Resolve Super Admin stage review query
+  const clearStageQuery = async () => {
+    setStageQuery(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dms_stage_query');
+      window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: null }));
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: activeDealStage,
+          stageQuery: null,
+        }),
+      });
+    } catch (e) {
+      console.error('Error clearing stage query on server:', e);
+    }
+  };
+
+  // Super Admin approves results and enables the next stage
+  const approveStageAndAdvance = async (nextStageName) => {
+    const normRole = normalizeRole(currentUser?.role);
+    if (normRole !== 'super_admin') {
+      alert('Only Super Admin has authority to enable stages.');
+      return;
+    }
+    await clearStageQuery();
+    await activateStage(nextStageName);
   };
 
   const dismissStageNotification = () => {
@@ -452,6 +563,10 @@ export function DealWorkflowProvider({ children }) {
       }
     };
 
+    const handleQueryEvent = (e) => {
+      setStageQuery(e.detail || null);
+    };
+
     const handleStorageEvent = (e) => {
       if (e.key === 'dms_active_deal_stage' && e.newValue) {
         setActiveDealStage(e.newValue);
@@ -466,15 +581,26 @@ export function DealWorkflowProvider({ children }) {
           }
         } catch (err) {}
       }
+      if (e.key === 'dms_stage_query') {
+        if (e.newValue) {
+          try {
+            setStageQuery(JSON.parse(e.newValue));
+          } catch (err) {}
+        } else {
+          setStageQuery(null);
+        }
+      }
     };
 
     window.addEventListener('dms_active_stage_changed', handleStageEvent);
     window.addEventListener('dms_stage_notification_event', handleNoticeEvent);
+    window.addEventListener('dms_stage_query_event', handleQueryEvent);
     window.addEventListener('storage', handleStorageEvent);
 
     return () => {
       window.removeEventListener('dms_active_stage_changed', handleStageEvent);
       window.removeEventListener('dms_stage_notification_event', handleNoticeEvent);
+      window.removeEventListener('dms_stage_query_event', handleQueryEvent);
       window.removeEventListener('storage', handleStorageEvent);
     };
   }, []);
@@ -568,6 +694,29 @@ export function DealWorkflowProvider({ children }) {
     }
   };
 
+  const fetchDealFolders = async (customWsId = null) => {
+    try {
+      const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      const companyId = session?.company_id || '';
+      const wsId = customWsId || session?.active_workspace_id || session?.workspace_id || '';
+
+      const params = new URLSearchParams();
+      if (companyId) params.set('companyId', companyId);
+      if (wsId) params.set('workspaceId', wsId);
+
+      const res = await fetch(`/api/deal-workflow/folders?${params.toString()}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.folders)) {
+        setDealFolders(data.folders);
+        return data.folders;
+      }
+    } catch (err) {
+      console.error('Error loading deal workflow folders:', err);
+    }
+    return [];
+  };
+
   useEffect(() => {
     try {
       // Clear legacy dummy tasks from localStorage
@@ -595,6 +744,7 @@ export function DealWorkflowProvider({ children }) {
     fetchTasks(true);
     fetchDepartmentsAndGroups();
     fetchActiveStage();
+    fetchDealFolders();
 
     // Poll active stage and tasks every 3 seconds for seamless cross-user/session synchronization
     const syncInterval = setInterval(() => {
@@ -2135,6 +2285,12 @@ export function DealWorkflowProvider({ children }) {
         DEAL_STAGES,
         normalizeStage,
         getStageIndex,
+        getNextStage,
+        stageQuery,
+        setStageQuery,
+        submitStageQuery,
+        clearStageQuery,
+        approveStageAndAdvance,
         // Actions
         activeDealStage,
         setActiveDealStage,
@@ -2152,6 +2308,8 @@ export function DealWorkflowProvider({ children }) {
         toggleSubtask,
         addComment,
         deleteTask,
+        dealFolders,
+        fetchFolders: fetchDealFolders,
         departments,
         externalDepartments,
         workflowGroups,
