@@ -171,6 +171,73 @@ export default function ChannelPage({ params }) {
     }
   };
 
+  // Edit message
+  const handleEditMessage = async (messageId, newText) => {
+    if (!messageId || !newText?.trim() || !session?.id) return;
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, messageText: newText.trim(), text: newText.trim(), isEdited: true }
+          : m
+      )
+    );
+
+    try {
+      const res = await fetch('/api/communication/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          messageText: newText.trim(),
+          userId: session.id,
+          session,
+          workspaceId: session.active_workspace_id || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Failed to edit message');
+        fetchMessages(); // Rollback
+      }
+    } catch (err) {
+      console.error('Error editing message:', err);
+      alert('Error editing message: ' + err.message);
+      fetchMessages(); // Rollback
+    }
+  };
+
+  // Delete message ('me' vs 'everyone')
+  const handleDeleteMessage = async (messageId, type = 'me') => {
+    if (!messageId || !session?.id) return;
+
+    // Optimistic removal
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+    try {
+      const activeWorkspaceId = session.active_workspace_id || '';
+      const url = `/api/communication/messages?messageId=${encodeURIComponent(
+        messageId
+      )}&userId=${encodeURIComponent(session.id)}&type=${encodeURIComponent(type)}${
+        activeWorkspaceId ? `&workspaceId=${encodeURIComponent(activeWorkspaceId)}` : ''
+      }`;
+
+      const res = await fetch(url, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Failed to delete message');
+        fetchMessages(); // Rollback
+      }
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      alert('Error deleting message: ' + err.message);
+      fetchMessages(); // Rollback
+    }
+  };
+
   // Loading state
   if (loading && !channelData && !authError) {
     return (
@@ -267,7 +334,11 @@ export default function ChannelPage({ params }) {
             </p>
           </div>
         ) : (
-          <MessageTimeline messages={messages} />
+          <MessageTimeline
+            messages={messages}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+          />
         )}
 
         <RichComposer onSend={handleSendMessage} disabled={sending} members={members} />
