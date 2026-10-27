@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
 import { dmsDealProposals, dmsTeasers, dmsProjects, users, dmsDeals, companies } from '../../../../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, or } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
@@ -44,7 +44,10 @@ export async function GET(req) {
       .leftJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
       .leftJoin(users, eq(dmsDealProposals.buyerId, users.id))
       .leftJoin(companies, eq(users.companyId, companies.id))
-      .leftJoin(dmsDeals, eq(dmsDeals.proposalId, dmsDealProposals.id));
+      .leftJoin(dmsDeals, or(
+        eq(dmsDeals.proposalId, dmsDealProposals.id),
+        and(eq(dmsDeals.projectId, dmsProjects.id), eq(dmsDeals.buyerId, dmsDealProposals.buyerId))
+      ));
 
     let proposals;
     if (buyerId && role !== 'admin') {

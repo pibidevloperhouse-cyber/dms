@@ -1,6 +1,6 @@
 import { db } from '../../../../../db';
-import { dmsDeals } from '../../../../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { dmsDeals, dmsDealProposals, dmsTeasers, users, dmsProjects } from '../../../../../db/schema';
+import { eq, and, or } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -18,10 +18,37 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
+    let targetProjectId = projectId;
+    let targetBuyerId = buyerId;
+    let targetDealName = 'Deal';
+
+    // If proposalId is available, look up proposal details to ensure targetProjectId and targetBuyerId are resolved
+    if (proposalId) {
+      try {
+        const [prop] = await db.select({
+          buyerId: dmsDealProposals.buyerId,
+          projectId: dmsTeasers.projectId,
+          projectName: dmsProjects.name
+        })
+        .from(dmsDealProposals)
+        .leftJoin(dmsTeasers, eq(dmsDealProposals.teaserId, dmsTeasers.id))
+        .leftJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
+        .where(eq(dmsDealProposals.id, proposalId));
+
+        if (prop) {
+          if (!targetBuyerId) targetBuyerId = prop.buyerId;
+          if (!targetProjectId) targetProjectId = prop.projectId;
+          if (prop.projectName) targetDealName = `${prop.projectName} Deal`;
+        }
+      } catch (err) {
+        console.warn("Could not lookup proposal details:", err);
+      }
+    }
+
     let signatureUrl = signatureData; // fallback
 
     // If it's a base64 image
-    if (signatureData.startsWith('data:image')) {
+    if (signatureData && signatureData.startsWith('data:image')) {
       const matches = signatureData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
         const imageType = matches[1]; 
@@ -53,11 +80,14 @@ export async function POST(req) {
 
     let updatedDeal = null;
 
+    // 1. Try finding and updating by dealId
     if (dealId) {
       const [deal] = await db.update(dmsDeals)
         .set({ 
           ndaStatus: 'signed', 
           ndaSignature: signatureUrl,
+          ...(proposalId ? { proposalId } : {}),
+          status: 'active',
           updatedAt: new Date()
         })
         .where(eq(dmsDeals.id, dealId))
@@ -65,11 +95,13 @@ export async function POST(req) {
       updatedDeal = deal;
     }
 
+    // 2. Try finding and updating by proposalId
     if (!updatedDeal && proposalId) {
       const [deal] = await db.update(dmsDeals)
         .set({ 
           ndaStatus: 'signed', 
           ndaSignature: signatureUrl,
+          status: 'active',
           updatedAt: new Date()
         })
         .where(eq(dmsDeals.proposalId, proposalId))
@@ -77,15 +109,32 @@ export async function POST(req) {
       updatedDeal = deal;
     }
 
-    if (!updatedDeal && projectId && buyerId) {
+    // 3. Try finding and updating by projectId and buyerId
+    if (!updatedDeal && targetProjectId && targetBuyerId) {
       const [deal] = await db.update(dmsDeals)
         .set({ 
           ndaStatus: 'signed', 
           ndaSignature: signatureUrl,
+          ...(proposalId ? { proposalId } : {}),
+          status: 'active',
           updatedAt: new Date()
         })
-        .where(and(eq(dmsDeals.projectId, projectId), eq(dmsDeals.buyerId, buyerId)))
+        .where(and(eq(dmsDeals.projectId, targetProjectId), eq(dmsDeals.buyerId, targetBuyerId)))
         .returning();
+      updatedDeal = deal;
+    }
+
+    // 4. If no deal existed, auto-insert it so the buyer has an active deal with signed NDA!
+    if (!updatedDeal && targetProjectId && targetBuyerId) {
+      const [deal] = await db.insert(dmsDeals).values({
+        projectId: targetProjectId,
+        buyerId: targetBuyerId,
+        proposalId: proposalId || null,
+        dealName: targetDealName,
+        ndaStatus: 'signed',
+        ndaSignature: signatureUrl,
+        status: 'active'
+      }).returning();
       updatedDeal = deal;
     }
 

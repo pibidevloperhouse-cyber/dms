@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaBuilding, FaMapMarkerAlt, FaUser, FaEnvelope, FaFileAlt, FaSlidersH, FaCommentDots, FaLock } from "react-icons/fa";
+import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaBuilding, FaMapMarkerAlt, FaUser, FaEnvelope, FaFileAlt, FaSlidersH, FaCommentDots, FaLock, FaClock, FaSpinner, FaExternalLinkAlt, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
@@ -107,6 +107,60 @@ function DealDashboardContent() {
 
   // Stage Block Modal State
   const [stageBlockModal, setStageBlockModal] = useState({ isOpen: false, dealName: '' });
+
+  // Storage & Vault Modals
+  const VAULT_STORAGE_PLANS = [
+    {
+      id: 'free',
+      name: 'Free Trial Vault',
+      storageLimitMb: 1024,
+      storageDisplay: '1 GB',
+      price: '$0',
+      period: '/trial',
+      maxUsers: 5,
+      description: 'Trial data room for initial evaluation',
+      features: ['1 GB Secure Encrypted Storage', 'Up to 5 Users', 'Standard NDA Tracking', 'Standard Support'],
+      tag: 'Trial'
+    },
+    {
+      id: 'pro',
+      name: 'Pro Deal Vault',
+      storageLimitMb: 51200,
+      storageDisplay: '50 GB',
+      price: '$299',
+      period: '/month',
+      maxUsers: 25,
+      description: 'For active M&A deal rooms with multiple bidders',
+      features: ['50 GB High-Speed Vault', 'Up to 25 Users', 'Dynamic Watermark & NDA Tracking', 'Priority Support', 'Full Compliance Audit'],
+      isPopular: true,
+      tag: 'Recommended'
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise VDR Vault',
+      storageLimitMb: 1048576,
+      storageDisplay: '1 TB',
+      price: '$999',
+      period: '/month',
+      maxUsers: 'Unlimited',
+      description: 'Institutional control and maximum security',
+      features: ['1 TB Encrypted Storage', 'Unlimited Users', 'Granular Permissions & Redaction', '24/7 Dedicated Account Manager'],
+      tag: 'Enterprise'
+    }
+  ];
+
+  const [storageModal, setStorageModal] = useState({ isOpen: false, proposal: null });
+  const [selectedPlanId, setSelectedPlanId] = useState('pro');
+  const [isSubmittingVaultRequest, setIsSubmittingVaultRequest] = useState(false);
+  const [pendingVaultModal, setPendingVaultModal] = useState({ isOpen: false, deal: null, isBuyer: false });
+  const [vaultSuccessModal, setVaultSuccessModal] = useState({
+    isOpen: false,
+    planName: '',
+    storageDisplay: '',
+    dealName: '',
+    buyerCompany: '',
+    error: ''
+  });
 
   // Features Modal State
   const [isManageFeaturesModalOpen, setIsManageFeaturesModalOpen] = useState(false);
@@ -267,6 +321,75 @@ function DealDashboardContent() {
     } catch (err) {
       console.error(err);
       alert("Error creating deal");
+    }
+  };
+
+  const handleAcceptProposalWithStorage = async (proposal, plan) => {
+    if (!proposal || !plan) return;
+    setIsSubmittingVaultRequest(true);
+    try {
+      const sellerName = localStorage.getItem('userName') || 'Seller Admin';
+      const sellerEmail = localStorage.getItem('userEmail') || 'seller@vdr.com';
+
+      const res = await fetch('/api/dms/proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalId: proposal.id,
+          action: 'accept',
+          projectId,
+          projectName,
+          storagePlan: plan.name,
+          storageLimitMb: plan.storageLimitMb,
+          sellerName,
+          sellerEmail
+        })
+      });
+
+      if (res.ok) {
+        setRequests(requests.map(r => r.id === proposal.id ? { ...r, status: 'approved' } : r));
+        try { window.dispatchEvent(new Event('deal-proposal-submitted')); } catch(e){}
+
+        // Refresh deals
+        const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
+        const dealsData = await dealsRes.json();
+        setDeals(dealsData.deals || []);
+
+        setStorageModal({ isOpen: false, proposal: null });
+        setSelectedRequest(null);
+        setVaultSuccessModal({
+          isOpen: true,
+          planName: plan.name,
+          storageDisplay: plan.storageDisplay,
+          dealName: `${proposal.company || 'Buyer'} Deal`,
+          buyerCompany: proposal.company || proposal.fullName || 'Buyer Organization',
+          error: ''
+        });
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setStorageModal({ isOpen: false, proposal: null });
+        setVaultSuccessModal({
+          isOpen: true,
+          planName: plan.name,
+          storageDisplay: plan.storageDisplay,
+          dealName: `${proposal.company || 'Buyer'} Deal`,
+          buyerCompany: proposal.company || proposal.fullName || 'Buyer Organization',
+          error: errData.error || "Failed to submit storage vault request"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setStorageModal({ isOpen: false, proposal: null });
+      setVaultSuccessModal({
+        isOpen: true,
+        planName: plan.name,
+        storageDisplay: plan.storageDisplay,
+        dealName: `${proposal.company || 'Buyer'} Deal`,
+        buyerCompany: proposal.company || proposal.fullName || 'Buyer Organization',
+        error: err.message || "Error submitting storage vault request"
+      });
+    } finally {
+      setIsSubmittingVaultRequest(false);
     }
   };
 
@@ -679,6 +802,21 @@ function DealDashboardContent() {
                         const actualVdrRole = localStorage.getItem('vdrRole') || (dmsRole === 'seller' ? 'super_admin' : 'guest_admin');
                         const isBuyerRole = userRole === 'buyer' || dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(actualVdrRole) || ['guest_admin', 'guest_lead', 'external_user', 'buyer'].includes(vdrRole);
 
+                        // Block entering if deal is pending Business Owner approval
+                        if (deal.status === 'pending_approval') {
+                          setPendingVaultModal({
+                            isOpen: true,
+                            deal: deal,
+                            isBuyer: isBuyerRole
+                          });
+                          return;
+                        }
+
+                        if (deal.status === 'rejected') {
+                          alert('This deal vault request was rejected by the Business Owner. Please contact platform administration.');
+                          return;
+                        }
+
                         // If deal is in Preparation stage, block buyer & buyer team from entering
                         if (isBuyerRole) {
                           const stage = (deal.currentStage || 'Preparation').toString().trim().toLowerCase();
@@ -717,8 +855,15 @@ function DealDashboardContent() {
                       className="h-44 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] transition-all cursor-pointer group"
                     >
                       <div className="flex justify-between items-start mb-auto">
-                        <span className="px-2 py-0.5 bg-[#fff8e6] text-[#b48629] text-[9px] font-bold rounded">
-                          {deal.status}
+                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded flex items-center gap-1.5 ${
+                          deal.status === 'pending_approval'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : deal.status === 'rejected'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-[#fff8e6] text-[#b48629]'
+                        }`}>
+                          {deal.status === 'pending_approval' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+                          {deal.status === 'pending_approval' ? 'Pending BO Approval' : deal.status === 'rejected' ? 'Vault Rejected' : deal.status}
                         </span>
 
                         <div className="relative">
@@ -750,11 +895,16 @@ function DealDashboardContent() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-center justify-center flex-1 gap-2 pb-2">
+                      <div className="flex flex-col items-center justify-center flex-1 gap-1 pb-2">
                         <div className="w-12 h-12 rounded-full bg-[#f4f7f9] flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
-                          <FaShieldAlt className="text-2xl text-[#b48629]" />
+                          <FaShieldAlt className={`text-2xl ${deal.status === 'pending_approval' ? 'text-amber-500' : 'text-[#b48629]'}`} />
                         </div>
-                        <span className="font-bold text-gray-800 text-sm">{deal.name || 'Unnamed Deal'}</span>
+                        <span className="font-bold text-gray-800 text-sm text-center line-clamp-1">{deal.name || 'Unnamed Deal'}</span>
+                        {deal.storagePlan && (
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            {deal.storagePlan}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )))}
@@ -885,12 +1035,15 @@ function DealDashboardContent() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedRequest(req);
+                                      setStorageModal({
+                                        isOpen: true,
+                                        proposal: req
+                                      });
                                       setOpenProposalDropdownId(null);
                                     }}
                                     className="w-full text-left px-4 py-2 text-sm text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-colors font-medium"
                                   >
-                                    Approve
+                                    Approve & Assign Storage
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -1242,32 +1395,15 @@ function DealDashboardContent() {
                       Reject Request
                     </button>
                     <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/dms/proposals', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ proposalId: selectedRequest.id, action: 'accept', projectId })
-                          });
-                          if (res.ok) {
-                            setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'approved' } : r));
-                            try { window.dispatchEvent(new Event('deal-proposal-submitted')); } catch(e){}
-                            // Refresh deals
-                            const dealsRes = await fetch(`/api/dms/deals?projectId=${projectId}`);
-                            const dealsData = await dealsRes.json();
-                            setDeals(dealsData.deals || []);
-
-                            setSelectedRequest(null);
-                            alert(`Deal created automatically for ${selectedRequest.company}.`);
-                          }
-                        } catch (err) {
-                          console.error(err);
-                          alert("Failed to accept proposal");
-                        }
+                      onClick={() => {
+                        setStorageModal({
+                          isOpen: true,
+                          proposal: selectedRequest
+                        });
                       }}
                       className="px-6 py-2.5 bg-[#00c875] hover:bg-[#00b067] text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2 cursor-pointer"
                     >
-                      <FaCheck className="text-xs" /> Accept & Create Deal
+                      <FaCheck className="text-xs" /> Accept & Choose Storage Plan
                     </button>
                   </>
                 )}
@@ -1578,6 +1714,315 @@ function DealDashboardContent() {
                 className="px-5 py-2 bg-[#0b1120] hover:bg-gray-800 text-white rounded-lg font-bold transition-colors text-sm shadow-sm flex items-center gap-2"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Select Storage Plan Modal (Proposal Approval) */}
+      {storageModal.isOpen && storageModal.proposal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[80] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-xl text-[#00c875]">
+                  <FaShieldAlt />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Initialize Deal VDR Vault</h3>
+                  <p className="text-xs text-gray-300 mt-0.5">
+                    Select a storage quota for <strong className="text-white">{storageModal.proposal.company || storageModal.proposal.fullName}</strong> to submit for Business Owner approval.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setStorageModal({ isOpen: false, proposal: null })}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Plan Cards Grid */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {VAULT_STORAGE_PLANS.map((plan) => {
+                  const isSelected = selectedPlanId === plan.id;
+                  return (
+                    <div
+                      key={plan.id}
+                      onClick={() => setSelectedPlanId(plan.id)}
+                      className={`cursor-pointer rounded-xl p-4 border transition-all flex flex-col justify-between relative ${
+                        isSelected
+                          ? 'border-[#00c875] bg-[#e6fbf2]/40 shadow-md ring-2 ring-[#00c875]/20'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-xs'
+                      }`}
+                    >
+                      {plan.tag && (
+                        <span className={`absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          plan.isPopular ? 'bg-[#00c875] text-white shadow-xs' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {plan.tag}
+                        </span>
+                      )}
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 mb-1">{plan.name}</h4>
+                        <div className="flex items-baseline gap-1 mb-2">
+                          <span className="text-2xl font-extrabold text-gray-900">{plan.price}</span>
+                          <span className="text-xs text-gray-500">{plan.period}</span>
+                        </div>
+                        <div className="inline-block px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 text-xs font-bold mb-3">
+                          <FaDatabase className="inline mr-1 text-[10px] text-gray-500" />
+                          {plan.storageDisplay} Vault Quota
+                        </div>
+                        <p className="text-[11px] text-gray-500 mb-3">{plan.description}</p>
+                        <ul className="space-y-1.5 text-[11px] text-gray-600">
+                          {plan.features.map((feat, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <FaCheck className="text-[#00c875] text-[10px] shrink-0 mt-0.5" />
+                              <span>{feat}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <span className={`w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center transition-colors ${
+                          isSelected ? 'bg-[#00c875] text-white shadow-xs' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {isSelected ? 'Selected' : 'Select Plan'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Business Owner Approval Notice */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-800">
+                <FaClock className="text-amber-500 text-sm shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Business Owner Authorization Required:</span> After submitting, this deal vault request will appear under <strong className="text-amber-900 font-semibold">"Pending Workspace Requests"</strong> in the Business Owner Command Center. The Data Room documents and buyer NDA signing will remain securely locked until executive approval is completed.
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setStorageModal({ isOpen: false, proposal: null })}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-semibold text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingVaultRequest}
+                onClick={() => {
+                  const plan = VAULT_STORAGE_PLANS.find(p => p.id === selectedPlanId) || VAULT_STORAGE_PLANS[1];
+                  handleAcceptProposalWithStorage(storageModal.proposal, plan);
+                }}
+                className="px-6 py-2.5 bg-[#00c875] hover:bg-[#00b067] disabled:opacity-50 text-white rounded-lg font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                {isSubmittingVaultRequest ? (
+                  <>
+                    <FaSpinner className="animate-spin text-xs" /> Submitting Request...
+                  </>
+                ) : (
+                  <>
+                    <FaCheck className="text-xs" /> Submit for Business Owner Approval
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Sleek Vault Request Alert Modal */}
+      {vaultSuccessModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[80] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 p-6 md:p-8 text-center space-y-6 relative animate-in zoom-in-95 duration-200">
+            {/* Close X */}
+            <button
+              onClick={() => setVaultSuccessModal(prev => ({ ...prev, isOpen: false }))}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <FaTimes />
+            </button>
+
+            {vaultSuccessModal.error ? (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 text-red-500 flex items-center justify-center mx-auto text-2xl shadow-xs">
+                  <FaExclamationTriangle />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Request Failed</h3>
+                  <p className="text-xs text-red-500 mt-2 max-w-sm mx-auto leading-relaxed">
+                    {vaultSuccessModal.error}
+                  </p>
+                </div>
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={() => setVaultSuccessModal(prev => ({ ...prev, isOpen: false }))}
+                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Header Icon & Status Pill */}
+                <div className="space-y-3">
+                  <div className="relative inline-flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#00c875] flex items-center justify-center text-3xl shadow-sm">
+                      <FaCheckCircle className="animate-in zoom-in duration-300" />
+                    </div>
+                  </div>
+                  <div className="flex justify-center">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Storage Plan Requested
+                    </span>
+                  </div>
+                </div>
+
+                {/* Title & Subtitle */}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Deal Vault Created!</h3>
+                  <p className="text-xs text-gray-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+                    The proposal has been accepted and storage has been reserved. The deal is currently in <strong className="text-amber-600 font-semibold">Pending BO Approval</strong> status and will unlock automatically once approved.
+                  </p>
+                </div>
+
+                {/* Request Overview Card */}
+                <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-200/70 text-xs text-left space-y-3">
+                  <div className="flex justify-between items-center pb-2.5 border-b border-gray-200/50">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <FaBuilding className="text-gray-400" /> Buyer Organization
+                    </span>
+                    <span className="font-bold text-gray-900">{vaultSuccessModal.buyerCompany}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center pb-2.5 border-b border-gray-200/50">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <FaDatabase className="text-gray-400" /> Requested Plan
+                    </span>
+                    <span className="font-bold text-[#00c875] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {vaultSuccessModal.planName} ({vaultSuccessModal.storageDisplay})
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <FaClock className="text-gray-400" /> Approval Status
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Pending Business Owner
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step Flow indicator */}
+                <div className="bg-slate-900 text-white rounded-xl p-3.5 text-left text-xs space-y-2">
+                  <p className="font-semibold text-slate-300 text-[11px] uppercase tracking-wider">Workflow Progress:</p>
+                  <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">✓</span>
+                    <span>Proposal accepted & storage quota requested</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-300 text-[11px] font-medium">
+                    <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[10px]">2</span>
+                    <span>Business Owner authorizes vault quota in Command Center</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                    <span className="w-4 h-4 rounded-full bg-slate-800 text-slate-500 font-bold flex items-center justify-center text-[10px]">3</span>
+                    <span>Data Room documents & buyer NDA automatically unlock</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                  <Link
+                    href="/business-owner/workspace-requests"
+                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    View in Command Center <FaExternalLinkAlt className="text-[10px]" />
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setVaultSuccessModal(prev => ({ ...prev, isOpen: false }));
+                      setActiveTab('deals');
+                    }}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-[#00c875] hover:bg-[#00b067] text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FaCheck className="text-xs" /> View Deals Dashboard
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pending Vault Modal (When clicking a locked deal) */}
+      {pendingVaultModal.isOpen && pendingVaultModal.deal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[80] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-gray-100 p-6 text-center space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center mx-auto text-2xl shadow-xs">
+              <FaClock className="animate-pulse" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">VDR Vault Pending Approval</h3>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                {pendingVaultModal.isBuyer ? (
+                  <>
+                    The seller is currently provisioning the Virtual Data Room storage for <strong className="text-gray-800">{pendingVaultModal.deal.name}</strong>. Access to documents and NDA signing will unlock as soon as vault initialization is approved by the Business Owner.
+                  </>
+                ) : (
+                  <>
+                    Your storage quota request for <strong className="text-gray-800">{pendingVaultModal.deal.name}</strong> has been submitted. The data room vault is currently locked awaiting executive approval from the Business Owner.
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-xs text-left space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Deal Name:</span>
+                <span className="font-bold text-gray-800">{pendingVaultModal.deal.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Requested Plan:</span>
+                <span className="font-bold text-[#00c875]">{pendingVaultModal.deal.storagePlan || 'Pro Deal Vault (50 GB)'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Vault Status:</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Under Executive Review
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {!pendingVaultModal.isBuyer && (
+                <Link
+                  href="/business-owner/workspace-requests"
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                >
+                  Open in Command Center <FaExternalLinkAlt className="text-[10px]" />
+                </Link>
+              )}
+              <button
+                onClick={() => setPendingVaultModal({ isOpen: false, deal: null, isBuyer: false })}
+                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
