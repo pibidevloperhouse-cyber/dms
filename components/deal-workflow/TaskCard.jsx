@@ -195,7 +195,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
               Due Date:
             </span>
             <span className="font-medium text-slate-700 text-[11px]">
-              {task.due_date}
+              {task.due_date || <span className="text-slate-400 font-normal">Not set</span>}
             </span>
           </div>
         </div>

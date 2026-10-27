@@ -67,6 +67,27 @@ export default function CreateTaskModal() {
   const [subtaskDueDate, setSubtaskDueDate] = useState('');
   const [subtaskAttachments, setSubtaskAttachments] = useState([]);
 
+  // Helper to normalize dates to YYYY-MM-DD for date inputs
+  const normalizeDateForInput = (dateVal) => {
+    if (!dateVal) return '';
+    const str = String(dateVal).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+      const day = dmyMatch[1].padStart(2, '0');
+      const month = dmyMatch[2].padStart(2, '0');
+      const year = dmyMatch[3];
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      try {
+        return parsed.toISOString().split('T')[0];
+      } catch (e) {}
+    }
+    return '';
+  };
+
   // Helper to resolve group's normalized role
   const resolveGroupRole = (g) => {
     if (g?.role) return normalizeRole(g.role);
@@ -815,18 +836,31 @@ export default function CreateTaskModal() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Due date
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <input
-                    type={dueDate ? "date" : "text"}
-                    onFocus={(e) => (e.target.type = "date")}
-                    onBlur={(e) => {
-                      if (!e.target.value) e.target.type = "text";
-                    }}
-                    value={dueDate}
+                    type="date"
+                    value={normalizeDateForInput(dueDate)}
                     onChange={(e) => setDueDate(e.target.value)}
-                    placeholder="dd-mm-yyyy"
-                    className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all placeholder:text-slate-400 font-sans"
+                    onClick={(e) => {
+                      try {
+                        e.target.showPicker?.();
+                      } catch (err) {}
+                    }}
+                    className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all font-sans cursor-pointer"
                   />
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDueDate('');
+                      }}
+                      className="absolute right-8 text-slate-400 hover:text-slate-600 p-1 text-xs transition-colors cursor-pointer"
+                      title="Clear due date"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1088,18 +1122,31 @@ export default function CreateTaskModal() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Due date
                   </label>
-                  <div className="relative">
+                  <div className="relative flex items-center">
                     <input
-                      type={subtaskDueDate ? "date" : "text"}
-                      onFocus={(e) => (e.target.type = "date")}
-                      onBlur={(e) => {
-                        if (!e.target.value) e.target.type = "text";
-                      }}
-                      value={subtaskDueDate}
+                      type="date"
+                      value={normalizeDateForInput(subtaskDueDate)}
                       onChange={(e) => setSubtaskDueDate(e.target.value)}
-                      placeholder="dd-mm-yyyy"
-                      className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all placeholder:text-slate-400 font-sans"
+                      onClick={(e) => {
+                        try {
+                          e.target.showPicker?.();
+                        } catch (err) {}
+                      }}
+                      className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all font-sans cursor-pointer"
                     />
+                    {subtaskDueDate && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSubtaskDueDate('');
+                        }}
+                        className="absolute right-8 text-slate-400 hover:text-slate-600 p-1 text-xs transition-colors cursor-pointer"
+                        title="Clear due date"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

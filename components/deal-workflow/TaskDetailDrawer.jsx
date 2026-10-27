@@ -955,7 +955,7 @@ export default function TaskDetailDrawer() {
                 <div className="grid grid-cols-3 py-2">
                   <span className="text-slate-500 font-medium">Due date</span>
                   <span className="col-span-2 text-slate-800 font-semibold">
-                    {selectedTask.due_date}
+                    {selectedTask.due_date || <span className="text-slate-400 font-normal">Not set</span>}
                   </span>
                 </div>
 
