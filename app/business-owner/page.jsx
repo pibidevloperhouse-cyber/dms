@@ -117,7 +117,7 @@ export default function BusinessOwnerOverviewPage() {
             </div>
           </div>
           <Link
-            href="/admin/workspace-requests"
+            href="/business-owner/workspace-requests"
             className="px-5 py-2.5 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white font-semibold text-sm rounded-xl transition-all shadow-2xs shrink-0"
           >
             Review Requests

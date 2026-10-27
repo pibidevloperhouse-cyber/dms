@@ -83,24 +83,61 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Proposal not found' }, { status: 404 });
     }
 
-    // If accepted, auto-create the Deal!
+    // If accepted, auto-create the Deal in 'pending_approval' status and request vault from Business Owner!
     if (action === 'accept') {
       const [buyer] = await db.select().from(users).where(eq(users.id, updatedProposal.buyerId));
       const companyName = buyer?.companyName || buyer?.name || 'Unknown Buyer';
+
+      const storagePlan = data.storagePlan || 'Pro Deal Vault (50 GB)';
+      const storageLimitMb = Number(data.storageLimitMb) || 51200;
+      const sellerName = data.sellerName || 'Seller Admin';
+      const sellerEmail = data.sellerEmail || 'seller@vdr.com';
+      const projectName = data.projectName || 'Project';
 
       // Check if deal already exists to prevent duplicates
       const [existingDeal] = await db.select().from(dmsDeals)
         .where(and(eq(dmsDeals.projectId, projectId), eq(dmsDeals.buyerId, updatedProposal.buyerId)));
       
+      let dealId;
       if (!existingDeal) {
-        await db.insert(dmsDeals).values({
+        const [insertedDeal] = await db.insert(dmsDeals).values({
           projectId,
           buyerId: updatedProposal.buyerId,
           proposalId: updatedProposal.id,
           dealName: `${companyName} Deal`,
           ndaStatus: 'pending',
-          status: 'active'
+          status: 'pending_approval' // <-- Initial status is pending Business Owner approval!
+        }).returning();
+        dealId = insertedDeal.id;
+      } else {
+        dealId = existingDeal.id;
+        await db.update(dmsDeals)
+          .set({ 
+            proposalId: updatedProposal.id, 
+            status: 'pending_approval',
+            updatedAt: new Date() 
+          })
+          .where(eq(dmsDeals.id, existingDeal.id));
+      }
+
+      // Submit Deal Vault Request to Business Owner Command Center
+      try {
+        const { createDealVaultRequest } = require('@/services/workspaceService');
+        await createDealVaultRequest({
+          dealId,
+          projectId,
+          projectName,
+          dealName: `${companyName} Deal`,
+          companyName,
+          sellerName,
+          sellerEmail,
+          planName: storagePlan,
+          storageLimitMb,
+          applicantName: buyer?.name || companyName,
+          applicantEmail: buyer?.email || ''
         });
+      } catch (err) {
+        console.error("Failed to create deal vault request in workspaceService:", err);
       }
     } else if (action === 'revoke') {
       // If revoked, also revoke the associated deal if it exists

@@ -6,7 +6,6 @@ import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu } from 'lucide-reac
 import MessageTimeline from '@/components/communication/MessageTimeline';
 import RichComposer from '@/components/communication/RichComposer';
 import ContextPanel from '@/components/communication/ContextPanel';
-import NotificationBell from '@/components/communication/NotificationBell';
 import { useCommunicationRealtime } from '@/hooks/useCommunicationRealtime';
 
 export default function ChannelPage({ params }) {
@@ -323,7 +322,6 @@ export default function ChannelPage({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationBell placement="dropdown" dropdownAlign="right" />
             <button
               onClick={fetchMessages}
               title="Refresh messages"

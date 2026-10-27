@@ -15,10 +15,12 @@ import {
   FaShieldAlt,
   FaExternalLinkAlt,
   FaUserCheck,
+  FaTasks,
 } from 'react-icons/fa';
 
 const NAV_ITEMS = [
   { name: 'Overview', href: '/business-owner', icon: FaChartPie, exact: true },
+  { name: 'Workspace Requests', href: '/business-owner/workspace-requests', icon: FaTasks },
   { name: 'Organizations', href: '/business-owner/organizations', icon: FaBuilding },
   { name: 'Storage', href: '/business-owner/storage', icon: FaDatabase },
   { name: 'Plans', href: '/business-owner/plans', icon: FaTags },

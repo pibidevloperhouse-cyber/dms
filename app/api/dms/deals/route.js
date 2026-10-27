@@ -62,7 +62,26 @@ export async function GET(req) {
 
     const deals = await query;
 
-    return NextResponse.json({ deals }, { status: 200 });
+    let enrichedDeals = deals;
+    try {
+      const { getAllWorkspaceRequests } = require('@/services/workspaceService');
+      const allRequests = await getAllWorkspaceRequests();
+      const reqByDealId = new Map(allRequests.filter(r => r.deal_id).map(r => [r.deal_id, r]));
+
+      enrichedDeals = deals.map(d => {
+        const req = reqByDealId.get(d.id);
+        return {
+          ...d,
+          storagePlan: req?.plan_name || 'Pro Deal Vault (50 GB)',
+          storageLimitMb: req?.storage_limit_mb || 51200,
+          storageStatus: req?.status || (d.status === 'pending_approval' ? 'pending' : d.status)
+        };
+      });
+    } catch (e) {
+      console.warn("Failed to enrich deals with storage info:", e);
+    }
+
+    return NextResponse.json({ deals: enrichedDeals }, { status: 200 });
   } catch (error) {
     console.error('Failed to fetch deals:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

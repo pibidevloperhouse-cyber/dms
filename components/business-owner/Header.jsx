@@ -66,6 +66,7 @@ export default function Header({ onOpenSidebar }) {
 
   const getPageTitle = () => {
     if (pathname === '/business-owner') return 'System Overview';
+    if (pathname?.startsWith('/business-owner/workspace-requests')) return 'Workspace Requests';
     if (pathname?.startsWith('/business-owner/organizations')) return 'Organizations';
     if (pathname?.startsWith('/business-owner/storage')) return 'Storage & Quotas';
     if (pathname?.startsWith('/business-owner/plans')) return 'Subscription Plans';
@@ -142,7 +143,7 @@ export default function Header({ onOpenSidebar }) {
                     )}
                   </div>
                   <Link
-                    href="/admin/workspace-requests"
+                    href="/business-owner/workspace-requests"
                     onClick={() => setShowNotifications(false)}
                     className="text-xs text-[var(--brand)] font-semibold hover:underline"
                   >
@@ -169,7 +170,7 @@ export default function Header({ onOpenSidebar }) {
                             </span>
                           </div>
                           <Link
-                            href="/admin/workspace-requests"
+                            href="/business-owner/workspace-requests"
                             onClick={() => setShowNotifications(false)}
                             className="px-3 py-1.5 bg-[var(--brand)] text-white text-xs font-semibold rounded-lg hover:bg-[var(--brand-dark)] transition-colors shrink-0 shadow-2xs"
                           >

@@ -1,6 +1,6 @@
 import { db } from '../../../../db';
 import { dmsDeals, dmsProjects, dmsDealProposals, dmsTeasers } from '../../../../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, or } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,10 @@ export async function GET(req) {
       .from(dmsDealProposals)
       .leftJoin(dmsTeasers, eq(dmsDealProposals.teaserId, dmsTeasers.id))
       .leftJoin(dmsProjects, eq(dmsTeasers.projectId, dmsProjects.id))
-      .leftJoin(dmsDeals, eq(dmsDeals.proposalId, dmsDealProposals.id));
+      .leftJoin(dmsDeals, or(
+        eq(dmsDeals.proposalId, dmsDealProposals.id),
+        and(eq(dmsDeals.projectId, dmsProjects.id), eq(dmsDeals.buyerId, dmsDealProposals.buyerId))
+      ));
 
     let proposals;
     if (buyerId && role !== 'admin') {
@@ -45,7 +48,7 @@ export async function GET(req) {
     const uniqueProjectsMap = new Map();
     for (const p of proposals) {
       const pid = p.projectId || p.dealProjectId;
-      if (!pid || uniqueProjectsMap.has(pid)) continue;
+      if (!pid) continue;
 
       const pStatus = (p.status || 'pending').toLowerCase();
       let status = 'inactive'; // Default for pending proposals
@@ -53,6 +56,17 @@ export async function GET(req) {
         status = 'active'; // Approved -> ACTIVE in workspace
       } else if (pStatus === 'rejected') {
         status = 'rejected';
+      }
+
+      if (uniqueProjectsMap.has(pid)) {
+        const existing = uniqueProjectsMap.get(pid);
+        if (p.ndaStatus === 'signed' && existing.ndaStatus !== 'signed') {
+          existing.ndaStatus = 'signed';
+        }
+        if (p.dealId && !existing.id) {
+          existing.id = p.dealId;
+        }
+        continue;
       }
 
       uniqueProjectsMap.set(pid, {

@@ -115,7 +115,7 @@ export async function sendRequestMailToAdmin({ companyName, adminName, adminEmai
         </div>
 
         <div style="text-align: center;">
-          <a href="${appUrl}/admin/workspace-requests" style="display: inline-block; background-color: #1C7F9F; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(28, 127, 159, 0.25);">
+          <a href="${appUrl}/business-owner/workspace-requests" style="display: inline-block; background-color: #1C7F9F; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(28, 127, 159, 0.25);">
             Review in Admin Dashboard
           </a>
         </div>

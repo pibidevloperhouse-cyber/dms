@@ -233,6 +233,7 @@ export default function TrackerPage() {
                               if (req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted') {
                                 setNdaTarget({
                                   proposalId: req.id,
+                                  dealId: req.dealId,
                                   projectId: req.projectId,
                                   projectName: req.projectName,
                                   dealName: req.company
@@ -249,10 +250,15 @@ export default function TrackerPage() {
                         {req.status?.toLowerCase() === 'approved' || req.status?.toLowerCase() === 'accepted' ? (
                           <button
                             onClick={() => {
-                              sessionStorage.setItem('marketplaceTab', 'workspace');
-                              router.push('/dms/marketplace/workspace');
+                              if (req.ndaStatus === 'signed') {
+                                sessionStorage.removeItem(`deal_activeTab_${req.projectId}`);
+                                router.push(`/dms/deal?projectId=${req.projectId}&projectName=${encodeURIComponent(req.projectName || 'Project')}`);
+                              } else {
+                                sessionStorage.setItem('marketplaceTab', 'workspace');
+                                router.push('/dms/marketplace/workspace');
+                              }
                             }}
-                            title="Open Deal"
+                            title={req.ndaStatus === 'signed' ? "Open Deal" : "Go to Workspace"}
                             className="p-2 text-[#00c875] hover:bg-[#00c875]/10 rounded-full transition-colors flex items-center justify-center mx-auto cursor-pointer"
                           >
                             <FaFolderOpen className="text-lg" />
@@ -279,7 +285,7 @@ export default function TrackerPage() {
         projectName={ndaTarget?.projectName}
         companyName={ndaTarget?.dealName}
         onAccept={async (signatureData) => {
-          if (ndaTarget && ndaTarget.proposalId) {
+          if (ndaTarget && (ndaTarget.proposalId || ndaTarget.projectId)) {
             try {
               const res = await fetch('/api/dms/tracker/sign-nda', {
                 method: 'POST',
@@ -294,8 +300,12 @@ export default function TrackerPage() {
               });
 
               if (res.ok) {
-                // Update local state to show signed status
-                setRequests(prev => prev.map(r => r.id === ndaTarget.proposalId ? { ...r, ndaStatus: 'signed' } : r));
+                // Update local state to show signed status immediately
+                setRequests(prev => prev.map(r => 
+                  (r.id === ndaTarget.proposalId || (ndaTarget.projectId && r.projectId === ndaTarget.projectId)) 
+                    ? { ...r, ndaStatus: 'signed' } 
+                    : r
+                ));
                 setShowNDAModal(false);
                 sessionStorage.setItem('marketplaceTab', 'workspace');
                 router.push('/dms/marketplace/workspace');
