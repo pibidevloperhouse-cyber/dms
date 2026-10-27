@@ -50,6 +50,22 @@ export default function TaskCreationStudio() {
     setMounted(true);
   }, []);
 
+  // Reopen editing task if returning from Documents Access grant
+  React.useEffect(() => {
+    try {
+      const editDraft = typeof window !== 'undefined' ? sessionStorage.getItem('deal_workflow_edit_task_draft') : null;
+      if (editDraft) {
+        const parsed = JSON.parse(editDraft);
+        if (parsed?.taskId && tasks.length > 0) {
+          const found = tasks.find((t) => t.id === parsed.taskId);
+          if (found) {
+            setEditingTask(found);
+          }
+        }
+      }
+    } catch (e) {}
+  }, [tasks]);
+
   // Filters state
   const [selectedStageTab, setSelectedStageTab] = useState('ALL'); // 'ALL' | 'Preparation' | 'Due Diligence' | 'Negotiation'
   const [enablementFilter, setEnablementFilter] = useState('ALL'); // 'ALL' | 'ENABLED' | 'STAGED'

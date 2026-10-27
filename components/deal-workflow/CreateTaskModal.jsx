@@ -66,6 +66,38 @@ export default function CreateTaskModal() {
   const [subtaskPriority, setSubtaskPriority] = useState('High');
   const [subtaskDueDate, setSubtaskDueDate] = useState('');
   const [subtaskAttachments, setSubtaskAttachments] = useState([]);
+  const pendingDraftRef = React.useRef(null);
+
+  // Restore draft when returning from Grant Access in Documents page
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? sessionStorage.getItem('deal_workflow_create_task_draft') : null;
+      if (saved) {
+        const draft = JSON.parse(saved);
+        if (draft) {
+          pendingDraftRef.current = draft;
+          if (draft.title !== undefined) setTitle(draft.title);
+          if (draft.description !== undefined) setDescription(draft.description);
+          if (draft.visibility !== undefined) setVisibility(draft.visibility);
+          if (draft.priority !== undefined) setPriority(draft.priority);
+          if (draft.dealStage !== undefined) setDealStage(draft.dealStage);
+          if (draft.dueDate !== undefined) setDueDate(draft.dueDate);
+          if (Array.isArray(draft.subtasks)) setSubtasks(draft.subtasks);
+          if (draft.assignedFolderId !== undefined) setAssignedFolderId(draft.assignedFolderId);
+          if (draft.assignedFolderName !== undefined) setAssignedFolderName(draft.assignedFolderName);
+          if (draft.assignedSubfolderId !== undefined) setAssignedSubfolderId(draft.assignedSubfolderId);
+          if (draft.assignedSubfolderName !== undefined) setAssignedSubfolderName(draft.assignedSubfolderName);
+          if (draft.assignedMember !== undefined) setAssignedMember(draft.assignedMember);
+          if (draft.department !== undefined) setDepartment(draft.department);
+          if (draft.assignedGroup !== undefined) setAssignedGroup(draft.assignedGroup);
+
+          setIsCreateModalOpen(true);
+        }
+      }
+    } catch (e) {
+      console.error('Error restoring task draft:', e);
+    }
+  }, [setIsCreateModalOpen]);
 
   // Helper to normalize dates to YYYY-MM-DD for date inputs
   const normalizeDateForInput = (dateVal) => {
@@ -185,6 +217,16 @@ export default function CreateTaskModal() {
 
   // Sync default department when availableDepartments or visibility change
   useEffect(() => {
+    const draft = pendingDraftRef.current;
+    if (draft?.department) {
+      if (availableDepartments.some((d) => d.toLowerCase() === draft.department.toLowerCase())) {
+        const match = availableDepartments.find((d) => d.toLowerCase() === draft.department.toLowerCase());
+        setDepartment(match || draft.department);
+        return;
+      }
+      if (availableDepartments.length === 0) return;
+    }
+
     if (availableDepartments.length > 0) {
       if (!department || !availableDepartments.includes(department)) {
         setDepartment(availableDepartments[0]);
@@ -215,6 +257,19 @@ export default function CreateTaskModal() {
 
   // Sync assigned group when availableGroups change
   useEffect(() => {
+    const draft = pendingDraftRef.current;
+    if (draft?.assignedGroup) {
+      if (availableGroups.some((g) => g.name === draft.assignedGroup || g.id === draft.assignedGroup)) {
+        setAssignedGroup(draft.assignedGroup);
+        pendingDraftRef.current = null;
+        try {
+          sessionStorage.removeItem('deal_workflow_create_task_draft');
+        } catch (e) {}
+        return;
+      }
+      if (availableGroups.length === 0) return;
+    }
+
     if (availableGroups.length > 0) {
       if (!assignedGroup || !availableGroups.some((g) => g.name === assignedGroup)) {
         setAssignedGroup(availableGroups[0].name);
@@ -360,12 +415,13 @@ export default function CreateTaskModal() {
       return groupMatches && folderMatches && (p.canView || p.canUpload);
     });
 
+    const targetGroupId = selectedGroupObj?.id || selectedGroupObj?.name || '';
     return {
       hasAccess: hasPerm,
       folderName: assignedFolderName,
       groupName: selectedGroupObj.name,
-      groupId: selectedGroupObj.id,
-      accessUrl: `/documents/access?group=${selectedGroupObj.id}`,
+      groupId: targetGroupId,
+      accessUrl: `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`,
     };
   }, [dealStage, assignedFolderId, assignedSubfolderId, assignedFolderName, selectedGroupObj, selectedMainFolder, folderPermissions, liveAccessResult]);
 
@@ -374,6 +430,10 @@ export default function CreateTaskModal() {
   const isSeller = currentUser?.side === 'seller';
 
   const handleClose = () => {
+    pendingDraftRef.current = null;
+    try {
+      sessionStorage.removeItem('deal_workflow_create_task_draft');
+    } catch (e) {}
     setTitle('');
     setDescription('');
     setVisibility('INTERNAL');
@@ -392,6 +452,36 @@ export default function CreateTaskModal() {
     setSubtaskAttachments([]);
     setIsAddSubtaskModalOpen(false);
     setIsCreateModalOpen(false);
+  };
+
+  const handleGrantAccess = (e, targetUrl) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const draft = {
+      title,
+      description,
+      visibility,
+      department,
+      assignedGroup,
+      assignedMember,
+      assignedFolderId,
+      assignedFolderName,
+      assignedSubfolderId,
+      assignedSubfolderName,
+      priority,
+      dealStage,
+      dueDate,
+      subtasks,
+    };
+    try {
+      sessionStorage.setItem('deal_workflow_create_task_draft', JSON.stringify(draft));
+    } catch (err) {
+      console.error('Failed to save draft:', err);
+    }
+
+    setIsCreateModalOpen(false);
+    window.location.href = targetUrl;
   };
 
   const handleSubmit = async (e) => {
@@ -793,15 +883,22 @@ export default function CreateTaskModal() {
                               Group <strong className="font-semibold text-slate-900 underline">{selectedGroupObj.name}</strong> does not have permission to view or upload to folder <strong className="font-semibold text-slate-900 underline">{assignedSubfolderName ? `${assignedFolderName} / ${assignedSubfolderName}` : assignedFolderName}</strong>. Please grant access in the documents access section before assigning this task.
                             </p>
 
-                            {/* Direct Action - navigates in the SAME tab */}
+                            {/* Direct Action - navigates directly to Access Control */}
                             <div className="mt-3 flex items-center">
-                              <Link
-                                href={folderAccessStatus?.accessUrl || `/documents/access?group=${selectedGroupObj.id}`}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
-                              >
-                                <span>Grant Access in Access Section</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
+                              {(() => {
+                                const targetGroupId = selectedGroupObj?.id || selectedGroupObj?.name || '';
+                                const targetUrl = folderAccessStatus?.accessUrl || `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`;
+                                return (
+                                  <a
+                                    href={targetUrl}
+                                    onClick={(e) => handleGrantAccess(e, targetUrl)}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+                                  >
+                                    <span>Grant Access in Access Section</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>

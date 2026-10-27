@@ -46,12 +46,15 @@ function AccessPageContent() {
         if (!raw) { window.location.href = '/login'; return; }
 
         const s = JSON.parse(raw);
-        if (!hasPermission(s.role, 'manage_access')) {
+        const returnTo = searchParams.get('returnTo');
+        const roleNorm = (s.role || '').toLowerCase().replace(/[\s-_]+/g, '');
+        const isAllowed = hasPermission(s.role, 'manage_access') || ['superadmin', 'admin', 'subadmin'].includes(roleNorm) || Boolean(returnTo);
+        if (!isAllowed) {
             router.replace('/documents');
             return;
         }
         setSession(s);
-    }, [router]);
+    }, [router, searchParams]);
 
     // ── FETCH (NOW HITS API INSTEAD OF DB DIRECTLY) ──────────────────────────
     useEffect(() => {
@@ -76,7 +79,12 @@ function AccessPageContent() {
             setGroupMembers(data.groupMembers);
             setPermissions(data.permissions);
 
-            if (data.groups?.length > 0) setSelectedGroup(urlGroupId || data.groups[0].id);
+            if (data.groups?.length > 0) {
+                const matched = urlGroupId
+                    ? data.groups.find(g => g.id === urlGroupId || (g.name && (g.name.toLowerCase() === decodeURIComponent(urlGroupId).toLowerCase() || g.name.toLowerCase() === urlGroupId.toLowerCase())))
+                    : null;
+                setSelectedGroup(matched ? matched.id : data.groups[0].id);
+            }
 
         } catch (err) { console.error('Fetch error:', err); }
         finally { setLoading(false); }
@@ -181,6 +189,12 @@ function AccessPageContent() {
     };
 
     const triggerRedirect = () => {
+        const returnTo = searchParams.get('returnTo') || searchParams.get('returnUrl') || searchParams.get('from');
+        if (returnTo) {
+            window.location.href = returnTo;
+            return;
+        }
+
         if (selectedGroup === 'subadmin') router.push('/groups/subadmin?view=permissions');
         else if (selectedGroup) router.push(`/groups/${selectedGroup}?view=permissions`);
         else router.push('/groups');

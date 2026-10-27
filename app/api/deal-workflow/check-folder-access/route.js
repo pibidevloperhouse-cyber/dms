@@ -59,7 +59,10 @@ export async function GET(req) {
       }
     }
 
-    const accessUrl = resolvedGroup ? `/documents/access?group=${resolvedGroup.id}` : '/documents/access';
+    const targetGroupId = resolvedGroup?.id || resolvedGroup?.name || groupId || groupName || '';
+    const accessUrl = targetGroupId
+      ? `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`
+      : '/documents/access?returnTo=/deal-workflow';
 
     return NextResponse.json({
       success: true,

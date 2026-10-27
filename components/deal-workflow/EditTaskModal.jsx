@@ -136,20 +136,32 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
   // Populate form with task details whenever task changes or modal opens
   useEffect(() => {
     if (task && isOpen) {
-      setTitle(task.title || '');
-      setDescription(task.description || '');
-      setVisibility(task.visibility || 'INTERNAL');
-      setDepartment(task.department || task.workstream || (departments[0] || 'General'));
-      setAssignedGroup(task.assigned_to_group || '');
-      setAssignedMember(task.assigned_to_user || '');
-      setPriority(task.priority || 'High');
-      setDealStage(task.deal_stage || 'Preparation');
-      setDueDate(normalizeDateForInput(task.due_date));
-      setSubtasks(Array.isArray(task.subtasks) ? [...task.subtasks] : []);
-      setAssignedFolderId(task.folder_id || '');
-      setAssignedFolderName(task.folder_name || task.assigned_folder || '');
-      setAssignedSubfolderId(task.subfolder_id || '');
-      setAssignedSubfolderName(task.subfolder_name || task.assigned_subfolder || '');
+      let draft = null;
+      try {
+        const saved = typeof window !== 'undefined' ? sessionStorage.getItem('deal_workflow_edit_task_draft') : null;
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.taskId === task.id) {
+            draft = parsed;
+            sessionStorage.removeItem('deal_workflow_edit_task_draft');
+          }
+        }
+      } catch (e) {}
+
+      setTitle(draft?.title !== undefined ? draft.title : (task.title || ''));
+      setDescription(draft?.description !== undefined ? draft.description : (task.description || ''));
+      setVisibility(draft?.visibility !== undefined ? draft.visibility : (task.visibility || 'INTERNAL'));
+      setDepartment(draft?.department !== undefined ? draft.department : (task.department || task.workstream || (departments[0] || 'General')));
+      setAssignedGroup(draft?.assignedGroup !== undefined ? draft.assignedGroup : (task.assigned_to_group || ''));
+      setAssignedMember(draft?.assignedMember !== undefined ? draft.assignedMember : (task.assigned_to_user || ''));
+      setPriority(draft?.priority !== undefined ? draft.priority : (task.priority || 'High'));
+      setDealStage(draft?.dealStage !== undefined ? draft.dealStage : (task.deal_stage || 'Preparation'));
+      setDueDate(draft?.dueDate !== undefined ? draft.dueDate : normalizeDateForInput(task.due_date));
+      setSubtasks(draft?.subtasks ? [...draft.subtasks] : (Array.isArray(task.subtasks) ? [...task.subtasks] : []));
+      setAssignedFolderId(draft?.assignedFolderId !== undefined ? draft.assignedFolderId : (task.folder_id || ''));
+      setAssignedFolderName(draft?.assignedFolderName !== undefined ? draft.assignedFolderName : (task.folder_name || task.assigned_folder || ''));
+      setAssignedSubfolderId(draft?.assignedSubfolderId !== undefined ? draft.assignedSubfolderId : (task.subfolder_id || ''));
+      setAssignedSubfolderName(draft?.assignedSubfolderName !== undefined ? draft.assignedSubfolderName : (task.subfolder_name || task.assigned_subfolder || ''));
     }
   }, [task, isOpen, departments]);
 
@@ -334,12 +346,13 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
       return groupMatches && folderMatches && (p.canView || p.canUpload);
     });
 
+    const targetGroupId = selectedGroupObj?.id || selectedGroupObj?.name || '';
     return {
       hasAccess: hasPerm,
       folderName: assignedFolderName,
       groupName: selectedGroupObj.name,
-      groupId: selectedGroupObj.id,
-      accessUrl: `/documents/access?group=${selectedGroupObj.id}`,
+      groupId: targetGroupId,
+      accessUrl: `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`,
     };
   }, [dealStage, assignedFolderId, assignedSubfolderId, assignedFolderName, selectedGroupObj, selectedMainFolder, folderPermissions, liveAccessResult]);
 
@@ -775,15 +788,47 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                               Group <strong className="font-semibold text-slate-900 underline">{selectedGroupObj.name}</strong> does not have permission to view or upload to folder <strong className="font-semibold text-slate-900 underline">{assignedSubfolderName ? `${assignedFolderName} / ${assignedSubfolderName}` : assignedFolderName}</strong>. Please grant access in the documents access section before saving.
                             </p>
 
-                            {/* Direct Action - navigates in the SAME tab */}
+                            {/* Direct Action - navigates directly to Access Control */}
                             <div className="mt-3 flex items-center">
-                              <Link
-                                href={folderAccessStatus?.accessUrl || `/documents/access?group=${selectedGroupObj.id}`}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
-                              >
-                                <span>Grant Access in Access Section</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
+                              {(() => {
+                                const targetGroupId = selectedGroupObj?.id || selectedGroupObj?.name || '';
+                                const targetUrl = folderAccessStatus?.accessUrl || `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`;
+                                return (
+                                  <a
+                                    href={targetUrl}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const draft = {
+                                        taskId: task?.id,
+                                        title,
+                                        description,
+                                        visibility,
+                                        department,
+                                        assignedGroup,
+                                        assignedMember,
+                                        assignedFolderId,
+                                        assignedFolderName,
+                                        assignedSubfolderId,
+                                        assignedSubfolderName,
+                                        priority,
+                                        dealStage,
+                                        dueDate,
+                                        subtasks,
+                                      };
+                                      try {
+                                        sessionStorage.setItem('deal_workflow_edit_task_draft', JSON.stringify(draft));
+                                      } catch (err) {}
+                                      if (onClose) onClose();
+                                      window.location.href = targetUrl;
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+                                  >
+                                    <span>Grant Access in Access Section</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
