@@ -1,4 +1,5 @@
 import ThemeInitializer from '@/components/ThemeInitializer';
+import CommunicationNotificationManager from '@/components/communication/CommunicationNotificationManager';
 import "./globals.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
@@ -16,6 +17,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeInitializer />
+        <CommunicationNotificationManager />
         {children}
       </body>
     </html>
