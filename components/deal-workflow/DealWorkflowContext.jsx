@@ -15,22 +15,22 @@ export const ROLE_HIERARCHY = {
     level: 4,
     label: 'Super Admin',
     badge: '👑 Super Admin',
-    canAssignTo: ['super_admin', 'admin', 'sub_admin', 'internal_user'],
+    canAssignTo: ['admin', 'sub_admin', 'internal_user'],
     desc: 'Can assign to Admin, Sub Admin, and Internal User',
   },
   admin: {
     level: 3,
     label: 'Admin',
     badge: '👔 Admin',
-    canAssignTo: ['admin', 'sub_admin', 'internal_user'],
-    desc: 'Can assign to Admin, Sub Admin and Internal User',
+    canAssignTo: ['sub_admin', 'internal_user'],
+    desc: 'Can assign to Sub Admin and Internal User',
   },
   sub_admin: {
     level: 2,
     label: 'Sub Admin',
     badge: '⚡ Sub Admin',
-    canAssignTo: ['sub_admin', 'internal_user'],
-    desc: 'Can assign to Sub Admin and Internal User',
+    canAssignTo: ['internal_user'],
+    desc: 'Can assign to Internal User',
   },
   internal_user: {
     level: 1,
@@ -323,6 +323,7 @@ export function DealWorkflowProvider({ children }) {
   const [activeDealStage, setActiveDealStage] = useState('Preparation');
   const [stageNotification, setStageNotification] = useState(null);
   const [stageQuery, setStageQuery] = useState(null);
+  const [stageAdvanceRequest, setStageAdvanceRequest] = useState(null);
 
   // Load saved stage on client mount after hydration
   useEffect(() => {
@@ -335,6 +336,10 @@ export function DealWorkflowProvider({ children }) {
       const savedQuery = localStorage.getItem('dms_stage_query');
       if (savedQuery) {
         setStageQuery(JSON.parse(savedQuery));
+      }
+      const savedReq = localStorage.getItem('dms_stage_advance_request');
+      if (savedReq) {
+        setStageAdvanceRequest(JSON.parse(savedReq));
       }
     } catch (e) {}
   }, []);
@@ -363,6 +368,10 @@ export function DealWorkflowProvider({ children }) {
 
         if (data.stageQuery !== undefined) {
           setStageQuery(data.stageQuery);
+        }
+
+        if (data.stageAdvanceRequest !== undefined) {
+          setStageAdvanceRequest(data.stageAdvanceRequest);
         }
 
         if (data.notificationPayload) {
@@ -409,14 +418,17 @@ export function DealWorkflowProvider({ children }) {
     };
 
     setStageNotification(notificationPayload);
+    setStageAdvanceRequest(null);
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('dms_active_deal_stage', matched);
       localStorage.setItem('dms_stage_notification', JSON.stringify(notificationPayload));
       localStorage.removeItem('dms_stage_query');
+      localStorage.removeItem('dms_stage_advance_request');
       window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
       window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
       window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: null }));
+      window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
     }
 
     try {
@@ -427,6 +439,7 @@ export function DealWorkflowProvider({ children }) {
           stage: matched,
           notificationPayload,
           stageQuery: null,
+          stageAdvanceRequest: null,
         }),
       });
     } catch (err) {
@@ -458,6 +471,7 @@ export function DealWorkflowProvider({ children }) {
     };
 
     setStageQuery(queryPayload);
+    setStageAdvanceRequest(null);
 
     // If specific tasks were selected for revision, reopen them
     if (Array.isArray(targetTaskIds) && targetTaskIds.length > 0) {
@@ -472,7 +486,9 @@ export function DealWorkflowProvider({ children }) {
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('dms_stage_query', JSON.stringify(queryPayload));
+      localStorage.removeItem('dms_stage_advance_request');
       window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: queryPayload }));
+      window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
     }
 
     try {
@@ -482,6 +498,7 @@ export function DealWorkflowProvider({ children }) {
         body: JSON.stringify({
           stage: activeDealStage,
           stageQuery: queryPayload,
+          stageAdvanceRequest: null,
         }),
       });
     } catch (e) {
@@ -512,6 +529,71 @@ export function DealWorkflowProvider({ children }) {
     }
   };
 
+  // Admin requests Super Admin to enable the next stage
+  const requestSuperAdminStageAdvance = async ({ stage, nextStage: targetNextStage } = {}) => {
+    const normRole = normalizeRole(currentUser?.role);
+    if (normRole !== 'admin') {
+      console.warn('Only Admin can request Super Admin to enable the next stage.');
+      return;
+    }
+    const currentActive = stage || activeDealStage;
+    const targetNext = targetNextStage || getNextStage(currentActive);
+    const adminName = currentUser?.name || currentUser?.email || 'Admin';
+    const payload = {
+      id: `advance_req_${Date.now()}`,
+      stage: currentActive,
+      nextStage: targetNext,
+      requestedBy: adminName,
+      requestedById: currentUser?.id,
+      requestedByRole: currentUser?.role || 'admin',
+      createdAt: new Date().toISOString(),
+      status: 'PENDING_SUPER_ADMIN_APPROVAL',
+      message: `Admin ${adminName} has requested to enable the ${targetNext} stage.`,
+    };
+
+    setStageAdvanceRequest(payload);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dms_stage_advance_request', JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: payload }));
+    }
+
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: activeDealStage,
+          stageAdvanceRequest: payload,
+        }),
+      });
+    } catch (err) {
+      console.error('Error saving stage advance request to server:', err);
+    }
+
+    return payload;
+  };
+
+  const clearStageAdvanceRequest = async () => {
+    setStageAdvanceRequest(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dms_stage_advance_request');
+      window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: activeDealStage,
+          stageAdvanceRequest: null,
+        }),
+      });
+    } catch (err) {
+      console.error('Error clearing stage advance request on server:', err);
+    }
+  };
+
   // Super Admin approves results and enables the next stage
   const approveStageAndAdvance = async (nextStageName) => {
     const normRole = normalizeRole(currentUser?.role);
@@ -520,6 +602,7 @@ export function DealWorkflowProvider({ children }) {
       return;
     }
     await clearStageQuery();
+    await clearStageAdvanceRequest();
     await activateStage(nextStageName);
   };
 
@@ -567,6 +650,10 @@ export function DealWorkflowProvider({ children }) {
       setStageQuery(e.detail || null);
     };
 
+    const handleAdvanceRequestEvent = (e) => {
+      setStageAdvanceRequest(e.detail || null);
+    };
+
     const handleStorageEvent = (e) => {
       if (e.key === 'dms_active_deal_stage' && e.newValue) {
         setActiveDealStage(e.newValue);
@@ -590,17 +677,28 @@ export function DealWorkflowProvider({ children }) {
           setStageQuery(null);
         }
       }
+      if (e.key === 'dms_stage_advance_request') {
+        if (e.newValue) {
+          try {
+            setStageAdvanceRequest(JSON.parse(e.newValue));
+          } catch (err) {}
+        } else {
+          setStageAdvanceRequest(null);
+        }
+      }
     };
 
     window.addEventListener('dms_active_stage_changed', handleStageEvent);
     window.addEventListener('dms_stage_notification_event', handleNoticeEvent);
     window.addEventListener('dms_stage_query_event', handleQueryEvent);
+    window.addEventListener('dms_stage_advance_request_event', handleAdvanceRequestEvent);
     window.addEventListener('storage', handleStorageEvent);
 
     return () => {
       window.removeEventListener('dms_active_stage_changed', handleStageEvent);
       window.removeEventListener('dms_stage_notification_event', handleNoticeEvent);
       window.removeEventListener('dms_stage_query_event', handleQueryEvent);
+      window.removeEventListener('dms_stage_advance_request_event', handleAdvanceRequestEvent);
       window.removeEventListener('storage', handleStorageEvent);
     };
   }, []);
@@ -1445,10 +1543,13 @@ export function DealWorkflowProvider({ children }) {
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW') return false;
-    // Only task creator or Super Admin can approve task & mark as done
+    // Task creator, Super Admin, Admin, or Sub Admin can review and approve task
     const isCreator = isTaskCreator ? isTaskCreator(task, user) : false;
-    const isSuperAdmin = normalizeRole(user?.role) === 'super_admin';
-    return isCreator || isSuperAdmin;
+    const norm = normalizeRole(user?.role);
+    const isSuperAdmin = norm === 'super_admin';
+    const isAdmin = norm === 'admin';
+    const isSubAdmin = norm === 'sub_admin';
+    return isCreator || isSuperAdmin || isAdmin || isSubAdmin;
   };
 
   // ============================================================================
@@ -1805,6 +1906,215 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {
       console.error('Send back API error:', e);
     }
+  };
+
+  // Action: Attach files to task (for Internal User during IN_PROGRESS stage)
+  const attachFilesToTask = async (taskId, files) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+
+    // Helper to read file as base64 dataUrl
+    const readFileData = (f) =>
+      new Promise((resolve) => {
+        if (typeof window === 'undefined' || !(f instanceof Blob)) return resolve(null);
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(f);
+      });
+
+    const dataUrls = await Promise.all(files.map((f) => readFileData(f)));
+
+    const formattedFiles = files.map((f, i) => {
+      const blobUrl = (typeof window !== 'undefined' && f instanceof Blob) ? URL.createObjectURL(f) : null;
+      const viewUrl = `/api/deal-tasks/view-attachment?taskId=${taskId}&fileName=${encodeURIComponent(f.name)}`;
+      return {
+        id: f.id || `att_${Date.now()}_${i}`,
+        name: f.name,
+        size: typeof f.size === 'number'
+          ? (f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`)
+          : (f.size || '1.2 MB'),
+        fileSizeBytes: typeof f.size === 'number' ? f.size : 102400,
+        mimeType: f.type || 'application/pdf',
+        dataUrl: dataUrls[i] || null,
+        blobUrl: blobUrl,
+        url: viewUrl,
+        uploadedBy: currentUser.name,
+        uploadedAt: formattedDate,
+      };
+    });
+
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const currentAtts = Array.isArray(t.attachments) ? t.attachments : [];
+        return {
+          ...t,
+          attachments: [...currentAtts, ...formattedFiles],
+          audit_trail: [
+            ...(t.audit_trail || []),
+            {
+              action: `${formattedFiles.length} Deliverable File(s) Attached`,
+              performed_by: currentUser.name,
+              role: currentUser.role,
+              timestamp: formattedDate,
+              ip,
+              details: formattedFiles.map((x) => x.name).join(', '),
+            },
+          ],
+        };
+      })
+    );
+
+    setSelectedTask((prev) => {
+      if (!prev || prev.task_id !== taskId) return prev;
+      const currentAtts = Array.isArray(prev.attachments) ? prev.attachments : [];
+      return {
+        ...prev,
+        attachments: [...currentAtts, ...formattedFiles],
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'attach_files',
+          files: formattedFiles,
+          user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Attach files API error:', e);
+    }
+    return false;
+  };
+
+  // Action: Remove file attachment from task
+  const removeFileFromTask = async (taskId, fileName, index) => {
+    const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const currentAtts = Array.isArray(t.attachments) ? t.attachments : [];
+        return {
+          ...t,
+          attachments: currentAtts.filter((f, idx) => (fileName ? f.name !== fileName : idx !== index)),
+        };
+      })
+    );
+
+    setSelectedTask((prev) => {
+      if (!prev || prev.task_id !== taskId) return prev;
+      const currentAtts = Array.isArray(prev.attachments) ? prev.attachments : [];
+      return {
+        ...prev,
+        attachments: currentAtts.filter((f, idx) => (fileName ? f.name !== fileName : idx !== index)),
+      };
+    });
+
+    try {
+      await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'remove_attachment',
+          fileName,
+          index,
+          user: { name: currentUser.name, role: currentUser.role },
+          ipAddress: ip,
+        }),
+      });
+    } catch (e) {
+      console.error('Remove attachment API error:', e);
+    }
+  };
+
+  // Action: Move to Documents Section (Sub Admin reviewing in Preparation stage)
+  const moveToDocumentsSection = async (taskId) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
+
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.task_id !== taskId) return t;
+        return {
+          ...t,
+          status: 'DONE',
+          completed_by: currentUser.name,
+          completed_at: formattedDate,
+          audit_trail: [
+            ...(t.audit_trail || []),
+            {
+              action: 'Files Moved to Documents Section & Marked as Done',
+              performed_by: currentUser.name,
+              role: currentUser.role,
+              timestamp: formattedDate,
+              ip,
+              details: `Deliverable files uploaded directly to Documents section folder "${t.folder_name || 'Preparation Documents'}". Task approved.`,
+            },
+          ],
+        };
+      })
+    );
+
+    setSelectedTask((prev) => {
+      if (!prev || prev.task_id !== taskId) return prev;
+      return {
+        ...prev,
+        status: 'DONE',
+        completed_by: currentUser.name,
+        completed_at: formattedDate,
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/deal-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'move_to_documents',
+          user: {
+            name: currentUser.name,
+            role: currentUser.role,
+            side: currentUser.side,
+            company: currentUser.company,
+            company_id: currentUser.company_id || currentUser.companyId,
+            id: currentUser.id,
+          },
+          ipAddress: ip,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.task) {
+        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        if (selectedTask?.task_id === taskId) {
+          setSelectedTask(data.task);
+        }
+        return { success: true, ...data };
+      }
+      return data;
+    } catch (e) {
+      console.error('Move to documents API error:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
+  // Action: Inform Query on task review (Sub Admin raising query to internal user)
+  const informTaskQuery = async (taskId, queryText) => {
+    return sendBack(taskId, queryText);
   };
 
   // Action: Digital Document Sign & Complete
@@ -2291,6 +2601,9 @@ export function DealWorkflowProvider({ children }) {
         submitStageQuery,
         clearStageQuery,
         approveStageAndAdvance,
+        stageAdvanceRequest,
+        requestSuperAdminStageAdvance,
+        clearStageAdvanceRequest,
         // Actions
         activeDealStage,
         setActiveDealStage,
@@ -2302,6 +2615,10 @@ export function DealWorkflowProvider({ children }) {
         submitForReview,
         approveAndComplete,
         sendBack,
+        attachFilesToTask,
+        removeFileFromTask,
+        moveToDocumentsSection,
+        informTaskQuery,
         signDocumentAndComplete,
         createTask,
         updateTask,

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { messages, users, communicationChannels } from '@/db/schema';
 import { eq, asc, and, isNull } from 'drizzle-orm';
-import { verifyChannelAccess } from '@/lib/communication/service';
+import { verifyChannelAccess, markChannelAsRead, recordMessageMentions } from '@/lib/communication/service';
 
 export async function GET(req) {
   try {
@@ -121,14 +121,17 @@ export async function POST(req) {
       })
       .returning();
 
-    // 3. Update channel activity timestamp
+    // 3. Update channel activity timestamp & record mentions & sender read status
     try {
       await db
         .update(communicationChannels)
         .set({ lastActivityAt: new Date() })
         .where(eq(communicationChannels.id, channelId));
+
+      await markChannelAsRead(verifiedUser.id, channelId);
+      await recordMessageMentions(newMessage.id, channelId, verifiedUser.id, messageText);
     } catch (e) {
-      console.warn('Failed to update channel lastActivityAt:', e);
+      console.warn('Failed to update channel lastActivityAt or mentions:', e);
     }
 
     return NextResponse.json({

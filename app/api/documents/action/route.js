@@ -21,6 +21,9 @@ export async function POST(req) {
 
         switch (action) {
             case 'create_folder':
+                if (!['super_admin', 'admin'].includes(session.role)) {
+                    return NextResponse.json({ error: "Only admins and super admins can create folders" }, { status: 403 });
+                }
                 let { parentId, name, index } = payload;
                 if (!index) {
                     let idxQ = supabase

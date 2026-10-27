@@ -7,6 +7,7 @@ import { supabase } from '@/utils/supabase/client';
 import { NAV_ITEMS } from '@/lib/nav-items';
 import WorkspaceStatusBadge from '@/components/workspaces/WorkspaceStatusBadge';
 import WorkspacePendingOverlay from '@/components/workspaces/WorkspacePendingOverlay';
+import NotificationBell from '@/components/communication/NotificationBell';
 
 export default function MainSidebar() {
   const pathname = usePathname();
@@ -24,15 +25,18 @@ export default function MainSidebar() {
   const [session, setSession] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [openSubmenuKey, setOpenSubmenuKey] = useState(null);
+  const [communicationUnreadCount, setCommunicationUnreadCount] = useState(0);
   const isGroupsActive = pathname?.startsWith('/groups');
 
   useEffect(() => {
     const rawSession = localStorage.getItem('vdr_session');
     if (!rawSession) return;
     const sessionObj = JSON.parse(rawSession);
-    setSession(sessionObj);
-    setIsAdmin(sessionObj.role === 'admin');
-    setIsSuperAdmin(sessionObj.role === 'super_admin');
+    queueMicrotask(() => {
+      setSession(sessionObj);
+      setIsAdmin(sessionObj.role === 'admin');
+      setIsSuperAdmin(sessionObj.role === 'super_admin');
+    });
 
     const checkModulePermissions = async () => {
       // 1. Fetch deal features first if in a workspace
@@ -161,6 +165,20 @@ export default function MainSidebar() {
     };
   }, [pathname]);
 
+  // Synchronize Communication unread count purely via manager events
+  useEffect(() => {
+    const handleUnreadEvent = (e) => {
+      if (typeof e?.detail?.unreadCount === 'number') {
+        setCommunicationUnreadCount(e.detail.unreadCount);
+      }
+    };
+
+    window.addEventListener('communication_unread_updated', handleUnreadEvent);
+    return () => {
+      window.removeEventListener('communication_unread_updated', handleUnreadEvent);
+    };
+  }, []);
+
   return (
     <>
       <aside className="w-16 md:w-20 h-screen bg-white/90 backdrop-blur-xl border-r border-gray-200/80 flex flex-col items-center py-6 shrink-0 z-50 shadow-[4px_0_24px_rgba(28,127,159,0.06)]">
@@ -203,11 +221,16 @@ export default function MainSidebar() {
                     {isActive && (
                       <div className="absolute left-0 w-1 h-7 bg-gradient-to-b from-[var(--brand)] to-[var(--brand-secondary)] rounded-r-full shadow-sm" />
                     )}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${isActive || isSubmenuOpen
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative ${isActive || isSubmenuOpen
                       ? 'bg-[var(--brand)]/12 text-[var(--brand)]'
                       : 'text-gray-400 hover:bg-[var(--brand)]/8 hover:text-[var(--brand)]'
                       }`}>
                       {item.icon}
+                      {item.key === 'communication' && communicationUnreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
+                          {communicationUnreadCount > 99 ? '99+' : communicationUnreadCount}
+                        </span>
+                      )}
                     </div>
                     {/* Tooltip */}
                     <span className="absolute left-16 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-secondary)] text-white text-xs font-semibold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300 whitespace-nowrap shadow-xl z-50">
@@ -224,11 +247,16 @@ export default function MainSidebar() {
                     {isActive && (
                       <div className="absolute left-0 w-1 h-7 bg-gradient-to-b from-[var(--brand)] to-[var(--brand-secondary)] rounded-r-full shadow-sm" />
                     )}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${isActive
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative ${isActive
                       ? 'bg-[var(--brand)]/12 text-[var(--brand)]'
                       : 'text-gray-400 hover:bg-[var(--brand)]/8 hover:text-[var(--brand)]'
                       }`}>
                       {item.icon}
+                      {item.key === 'communication' && communicationUnreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
+                          {communicationUnreadCount > 99 ? '99+' : communicationUnreadCount}
+                        </span>
+                      )}
                     </div>
                     {/* Tooltip */}
                     <span className="absolute left-16 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-secondary)] text-white text-xs font-semibold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300 whitespace-nowrap shadow-xl z-50">
@@ -266,8 +294,9 @@ export default function MainSidebar() {
 
 
 
-        {/* Profile / Sign Out Menu */}
-        <div className="flex flex-col items-center mt-auto relative mb-4">
+        {/* Notification Bell & Profile / Sign Out Menu */}
+        <div className="flex flex-col items-center mt-auto relative mb-4 gap-2.5">
+          <NotificationBell placement="sidebar" />
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-gray-400 hover:bg-slate-100 hover:text-slate-700 transition-all duration-300"

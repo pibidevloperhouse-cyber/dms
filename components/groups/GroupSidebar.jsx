@@ -110,13 +110,13 @@ export default function GroupsSidebar({ isOpen = true }) {
             let localCanViewSellerGroups = false;
 
             // Check create/delete group permissions and visibility permissions
-            if (userRole === 'super_admin') {
+            if (userRole === 'super_admin' || userRole === 'admin') {
                 setCanCreateGroup(true);
                 setCanDeleteGroup(true);
-                localCanViewBuyer = true;
+                localCanViewBuyer = userRole === 'super_admin';
                 localCanViewSellerMembers = true;
                 localCanViewSellerGroups = true;
-                setCanViewBuyer(true);
+                setCanViewBuyer(userRole === 'super_admin');
                 setCanViewSellerMembers(true);
                 setCanViewSellerGroups(true);
             } else {
@@ -177,28 +177,47 @@ export default function GroupsSidebar({ isOpen = true }) {
             individualGroups = allGroups.filter(g => g.type === 'individual');
             let groups = allGroups.filter(g => g.type !== 'individual');
 
-            // If user has localCanViewSellerGroups or is super_admin, they can view all workspace seller groups!
-            if (userRole !== 'super_admin' && !localCanViewSellerGroups) {
-                // User does not have permission to view all seller groups.
-                // Restrict to groups the user belongs to:
-                const { data: ugRows } = await supabase
-                    .from('user_groups')
-                    .select('group_id')
-                    .eq('user_id', userId);
+            const SELLER_ROLE_HIERARCHY = {
+                super_admin: ['super_admin', 'admin', 'sub_admin', 'internal_user', 'user'],
+                admin: ['admin', 'sub_admin', 'internal_user', 'user'],
+                sub_admin: ['sub_admin', 'internal_user', 'user'],
+                internal_user: ['internal_user', 'user'],
+                user: ['internal_user', 'user'],
+            };
 
-                const myGroupIds = new Set((ugRows || []).map(r => r.group_id));
+            const normalizedUserRole = (userRole || '').toLowerCase();
+            const allowedSellerRoles = SELLER_ROLE_HIERARCHY[normalizedUserRole] || ['internal_user', 'user'];
 
-                if (userRole === 'admin') {
-                    groups = groups.filter(g => myGroupIds.has(g.id) || g.role === 'admin');
-                } else if (isBuyer) {
+            if (isBuyer) {
+                // If user has localCanViewSellerGroups or is super_admin, they can view all workspace seller groups!
+                if (userRole !== 'super_admin' && !localCanViewSellerGroups) {
+                    const { data: ugRows } = await supabase
+                        .from('user_groups')
+                        .select('group_id')
+                        .eq('user_id', userId);
+
+                    const myGroupIds = new Set((ugRows || []).map(r => r.group_id));
                     groups = groups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user'].includes(g.role));
-                } else {
-                    groups = groups.filter(g => myGroupIds.has(g.id));
                 }
-            }
 
-            if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
-                individualGroups = [];
+                if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
+                    individualGroups = [];
+                }
+            } else {
+                // Role Hierarchy filtering for Seller side:
+                // Super Admin sees: super_admin, admin, sub_admin, internal_user
+                // Admin sees: admin, sub_admin, internal_user (NO super_admin)
+                // Sub Admin sees: sub_admin, internal_user (NO super_admin, NO admin)
+                // Internal User sees: internal_user (NO super_admin, NO admin, NO sub_admin)
+                groups = groups.filter(g => {
+                    if (g.role) return allowedSellerRoles.includes(g.role.toLowerCase());
+                    return normalizedUserRole === 'super_admin' || normalizedUserRole === 'admin';
+                });
+
+                individualGroups = individualGroups.filter(g => {
+                    if (g.role) return allowedSellerRoles.includes(g.role.toLowerCase());
+                    return false;
+                });
             }
 
             const roleOrder = {
@@ -256,31 +275,65 @@ export default function GroupsSidebar({ isOpen = true }) {
 
             // Fetch Seller Members (Internal users)
             if (companyId) {
-                let sellersQuery = supabase
-                    .from('users')
-                    .select('id, name, email, role')
-                    .eq('company_id', companyId)
-                    .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
+                if (isBuyer) {
+                    if (localCanViewSellerMembers) {
+                        const { data: sellers } = await supabase
+                            .from('users')
+                            .select('id, name, email, role')
+                            .eq('company_id', companyId)
+                            .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
 
-                if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
-                    // Dummy condition to fetch nothing
-                    sellersQuery = sellersQuery.eq('id', '00000000-0000-0000-0000-000000000000');
-                }
+                        const formattedIndividuals = individualGroups.map(g => ({
+                            id: g.id,
+                            name: g.name,
+                            email: g.name,
+                            role: g.role || '',
+                            isIndividualGroup: true
+                        }));
 
-                const { data: sellers } = await sellersQuery;
-
-                const formattedIndividuals = individualGroups.map(g => ({
-                    id: g.id,
-                    name: g.name,
-                    email: g.name,
-                    role: g.role || '',
-                    isIndividualGroup: true
-                }));
-
-                if (sellers) {
-                    setSellerMembers([...formattedIndividuals, ...sellers]);
+                        setSellerMembers([...formattedIndividuals, ...(sellers || [])]);
+                    } else {
+                        setSellerMembers([]);
+                    }
                 } else {
-                    setSellerMembers(formattedIndividuals);
+                    const { data: sellers } = await supabase
+                        .from('users')
+                        .select('id, name, email, role')
+                        .eq('company_id', companyId)
+                        .in('role', allowedSellerRoles);
+
+                    const formattedIndividuals = individualGroups.map(g => ({
+                        id: g.id,
+                        name: g.name,
+                        email: g.name,
+                        role: g.role || '',
+                        isIndividualGroup: true
+                    }));
+
+                    const combined = [...formattedIndividuals, ...(sellers || [])];
+                    const seen = new Set();
+                    const uniqueMembers = combined.filter(m => {
+                        const key = (m.email || m.name || m.id).toLowerCase();
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+
+                    const memberRoleOrder = {
+                        'super_admin': 1,
+                        'admin': 2,
+                        'sub_admin': 3,
+                        'internal_user': 4,
+                        'user': 4,
+                    };
+                    uniqueMembers.sort((a, b) => {
+                        const orderA = memberRoleOrder[a.role] || 99;
+                        const orderB = memberRoleOrder[b.role] || 99;
+                        if (orderA !== orderB) return orderA - orderB;
+                        return (a.name || '').localeCompare(b.name || '');
+                    });
+
+                    setSellerMembers(uniqueMembers);
                 }
             }
 
@@ -291,6 +344,10 @@ export default function GroupsSidebar({ isOpen = true }) {
     }, []);
 
     const handleCreateNewDepartment = (nameToCreate) => {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showToast('Only Admin and Super Admin can create departments', 'error');
+            return;
+        }
         const query = (nameToCreate || newGroupDepartment || customDeptInput || '').trim();
         if (!query) return;
         const formatted = query.charAt(0).toUpperCase() + query.slice(1);
@@ -303,6 +360,10 @@ export default function GroupsSidebar({ isOpen = true }) {
     };
 
     const handleConfirmNewDept = () => {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showToast('Only Admin and Super Admin can create departments', 'error');
+            return;
+        }
         const trimmed = customDeptInput.trim();
         if (!trimmed) return;
         const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -419,6 +480,10 @@ export default function GroupsSidebar({ isOpen = true }) {
             // If in department creation mode and user typed a custom dept without clicking the small Create button
             const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
             if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
+                if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                    showToast('Only Admin and Super Admin can create departments', 'error');
+                    return;
+                }
                 const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
                 setFolderSuggestion({
                     isOpen: true,
@@ -495,7 +560,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 }
 
                 // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = !isIndividual && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
+                const folderNameToCreate = !isIndividual && ['super_admin', 'admin'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
                         await fetch('/api/documents/action', {
@@ -612,56 +677,60 @@ export default function GroupsSidebar({ isOpen = true }) {
                         </>
                     )}
 
-                    {(currentUserRole === 'super_admin' || sellerMembers.length > 0) && (
+                    {(currentUserRole === 'super_admin' || (!isBuyerSide && ['admin', 'sub_admin', 'internal_user', 'user'].includes(currentUserRole)) || sellerMembers.length > 0) && (
                         <>
                             <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
                                 <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
                             </div>
 
                             <nav className="py-3 space-y-1 mb-2">
-                                {sellerMembers.map((seller) => (
-                                    <Link
-                                        href={`/groups/${seller.id}`}
-                                        key={seller.id}
-                                        className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
-                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                                : 'text-gray-600 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3 truncate">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
-                                                }`}>
-                                                <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                {sellerMembers.length === 0 ? (
+                                    <div className="px-5 py-2 text-xs text-gray-400 italic">No members found</div>
+                                ) : (
+                                    sellerMembers.map((seller) => (
+                                        <Link
+                                            href={`/groups/${seller.id}`}
+                                            key={seller.id}
+                                            className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
+                                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                    : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3 truncate">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
+                                                    }`}>
+                                                    <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                                </div>
+                                                <div className="flex flex-col flex-1 truncate">
+                                                    <span className="font-sans text-[14px] truncate">{seller.name}</span>
+                                                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
+                                                        {ROLE_LABELS[seller.role] || (seller.role || '').replace('_', ' ')}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col flex-1 truncate">
-                                                <span className="font-sans text-[14px] truncate">{seller.name}</span>
-                                                <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
-                                                    {seller.role.replace('_', ' ')}
-                                                </span>
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                                {canDeleteGroup && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setDeleteTarget({
+                                                                id: seller.id,
+                                                                name: seller.name,
+                                                                isUser: !seller.isIndividualGroup,
+                                                                isIndividualGroup: seller.isIndividualGroup
+                                                            });
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                                        title="Delete member"
+                                                    >
+                                                        {TRASH_ICON}
+                                                    </button>
+                                                )}
                                             </div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1 shrink-0">
-                                            {canDeleteGroup && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setDeleteTarget({
-                                                            id: seller.id,
-                                                            name: seller.name,
-                                                            isUser: !seller.isIndividualGroup,
-                                                            isIndividualGroup: seller.isIndividualGroup
-                                                        });
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                                    title="Delete member"
-                                                >
-                                                    {TRASH_ICON}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </Link>
-                                ))}
+                                        </Link>
+                                    ))
+                                )}
                             </nav>
                         </>
                     )}
@@ -797,7 +866,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     <div className="p-5 border-t border-gray-100 bg-gray-50/30">
                         <button
                             onClick={() => {
-                                if (departments.length === 0) {
+                                if (departments.length === 0 && ['super_admin', 'admin'].includes(currentUserRole)) {
                                     setIsCreatingNewDept(true);
                                     setCustomDeptInput('');
                                     setNewGroupDepartment('');
@@ -912,7 +981,9 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                     {dept}
                                                 </option>
                                             ))}
-                                            <option value="__new__">+ Create New Department...</option>
+                                            {['super_admin', 'admin'].includes(currentUserRole) && (
+                                                <option value="__new__">+ Create New Department...</option>
+                                            )}
                                         </select>
                                     ) : (
                                         <div className="flex gap-2">

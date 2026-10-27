@@ -6,6 +6,7 @@ import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu } from 'lucide-reac
 import MessageTimeline from '@/components/communication/MessageTimeline';
 import RichComposer from '@/components/communication/RichComposer';
 import ContextPanel from '@/components/communication/ContextPanel';
+import NotificationBell from '@/components/communication/NotificationBell';
 import { useCommunicationRealtime } from '@/hooks/useCommunicationRealtime';
 
 export default function ChannelPage({ params }) {
@@ -99,6 +100,21 @@ export default function ChannelPage({ params }) {
     }
   }, [channelId, session]);
 
+  // Mark channel as read
+  const markAsRead = useCallback(async () => {
+    if (!channelId || !session?.id) return;
+    try {
+      await fetch(`/api/communication/channels/${channelId}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.id }),
+      });
+      window.dispatchEvent(new CustomEvent('communication_read', { detail: { channelId } }));
+    } catch (e) {
+      console.warn('Failed to mark channel as read:', e);
+    }
+  }, [channelId, session]);
+
   useEffect(() => {
     if (!session?.id) return;
 
@@ -106,20 +122,22 @@ export default function ChannelPage({ params }) {
     const load = async () => {
       if (isMounted) {
         await Promise.all([fetchChannelDetails(), fetchMessages()]);
+        markAsRead();
       }
     };
     load();
 
-    // Poll messages every 2.5 seconds for instant two-account sync
+    // Poll messages every 5 seconds for instant two-account sync
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchMessages();
-    }, 2500);
+    }, 5000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [session, fetchChannelDetails, fetchMessages]);
+  }, [session, fetchChannelDetails, fetchMessages, markAsRead]);
 
   // Realtime subscription (Supabase WebSocket when available)
   const handleNewRealtimeMessage = useCallback(
@@ -305,17 +323,18 @@ export default function ChannelPage({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <NotificationBell placement="dropdown" dropdownAlign="right" />
             <button
               onClick={fetchMessages}
               title="Refresh messages"
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
               <RefreshCw size={18} />
             </button>
             <button
               onClick={() => setShowDetails((prev) => !prev)}
               title="Toggle Group Details"
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden cursor-pointer"
             >
               <Menu size={18} />
             </button>

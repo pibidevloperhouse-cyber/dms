@@ -7,6 +7,7 @@ import { Hash, Lock, Search, Users, RefreshCw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import NotificationBell from '@/components/communication/NotificationBell';
 
 export default function ChannelSidebar() {
   const pathname = usePathname();
@@ -60,13 +61,29 @@ export default function ChannelSidebar() {
     };
     run();
 
-    const interval = setInterval(() => {
-      fetchChannels();
-    }, 5000);
+    const handleReadEvent = (e) => {
+      const readChannelId = e?.detail?.channelId;
+      if (readChannelId) {
+        setChannels((prev) =>
+          prev.map((c) => (c.id === readChannelId ? { ...c, unreadCount: 0, unreadMentionsCount: 0 } : c))
+        );
+      }
+    };
+
+    const handleUnreadUpdated = (e) => {
+      if (Array.isArray(e?.detail?.channels) && e.detail.channels.length > 0) {
+        setChannels(e.detail.channels);
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('communication_read', handleReadEvent);
+    window.addEventListener('communication_unread_updated', handleUnreadUpdated);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      window.removeEventListener('communication_read', handleReadEvent);
+      window.removeEventListener('communication_unread_updated', handleUnreadUpdated);
     };
   }, [fetchChannels]);
 
@@ -83,13 +100,16 @@ export default function ChannelSidebar() {
           <h2 className="text-lg font-bold text-slate-800">Communication</h2>
           <p className="text-xs text-slate-400 font-medium">Group Conversations</p>
         </div>
-        <button
-          onClick={fetchChannels}
-          title="Refresh conversations"
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <NotificationBell placement="dropdown" dropdownAlign="left" />
+          <button
+            onClick={fetchChannels}
+            title="Refresh conversations"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -177,10 +197,29 @@ export default function ChannelSidebar() {
                         </p>
                       </div>
                     </div>
-                    {channel.memberCount > 0 && (
-                      <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 shrink-0 ml-2">
-                        {channel.memberCount}
-                      </span>
+                    {!isActive && (channel.unreadCount || 0) > 0 ? (
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {(channel.unreadMentionsCount || 0) > 0 && (
+                          <span
+                            title={`${channel.unreadMentionsCount} mention${channel.unreadMentionsCount > 1 ? 's' : ''}`}
+                            className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold border border-purple-200/80 animate-pulse"
+                          >
+                            @{channel.unreadMentionsCount}
+                          </span>
+                        )}
+                        <span
+                          title={`${channel.unreadCount} unread message${channel.unreadCount > 1 ? 's' : ''}`}
+                          className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-xs animate-in zoom-in-75"
+                        >
+                          {channel.unreadCount > 99 ? '99+' : channel.unreadCount}
+                        </span>
+                      </div>
+                    ) : (
+                      channel.memberCount > 0 && (
+                        <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 shrink-0 ml-2">
+                          {channel.memberCount}
+                        </span>
+                      )
                     )}
                   </Link>
                 );

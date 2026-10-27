@@ -77,68 +77,59 @@ export default function CreateTaskModal() {
     return 'internal_user';
   };
 
-  // Available departments switch based on Visibility:
-  // INTERNAL -> internal departments of currentUser's side (seller or buyer)
-  // EXTERNAL -> opposite counterparty departments (buyer if seller, seller if buyer)
+  // 1. Candidate groups allowed for the current logged-in role based on delegation rules:
+  // - Super Admin can assign task to: Admin, Sub Admin, Internal User groups
+  // - Admin can assign task to: Sub Admin, Internal User groups
+  // - Sub Admin can assign task to: Internal User groups
+  const allowedGroupsForCreator = useMemo(() => {
+    const isExternal = visibility === 'EXTERNAL';
+    if (isExternal) {
+      return Array.isArray(externalGroups) && externalGroups.length > 0
+        ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
+        : [];
+    }
+
+    const allMySideGroups = Array.isArray(workflowGroups) && workflowGroups.length > 0
+      ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
+      : [];
+
+    const creatorRole = normalizeRole(currentUser?.role);
+    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
+
+    return allMySideGroups.filter((g) => {
+      const gRole = resolveGroupRole(g);
+      return allowedRoles.includes(gRole);
+    });
+  }, [visibility, externalGroups, workflowGroups, userSide, oppositeSide, currentUser?.role, roleHierarchy]);
+
+  // 2. Departments list strictly reflects the departments of groups allowed for this role
   const availableDepartments = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
     if (isExternal) {
-      const fromExt = Array.isArray(externalGroups)
-        ? externalGroups
-            .filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
-            .map((g) => g.department)
-            .filter(Boolean)
-        : [];
+      const fromExt = allowedGroupsForCreator
+        .map((g) => g.department || 'General')
+        .filter(Boolean);
       const combined = Array.from(new Set([...fromExt, ...(externalDepartments || [])]));
       return combined.length > 0 ? combined : ['Finance', 'Legal', 'Operations', 'General'];
-    } else {
-      const fromInt = Array.isArray(workflowGroups)
-        ? workflowGroups
-            .filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
-            .map((g) => g.department)
-            .filter(Boolean)
-        : [];
-      const combined = Array.from(new Set([...fromInt, ...(departments || [])]));
-      return combined.length > 0 ? combined : ['Finance', 'HR', 'Legal', 'Operations', 'General'];
     }
-  }, [visibility, externalGroups, externalDepartments, workflowGroups, departments, userSide, oppositeSide]);
 
-  // Available groups switch based on Visibility:
-  // INTERNAL -> internal groups of currentUser's side
-  // EXTERNAL -> opposite counterparty's groups
+    // For internal assignment: ONLY list departments that contain allowed groups for this user's role
+    const fromAllowed = allowedGroupsForCreator
+      .map((g) => g.department || 'General')
+      .filter(Boolean);
+    return Array.from(new Set(fromAllowed));
+  }, [allowedGroupsForCreator, visibility, externalDepartments]);
+
+  // 3. Groups list dynamically reflects only allowed groups belonging to the chosen Department
   const availableGroups = useMemo(() => {
     const isExternal = visibility === 'EXTERNAL';
 
-    let list = [];
-    if (isExternal) {
-      // Counterparty groups (opposite side)
-      list = Array.isArray(externalGroups) && externalGroups.length > 0
-        ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
-        : [];
-    } else {
-      // Internal groups (current user's side)
-      list = Array.isArray(workflowGroups) && workflowGroups.length > 0
-        ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
-        : [];
-
-      // For internal assignment: filter down role hierarchy if applicable
-      const creatorRole = normalizeRole(currentUser?.role);
-      const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
-      if (allowedRoles.length > 0) {
-        list = list.filter((g) => {
-          const gRole = resolveGroupRole(g);
-          return allowedRoles.includes(gRole);
-        });
-      }
-    }
+    let list = allowedGroupsForCreator;
 
     if (department && department !== 'ALL') {
-      const filteredByDept = list.filter(
-        (g) => (g.department || '').trim().toLowerCase() === department.trim().toLowerCase()
+      list = list.filter(
+        (g) => (g.department || 'General').trim().toLowerCase() === department.trim().toLowerCase()
       );
-      if (filteredByDept.length > 0) {
-        list = filteredByDept;
-      }
     }
 
     return list.map((g) => {
@@ -149,6 +140,7 @@ export default function CreateTaskModal() {
       return {
         id: g.id || g.name,
         name: g.name,
+        department: g.department || 'General',
         role: gRole,
         roleLabel: roleStr,
         isExternal,
@@ -159,7 +151,7 @@ export default function CreateTaskModal() {
           : `${g.name} (${roleStr})`,
       };
     });
-  }, [visibility, department, workflowGroups, externalGroups, currentUser, roleHierarchy, normalizeRole, getRoleLabel, userSide, oppositeSide]);
+  }, [allowedGroupsForCreator, department, visibility, oppositeSide, userSide, currentUser?.company, getRoleLabel]);
 
   // Subordinate members available for subtask assignment strictly within assignedGroup
   const subtaskAssignableMembers = useMemo(() => {
@@ -618,7 +610,16 @@ export default function CreateTaskModal() {
                 <div className="relative">
                   <select
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(e) => {
+                      const newDept = e.target.value;
+                      setDepartment(newDept);
+                      const inDept = allowedGroupsForCreator.filter(
+                        (g) => (g.department || 'General').trim().toLowerCase() === (newDept || '').trim().toLowerCase()
+                      );
+                      if (inDept.length > 0) {
+                        setAssignedGroup(inDept[0].name);
+                      }
+                    }}
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer truncate"
                     required
                   >
