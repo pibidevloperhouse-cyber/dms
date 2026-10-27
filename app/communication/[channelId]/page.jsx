@@ -6,6 +6,7 @@ import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu } from 'lucide-reac
 import MessageTimeline from '@/components/communication/MessageTimeline';
 import RichComposer from '@/components/communication/RichComposer';
 import ContextPanel from '@/components/communication/ContextPanel';
+import NotificationBell from '@/components/communication/NotificationBell';
 import { useCommunicationRealtime } from '@/hooks/useCommunicationRealtime';
 
 export default function ChannelPage({ params }) {
@@ -322,17 +323,18 @@ export default function ChannelPage({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <NotificationBell placement="dropdown" dropdownAlign="right" />
             <button
               onClick={fetchMessages}
               title="Refresh messages"
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
               <RefreshCw size={18} />
             </button>
             <button
               onClick={() => setShowDetails((prev) => !prev)}
               title="Toggle Group Details"
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden cursor-pointer"
             >
               <Menu size={18} />
             </button>

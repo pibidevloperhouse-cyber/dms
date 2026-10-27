@@ -7,6 +7,7 @@ import { supabase } from '@/utils/supabase/client';
 import { NAV_ITEMS } from '@/lib/nav-items';
 import WorkspaceStatusBadge from '@/components/workspaces/WorkspaceStatusBadge';
 import WorkspacePendingOverlay from '@/components/workspaces/WorkspacePendingOverlay';
+import NotificationBell from '@/components/communication/NotificationBell';
 
 export default function MainSidebar() {
   const pathname = usePathname();
@@ -293,8 +294,9 @@ export default function MainSidebar() {
 
 
 
-        {/* Profile / Sign Out Menu */}
-        <div className="flex flex-col items-center mt-auto relative mb-4">
+        {/* Notification Bell & Profile / Sign Out Menu */}
+        <div className="flex flex-col items-center mt-auto relative mb-4 gap-2.5">
+          <NotificationBell placement="sidebar" />
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-gray-400 hover:bg-slate-100 hover:text-slate-700 transition-all duration-300"
