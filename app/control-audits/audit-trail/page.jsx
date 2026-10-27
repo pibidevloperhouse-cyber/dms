@@ -74,7 +74,7 @@ export default function AuditTrailPage() {
 
   // Extract unique modules & actions from dynamic logs with standard platform baselines
   const uniqueModules = useMemo(() => {
-    const set = new Set(["Authentication", "Documents"]);
+    const set = new Set(["Authentication", "Documents", "Communication"]);
     auditLogs.forEach((l) => {
       if (l.module) set.add(l.module);
     });
@@ -101,6 +101,12 @@ export default function AuditTrailPage() {
     if (selectedModule === "Authentication" || selectedModule === "all") {
       set.add("Login Attempt");
       set.add("Sign-up Attempt");
+    }
+    if (selectedModule === "Communication" || selectedModule === "all") {
+      set.add("Message Sent");
+      set.add("Message Edited");
+      set.add("Task Message Sent");
+      set.add("Attachment Sent");
     }
 
     return Array.from(set);
@@ -244,7 +250,8 @@ export default function AuditTrailPage() {
       "Email",
       "Role",
       "Action",
-      "Resource",
+      "Resource / Content",
+      "Channel / Group",
       "View Time",
       "Module",
       "Organization / Deal",
@@ -261,6 +268,7 @@ export default function AuditTrailPage() {
       `"${log.userRole || ""}"`,
       `"${log.action}"`,
       `"${(log.resource || '').replace(/"/g, '""')}"`,
+      `"${(log.channelName || '').replace(/"/g, '""')}"`,
       `"${log.durationText || log.duration || "—"}"`,
       log.module || "",
       `"${log.companyName || log.deal || ""}"`,
@@ -597,7 +605,7 @@ export default function AuditTrailPage() {
                     </div>
                   </th>
 
-                  {/* Resource / Target / Document File / Auth Detail Column */}
+                  {/* Resource / Target / Document File / Auth Detail / Message Content Column */}
                   <th
                     onClick={() => handleSort("resource")}
                     className="px-4 py-3.5 min-w-[200px] cursor-pointer hover:text-slate-800"
@@ -608,20 +616,28 @@ export default function AuditTrailPage() {
                           ? "Auth Detail / Reason"
                           : selectedModule === "Documents"
                           ? "Document File"
-                          : "Resource / Target"}
+                          : selectedModule === "Communication"
+                          ? "Message Content"
+                          : "Resource / Content"}
                       </span>
                       <ArrowUpDown size={12} className="text-slate-400" />
                     </div>
                   </th>
 
-                  {/* View Duration Column (Only shown for Documents & All Modules, omitted for Authentication) */}
+                  {/* Channel / View Duration Column (Only shown for Documents, Communication, & All Modules; omitted for Authentication) */}
                   {selectedModule !== "Authentication" && (
                     <th
-                      onClick={() => handleSort("durationSeconds")}
+                      onClick={() => handleSort(selectedModule === "Communication" ? "channelName" : "durationSeconds")}
                       className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
                     >
                       <div className="flex items-center gap-1.5">
-                        <span>View Time</span>
+                        <span>
+                          {selectedModule === "Communication"
+                            ? "Channel / Group"
+                            : selectedModule === "Documents"
+                            ? "View Time"
+                            : "Channel / View Time"}
+                        </span>
                         <ArrowUpDown size={12} className="text-slate-400" />
                       </div>
                     </th>
@@ -789,10 +805,18 @@ export default function AuditTrailPage() {
                     ? "Auth Detail / Target:"
                     : selectedAuditLog.module === "Documents"
                     ? "Document File:"
+                    : selectedAuditLog.module === "Communication"
+                    ? "Message Content:"
                     : "Target Resource:"}
                 </span>
                 <span className="font-semibold text-slate-800">{selectedAuditLog.resource}</span>
               </div>
+              {selectedAuditLog.channelName && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-medium">Channel / Group:</span>
+                  <span className="font-semibold text-indigo-700">#{selectedAuditLog.channelName}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Module:</span>
                 <span className="font-medium text-slate-700">{selectedAuditLog.module || "General"}</span>

@@ -14,6 +14,8 @@ import {
   permissions,
   invitations,
   workspaceMembers,
+  messages,
+  communicationChannels,
 } from '@/db/schema';
 import { eq, desc, or, and, ne, isNull, inArray, isNotNull } from 'drizzle-orm';
 
@@ -745,8 +747,152 @@ export async function GET(req) {
       };
     });
 
-    // 13. Merge and sort all audit logs (Auth + Document events) by timestamp DESC
-    const allFormattedLogs = [...formattedAuthLogs, ...formattedDocLogs].sort(
+    // 12b. Query persistent messages from Communication module
+    let rawMessageLogs = [];
+    try {
+      rawMessageLogs = await db
+        .select({
+          id: messages.id,
+          channelId: messages.channelId,
+          senderId: messages.senderId,
+          parentMessageId: messages.parentMessageId,
+          messageText: messages.messageText,
+          messageType: messages.messageType,
+          createdAt: messages.createdAt,
+          updatedAt: messages.updatedAt,
+          isEdited: messages.isEdited,
+          metadata: messages.metadata,
+          senderName: users.name,
+          senderEmail: users.email,
+          senderRole: users.role,
+          senderDmsRole: users.dmsRole,
+          senderCompanyId: users.companyId,
+          channelName: communicationChannels.name,
+          channelWorkspaceId: communicationChannels.workspaceId,
+          channelGroupId: communicationChannels.groupId,
+          groupWorkspaceId: groups.workspaceId,
+          groupName: groups.name,
+          companyName: companies.name,
+        })
+        .from(messages)
+        .leftJoin(users, eq(messages.senderId, users.id))
+        .leftJoin(communicationChannels, eq(messages.channelId, communicationChannels.id))
+        .leftJoin(groups, eq(communicationChannels.groupId, groups.id))
+        .leftJoin(companies, eq(communicationChannels.companyId, companies.id))
+        .where(isNull(messages.deletedAt))
+        .orderBy(desc(messages.createdAt))
+        .limit(300);
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch messages:', e.message);
+    }
+
+    // Filter messages strictly to this active deal
+    const dealScopedMessageLogs = rawMessageLogs.filter((log) => {
+      // 1. Check group workspace
+      if (log.groupWorkspaceId) {
+        if (
+          log.groupWorkspaceId === activeDeal.dealId ||
+          (activeDeal.workspaceId && log.groupWorkspaceId === activeDeal.workspaceId)
+        ) {
+          return true;
+        }
+      }
+      // 2. Check channel workspace
+      if (log.channelWorkspaceId) {
+        if (
+          log.channelWorkspaceId === activeDeal.dealId ||
+          (activeDeal.workspaceId && log.channelWorkspaceId === activeDeal.workspaceId)
+        ) {
+          return true;
+        }
+      }
+      // 3. Fallback: check if sender is a member of this active deal
+      const lowerEmail = (log.senderEmail || '').toLowerCase();
+      const matchesUserId = log.senderId && dealMemberUserIds.has(log.senderId);
+      const matchesEmail = lowerEmail && dealMemberEmails.has(lowerEmail);
+      return matchesUserId || matchesEmail;
+    });
+
+    // Transform Message Logs with active deal metadata
+    const formattedMessageLogs = dealScopedMessageLogs.map((log) => {
+      const isEdited = Boolean(log.isEdited);
+      const actionName = isEdited
+        ? 'Message Edited'
+        : log.messageType === 'task'
+        ? 'Task Message Sent'
+        : log.messageType === 'file'
+        ? 'Attachment Sent'
+        : 'Message Sent';
+
+      const userSide = getUserPartySide({
+        userId: log.senderId,
+        userEmail: log.senderEmail,
+        userRole: log.senderRole,
+        userDmsRole: log.senderDmsRole,
+        companyId: log.senderCompanyId,
+      });
+
+      const channelTitle = log.channelName || log.groupName || 'General Channel';
+
+      return {
+        id: log.id,
+        user: log.senderName || (log.senderEmail ? log.senderEmail.split('@')[0] : 'Unknown User'),
+        userEmail: log.senderEmail,
+        userRole: formatRoleName(log.senderRole),
+        side: userSide,
+        sideLabel: userSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
+        action: actionName,
+        resource: log.messageText,
+        channelName: channelTitle,
+        channelId: log.channelId,
+        module: 'Communication',
+        deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+        dealId: activeDeal.dealId,
+        projectName: activeDeal.projectName || 'Project',
+        companyName: activeDeal.companyName || log.companyName || 'Associated Company',
+        result: 'Success',
+        timestamp: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
+        ip: '—',
+        device: '—',
+        duration: '—',
+        durationSeconds: null,
+        durationFormatted: '—',
+        durationText: '—',
+        eventType: log.messageType || 'text',
+        outcome: 'SUCCESS',
+        failureReason: null,
+        permissionDecision: {
+          rule: 'Channel Communication Authorization',
+          verdict: 'Permitted',
+        },
+        metadata: {
+          channelId: log.channelId,
+          channelName: channelTitle,
+          messageType: log.messageType || 'text',
+          isEdited,
+          dealName: activeDeal.dealName,
+          projectName: activeDeal.projectName,
+          ...(log.metadata || {}),
+        },
+        jsonPayload: {
+          event_type: `communication.${actionName.toLowerCase().replace(/\s+/g, '_')}`,
+          outcome: 'SUCCESS',
+          email: log.senderEmail,
+          user_id: log.senderId,
+          channel_id: log.channelId,
+          channel_name: channelTitle,
+          message_text: log.messageText,
+          message_type: log.messageType,
+          is_edited: isEdited,
+          deal_id: activeDeal.dealId,
+          deal_name: activeDeal.dealName,
+          created_at: log.createdAt,
+        },
+      };
+    });
+
+    // 13. Merge and sort all audit logs (Auth + Document + Communication events) by timestamp DESC
+    const allFormattedLogs = [...formattedAuthLogs, ...formattedDocLogs, ...formattedMessageLogs].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 

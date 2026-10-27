@@ -31,7 +31,7 @@ export function getActionIcon(action = "") {
   if (norm.includes("denied") || norm.includes("fail")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("permission")) return <KeyRound className="w-3.5 h-3.5 text-amber-600" />;
   if (norm.includes("asked")) return <HelpCircle className="w-3.5 h-3.5 text-purple-600" />;
-  if (norm.includes("answered")) return <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />;
+  if (norm.includes("message") || norm.includes("chat") || norm.includes("answered")) return <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />;
   if (norm.includes("stage") || norm.includes("gate")) return <Milestone className="w-3.5 h-3.5 text-[var(--brand)]" />;
   if (norm.includes("policy") || norm.includes("violation")) return <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />;
   return <Activity className="w-3.5 h-3.5 text-slate-600" />;
@@ -117,6 +117,11 @@ export default function AuditEventRow({
           </p>
           <div suppressHydrationWarning className="flex items-center gap-2 text-[11px] text-slate-400 font-mono flex-wrap">
             <span>{date} {time} IST</span>
+            {event.channelName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-medium border border-indigo-200/70">
+                #{event.channelName}
+              </span>
+            )}
             {event.durationText && event.durationText !== '—' && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[10px] font-mono font-bold border border-sky-200/70">
                 <Clock size={10} className="text-sky-600" />
@@ -175,8 +180,8 @@ export default function AuditEventRow({
         </div>
       </td>
 
-      {/* Resource / Target / Document File / Auth Detail */}
-      <td className="px-4 py-3.5 max-w-[240px]">
+      {/* Resource / Target / Document File / Auth Detail / Message */}
+      <td className="px-4 py-3.5 max-w-[280px]">
         {moduleView === "Authentication" ? (
           event.failureReason ? (
             <span
@@ -193,11 +198,18 @@ export default function AuditEventRow({
               {event.resource || "User Portal Session"}
             </span>
           )
-        ) : moduleView === "Documents" ? (
+        ) : moduleView === "Documents" || (moduleView === "all" && event.module === "Documents") ? (
           <div className="flex items-center gap-2 min-w-0" title={event.resource || "Document"}>
             <FileText size={14} className="text-sky-600 shrink-0" />
             <span className="font-semibold text-slate-800 truncate text-xs">
               {event.resource || "Document"}
+            </span>
+          </div>
+        ) : moduleView === "Communication" || (moduleView === "all" && event.module === "Communication") ? (
+          <div className="flex items-center gap-2 min-w-0" title={event.resource || "Message"}>
+            <MessageSquare size={14} className="text-indigo-600 shrink-0" />
+            <span className="font-medium text-slate-800 truncate text-xs">
+              "{event.resource || "Message"}"
             </span>
           </div>
         ) : (
@@ -212,10 +224,14 @@ export default function AuditEventRow({
         )}
       </td>
 
-      {/* Duration / View Time (Only rendered for Documents and All Modules, omitted for Authentication) */}
+      {/* Channel / View Time (Only rendered for Documents, Communication, and All Modules; omitted for Authentication) */}
       {moduleView !== "Authentication" && (
         <td className="px-4 py-3.5 whitespace-nowrap">
-          {event.durationText && event.durationText !== "—" ? (
+          {moduleView === "Communication" || event.module === "Communication" ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-semibold text-[11px] border border-indigo-200/80">
+              #{event.channelName || event.metadata?.channelName || "General"}
+            </span>
+          ) : event.durationText && event.durationText !== "—" ? (
             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-mono font-semibold text-[11px] border border-sky-200/80">
               <Clock size={11} className="text-sky-600 shrink-0" />
               <span>{event.durationText}</span>
