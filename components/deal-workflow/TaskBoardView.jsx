@@ -663,10 +663,7 @@ export default function TaskBoardView() {
                                 setIsChatPanelOpen(true);
                               }}
                               onOpenDetails={(t) => setSelectedTask(t)}
-                              onCardClick={(t) => {
-                                setActiveChatTaskId(t.id || t.task_id || t.taskId);
-                                setIsChatPanelOpen(true);
-                              }}
+                              onCardClick={(t) => setSelectedTask(t)}
                             />
                           );
                         })

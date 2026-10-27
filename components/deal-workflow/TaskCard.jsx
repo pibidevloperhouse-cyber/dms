@@ -104,7 +104,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
   return (
     <div
       onClick={() => {
-        if (onOpenChat) onOpenChat(task);
+        if (onOpenDetails) onOpenDetails(task);
         else onCardClick?.(task);
       }}
       className={`group bg-white rounded-xl border transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden ${
@@ -283,38 +283,31 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
         )}
       </div>
 
-      {/* Footer & Dynamic Status Actions */}
+      {/* Footer: Left corner Chat Icon, Right corner Status */}
       <div
         className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto"
-        onClick={(e) => e.stopPropagation()} // Prevent card click when clicking action button
       >
-        {/* Status Indicator text */}
-        <div className="text-[11px]">
-          {task.status === 'DONE' ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              {task.completed_by ? `${task.completed_by} — Done` : 'Completed ✓'}
-            </span>
-          ) : task.status === 'REVIEW' ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-              In Review
-            </span>
-          ) : task.status === 'IN_PROGRESS' ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-blue-600">
-              <Clock className="w-3.5 h-3.5 text-blue-500" />
-              In Progress
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 font-medium text-slate-500">
-              <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
-              To Do
+        {/* Left Corner: Chat Icon only */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenChat) onOpenChat(task);
+            else onCardClick?.(task);
+          }}
+          className="p-1.5 rounded-lg text-teal-700 hover:text-teal-900 bg-teal-50/80 hover:bg-teal-100 border border-teal-200/90 transition-all cursor-pointer shadow-2xs relative flex items-center justify-center shrink-0"
+          title="Open Task Chat"
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
+          {Array.isArray(task.comments) && task.comments.length > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] bg-[#006666] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 shadow-xs">
+              {task.comments.length}
             </span>
           )}
-        </div>
+        </button>
 
-        {/* Action Buttons based on status & role */}
-        <div>
+        {/* Right Corner: Status (e.g. Marked as Done ✓, Review & Move to Docs, In Progress, etc.) */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {task.status === 'TO_DO' && (
             isStageLocked ? (
               <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
@@ -323,6 +316,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
               </span>
             ) : canClaim ? (
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   claimTask(task.task_id);
@@ -349,6 +343,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
           {task.status === 'IN_PROGRESS' && (
             isSigningEligible ? (
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSigningModalTask(task);
@@ -359,6 +354,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
               </button>
             ) : canSubmit ? (
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   submitForReview(task.task_id);
@@ -367,13 +363,19 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
               >
                 <span>Submit Review</span>
               </button>
-            ) : null
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200">
+                <Clock className="w-3 h-3 text-blue-500" />
+                <span>In Progress</span>
+              </span>
+            )
           )}
 
           {task.status === 'REVIEW' && (
             canApprove ? (
               (task.deal_stage || '').trim().toLowerCase().includes('prep') ? (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onOpenDetails) onOpenDetails(task);
@@ -387,6 +389,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     approveAndComplete(task.task_id);
@@ -411,40 +414,6 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
               <span>Marked as Done ✓</span>
             </span>
           )}
-        </div>
-
-        {/* Card Quick Action Bar: Task-Based Communication & Details */}
-        <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onOpenChat) onOpenChat(task);
-              else onCardClick?.(task);
-            }}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 hover:text-teal-900 bg-teal-50/80 hover:bg-teal-100 border border-teal-200/90 px-2 py-1 rounded-md transition-all cursor-pointer shadow-2xs"
-            title="Open Task Communication Channel"
-          >
-            <MessageSquare className="w-3 h-3 text-teal-600" />
-            <span>Task Chat</span>
-            {Array.isArray(task.comments) && task.comments.length > 0 && (
-              <span className="text-[9px] bg-[#006666] text-white font-bold px-1.5 py-0.2 rounded-full ml-0.5">
-                {task.comments.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onOpenDetails) onOpenDetails(task);
-              else onCardClick?.(task);
-            }}
-            className="text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-          >
-            Details →
-          </button>
         </div>
       </div>
     </div>
