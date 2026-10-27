@@ -32,8 +32,9 @@ export default function CreateTaskModal() {
   const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
   const oppositeLabel = oppositeSide === 'buyer' ? 'Buyer' : 'Seller';
   const internalLabel = userSide === 'buyer' ? 'Buyer' : 'Seller';
-
-  const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
+  const userNormRole = normalizeRole(currentUser?.role);
+  const isSuperAdmin = userNormRole === 'super_admin';
+  const isAdminRole = userNormRole === 'admin' || isSuperAdmin;
 
   // Main task fields
   const [title, setTitle] = useState('');
@@ -131,23 +132,29 @@ export default function CreateTaskModal() {
   };
 
   // 1. Candidate groups allowed for the current logged-in role based on delegation rules:
-  // - Super Admin can assign task to: Admin, Sub Admin, Internal User groups
-  // - Admin can assign task to: Sub Admin, Internal User groups
-  // - Sub Admin can assign task to: Internal User groups
+  // - Super Admin can assign task to: Admin groups ONLY
+  // - Admin can assign task to: Sub Admin groups ONLY
+  // - Sub Admin can assign task to: Internal User groups ONLY
   const allowedGroupsForCreator = useMemo(() => {
+    const creatorRole = normalizeRole(currentUser?.role);
+    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || (
+      creatorRole === 'super_admin' ? ['admin'] : creatorRole === 'admin' ? ['sub_admin'] : ['internal_user']
+    );
+
     const isExternal = visibility === 'EXTERNAL';
     if (isExternal) {
-      return Array.isArray(externalGroups) && externalGroups.length > 0
+      const allExt = Array.isArray(externalGroups) && externalGroups.length > 0
         ? externalGroups.filter((g) => (g.side || '').toLowerCase() === oppositeSide.toLowerCase() || !g.side)
         : [];
+      return allExt.filter((g) => {
+        const gRole = resolveGroupRole(g);
+        return allowedRoles.includes(gRole);
+      });
     }
 
     const allMySideGroups = Array.isArray(workflowGroups) && workflowGroups.length > 0
       ? workflowGroups.filter((g) => (g.side || '').toLowerCase() === userSide.toLowerCase() || !g.side)
       : [];
-
-    const creatorRole = normalizeRole(currentUser?.role);
-    const allowedRoles = roleHierarchy?.[creatorRole]?.canAssignTo || [];
 
     return allMySideGroups.filter((g) => {
       const gRole = resolveGroupRole(g);
@@ -437,7 +444,7 @@ export default function CreateTaskModal() {
     setTitle('');
     setDescription('');
     setVisibility('INTERNAL');
-    setDepartment(departments[0] || '');
+    setDepartment(availableDepartments[0] || '');
     setAssignedGroup(availableGroups[0]?.name || '');
     setAssignedMember('');
     setAssignedFolderId('');
@@ -533,7 +540,7 @@ export default function CreateTaskModal() {
         deal_stage: dealStage,
         is_enabled: isStageActive,
         due_date: dueDate || null,
-        subtasks: subtasks,
+        subtasks: isAdminRole ? [] : subtasks,
         claimable_by_role: true,
         created_by: currentUser?.name || 'Creator',
         creator_role: currentUser?.role || 'admin',
@@ -759,7 +766,7 @@ export default function CreateTaskModal() {
                     required
                   >
                     {availableGroups.length === 0 ? (
-                      <option value="">No {visibility === 'EXTERNAL' ? oppositeLabel.toLowerCase() : 'subordinate'} groups in this department</option>
+                      <option value="">No {visibility === 'EXTERNAL' ? oppositeLabel.toLowerCase() : (userNormRole === 'super_admin' ? 'admin' : userNormRole === 'admin' ? 'sub admin' : 'internal user')} groups in this department</option>
                     ) : (
                       availableGroups.map((g) => (
                         <option key={g.id || g.name} value={g.name}>
@@ -972,86 +979,88 @@ export default function CreateTaskModal() {
               </div>
             )}
 
-            {/* Subtasks Section */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-900">
-                  Subtasks
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsAddSubtaskModalOpen(true)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-medium text-xs transition-colors cursor-pointer"
-                >
-                  + Add Subtask
-                </button>
-              </div>
-
-              {subtasks.length === 0 ? (
-                <p className="text-sm text-slate-500 font-normal mt-2.5">
-                  No subtasks added yet
-                </p>
-              ) : (
-                <div className="space-y-2 mt-3 max-h-44 overflow-y-auto pr-1">
-                  {subtasks.map((st, idx) => (
-                    <div
-                      key={st.id || idx}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs hover:border-slate-300 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1 pr-2">
-                        <div className="font-semibold text-slate-900 truncate">
-                          {st.title}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
-                          {st.assignedGroup && (
-                            <span className="inline-flex items-center gap-1 text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
-                              <Users className="w-3 h-3 text-slate-400" />
-                              {st.assignedGroup}
-                            </span>
-                          )}
-                          {st.assignedMember && (
-                            <span className="inline-flex items-center gap-1 text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
-                              <User className="w-3 h-3 text-teal-600" />
-                              {st.assignedMember}
-                            </span>
-                          )}
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${st.priority === 'High'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : st.priority === 'Medium'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-200'
-                              }`}
-                          >
-                            {st.priority}
-                          </span>
-                          {st.dueDate && (
-                            <span className="text-slate-500 flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-slate-400" />
-                              {st.dueDate}
-                            </span>
-                          )}
-                          {st.attachments && st.attachments.length > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                              <Paperclip className="w-3 h-3 text-slate-400" />
-                              {st.attachments.length} {st.attachments.length === 1 ? 'file' : 'files'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSubtask(idx)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                        title="Remove subtask"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+            {/* Subtasks Section - Admin can only create main task for Sub Admin; Subtasks option is not available for Admin role */}
+            {!isAdminRole && (
+              <div className="pt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Subtasks
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSubtaskModalOpen(true)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-medium text-xs transition-colors cursor-pointer"
+                  >
+                    + Add Subtask
+                  </button>
                 </div>
-              )}
-            </div>
+
+                {subtasks.length === 0 ? (
+                  <p className="text-sm text-slate-500 font-normal mt-2.5">
+                    No subtasks added yet
+                  </p>
+                ) : (
+                  <div className="space-y-2 mt-3 max-h-44 overflow-y-auto pr-1">
+                    {subtasks.map((st, idx) => (
+                      <div
+                        key={st.id || idx}
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs hover:border-slate-300 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="font-semibold text-slate-900 truncate">
+                            {st.title}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
+                            {st.assignedGroup && (
+                              <span className="inline-flex items-center gap-1 text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                                <Users className="w-3 h-3 text-slate-400" />
+                                {st.assignedGroup}
+                              </span>
+                            )}
+                            {st.assignedMember && (
+                              <span className="inline-flex items-center gap-1 text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
+                                <User className="w-3 h-3 text-teal-600" />
+                                {st.assignedMember}
+                              </span>
+                            )}
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${st.priority === 'High'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : st.priority === 'Medium'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}
+                            >
+                              {st.priority}
+                            </span>
+                            {st.dueDate && (
+                              <span className="text-slate-500 flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-slate-400" />
+                                {st.dueDate}
+                              </span>
+                            )}
+                            {st.attachments && st.attachments.length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                <Paperclip className="w-3 h-3 text-slate-400" />
+                                {st.attachments.length} {st.attachments.length === 1 ? 'file' : 'files'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubtask(idx)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                          title="Remove subtask"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Footer with Cancel & Create Main Task buttons */}
             <div className="pt-4 flex items-center justify-end gap-2.5">
@@ -1096,9 +1105,9 @@ export default function CreateTaskModal() {
       </div>
 
       {/* ========================================================================= */}
-      {/* ADD SUBTASK MODAL - DYNAMIC GROUP -> MEMBERS CASCADE */}
+      {/* ADD SUBTASK MODAL - DYNAMIC GROUP -> MEMBERS CASCADE (Non-admin only) */}
       {/* ========================================================================= */}
-      {isAddSubtaskModalOpen && (
+      {!isAdminRole && isAddSubtaskModalOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => setIsAddSubtaskModalOpen(false)}

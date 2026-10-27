@@ -5,9 +5,9 @@ import { supabase } from '@/utils/supabase/client';
 
 // ============================================================================
 // ROLE HIERARCHY & TASK DELEGATION PERMISSIONS
-// 1. Super Admin can assign to Admin, Sub Admin, Internal User
-// 2. Admin can assign to Sub Admin, Internal User
-// 3. Sub Admin can assign to Internal User
+// 1. Super Admin can assign to Admin only
+// 2. Admin can assign to Sub Admin only
+// 3. Sub Admin can assign to Internal User only
 // 4. Internal User cannot assign to other roles
 // ============================================================================
 export const ROLE_HIERARCHY = {
@@ -15,22 +15,22 @@ export const ROLE_HIERARCHY = {
     level: 4,
     label: 'Super Admin',
     badge: '👑 Super Admin',
-    canAssignTo: ['admin', 'sub_admin', 'internal_user'],
-    desc: 'Can assign to Admin, Sub Admin, and Internal User',
+    canAssignTo: ['admin'],
+    desc: 'Can assign to Admin only',
   },
   admin: {
     level: 3,
     label: 'Admin',
     badge: '👔 Admin',
-    canAssignTo: ['sub_admin', 'internal_user'],
-    desc: 'Can assign to Sub Admin and Internal User',
+    canAssignTo: ['sub_admin'],
+    desc: 'Can assign to Sub Admin only',
   },
   sub_admin: {
     level: 2,
     label: 'Sub Admin',
     badge: '⚡ Sub Admin',
     canAssignTo: ['internal_user'],
-    desc: 'Can assign to Internal User',
+    desc: 'Can assign to Internal User only',
   },
   internal_user: {
     level: 1,
@@ -168,6 +168,15 @@ export const SELLER_GROUPS = [
     side: 'seller',
     company: 'ABC Textiles',
     members: ['Ravi Shankar'],
+  },
+  {
+    id: 'seller_operations',
+    name: 'Finance Operations',
+    department: 'Finance',
+    role: 'internal_user',
+    side: 'seller',
+    company: 'ABC Textiles',
+    members: ['Karthik Raja'],
   },
 ];
 export const BUYER_GROUPS = [
