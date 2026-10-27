@@ -235,11 +235,8 @@ export default function TaskBoardView() {
     stageQuery.status === 'PENDING_RESOLUTION' &&
     normalizeStage(stageQuery.stage) === normalizeStage(activeDealStage)
   );
-  const hasStageNotice = Boolean(stageNotification);
-
   let notificationCount = 0;
   if (isStageAllDone || hasActiveQuery) notificationCount += 1;
-  if (hasStageNotice) notificationCount += 1;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-2">
@@ -307,55 +304,6 @@ export default function TaskBoardView() {
                 <div className="space-y-3">
                   {/* Card 1: Stage Review Notification / Super Admin Review Card / Query */}
                   <StageReviewNotification inDropdown={true} />
-
-                  {/* Card 2: Stage Activated Banner */}
-                  {stageNotification && (
-                    <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl shadow-xs flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="min-w-0">
-                          <div className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap mb-2">
-                            <span>Stage Activated:</span>
-                            <span className="text-[#006666] bg-slate-200 px-2 py-0.5 rounded-md font-extrabold text-xs">
-                              {stageNotification.stage}
-                            </span>
-                            <span className="text-[10px] text-slate-600 bg-white border border-slate-300 px-1.5 py-0.5 rounded-full font-medium">
-                              By Super Admin
-                            </span>
-                          </div>
-                          <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
-                            Super Admin has activated the <strong className="text-slate-800">{stageNotification.stage}</strong> stage. You can now enable the tasks you created for this stage in Task Creation!
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {trackingSection !== 'TASK_CREATION' && !isInternalUser && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsNotificationOpen(false);
-                              setTrackingSection('TASK_CREATION');
-                              if (setSelectedDealStage) {
-                                setSelectedDealStage(stageNotification.stage);
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-[#006666] hover:bg-[#005555] text-white text-xs font-semibold rounded-lg shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Enable Tasks</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={dismissStageNotification}
-                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white/80 rounded-md transition-colors cursor-pointer"
-                          title="Dismiss notification"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Empty state if nothing active */}
                   {notificationCount === 0 && (
