@@ -228,7 +228,7 @@ export default function NotificationBell({ placement = 'dropdown', dropdownAlign
           >
             <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-[var(--brand,#1C7F9F)] to-[var(--brand-secondary,#2BB8A6)] text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
@@ -250,7 +250,7 @@ export default function NotificationBell({ placement = 'dropdown', dropdownAlign
         >
           <Bell className="w-4 h-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs ring-2 ring-white animate-in zoom-in-75">
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand,#1C7F9F)] to-[var(--brand-secondary,#2BB8A6)] text-[10px] font-bold text-white shadow-xs ring-2 ring-white animate-in zoom-in-75">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -273,7 +273,7 @@ export default function NotificationBell({ placement = 'dropdown', dropdownAlign
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[var(--brand,#1C7F9F)] to-[var(--brand-secondary,#2BB8A6)] text-white text-[10px] font-bold shadow-2xs">
                       {unreadCount} new
                     </span>
                   )}

@@ -227,7 +227,7 @@ export default function MainSidebar() {
                       }`}>
                       {item.icon}
                       {item.key === 'communication' && communicationUnreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-[var(--brand,#1C7F9F)] to-[var(--brand-secondary,#2BB8A6)] text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
                           {communicationUnreadCount > 99 ? '99+' : communicationUnreadCount}
                         </span>
                       )}
@@ -253,7 +253,7 @@ export default function MainSidebar() {
                       }`}>
                       {item.icon}
                       {item.key === 'communication' && communicationUnreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-[var(--brand,#1C7F9F)] to-[var(--brand-secondary,#2BB8A6)] text-white text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white animate-in zoom-in-75">
                           {communicationUnreadCount > 99 ? '99+' : communicationUnreadCount}
                         </span>
                       )}
