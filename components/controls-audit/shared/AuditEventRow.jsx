@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Trash2,
   Clock,
+  FileText,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -80,6 +81,7 @@ export default function AuditEventRow({
   onClick,
   layout = "table", // 'table' | 'feed'
   isCompact = false,
+  moduleView = "all", // 'all' | 'Authentication' | 'Documents'
 }) {
   const { date, time, full } = formatAuditDate(event.timestamp);
 
@@ -173,29 +175,56 @@ export default function AuditEventRow({
         </div>
       </td>
 
-      {/* Resource */}
+      {/* Resource / Target / Document File / Auth Detail */}
       <td className="px-4 py-3.5 max-w-[240px]">
-        <span
-          className={`font-medium truncate block ${
-            event.failureReason ? "text-rose-700 font-semibold" : "text-slate-700"
-          }`}
-          title={event.resource}
-        >
-          {event.resource}
-        </span>
-      </td>
-
-      {/* Duration / View Time */}
-      <td className="px-4 py-3.5 whitespace-nowrap">
-        {event.durationText && event.durationText !== "—" ? (
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-mono font-semibold text-[11px] border border-sky-200/80">
-            <Clock size={11} className="text-sky-600 shrink-0" />
-            <span>{event.durationText}</span>
+        {moduleView === "Authentication" ? (
+          event.failureReason ? (
+            <span
+              className="text-rose-600 font-semibold truncate block text-xs"
+              title={`Authentication Failed: ${event.failureReason}`}
+            >
+              Failed: {event.failureReason}
+            </span>
+          ) : (
+            <span
+              className="text-slate-700 font-medium truncate block text-xs"
+              title={event.resource || "User Portal Session"}
+            >
+              {event.resource || "User Portal Session"}
+            </span>
+          )
+        ) : moduleView === "Documents" ? (
+          <div className="flex items-center gap-2 min-w-0" title={event.resource || "Document"}>
+            <FileText size={14} className="text-sky-600 shrink-0" />
+            <span className="font-semibold text-slate-800 truncate text-xs">
+              {event.resource || "Document"}
+            </span>
           </div>
         ) : (
-          <span className="text-slate-400 text-[11px] font-mono">—</span>
+          <span
+            className={`font-medium truncate block ${
+              event.failureReason ? "text-rose-700 font-semibold" : "text-slate-700"
+            }`}
+            title={event.resource}
+          >
+            {event.resource}
+          </span>
         )}
       </td>
+
+      {/* Duration / View Time (Only rendered for Documents and All Modules, omitted for Authentication) */}
+      {moduleView !== "Authentication" && (
+        <td className="px-4 py-3.5 whitespace-nowrap">
+          {event.durationText && event.durationText !== "—" ? (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-mono font-semibold text-[11px] border border-sky-200/80">
+              <Clock size={11} className="text-sky-600 shrink-0" />
+              <span>{event.durationText}</span>
+            </div>
+          ) : (
+            <span className="text-slate-400 text-[11px] font-mono">—</span>
+          )}
+        </td>
+      )}
 
       {/* Deal Context / Organization */}
       <td className="px-4 py-3.5 whitespace-nowrap text-slate-600">

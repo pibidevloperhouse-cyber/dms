@@ -359,14 +359,16 @@ export default function GroupsSidebar({ isOpen = true }) {
 
         try {
             if (deleteTarget.isUser) {
-                const { error } = await supabase.from('users').delete().eq('id', deleteTarget.id);
-                if (error) throw error;
+                const { error: userErr } = await supabase.from('users').delete().eq('id', deleteTarget.id);
+                if (userErr) throw userErr;
                 setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));
             } else {
                 await supabase.from('invitations').delete().eq('group_id', deleteTarget.id);
+                await supabase.from('user_groups').delete().eq('group_id', deleteTarget.id);
+                await supabase.from('permissions').delete().eq('group_id', deleteTarget.id);
 
-                const { error } = await supabase.from('groups').delete().eq('id', deleteTarget.id);
-                if (error) throw error;
+                const { error: groupErr } = await supabase.from('groups').delete().eq('id', deleteTarget.id);
+                if (groupErr) throw groupErr;
 
                 if (deleteTarget.isIndividualGroup) {
                     setSellerMembers(prev => prev.filter(s => s.id !== deleteTarget.id));

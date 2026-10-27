@@ -77,7 +77,7 @@ export default function PermissionsPage() {
       {/* ── HEADER ── */}
       <PageHeader
         title="Permissions Matrix & Governance"
-        subtitle="Inspect role-based and user-level resource permissions, inheritance chains, and active access grants."
+        // subtitle="Inspect role-based and user-level resource permissions, inheritance chains, and active access grants."
         badge={<StatusBadge status="active" label="Inheritance Active" size="sm" />}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
@@ -172,7 +172,7 @@ export default function PermissionsPage() {
                   Role vs. Resource Action Matrix
                 </h3>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-500">
+              {/* <div className="flex items-center gap-4 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <span className="text-emerald-600 font-bold">✓</span> Allowed
                 </span>
@@ -184,7 +184,7 @@ export default function PermissionsPage() {
                 </span>
                 <span className="text-slate-300">|</span>
                 <span className="text-[11px] text-slate-400">Click any cell to inspect authorization reason</span>
-              </div>
+              </div> */}
             </div>
 
             <div className="overflow-x-auto">

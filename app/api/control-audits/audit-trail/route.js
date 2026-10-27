@@ -11,6 +11,9 @@ import {
   dmsProjects,
   groups,
   userGroups,
+  permissions,
+  invitations,
+  workspaceMembers,
 } from '@/db/schema';
 import { eq, desc, or, and, ne, isNull, inArray, isNotNull } from 'drizzle-orm';
 
@@ -68,6 +71,103 @@ export async function GET(req) {
       console.warn('[AuditTrail] Could not fetch deal group members:', e.message);
     }
 
+    // 2b. Also include document uploaders tied to deal workspaces
+    let dealDocUploaders = [];
+    try {
+      dealDocUploaders = await db
+        .select({
+          dealId: documents.workspaceId,
+          userId: documents.uploadedBy,
+          userEmail: users.email,
+          userName: users.name,
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedBy, users.id))
+        .where(and(isNotNull(documents.workspaceId), isNotNull(documents.uploadedBy)));
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch deal doc uploaders:', e.message);
+    }
+
+    // 2c. Also include group members who hold permissions on documents in this deal
+    let dealPermMembers = [];
+    try {
+      dealPermMembers = await db
+        .select({
+          dealId: documents.workspaceId,
+          userId: userGroups.userId,
+          userEmail: users.email,
+          userName: users.name,
+        })
+        .from(permissions)
+        .innerJoin(documents, eq(permissions.documentId, documents.id))
+        .innerJoin(userGroups, eq(permissions.groupId, userGroups.groupId))
+        .leftJoin(users, eq(userGroups.userId, users.id))
+        .where(isNotNull(documents.workspaceId));
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch deal perm members:', e.message);
+    }
+
+    // 2d. Also include users who interacted with documents in this deal (access & edit logs)
+    let dealDocLogUsers = [];
+    try {
+      const accessUsers = await db
+        .select({
+          dealId: documents.workspaceId,
+          userId: documentAccessLogs.userId,
+          userEmail: users.email,
+        })
+        .from(documentAccessLogs)
+        .innerJoin(documents, eq(documentAccessLogs.documentId, documents.id))
+        .leftJoin(users, eq(documentAccessLogs.userId, users.id))
+        .where(isNotNull(documents.workspaceId));
+
+      const editUsers = await db
+        .select({
+          dealId: documents.workspaceId,
+          userId: documentEditLogs.userId,
+          userEmail: users.email,
+        })
+        .from(documentEditLogs)
+        .innerJoin(documents, eq(documentEditLogs.documentId, documents.id))
+        .leftJoin(users, eq(documentEditLogs.userId, users.id))
+        .where(isNotNull(documents.workspaceId));
+
+      dealDocLogUsers = [...accessUsers, ...editUsers];
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch deal doc log users:', e.message);
+    }
+
+    // 2e. Also include invited members via invitations table linked to deal groups
+    let dealInvitedUsers = [];
+    try {
+      dealInvitedUsers = await db
+        .select({
+          dealId: groups.workspaceId,
+          userEmail: invitations.email,
+        })
+        .from(invitations)
+        .innerJoin(groups, eq(invitations.groupId, groups.id))
+        .where(isNotNull(groups.workspaceId));
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch deal invited users:', e.message);
+    }
+
+    // 2f. Also include users in workspace_members
+    let dealWorkspaceUsers = [];
+    try {
+      dealWorkspaceUsers = await db
+        .select({
+          dealId: workspaceMembers.workspaceId,
+          userId: workspaceMembers.userId,
+          userEmail: users.email,
+        })
+        .from(workspaceMembers)
+        .leftJoin(users, eq(workspaceMembers.userId, users.id))
+        .where(isNotNull(workspaceMembers.workspaceId));
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch deal workspace users:', e.message);
+    }
+
     // 3. Build deal members map: dealId -> { deal, userIds: Set, emails: Set }
     const dealMembersMap = new Map();
     for (const d of allDeals) {
@@ -77,10 +177,39 @@ export async function GET(req) {
       if (d.buyerId) userIds.add(d.buyerId);
       if (d.buyerEmail) emails.add(d.buyerEmail.toLowerCase());
 
-      const grps = dealGroupMembers.filter((g) => g.dealId === d.dealId);
+      const grps = dealGroupMembers.filter((g) => g.dealId === d.dealId || (d.workspaceId && g.dealId === d.workspaceId));
       for (const gm of grps) {
         if (gm.userId) userIds.add(gm.userId);
         if (gm.userEmail) emails.add(gm.userEmail.toLowerCase());
+      }
+
+      const upldrs = dealDocUploaders.filter((u) => u.dealId === d.dealId || (d.workspaceId && u.dealId === d.workspaceId));
+      for (const u of upldrs) {
+        if (u.userId) userIds.add(u.userId);
+        if (u.userEmail) emails.add(u.userEmail.toLowerCase());
+      }
+
+      const prms = dealPermMembers.filter((p) => p.dealId === d.dealId || (d.workspaceId && p.dealId === d.workspaceId));
+      for (const p of prms) {
+        if (p.userId) userIds.add(p.userId);
+        if (p.userEmail) emails.add(p.userEmail.toLowerCase());
+      }
+
+      const docLogUsers = dealDocLogUsers.filter((u) => u.dealId === d.dealId || (d.workspaceId && u.dealId === d.workspaceId));
+      for (const u of docLogUsers) {
+        if (u.userId) userIds.add(u.userId);
+        if (u.userEmail) emails.add(u.userEmail.toLowerCase());
+      }
+
+      const invUsers = dealInvitedUsers.filter((i) => i.dealId === d.dealId || (d.workspaceId && i.dealId === d.workspaceId));
+      for (const i of invUsers) {
+        if (i.userEmail) emails.add(i.userEmail.toLowerCase());
+      }
+
+      const wsUsers = dealWorkspaceUsers.filter((w) => w.dealId === d.dealId || (d.workspaceId && w.dealId === d.workspaceId));
+      for (const w of wsUsers) {
+        if (w.userId) userIds.add(w.userId);
+        if (w.userEmail) emails.add(w.userEmail.toLowerCase());
       }
 
       dealMembersMap.set(d.dealId, { deal: d, userIds, emails });

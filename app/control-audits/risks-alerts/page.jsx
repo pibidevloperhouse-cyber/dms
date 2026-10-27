@@ -174,7 +174,7 @@ export default function RisksAlertsPage() {
       {/* ── HEADER ── */}
       <PageHeader
         title="Risks & Alerts Governance"
-        subtitle="Monitor deal compliance risks, enforce mitigation plans, review policy security alerts, and manage conditions that block stage progression."
+        // subtitle="Monitor deal compliance risks, enforce mitigation plans, review policy security alerts, and manage conditions that block stage progression."
         badge={
           <div className="flex items-center gap-2">
             <span

@@ -86,13 +86,13 @@ export default function ControlsAuditOverviewPage() {
       {/* ── 1. PAGE HEADER ── */}
       <PageHeader
         title="Controls & Audit"
-        subtitle="Monitor compliance, stage progression and audit activity."
+        // subtitle="Monitor compliance, stage progression and audit activity."
         badge={
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+            {/* <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Deal: {activeDeal.name} ({activeDeal.status})</span>
-            </span>
+              <span>Deal: {activeDeal.name}</span>
+            </span> */}
             {isMounted && (
               callerSide === "buyer" ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
@@ -248,9 +248,7 @@ export default function ControlsAuditOverviewPage() {
             <h2 className="text-base font-bold text-slate-900">
               Stage & Gate Status
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Transaction progress through the 6-stage M&A lifecycle and prerequisite gate conditions.
-            </p>
+
           </div>
           <button
             onClick={() => router.push("/control-audits/stage-control")}
@@ -261,12 +259,12 @@ export default function ControlsAuditOverviewPage() {
           </button>
         </div>
 
-        {/* 6 Stage Lifecycle Stepper */}
+        {/* 5 Stage Lifecycle Stepper */}
         <div>
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
             Transaction Stages
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {stages.map((stage) => {
               const isCompleted = stage.status === "completed";
               const isCurrent = stage.isCurrent;
