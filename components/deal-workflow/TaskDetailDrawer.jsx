@@ -156,6 +156,49 @@ export default function TaskDetailDrawer() {
     await removeFileFromTask(selectedTask.task_id, fileName, idx);
   };
 
+  const handleViewFile = (file) => {
+    if (!file) return;
+    const fileName = file.name || file;
+
+    // 1. If file already has a blobUrl in active memory
+    if (file.blobUrl) {
+      window.open(file.blobUrl, '_blank');
+      return;
+    }
+
+    // 2. If file has a base64 dataUrl
+    if (file.dataUrl && typeof window !== 'undefined') {
+      try {
+        const parts = file.dataUrl.split(';base64,');
+        const contentType = parts[0].split(':')[1] || 'application/pdf';
+        const raw = window.atob(parts[1]);
+        const rawLength = raw.length;
+        const uInt8Array = new Uint8Array(rawLength);
+        for (let i = 0; i < rawLength; ++i) {
+          uInt8Array[i] = raw.charCodeAt(i);
+        }
+        const blob = new Blob([uInt8Array], { type: contentType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        return;
+      } catch (err) {
+        console.warn('Error converting dataUrl to blob, falling back to endpoint:', err);
+      }
+    }
+
+    // 3. If file has a direct view URL
+    if (file.url && file.url.startsWith('http')) {
+      window.open(file.url, '_blank');
+      return;
+    }
+
+    // 4. Default to secure inline browser view endpoint
+    const taskId = selectedTask?.task_id || '';
+    const fileId = file.id || '';
+    const endpoint = `/api/deal-tasks/view-attachment?taskId=${encodeURIComponent(taskId)}&fileName=${encodeURIComponent(fileName)}&fileId=${encodeURIComponent(fileId)}`;
+    window.open(endpoint, '_blank');
+  };
+
   const handleMoveToDocuments = async () => {
     if (isMovingToDocs) return;
     setIsMovingToDocs(true);
@@ -715,16 +758,27 @@ export default function TaskDetailDrawer() {
                             </div>
                           </div>
 
-                          {!isCreator && (
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => handleRemoveAttachment(file.name, fIdx)}
-                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Remove file"
+                              onClick={() => handleViewFile(file)}
+                              className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#006666] bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                              title="View file in browser"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
                             </button>
-                          )}
+                            {!isCreator && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment(file.name, fIdx)}
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Remove file"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -879,9 +933,20 @@ export default function TaskDetailDrawer() {
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                            Ready to Move
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleViewFile(file)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#006666] hover:bg-[#005252] shadow-2xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                              title="View deliverable file in browser (PDF / Document)"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+                            <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-200">
+                              {selectedTask.status === 'DONE' ? 'Moved ✓' : 'Ready to Move'}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1005,9 +1070,14 @@ export default function TaskDetailDrawer() {
                             Signed
                           </span>
                         )}
-                        <span className="text-[11px] text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-white cursor-pointer">
-                          View
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleViewFile(doc)}
+                          className="text-[11px] text-[#006666] hover:text-[#004d4d] bg-teal-50 hover:bg-teal-100 font-semibold px-2.5 py-1 rounded-md border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>View</span>
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import { db } from '@/db';
 import { dealTasks, folders, documents } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -137,16 +139,43 @@ export async function PATCH(req, { params }) {
         const currentAttachments = Array.isArray(task.attachments) ? [...task.attachments] : [];
         const userName = user.name || 'Assignee';
 
-        const newFormattedFiles = incomingFiles.map((f, i) => ({
-          id: f.id || `att_${Date.now()}_${i}`,
-          name: f.name || `Attachment_${Date.now()}`,
-          size: f.size || (f.fileSizeBytes ? `${Math.round(f.fileSizeBytes / 1024)} KB` : '1.2 MB'),
-          fileSizeBytes: f.fileSizeBytes || (typeof f.size === 'number' ? f.size : 102400),
-          mimeType: f.mimeType || f.type || 'application/pdf',
-          filePath: f.filePath || null,
-          uploadedBy: userName,
-          uploadedAt: formattedDate,
-        }));
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'deal-tasks');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const newFormattedFiles = incomingFiles.map((f, i) => {
+          const rawName = f.name || `Attachment_${Date.now()}`;
+          const safeName = rawName.replace(/[^\w.-]/g, '_');
+          let savedDiskPath = null;
+          let viewUrl = `/api/deal-tasks/view-attachment?taskId=${task.taskId}&fileName=${encodeURIComponent(rawName)}`;
+
+          // If dataUrl or base64 was sent, save directly to disk
+          if (f.dataUrl && f.dataUrl.includes(',')) {
+            try {
+              const base64Data = f.dataUrl.split(',')[1];
+              const diskPath = path.join(uploadsDir, `${task.taskId}_${Date.now()}_${safeName}`);
+              fs.writeFileSync(diskPath, Buffer.from(base64Data, 'base64'));
+              savedDiskPath = diskPath;
+              viewUrl = `/api/deal-tasks/view-attachment?taskId=${task.taskId}&fileName=${encodeURIComponent(rawName)}`;
+            } catch (err) {
+              console.error('Error saving attached file to disk:', err);
+            }
+          }
+
+          return {
+            id: f.id || `att_${Date.now()}_${i}`,
+            name: rawName,
+            size: f.size || (f.fileSizeBytes ? `${Math.round(f.fileSizeBytes / 1024)} KB` : '1.2 MB'),
+            fileSizeBytes: f.fileSizeBytes || (typeof f.size === 'number' ? f.size : 102400),
+            mimeType: f.mimeType || f.type || 'application/pdf',
+            filePath: f.filePath || savedDiskPath || null,
+            savedPath: savedDiskPath,
+            url: viewUrl,
+            uploadedBy: userName,
+            uploadedAt: formattedDate,
+          };
+        });
 
         const combinedAttachments = [...currentAttachments, ...newFormattedFiles];
         updatedFields = {

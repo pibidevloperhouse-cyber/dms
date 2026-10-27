@@ -1914,17 +1914,36 @@ export function DealWorkflowProvider({ children }) {
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
 
-    const formattedFiles = files.map((f, i) => ({
-      id: f.id || `att_${Date.now()}_${i}`,
-      name: f.name,
-      size: typeof f.size === 'number'
-        ? (f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`)
-        : (f.size || '1.2 MB'),
-      fileSizeBytes: typeof f.size === 'number' ? f.size : 102400,
-      mimeType: f.type || 'application/pdf',
-      uploadedBy: currentUser.name,
-      uploadedAt: formattedDate,
-    }));
+    // Helper to read file as base64 dataUrl
+    const readFileData = (f) =>
+      new Promise((resolve) => {
+        if (typeof window === 'undefined' || !(f instanceof Blob)) return resolve(null);
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(f);
+      });
+
+    const dataUrls = await Promise.all(files.map((f) => readFileData(f)));
+
+    const formattedFiles = files.map((f, i) => {
+      const blobUrl = (typeof window !== 'undefined' && f instanceof Blob) ? URL.createObjectURL(f) : null;
+      const viewUrl = `/api/deal-tasks/view-attachment?taskId=${taskId}&fileName=${encodeURIComponent(f.name)}`;
+      return {
+        id: f.id || `att_${Date.now()}_${i}`,
+        name: f.name,
+        size: typeof f.size === 'number'
+          ? (f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`)
+          : (f.size || '1.2 MB'),
+        fileSizeBytes: typeof f.size === 'number' ? f.size : 102400,
+        mimeType: f.type || 'application/pdf',
+        dataUrl: dataUrls[i] || null,
+        blobUrl: blobUrl,
+        url: viewUrl,
+        uploadedBy: currentUser.name,
+        uploadedAt: formattedDate,
+      };
+    });
 
     setTasks((prev) =>
       prev.map((t) => {

@@ -9,8 +9,10 @@ import {
   HelpCircle,
   FileCheck2,
   RotateCcw,
-  ShieldCheck,
   Check,
+  Eye,
+  FileText,
+  Paperclip,
 } from 'lucide-react';
 import { useDealWorkflow, normalizeRole, getNextStage } from './DealWorkflowContext';
 import StageQueryModal from './StageQueryModal';
@@ -82,6 +84,35 @@ export default function StageReviewNotification({ inDropdown = false }) {
     } finally {
       setIsRequesting(false);
     }
+  };
+
+  // Collect deliverables from all tasks of the active stage
+  const stageDeliverables = [];
+  (tasks || []).forEach((t) => {
+    if (normalizeStage(t.deal_stage) === normalizeStage(activeDealStage)) {
+      if (Array.isArray(t.attachments)) {
+        t.attachments.forEach((att) => {
+          stageDeliverables.push({
+            taskId: t.task_id,
+            taskTitle: t.title,
+            ...(typeof att === 'object' ? att : { name: att }),
+          });
+        });
+      }
+    }
+  });
+
+  const handleViewStageFile = (file) => {
+    if (!file) return;
+    const fileName = file.name || file;
+    if (file.blobUrl) {
+      window.open(file.blobUrl, '_blank');
+      return;
+    }
+    const taskId = file.taskId || '';
+    const fileId = file.id || '';
+    const url = `/api/deal-tasks/view-attachment?taskId=${encodeURIComponent(taskId)}&fileName=${encodeURIComponent(fileName)}&fileId=${encodeURIComponent(fileId)}`;
+    window.open(url, '_blank');
   };
 
   // Case 1: Super Admin has an active query pending resolution
@@ -223,6 +254,49 @@ export default function StageReviewNotification({ inDropdown = false }) {
                     Admin <strong className="text-slate-800">{stageAdvanceRequest.requestedBy}</strong> has requested to enable {nextStage ? `the ${nextStage} stage` : 'next stage'}.
                   </p>
                 )}
+
+                {/* Stage Deliverable Files to Review */}
+                {stageDeliverables.length > 0 && (
+                  <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                        <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
+                        <span>{activeDealStage} Deliverables to Review ({stageDeliverables.length})</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">Click &quot;View&quot; to inspect file before approval</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {stageDeliverables.map((file, sIdx) => (
+                        <div
+                          key={file.id || sIdx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-teal-50/50 border border-slate-200 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 text-[#006666] shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-900 truncate max-w-[160px] sm:max-w-[200px]" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500 truncate">
+                                {file.taskTitle ? `${file.taskTitle} · ` : ''}{file.size || 'PDF'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleViewStageFile(file)}
+                            className="px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                            title="View file in browser"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Bottom: Buttons on Left Side and Metric Badge in Right Corner */}
@@ -303,6 +377,33 @@ export default function StageReviewNotification({ inDropdown = false }) {
                     <p className="text-xs text-slate-700 font-medium">
                       You need to request super admin to enable the next stage{nextStage ? ` (${nextStage})` : ''}.
                     </p>
+
+                    {/* Stage Deliverables to preview */}
+                    {stageDeliverables.length > 0 && (
+                      <div className="mt-3 p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
+                            Completed Deliverables ({stageDeliverables.length})
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {stageDeliverables.map((file, sIdx) => (
+                            <div key={file.id || sIdx} className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                              <span className="text-xs font-medium text-slate-800 truncate max-w-[200px]">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleViewStageFile(file)}
+                                className="px-2 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-[#006666] border border-teal-200 text-[11px] font-semibold cursor-pointer flex items-center gap-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>View</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
