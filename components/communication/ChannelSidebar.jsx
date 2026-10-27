@@ -7,6 +7,7 @@ import { Hash, Lock, Search, Users, RefreshCw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import NotificationBell from '@/components/communication/NotificationBell';
 
 export default function ChannelSidebar() {
   const pathname = usePathname();
@@ -99,13 +100,16 @@ export default function ChannelSidebar() {
           <h2 className="text-lg font-bold text-slate-800">Communication</h2>
           <p className="text-xs text-slate-400 font-medium">Group Conversations</p>
         </div>
-        <button
-          onClick={fetchChannels}
-          title="Refresh conversations"
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <NotificationBell placement="dropdown" dropdownAlign="left" />
+          <button
+            onClick={fetchChannels}
+            title="Refresh conversations"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
