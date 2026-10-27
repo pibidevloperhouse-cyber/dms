@@ -36,6 +36,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
     claimTask,
     submitForReview,
     approveAndComplete,
+    isSubAdminToInternalPrepTask,
     setSigningModalTask,
     setCertificateModalTask,
   } = useDealWorkflow();
@@ -50,7 +51,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
 
   const canClaim = canUserClaimTask ? canUserClaimTask(task, currentUser) : false;
   const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(task, currentUser) : false;
-  const canApprove = canUserApproveTask ? canUserApproveTask(task, currentUser) : false;
+  const canApprove = !isAssignee && (canUserApproveTask ? canUserApproveTask(task, currentUser) : isCreator);
 
   const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
   const displayedSubtasks = useMemo(() => {
@@ -357,6 +358,11 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (isSubAdminToInternalPrepTask?.(task) && (!task.attachments || task.attachments.length === 0)) {
+                    if (onOpenDetails) onOpenDetails(task);
+                    else onCardClick?.(task);
+                    return;
+                  }
                   submitForReview(task.task_id);
                 }}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
@@ -373,7 +379,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
 
           {task.status === 'REVIEW' && (
             canApprove ? (
-              (task.deal_stage || '').trim().toLowerCase().includes('prep') ? (
+              isSubAdminToInternalPrepTask?.(task) ? (
                 <button
                   type="button"
                   onClick={(e) => {

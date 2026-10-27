@@ -1022,6 +1022,63 @@ export function DealWorkflowProvider({ children }) {
     return isTaskAssignee(task, user);
   };
 
+  // Helper to resolve task creator's normalized role
+  const getTaskCreatorRole = (task) => {
+    if (!task) return 'admin';
+    if (task.creator_role) return normalizeRole(task.creator_role);
+    if (task.creatorRole) return normalizeRole(task.creatorRole);
+    const createdBy = (task.created_by || task.createdBy || '').trim().toLowerCase();
+    for (const u of Object.values(DEMO_USERS)) {
+      if (u.name.toLowerCase() === createdBy || u.id.toLowerCase() === createdBy || u.email.toLowerCase() === createdBy) {
+        return normalizeRole(u.role);
+      }
+    }
+    if (createdBy.includes('super')) return 'super_admin';
+    if (createdBy.includes('sub')) return 'sub_admin';
+    if (createdBy.includes('admin')) return 'admin';
+    return 'admin';
+  };
+
+  // Helper to resolve task assignee's normalized role (user or group)
+  const getTaskAssigneeRole = (task) => {
+    if (!task) return 'internal_user';
+    if (task.assigned_to_role) return normalizeRole(task.assigned_to_role);
+    const assignedUser = (task.assigned_to_user || task.assignedToUser || '').trim().toLowerCase();
+    if (assignedUser) {
+      for (const u of Object.values(DEMO_USERS)) {
+        if (u.name.toLowerCase() === assignedUser || u.id.toLowerCase() === assignedUser || u.email.toLowerCase() === assignedUser) {
+          return normalizeRole(u.role);
+        }
+      }
+    }
+    const assignedGroup = (task.assigned_to_group || task.assignedToGroup || '').trim().toLowerCase();
+    if (assignedGroup) {
+      const allKnownGroups = [...(workflowGroups || []), ...SELLER_GROUPS, ...BUYER_GROUPS];
+      const match = allKnownGroups.find((g) => (g.name || '').trim().toLowerCase() === assignedGroup || (g.id || '').trim().toLowerCase() === assignedGroup);
+      if (match?.role) return normalizeRole(match.role);
+      if (assignedGroup.includes('super')) return 'super_admin';
+      if (assignedGroup.includes('sub')) return 'sub_admin';
+      if (assignedGroup.includes('admin')) return 'admin';
+      return 'internal_user';
+    }
+    return 'internal_user';
+  };
+
+  // Flow Condition: Only when Sub Admin assigns task to Internal User in Preparation stage
+  const isSubAdminToInternalPrepTask = (task) => {
+    if (!task) return false;
+    const stage = normalizeStage(task.deal_stage || task.dealStage);
+    if (stage !== 'Preparation') return false;
+
+    const creatorRole = getTaskCreatorRole(task);
+    if (creatorRole !== 'sub_admin') return false;
+
+    const assigneeRole = getTaskAssigneeRole(task);
+    if (assigneeRole !== 'internal_user') return false;
+
+    return true;
+  };
+
   // ============================================================================
   // SEQUENTIAL STAGE GATING HELPERS
   // Rule: Preparation -> Due Diligence -> Negotiation.
@@ -1551,14 +1608,13 @@ export function DealWorkflowProvider({ children }) {
   };
 
   const canUserApproveTask = (task, user = currentUser) => {
-    if (!task || task.status !== 'REVIEW') return false;
-    // Task creator, Super Admin, Admin, or Sub Admin can review and approve task
+    if (!task || task.status !== 'REVIEW' || !user) return false;
+    // RULE: Assignee can NEVER approve/review their own submitted task
+    const isAssignee = isTaskAssignee ? isTaskAssignee(task, user) : false;
+    if (isAssignee) return false;
+    // ONLY the task creator can review, inform query, or approve/complete
     const isCreator = isTaskCreator ? isTaskCreator(task, user) : false;
-    const norm = normalizeRole(user?.role);
-    const isSuperAdmin = norm === 'super_admin';
-    const isAdmin = norm === 'admin';
-    const isSubAdmin = norm === 'sub_admin';
-    return isCreator || isSuperAdmin || isAdmin || isSubAdmin;
+    return isCreator;
   };
 
   // ============================================================================
@@ -2596,6 +2652,9 @@ export function DealWorkflowProvider({ children }) {
         normalizeRole,
         getRoleLabel,
         canRoleAssignTo,
+        getTaskCreatorRole,
+        getTaskAssigneeRole,
+        isSubAdminToInternalPrepTask,
         // Stage Tracker & Progression
         stageTrackerInfo,
         isStageLockedForUser,

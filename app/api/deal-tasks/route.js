@@ -179,6 +179,7 @@ export async function POST(req) {
       visibility = 'INTERNAL',
       assigned_to_group,
       assigned_to_user = null,
+      assigned_to_role = null,
       department,
       workstream = 'General',
       priority = 'Medium',
@@ -301,9 +302,14 @@ export async function POST(req) {
       })
       .returning();
 
+    const formatted = formatTask(newTask);
+    if (assigned_to_role) {
+      formatted.assigned_to_role = assigned_to_role;
+    }
+
     return NextResponse.json({
       success: true,
-      task: formatTask(newTask),
+      task: formatted,
     });
   } catch (error) {
     console.error('Create deal task error:', error);

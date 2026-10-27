@@ -52,6 +52,7 @@ export default function TaskDetailDrawer() {
     isTaskCreator,
     isTaskAssignee,
     isStageLockedForUser,
+    isSubAdminToInternalPrepTask,
     setSigningModalTask,
     setCertificateModalTask,
   } = useDealWorkflow();
@@ -74,7 +75,8 @@ export default function TaskDetailDrawer() {
   const isCreator = isTaskCreator ? isTaskCreator(selectedTask, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(selectedTask, currentUser) : (selectedTask.assigned_to_user === currentUser.name);
   const isStageLocked = isStageLockedForUser ? isStageLockedForUser(selectedTask, currentUser) : false;
-  const canApprove = canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : isCreator;
+  const canApprove = !isAssignee && (canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : isCreator);
+  const isSubAdminToInternalPrep = isSubAdminToInternalPrepTask ? isSubAdminToInternalPrepTask(selectedTask) : false;
 
   const isCreatorSide = currentUser.side === selectedTask.creator_side;
   const isTargetSide = currentUser.side === selectedTask.target_side;
@@ -573,7 +575,9 @@ export default function TaskDetailDrawer() {
                     <div>
                       <p className="font-bold text-teal-950">Task In Progress — Assigned to You</p>
                       <p className="text-[11px] text-teal-700 mt-0.5">
-                        Complete your deliverables and checklist items below, then click &quot;Submit Review&quot; in the bottom bar to forward to creator for sign-off.
+                        {isSubAdminToInternalPrep
+                          ? 'Attach your deliverable files below and complete your checklist items, then click "Submit Review" in the bottom bar to forward to Sub Admin for sign-off.'
+                          : 'Complete your deliverables and checklist items below, then click "Submit Review" in the bottom bar to forward to creator for sign-off.'}
                       </p>
                     </div>
                   </div>
@@ -684,110 +688,113 @@ export default function TaskDetailDrawer() {
 
                 {/* ------------------------------------------------------------- */}
                 {/* ATTACH PREPARATION FILES SECTION (INTERNAL USER DELIVERABLES) */}
+                {/* Strictly for Sub Admin assigning task to Internal User in Preparation stage */}
                 {/* ------------------------------------------------------------- */}
-                <div className="mt-3.5 pt-3 border-t border-teal-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
-                      <span>Attach Files for Sub Admin Review</span>
-                    </h5>
-                    <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                      {(selectedTask.attachments || []).length} attached
-                    </span>
-                  </div>
-
-                  {/* Target Folder Reminder */}
-                  {(selectedTask.folder_name || selectedTask.assigned_folder) && (
-                    <div className="mb-2.5 text-[11px] text-teal-900 bg-white/90 p-2 rounded-lg border border-teal-200/80 flex items-center gap-1.5">
-                      <Folder className="w-3.5 h-3.5 text-[#006666] shrink-0" />
-                      <span>
-                        Target Documents Folder: <strong className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</strong>
-                        {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
-                          <span className="text-[#006666] font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
-                        )}
+                {isSubAdminToInternalPrep && (
+                  <div className="mt-3.5 pt-3 border-t border-teal-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
+                        <span>Attach Files for Sub Admin Review</span>
+                      </h5>
+                      <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                        {(selectedTask.attachments || []).length} attached
                       </span>
                     </div>
-                  )}
 
-                  {/* Upload Area for Assignee */}
-                  {!isCreator && (
-                    <div className="mb-2.5">
-                      <input
-                        type="file"
-                        multiple
-                        id="drawer-file-uploader"
-                        className="hidden"
-                        onChange={handleFilesSelected}
-                      />
-                      <label
-                        htmlFor="drawer-file-uploader"
-                        className="border-2 border-dashed border-teal-300 hover:border-[#006666] bg-white hover:bg-teal-50/50 rounded-xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center group"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-teal-100 text-[#006666] flex items-center justify-center group-hover:scale-105 transition-transform">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs font-semibold text-slate-800 group-hover:text-[#006666]">
-                          {isAttachingFiles ? 'Attaching file(s)...' : 'Click to Upload Deliverable Files'}
+                    {/* Target Folder Reminder */}
+                    {(selectedTask.folder_name || selectedTask.assigned_folder) && (
+                      <div className="mb-2.5 text-[11px] text-teal-900 bg-white/90 p-2 rounded-lg border border-teal-200/80 flex items-center gap-1.5">
+                        <Folder className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+                        <span>
+                          Target Documents Folder: <strong className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</strong>
+                          {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
+                            <span className="text-[#006666] font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
+                          )}
                         </span>
-                        <span className="text-[10px] text-slate-500">
-                          Attach the files you need to submit for Sub Admin review (PDF, Excel, Word, etc.)
-                        </span>
-                      </label>
-                    </div>
-                  )}
+                      </div>
+                    )}
 
-                  {/* List of Attached Files */}
-                  {Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {selectedTask.attachments.map((file, fIdx) => (
-                        <div
-                          key={file.id || fIdx}
-                          className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 shadow-2xs hover:border-teal-300 transition-colors"
+                    {/* Upload Area for Assignee */}
+                    {!isCreator && (
+                      <div className="mb-2.5">
+                        <input
+                          type="file"
+                          multiple
+                          id="drawer-file-uploader"
+                          className="hidden"
+                          onChange={handleFilesSelected}
+                        />
+                        <label
+                          htmlFor="drawer-file-uploader"
+                          className="border-2 border-dashed border-teal-300 hover:border-[#006666] bg-white hover:bg-teal-50/50 rounded-xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center group"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded bg-teal-50 text-[#006666] flex items-center justify-center shrink-0">
-                              <FileText className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate max-w-[220px]">
-                                {file.name}
-                              </p>
-                              <p className="text-[10px] text-slate-400">
-                                {file.size} {file.uploadedBy ? `· by ${file.uploadedBy}` : ''}
-                              </p>
-                            </div>
+                          <div className="w-8 h-8 rounded-full bg-teal-100 text-[#006666] flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <Upload className="w-4 h-4" />
                           </div>
+                          <span className="text-xs font-semibold text-slate-800 group-hover:text-[#006666]">
+                            {isAttachingFiles ? 'Attaching file(s)...' : 'Click to Upload Deliverable Files'}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Attach the files you need to submit for Sub Admin review (PDF, Excel, Word, etc.)
+                          </span>
+                        </label>
+                      </div>
+                    )}
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleViewFile(file)}
-                              className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#006666] bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="View file in browser"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View</span>
-                            </button>
-                            {!isCreator && (
+                    {/* List of Attached Files */}
+                    {Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {selectedTask.attachments.map((file, fIdx) => (
+                          <div
+                            key={file.id || fIdx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 shadow-2xs hover:border-teal-300 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded bg-teal-50 text-[#006666] flex items-center justify-center shrink-0">
+                                <FileText className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-900 truncate max-w-[220px]">
+                                  {file.name}
+                                </p>
+                                <p className="text-[10px] text-slate-400">
+                                  {file.size} {file.uploadedBy ? `· by ${file.uploadedBy}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => handleRemoveAttachment(file.name, fIdx)}
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                title="Remove file"
+                                onClick={() => handleViewFile(file)}
+                                className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#006666] bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="View file in browser"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
                               </button>
-                            )}
+                              {!isCreator && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttachment(file.name, fIdx)}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Remove file"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 italic bg-white/70 p-2 rounded border border-dashed border-slate-200 text-center">
-                      No files attached yet. Attach your files above before submitting for review.
-                    </p>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 italic bg-white/70 p-2 rounded border border-dashed border-slate-200 text-center">
+                        No files attached yet. Attach your files above before submitting for review.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -807,35 +814,6 @@ export default function TaskDetailDrawer() {
                     {selectedTask.status === 'DONE' ? 'Done' : 'Review'}
                   </span>
                 </div>
-
-                {/* Creator / Sub Admin Review vs Assignee Banner */}
-                {selectedTask.status === 'REVIEW' && (
-                  (isCreator || canApprove) ? (
-                    <div className="mb-3 p-3 rounded-lg bg-teal-50/90 border border-teal-200 text-xs text-teal-950 flex items-start gap-2.5">
-                      <Clock className="w-4 h-4 text-[#006666] shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-[#006666]">
-                          {isPrepStage ? 'Preparation Review — Sub Admin Sign-Off Required' : 'Review Stage — Sign-Off Required'}
-                        </p>
-                        <p className="text-[11px] text-teal-800 mt-0.5">
-                          {isPrepStage
-                            ? <>Submitted for review by <strong>{selectedTask.assigned_to_user || 'Assignee'}</strong>. Inspect the uploaded files below. If approved, click <strong>&quot;Move to Documents Section&quot;</strong> in the bottom bar to directly upload these files to Documents. If changes are needed, click <strong>&quot;Inform Query&quot;</strong>.</>
-                            : <>Submitted for review by <strong>{selectedTask.assigned_to_user || 'Assignee'}</strong>. Inspect the deliverables below and click <strong>&quot;Mark as Done&quot;</strong> to complete, or <strong>&quot;Inform Query&quot;</strong> to send back for revisions.</>}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                      <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-amber-950">Submitted for Review</p>
-                        <p className="text-[11px] text-amber-800 mt-0.5">
-                          This task is currently under review by <strong>{selectedTask.created_by || 'Sub Admin'}</strong>. Waiting for final review and sign-off.
-                        </p>
-                      </div>
-                    </div>
-                  )
-                )}
 
                 {(() => {
                   const singleItem = displayedSubtasks.length > 0 ? displayedSubtasks[0] : (subtasksList.length > 0 ? subtasksList[0] : null);
@@ -1065,7 +1043,13 @@ export default function TaskDetailDrawer() {
               ) : canSubmit ? (
                 <button
                   type="button"
-                  onClick={() => submitForReview(selectedTask.task_id)}
+                  onClick={() => {
+                    if (isSubAdminToInternalPrep && (!selectedTask.attachments || selectedTask.attachments.length === 0)) {
+                      alert('Please attach your deliverable files for Sub Admin review before submitting.');
+                      return;
+                    }
+                    submitForReview(selectedTask.task_id);
+                  }}
                   className="px-4 py-2 rounded-lg bg-[#006666] hover:bg-[#005555] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <ArrowRight className="w-4 h-4" />
@@ -1117,8 +1101,8 @@ export default function TaskDetailDrawer() {
                     <span>Inform Query</span>
                   </button>
 
-                  {/* Button 1: Move to Documents Section (In Preparation stage) or Mark as Done (in other stages) */}
-                  {isPrepStage ? (
+                  {/* Button 1: Move to Documents Section (In Preparation stage ONLY for Sub Admin -> Internal User) or Mark as Done (for everyone else) */}
+                  {isSubAdminToInternalPrep ? (
                     <button
                       type="button"
                       onClick={handleMoveToDocuments}
@@ -1143,6 +1127,7 @@ export default function TaskDetailDrawer() {
                       type="button"
                       onClick={() => approveAndComplete(selectedTask.task_id)}
                       className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Mark task as completed"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Mark as Done</span>
@@ -1152,7 +1137,7 @@ export default function TaskDetailDrawer() {
               ) : (
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Pending Sub Admin Review & Sign-off</span>
+                  <span>{isSubAdminToInternalPrep ? 'Pending Sub Admin Review & Sign-off' : 'Pending Review & Sign-off'}</span>
                 </div>
               )
             )}

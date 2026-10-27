@@ -544,6 +544,7 @@ export default function CreateTaskModal() {
         claimable_by_role: true,
         created_by: currentUser?.name || 'Creator',
         creator_role: currentUser?.role || 'admin',
+        assigned_to_role: selectedGroupObj ? resolveGroupRole(selectedGroupObj) : 'internal_user',
         folder_id: isPrep ? (assignedFolderId || null) : null,
         folder_name: isPrep ? (assignedFolderName || null) : null,
         subfolder_id: isPrep ? (assignedSubfolderId || null) : null,
