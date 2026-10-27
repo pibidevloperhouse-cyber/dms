@@ -23,6 +23,10 @@ import {
   RotateCcw,
   X,
   Folder,
+  FolderUp,
+  Upload,
+  HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
 import EditTaskModal from './EditTaskModal';
 
@@ -35,6 +39,10 @@ export default function TaskDetailDrawer() {
     submitForReview,
     approveAndComplete,
     sendBack,
+    attachFilesToTask,
+    removeFileFromTask,
+    moveToDocumentsSection,
+    informTaskQuery,
     toggleSubtask,
     addComment,
     deleteTask,
@@ -57,6 +65,9 @@ export default function TaskDetailDrawer() {
   const [showRequestChangesModal, setShowRequestChangesModal] = useState(false);
   const [requestChangesComment, setRequestChangesComment] = useState('');
   const [isSubmittingChanges, setIsSubmittingChanges] = useState(false);
+  const [isAttachingFiles, setIsAttachingFiles] = useState(false);
+  const [isMovingToDocs, setIsMovingToDocs] = useState(false);
+  const [moveSuccessMessage, setMoveSuccessMessage] = useState(null);
 
   if (!selectedTask) return null;
 
@@ -95,6 +106,8 @@ export default function TaskDetailDrawer() {
   ];
   const currentStepIndex = statusSteps.findIndex((s) => s.key === selectedTask.status);
 
+  const isPrepStage = (selectedTask.deal_stage || '').trim().toLowerCase().includes('prep');
+
   // Collect all attachments from task and subtasks
   const allAttachments = [];
   if (selectedTask.linked_document) {
@@ -105,6 +118,14 @@ export default function TaskDetailDrawer() {
       signed: Boolean(selectedTask.digital_signature),
     });
   }
+  (selectedTask.attachments || []).forEach((att) => {
+    allAttachments.push({
+      name: att.name || att,
+      size: att.size || null,
+      type: 'Deliverable File',
+      source: att.uploadedBy ? `Uploaded by ${att.uploadedBy}` : 'Task Deliverable',
+    });
+  });
   displayedSubtasks.forEach((st) => {
     (st.attachments || []).forEach((att) => {
       allAttachments.push({
@@ -116,6 +137,42 @@ export default function TaskDetailDrawer() {
     });
   });
 
+  const handleFilesSelected = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setIsAttachingFiles(true);
+    try {
+      await attachFilesToTask(selectedTask.task_id, files);
+    } catch (err) {
+      console.error('Error attaching files:', err);
+    } finally {
+      setIsAttachingFiles(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = async (fileName, idx) => {
+    if (!removeFileFromTask) return;
+    await removeFileFromTask(selectedTask.task_id, fileName, idx);
+  };
+
+  const handleMoveToDocuments = async () => {
+    if (isMovingToDocs) return;
+    setIsMovingToDocs(true);
+    setMoveSuccessMessage(null);
+    try {
+      const res = await moveToDocumentsSection(selectedTask.task_id);
+      if (res && res.success) {
+        setMoveSuccessMessage(
+          `Files successfully moved directly to Documents section under folder "${res.targetFolderName || selectedTask.folder_name || 'Preparation Documents'}"! Task marked as Done.`
+        );
+      }
+    } catch (e) {
+      console.error('Error moving to documents:', e);
+    } finally {
+      setIsMovingToDocs(false);
+    }
+  };
 
   const isSigningEligible =
     selectedTask.linked_document &&
@@ -158,11 +215,15 @@ export default function TaskDetailDrawer() {
 
     setIsSubmittingChanges(true);
     try {
-      await sendBack(selectedTask.task_id, comment);
+      if (informTaskQuery) {
+        await informTaskQuery(selectedTask.task_id, comment);
+      } else {
+        await sendBack(selectedTask.task_id, comment);
+      }
       setShowRequestChangesModal(false);
       setRequestChangesComment('');
     } catch (err) {
-      console.error('Error requesting changes:', err);
+      console.error('Error informing query:', err);
     } finally {
       setIsSubmittingChanges(false);
     }
@@ -267,6 +328,36 @@ export default function TaskDetailDrawer() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Move to Documents Success Notification */}
+            {moveSuccessMessage && (
+              <div className="mt-3 p-3.5 rounded-xl bg-teal-50 border border-teal-300 text-teal-950 flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-start gap-2.5 text-xs">
+                  <div className="w-6 h-6 rounded-lg bg-teal-100 text-[#006666] flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#006666] text-xs sm:text-sm">Files Moved to Documents Section!</p>
+                    <p className="text-[11px] text-teal-800 mt-0.5 leading-relaxed">{moveSuccessMessage}</p>
+                    <a
+                      href="/documents"
+                      className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-[11px] font-semibold transition-all shadow-2xs"
+                    >
+                      <Folder className="w-3 h-3 text-white" />
+                      <span>Open Documents Section</span>
+                      <ArrowRight className="w-3 h-3 text-white" />
+                    </a>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMoveSuccessMessage(null)}
+                  className="text-teal-600 hover:text-teal-900 p-1 rounded-lg hover:bg-teal-100/50 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
 
@@ -547,6 +638,102 @@ export default function TaskDetailDrawer() {
                     </span>
                   </div>
                 )}
+
+                {/* ------------------------------------------------------------- */}
+                {/* ATTACH PREPARATION FILES SECTION (INTERNAL USER DELIVERABLES) */}
+                {/* ------------------------------------------------------------- */}
+                <div className="mt-3.5 pt-3 border-t border-teal-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>Attach Files for Sub Admin Review</span>
+                    </h5>
+                    <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                      {(selectedTask.attachments || []).length} attached
+                    </span>
+                  </div>
+
+                  {/* Target Folder Reminder */}
+                  {(selectedTask.folder_name || selectedTask.assigned_folder) && (
+                    <div className="mb-2.5 text-[11px] text-teal-900 bg-white/90 p-2 rounded-lg border border-teal-200/80 flex items-center gap-1.5">
+                      <Folder className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+                      <span>
+                        Target Documents Folder: <strong className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</strong>
+                        {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
+                          <span className="text-[#006666] font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Upload Area for Assignee */}
+                  {!isCreator && (
+                    <div className="mb-2.5">
+                      <input
+                        type="file"
+                        multiple
+                        id="drawer-file-uploader"
+                        className="hidden"
+                        onChange={handleFilesSelected}
+                      />
+                      <label
+                        htmlFor="drawer-file-uploader"
+                        className="border-2 border-dashed border-teal-300 hover:border-[#006666] bg-white hover:bg-teal-50/50 rounded-xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center group"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-teal-100 text-[#006666] flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-800 group-hover:text-[#006666]">
+                          {isAttachingFiles ? 'Attaching file(s)...' : 'Click to Upload Deliverable Files'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          Attach the files you need to submit for Sub Admin review (PDF, Excel, Word, etc.)
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* List of Attached Files */}
+                  {Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedTask.attachments.map((file, fIdx) => (
+                        <div
+                          key={file.id || fIdx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 shadow-2xs hover:border-teal-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded bg-teal-50 text-[#006666] flex items-center justify-center shrink-0">
+                              <FileText className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-900 truncate max-w-[220px]">
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {file.size} {file.uploadedBy ? `· by ${file.uploadedBy}` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          {!isCreator && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(file.name, fIdx)}
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Remove file"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic bg-white/70 p-2 rounded border border-dashed border-slate-200 text-center">
+                      No files attached yet. Attach your files above before submitting for review.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -567,15 +754,19 @@ export default function TaskDetailDrawer() {
                   </span>
                 </div>
 
-                {/* Creator Review vs Assignee Banner */}
+                {/* Creator / Sub Admin Review vs Assignee Banner */}
                 {selectedTask.status === 'REVIEW' && (
                   (isCreator || canApprove) ? (
-                    <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                      <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="mb-3 p-3 rounded-lg bg-teal-50/90 border border-teal-200 text-xs text-teal-950 flex items-start gap-2.5">
+                      <Clock className="w-4 h-4 text-[#006666] shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-amber-950">Review Stage — Creator Sign-Off Required</p>
-                        <p className="text-[11px] text-amber-800 mt-0.5">
-                          Submitted for review by <strong>{selectedTask.assigned_to_user || 'Assignee'}</strong>. Inspect the deliverables below and click <strong>&quot;Review & Mark as Done&quot;</strong> in the bottom bar to complete, or <strong>&quot;Request Changes&quot;</strong> to send back for revisions.
+                        <p className="font-bold text-[#006666]">
+                          {isPrepStage ? 'Preparation Review — Sub Admin Sign-Off Required' : 'Review Stage — Sign-Off Required'}
+                        </p>
+                        <p className="text-[11px] text-teal-800 mt-0.5">
+                          {isPrepStage
+                            ? <>Submitted for review by <strong>{selectedTask.assigned_to_user || 'Assignee'}</strong>. Inspect the uploaded files below. If approved, click <strong>&quot;Move to Documents Section&quot;</strong> in the bottom bar to directly upload these files to Documents. If changes are needed, click <strong>&quot;Inform Query&quot;</strong>.</>
+                            : <>Submitted for review by <strong>{selectedTask.assigned_to_user || 'Assignee'}</strong>. Inspect the deliverables below and click <strong>&quot;Mark as Done&quot;</strong> to complete, or <strong>&quot;Inform Query&quot;</strong> to send back for revisions.</>}
                         </p>
                       </div>
                     </div>
@@ -585,7 +776,7 @@ export default function TaskDetailDrawer() {
                       <div>
                         <p className="font-bold text-amber-950">Submitted for Review</p>
                         <p className="text-[11px] text-amber-800 mt-0.5">
-                          This task is currently under review by task creator <strong>{selectedTask.created_by || 'Creator'}</strong>. Waiting for final review and sign-off.
+                          This task is currently under review by <strong>{selectedTask.created_by || 'Sub Admin'}</strong>. Waiting for final review and sign-off.
                         </p>
                       </div>
                     </div>
@@ -640,6 +831,67 @@ export default function TaskDetailDrawer() {
                     </div>
                   );
                 })()}
+
+                {/* Deliverable Files for Review Section */}
+                <div className="mt-3 pt-3 border-t border-teal-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>Uploaded Deliverable Files for Review</span>
+                    </h5>
+                    <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                      {(selectedTask.attachments || []).length} file(s)
+                    </span>
+                  </div>
+
+                  {/* Destination Folder Note in Review */}
+                  {(selectedTask.folder_name || selectedTask.assigned_folder) && (
+                    <div className="mb-2 text-[11px] text-teal-900 bg-teal-50/90 p-2 rounded-lg border border-teal-200 flex items-center gap-1.5">
+                      <Folder className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+                      <span>
+                        Target Documents Folder: <strong className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</strong>
+                        {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
+                          <span className="text-[#006666] font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Files List */}
+                  {Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedTask.attachments.map((file, fIdx) => (
+                        <div
+                          key={file.id || fIdx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white border border-teal-100/90 shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-teal-50 text-[#006666] flex items-center justify-center shrink-0 border border-teal-200">
+                              <FileText className="w-4 h-4 text-[#006666]" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-semibold text-slate-900 truncate block max-w-[240px]">
+                                {file.name}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {file.size} {file.uploadedBy ? `· Uploaded by ${file.uploadedBy}` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            Ready to Move
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>No files attached directly to this task yet.</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -911,6 +1163,7 @@ export default function TaskDetailDrawer() {
             {selectedTask.status === 'REVIEW' && (
               canApprove ? (
                 <div className="flex items-center gap-2">
+                  {/* Button 2: Inform Query (Always available for reviewer to raise query) */}
                   <button
                     type="button"
                     onClick={() => {
@@ -918,23 +1171,48 @@ export default function TaskDetailDrawer() {
                       setShowRequestChangesModal(true);
                     }}
                     className="px-3.5 py-2 rounded-lg border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    title="Inform query to internal user to revise files"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Request Changes</span>
+                    <span>Inform Query</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => approveAndComplete(selectedTask.task_id)}
-                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Mark as Done</span>
-                  </button>
+
+                  {/* Button 1: Move to Documents Section (In Preparation stage) or Mark as Done (in other stages) */}
+                  {isPrepStage ? (
+                    <button
+                      type="button"
+                      onClick={handleMoveToDocuments}
+                      disabled={isMovingToDocs}
+                      className="px-4 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white font-semibold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Directly upload reviewed files to the Documents section"
+                    >
+                      {isMovingToDocs ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin text-white" />
+                          <span>Moving to Documents...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FolderUp className="w-4 h-4" />
+                          <span>Move to Documents Section</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => approveAndComplete(selectedTask.task_id)}
+                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Mark as Done</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Pending Creator Approval & Sign-off</span>
+                  <span>Pending Sub Admin Review & Sign-off</span>
                 </div>
               )
             )}
@@ -960,7 +1238,7 @@ export default function TaskDetailDrawer() {
         />
       )}
 
-      {/* Request Changes Modal */}
+      {/* Inform Query Modal */}
       {showRequestChangesModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
@@ -971,8 +1249,10 @@ export default function TaskDetailDrawer() {
                   <RotateCcw className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Request Changes</h3>
-                  <p className="text-[11px] text-slate-500">Task will be moved back to In Progress</p>
+                  <h3 className="font-bold text-sm text-slate-900">Inform Query</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Query will be informed to {selectedTask.assigned_to_user || 'Assignee'} and task returned to In Progress
+                  </p>
                 </div>
               </div>
               <button
@@ -993,20 +1273,20 @@ export default function TaskDetailDrawer() {
             <form onSubmit={handleConfirmRequestChanges} className="p-5 space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Feedback / Changes Required <span className="text-rose-500">*</span>
+                  Query Details / Reason Results Not OK <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={4}
                   value={requestChangesComment}
                   onChange={(e) => setRequestChangesComment(e.target.value)}
-                  placeholder="Specify what changes are needed for the assignee to complete..."
+                  placeholder="Specify what query or revisions are needed for the assignee to update (e.g. Schedule C is missing, please re-upload signed document)..."
                   className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none resize-none transition-all placeholder:text-slate-400"
                   autoFocus
                   required
                 />
                 <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
                   <MessageSquare className="w-3 h-3 text-slate-400" />
-                  <span>This will be shared as a comment with the assignee.</span>
+                  <span>The assignee will see this query in task communications and can upload updated files.</span>
                 </p>
               </div>
 
@@ -1031,12 +1311,12 @@ export default function TaskDetailDrawer() {
                   {isSubmittingChanges ? (
                     <>
                       <Clock className="w-3.5 h-3.5 animate-spin" />
-                      <span>Submitting...</span>
+                      <span>Informing Query...</span>
                     </>
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      <span>Submit Changes & Move to In Progress</span>
+                      <span>Inform Query & Move to In Progress</span>
                     </>
                   )}
                 </button>

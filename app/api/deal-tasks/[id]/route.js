@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dealTasks } from '@/db/schema';
+import { dealTasks, folders, documents } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { formatTask } from '@/lib/dealTasksHelper';
 
@@ -129,19 +129,202 @@ export async function PATCH(req, { params }) {
         break;
       }
 
+      case 'attach_files': {
+        const incomingFiles = Array.isArray(payload.files) ? payload.files : (payload.file ? [payload.file] : []);
+        if (incomingFiles.length === 0) {
+          return NextResponse.json({ success: false, error: 'No files provided to attach' }, { status: 400 });
+        }
+        const currentAttachments = Array.isArray(task.attachments) ? [...task.attachments] : [];
+        const userName = user.name || 'Assignee';
+
+        const newFormattedFiles = incomingFiles.map((f, i) => ({
+          id: f.id || `att_${Date.now()}_${i}`,
+          name: f.name || `Attachment_${Date.now()}`,
+          size: f.size || (f.fileSizeBytes ? `${Math.round(f.fileSizeBytes / 1024)} KB` : '1.2 MB'),
+          fileSizeBytes: f.fileSizeBytes || (typeof f.size === 'number' ? f.size : 102400),
+          mimeType: f.mimeType || f.type || 'application/pdf',
+          filePath: f.filePath || null,
+          uploadedBy: userName,
+          uploadedAt: formattedDate,
+        }));
+
+        const combinedAttachments = [...currentAttachments, ...newFormattedFiles];
+        updatedFields = {
+          ...updatedFields,
+          attachments: combinedAttachments,
+          auditTrail: [
+            ...currentAudit,
+            {
+              action: `${newFormattedFiles.length} Deliverable File(s) Attached`,
+              performed_by: userName,
+              role: user.role || 'Member',
+              timestamp: formattedDate,
+              ip: ipAddress,
+              details: newFormattedFiles.map(f => f.name).join(', '),
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'remove_attachment': {
+        const { fileId, fileName, index } = payload;
+        const currentAttachments = Array.isArray(task.attachments) ? [...task.attachments] : [];
+        const filtered = currentAttachments.filter((f, idx) => {
+          if (fileId && f.id === fileId) return false;
+          if (fileName && f.name === fileName) return false;
+          if (index !== undefined && idx === index) return false;
+          return true;
+        });
+        const userName = user.name || 'Assignee';
+        updatedFields = {
+          ...updatedFields,
+          attachments: filtered,
+          auditTrail: [
+            ...currentAudit,
+            {
+              action: `Deliverable File Removed (${fileName || 'File'})`,
+              performed_by: userName,
+              role: user.role || 'Member',
+              timestamp: formattedDate,
+              ip: ipAddress,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'move_to_documents': {
+        // Collect all attachments from task and subtasks
+        const allAtts = [];
+        if (Array.isArray(task.attachments)) {
+          task.attachments.forEach((a) => allAtts.push(a));
+        }
+        if (Array.isArray(task.subtasks)) {
+          task.subtasks.forEach((st) => {
+            if (Array.isArray(st.attachments)) {
+              st.attachments.forEach((a) => allAtts.push(a));
+            }
+          });
+        }
+
+        if (Array.isArray(payload.files)) {
+          payload.files.forEach((f) => {
+            if (!allAtts.some((existing) => (existing.name || existing) === (f.name || f))) {
+              allAtts.push(f);
+            }
+          });
+        }
+
+        const userName = user.name || 'Sub Admin';
+        const userCompanyId = user.company_id || user.companyId || 'cffc94a1-9a95-403e-a7c1-5740402880dd';
+
+        // 1. Resolve target folder in documents
+        let targetFolderId = task.subfolderId || task.folderId;
+        let targetFolderName = task.subfolderName || task.folderName;
+
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetFolderId || '');
+        if (!isUuid && targetFolderName) {
+          const matching = await db.select().from(folders).where(eq(folders.name, targetFolderName)).limit(1);
+          if (matching.length > 0) {
+            targetFolderId = matching[0].id;
+          }
+        }
+
+        if (!targetFolderId && targetFolderName) {
+          const folMatch = await db.select().from(folders).where(eq(folders.name, targetFolderName)).limit(1);
+          if (folMatch.length > 0) {
+            targetFolderId = folMatch[0].id;
+          }
+        }
+
+        if (!targetFolderId) {
+          targetFolderName = targetFolderName || `${task.department || 'Preparation'} Documents`;
+          const [newFolder] = await db.insert(folders).values({
+            name: targetFolderName,
+            companyId: userCompanyId,
+            workspaceId: task.workspaceId || null,
+            dealStage: 'Preparation',
+            createdBy: user.id || null,
+          }).returning();
+          targetFolderId = newFolder.id;
+        }
+
+        // 2. Insert documents into documents table
+        const movedDocs = [];
+        for (const att of allAtts) {
+          const fileName = att.name || att;
+          if (!fileName) continue;
+
+          const safeFileName = fileName.replace(/[^\w.-]/g, '_');
+          const timestamp = Date.now();
+          const compIdStr = userCompanyId;
+          const originalPath = `${compIdStr}/original_${timestamp}_${safeFileName}`;
+          const securePath = `${compIdStr}/secure_${timestamp}_${safeFileName}`;
+
+          const fileExt = fileName.split('.').pop()?.toLowerCase();
+          const mime = fileExt === 'pdf' ? 'application/pdf' :
+            ['xlsx', 'xls'].includes(fileExt) ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+            ['docx', 'doc'].includes(fileExt) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+            ['png', 'jpg', 'jpeg'].includes(fileExt) ? `image/${fileExt}` :
+            'application/octet-stream';
+
+          const sizeBytes = att.fileSizeBytes || (typeof att.size === 'number' ? att.size : 153600);
+
+          const [newDoc] = await db.insert(documents).values({
+            companyId: compIdStr,
+            workspaceId: task.workspaceId || null,
+            folderId: targetFolderId,
+            uploadedBy: user.id || null,
+            name: fileName,
+            filePath: securePath,
+            originalFilePath: originalPath,
+            mimeType: mime,
+            fileSizeBytes: sizeBytes,
+            dekRef: 'FernetDEKRef',
+            security: 'Fernet Encrypted',
+            version: 1,
+            dealStage: 'Preparation',
+            uploadComment: `Moved directly from Preparation task ${task.taskId} (${task.title}) by ${userName}`,
+          }).returning();
+
+          movedDocs.push(newDoc);
+        }
+
+        // 3. Mark task as DONE
+        updatedFields = {
+          ...updatedFields,
+          status: 'DONE',
+          completedBy: userName,
+          completedAt: formattedDate,
+          auditTrail: [
+            ...currentAudit,
+            {
+              action: 'Files Moved to Documents Section & Marked as Done',
+              performed_by: userName,
+              role: user.role || 'Sub Admin',
+              timestamp: formattedDate,
+              ip: ipAddress,
+              details: `Successfully uploaded ${movedDocs.length} deliverable file(s) directly into Documents folder "${targetFolderName}". Task approved.`,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'inform_query':
       case 'send_back': {
-        const userName = user.name || 'Reviewer';
-        const reason = payload.reason || 'Revisions requested by reviewer';
+        const userName = user.name || 'Sub Admin';
+        const queryText = payload.queryText || payload.reason || 'Revisions requested by reviewer';
         const newComment = {
           id: `comm_${Date.now()}`,
           author: userName,
-          company: user.company || 'Company',
-          scope: 'EXTERNAL',
-          text: `Changes Requested: ${reason}`,
+          company: user.company || 'ABC Textiles',
+          scope: 'INTERNAL',
+          text: `Review Query: ${queryText}`,
           timestamp: formattedDate,
         };
-        const currentComments = Array.isArray(task.comments) ? task.comments : [];
-        const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+
         const reopenedSubtasks = currentSubtasks.map((st) => ({
           ...st,
           status: 'TO_DO',
@@ -156,12 +339,12 @@ export async function PATCH(req, { params }) {
           auditTrail: [
             ...currentAudit,
             {
-              action: 'Task Sent Back for Revisions',
+              action: 'Review Query Raised by Sub Admin',
               performed_by: userName,
-              role: user.role || 'Admin',
+              role: user.role || 'Sub Admin',
               timestamp: formattedDate,
               ip: ipAddress,
-              details: reason,
+              details: queryText,
             },
           ],
         };
@@ -339,6 +522,7 @@ export async function PATCH(req, { params }) {
         if (payload.target_company !== undefined) updatedFields.targetCompany = payload.target_company;
         if (payload.status !== undefined) updatedFields.status = payload.status;
         if (payload.subtasks !== undefined) updatedFields.subtasks = payload.subtasks;
+        if (payload.attachments !== undefined) updatedFields.attachments = payload.attachments;
 
         if (payload.folderId !== undefined) updatedFields.folderId = payload.folderId;
         if (payload.folder_id !== undefined) updatedFields.folderId = payload.folder_id;

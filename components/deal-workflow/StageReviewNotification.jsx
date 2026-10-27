@@ -25,12 +25,17 @@ export default function StageReviewNotification({ inDropdown = false }) {
     approveStageAndAdvance,
     tasks,
     normalizeStage,
+    stageAdvanceRequest,
+    requestSuperAdminStageAdvance,
   } = useDealWorkflow();
 
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
-  const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
+  const normRole = normalizeRole(currentUser?.role);
+  const isSuperAdmin = normRole === 'super_admin';
+  const isAdmin = normRole === 'admin';
 
   // Get active stage details from stageTrackerInfo
   const activeStageObj = stageTrackerInfo?.stages?.find(
@@ -41,6 +46,12 @@ export default function StageReviewNotification({ inDropdown = false }) {
   const doneTasks = activeStageObj?.done || 0;
   const isStageAllDone = totalTasks > 0 && doneTasks === totalTasks;
   const nextStage = getNextStage(activeDealStage);
+
+  const isPendingRequest = Boolean(
+    stageAdvanceRequest &&
+    stageAdvanceRequest.status === 'PENDING_SUPER_ADMIN_APPROVAL' &&
+    normalizeStage(stageAdvanceRequest.stage) === normalizeStage(activeDealStage)
+  );
 
   // Check if an active query exists for the current stage
   const hasActiveQuery = Boolean(
@@ -58,6 +69,18 @@ export default function StageReviewNotification({ inDropdown = false }) {
       console.error('Error advancing stage:', e);
     } finally {
       setIsAdvancing(false);
+    }
+  };
+
+  const handleAdminRequest = async () => {
+    if (!nextStage) return;
+    setIsRequesting(true);
+    try {
+      await requestSuperAdminStageAdvance({ stage: activeDealStage, nextStage });
+    } catch (e) {
+      console.error('Error requesting super admin:', e);
+    } finally {
+      setIsRequesting(false);
     }
   };
 
@@ -165,7 +188,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
     );
   }
 
-  // Case 2: All tasks in the active stage are completed and awaiting Super Admin decision
+  // Case 2: All tasks in the active stage are completed
   if (isStageAllDone) {
     return (
       <>
@@ -177,14 +200,34 @@ export default function StageReviewNotification({ inDropdown = false }) {
             <div className="bg-slate-100 border border-slate-300 rounded-xl p-4 sm:p-4.5 text-slate-900 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200 flex flex-col justify-between gap-3">
               {/* Top: Message spanning full width */}
               <div>
+                {stageAdvanceRequest?.requestedBy && (
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="bg-teal-100 text-[#006666] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Stage Advance Request
+                    </span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      Requested by Admin: <strong className="text-slate-900">{stageAdvanceRequest.requestedBy}</strong>
+                    </span>
+                    {stageAdvanceRequest.createdAt && (
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        · {new Date(stageAdvanceRequest.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
                   All {activeDealStage} tasks are completed! Please review results to enable next stage.
                 </h3>
+                {stageAdvanceRequest?.requestedBy && (
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    Admin <strong className="text-slate-800">{stageAdvanceRequest.requestedBy}</strong> has requested to enable {nextStage ? `the ${nextStage} stage` : 'next stage'}.
+                  </p>
+                )}
               </div>
 
-              {/* Bottom: Buttons on Left Side (img3) and Metric Badge in Right Corner (img2) */}
+              {/* Bottom: Buttons on Left Side and Metric Badge in Right Corner */}
               <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200/80 flex-wrap">
-                {/* Left side: Buttons (img3) */}
+                {/* Left side: Buttons */}
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {/* Results NOT OK Button: Opens Query Modal */}
                   <button
@@ -215,13 +258,76 @@ export default function StageReviewNotification({ inDropdown = false }) {
                     </div>
                   )}
                 </div>
-
-
               </div>
             </div>
+          ) : isAdmin ? (
+            /* ============================================================= */
+            /* ADMIN VIEW: REQUEST SUPER ADMIN TO ENABLE NEXT STAGE          */
+            /* ============================================================= */
+            isPendingRequest ? (
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <span>Request Sent to Super Admin</span>
+                      <span className="text-[10px] bg-teal-100 text-[#006666] px-2 py-0.5 rounded-full font-semibold">
+                        Pending Review
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      You have requested Super Admin to enable the next stage{nextStage ? ` (${nextStage})` : ''}. Awaiting Super Admin review.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[11px] font-semibold text-teal-800 bg-white border border-teal-200/80 px-2.5 py-1 rounded-lg shrink-0">
+                  Awaiting Super Admin Review
+                </span>
+              </div>
+            ) : (
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-4 sm:p-4.5 text-slate-900 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200 flex flex-col justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+                        All {activeDealStage} tasks are completed!
+                      </h3>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                        100% Done
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 font-medium">
+                      You need to request super admin to enable the next stage{nextStage ? ` (${nextStage})` : ''}.
+                    </p>
+                  </div>
+                </div>
+
+                {nextStage && (
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200/80 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleAdminRequest}
+                      disabled={isRequesting}
+                      className="px-4 py-2 rounded-lg bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span>{isRequesting ? 'Sending Request...' : 'Request Super Admin'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </button>
+
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Super Admin will be notified
+                    </span>
+                  </div>
+                )}
+              </div>
+            )
           ) : (
             /* ============================================================= */
-            /* NON-SUPER ADMIN VIEW: AWAITING SUPER ADMIN REVIEW             */
+            /* NON-ADMIN VIEW: AWAITING SUPER ADMIN REVIEW                   */
             /* ============================================================= */
             <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2.5 min-w-0">

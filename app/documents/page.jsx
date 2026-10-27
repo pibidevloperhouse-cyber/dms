@@ -150,7 +150,7 @@ function UnifiedWorkspace() {
 
         if (!item) {
             if (action === 'can_upload') return isAdminRole;
-            if (action === 'can_create_folder') return isAdminRole || globalFolderPerms.can_create;
+            if (action === 'can_create_folder') return ['super_admin', 'admin'].includes(session.role);
             if (action === 'can_export') return isAdminRole;
             return false;
         }
@@ -293,6 +293,10 @@ function UnifiedWorkspace() {
 
     const handleCreateFolder = async (e) => {
         e.preventDefault();
+        if (!['super_admin', 'admin'].includes(session?.role)) {
+            showToast('Only Admin and Super Admin can create folders', 'error');
+            return;
+        }
         if (!newFolderName.trim()) return;
         try {
             const peers = files.filter(f => f.parentId === currentFolderId && !deletedIds.has(f.id));
@@ -735,7 +739,7 @@ function UnifiedWorkspace() {
     const selectionEnabled = !['bookmarks', 'downloads'].includes(currentView);
     const selectedItemsArray = files.filter(f => selectedIds.has(f.id));
     const canUploadHere = currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId });
-    const canCreateFolder = isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_create;
+    const canCreateFolder = ['super_admin', 'admin'].includes(session?.role);
     const canMergeFolder = isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_merge;
     const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_secure', item));
     const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_original', item));

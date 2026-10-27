@@ -854,6 +854,7 @@ export const dealTasks = pgTable('deal_tasks', {
 
   // JSON structures matching frontend
   subtasks: jsonb('subtasks').default('[]'),
+  attachments: jsonb('attachments').default('[]'),
   auditTrail: jsonb('audit_trail').default('[]'),
   comments: jsonb('comments').default('[]'),
   digitalSignature: jsonb('digital_signature'),

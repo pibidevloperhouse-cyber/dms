@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 let serverActiveStage = 'Preparation';
 let serverNotificationPayload = null;
 let serverStageQuery = null;
+let serverStageAdvanceRequest = null;
 
 const STATE_FILE_PATH = path.join(process.cwd(), '.vdr_active_stage.json');
 
@@ -26,13 +27,16 @@ function loadStateFromFile() {
       if (data.stageQuery !== undefined) {
         serverStageQuery = data.stageQuery;
       }
+      if (data.stageAdvanceRequest !== undefined) {
+        serverStageAdvanceRequest = data.stageAdvanceRequest;
+      }
     }
   } catch (e) {
     console.error('Error reading active stage state file:', e);
   }
 }
 
-function saveStateToFile(stage, notificationPayload, stageQuery) {
+function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceRequest) {
   try {
     fs.writeFileSync(
       STATE_FILE_PATH,
@@ -40,6 +44,7 @@ function saveStateToFile(stage, notificationPayload, stageQuery) {
         activeStage: stage,
         notificationPayload,
         stageQuery,
+        stageAdvanceRequest,
         updatedAt: new Date().toISOString(),
       }),
       'utf-8'
@@ -70,11 +75,12 @@ export async function GET() {
       activeStage: serverActiveStage,
       notificationPayload: serverNotificationPayload,
       stageQuery: serverStageQuery,
+      stageAdvanceRequest: serverStageAdvanceRequest,
     });
   } catch (error) {
     console.error('GET active stage error:', error);
     return NextResponse.json(
-      { success: false, activeStage: serverActiveStage || 'Preparation', stageQuery: serverStageQuery },
+      { success: false, activeStage: serverActiveStage || 'Preparation', stageQuery: serverStageQuery, stageAdvanceRequest: serverStageAdvanceRequest },
       { status: 500 }
     );
   }
@@ -83,7 +89,7 @@ export async function GET() {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { stage, notificationPayload, stageQuery } = body;
+    const { stage, notificationPayload, stageQuery, stageAdvanceRequest } = body;
 
     const targetStage = stage || serverActiveStage;
     serverActiveStage = targetStage;
@@ -93,8 +99,11 @@ export async function POST(req) {
     if (stageQuery !== undefined) {
       serverStageQuery = stageQuery;
     }
+    if (stageAdvanceRequest !== undefined) {
+      serverStageAdvanceRequest = stageAdvanceRequest;
+    }
 
-    saveStateToFile(targetStage, serverNotificationPayload, serverStageQuery);
+    saveStateToFile(targetStage, serverNotificationPayload, serverStageQuery, serverStageAdvanceRequest);
 
     try {
       if (stage) {
@@ -111,6 +120,7 @@ export async function POST(req) {
       activeStage: serverActiveStage,
       notificationPayload: serverNotificationPayload,
       stageQuery: serverStageQuery,
+      stageAdvanceRequest: serverStageAdvanceRequest,
     });
   } catch (error) {
     console.error('POST active stage error:', error);

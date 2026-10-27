@@ -19,6 +19,8 @@ import {
   CheckSquare,
   MessageSquare,
   Folder,
+  FolderUp,
+  Paperclip,
 } from 'lucide-react';
 
 export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
@@ -241,6 +243,19 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
           </div>
         )}
 
+        {/* Attached Deliverable Files Pill if present */}
+        {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+          <div className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-md bg-teal-50/70 border border-teal-200/70 text-[11px] text-teal-900 mb-3">
+            <div className="flex items-center gap-1.5 truncate">
+              <Paperclip className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+              <span className="truncate font-medium">{task.attachments.length} Attached {task.attachments.length === 1 ? 'File' : 'Files'}</span>
+            </div>
+            <span className="text-[10px] font-bold text-teal-700 bg-white px-1.5 py-0.2 rounded border border-teal-200 shrink-0">
+              Deliverables
+            </span>
+          </div>
+        )}
+
         {/* Audit Mode Information Pill (When Audit Mode is ON) */}
         {isAuditModeActive && (
           <div className="mb-3 p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-[11px] text-amber-900 space-y-1 animate-in fade-in duration-200">
@@ -357,20 +372,35 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
 
           {task.status === 'REVIEW' && (
             canApprove ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  approveAndComplete(task.task_id);
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Mark as Done</span>
-              </button>
+              (task.deal_stage || '').trim().toLowerCase().includes('prep') ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenDetails) onOpenDetails(task);
+                    else onCardClick?.(task);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#006666] hover:bg-[#005252] text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                  title="Open review to Move to Documents Section or Inform Query"
+                >
+                  <FolderUp className="w-3.5 h-3.5" />
+                  <span>Review & Move to Docs</span>
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    approveAndComplete(task.task_id);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Mark as Done</span>
+                </button>
+              )
             ) : (
               <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
                 <Clock className="w-3 h-3 text-amber-600" />
-                <span>Pending Creator Approval</span>
+                <span>Pending Review</span>
               </span>
             )
           )}

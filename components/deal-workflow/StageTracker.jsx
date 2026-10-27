@@ -19,7 +19,13 @@ export default function StageTracker() {
     activateStage,
     currentUser,
     trackingSection,
+    normalizeStage,
+    requestSuperAdminStageAdvance,
   } = useDealWorkflow();
+
+  const [adminRequestModal, setAdminRequestModal] = React.useState({ isOpen: false, targetStage: '' });
+  const [isSubmittingReq, setIsSubmittingReq] = React.useState(false);
+  const [reqSuccess, setReqSuccess] = React.useState(false);
 
   if (!mounted || !stageTrackerInfo || !stageTrackerInfo.stages) {
     return (
@@ -44,7 +50,20 @@ export default function StageTracker() {
   }
 
   const { stages } = stageTrackerInfo;
-  const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
+  const normRole = normalizeRole(currentUser?.role);
+  const isSuperAdmin = normRole === 'super_admin';
+  const isAdmin = normRole === 'admin';
+
+  const handleAdminToggle = (stage) => {
+    if (stage.isActive) return;
+    const activeStageObj = stages.find((s) => normalizeStage(s.name) === normalizeStage(activeDealStage));
+    const isStageAllDone = activeStageObj && activeStageObj.total > 0 && activeStageObj.done === activeStageObj.total;
+    if (!isStageAllDone) {
+      alert(`All tasks in the ${activeDealStage} stage must be completed before requesting the next stage.`);
+      return;
+    }
+    setAdminRequestModal({ isOpen: true, targetStage: stage.name });
+  };
 
   const handleStageClick = (stage) => {
     // Clicking the card selects the stage for viewing/filtering
@@ -129,8 +148,45 @@ export default function StageTracker() {
                       />
                     </button>
                   </div>
+                ) : isAdmin ? (
+                  /* Admin: Interactive Stage Activation Toggle that triggers Super Admin Request */
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[11px] font-semibold uppercase tracking-wider ${
+                        isActive ? 'text-[#006666]' : 'text-slate-400'
+                      }`}
+                    >
+                      {isActive ? 'ACTIVE' : 'INACTIVE'}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isActive}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAdminToggle(stage);
+                      }}
+                      title={
+                        isActive
+                          ? `${stage.name} is currently active`
+                          : `Toggle to request Super Admin to enable ${stage.name}`
+                      }
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        isActive
+                          ? 'bg-[#006666]'
+                          : 'bg-slate-200 hover:bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                          isActive ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 ) : (
-                  /* Non-Super Admin: Status Badge Pill only */
+                  /* Non-Admin: Status Badge Pill only */
                   isActive ? (
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
@@ -231,6 +287,65 @@ export default function StageTracker() {
           </div>
         );
       })}
+
+      {adminRequestModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-[#006666] flex items-center justify-center border border-teal-200 shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                  Enable Next Stage
+                </h3>
+                <p className="text-xs sm:text-[13px] text-slate-600 mt-1.5 leading-relaxed font-medium">
+                  You need to request super admin to enable the next stage{adminRequestModal.targetStage ? ` (${adminRequestModal.targetStage})` : ''}.
+                </p>
+              </div>
+            </div>
+
+            {reqSuccess ? (
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Request sent to Super Admin successfully!</span>
+              </div>
+            ) : (
+              <div className="mt-5 flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAdminRequestModal({ isOpen: false, targetStage: '' })}
+                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingReq}
+                  onClick={async () => {
+                    setIsSubmittingReq(true);
+                    try {
+                      await requestSuperAdminStageAdvance({ stage: activeDealStage, nextStage: adminRequestModal.targetStage });
+                      setReqSuccess(true);
+                      setTimeout(() => {
+                        setAdminRequestModal({ isOpen: false, targetStage: '' });
+                        setReqSuccess(false);
+                      }, 1200);
+                    } catch (e) {
+                      console.error('Error requesting super admin:', e);
+                    } finally {
+                      setIsSubmittingReq(false);
+                    }
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#006666] hover:bg-[#005252] rounded-lg transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                >
+                  {isSubmittingReq ? 'Requesting...' : 'Request Super Admin'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

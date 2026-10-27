@@ -291,6 +291,10 @@ export default function GroupsSidebar({ isOpen = true }) {
     }, []);
 
     const handleCreateNewDepartment = (nameToCreate) => {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showToast('Only Admin and Super Admin can create departments', 'error');
+            return;
+        }
         const query = (nameToCreate || newGroupDepartment || customDeptInput || '').trim();
         if (!query) return;
         const formatted = query.charAt(0).toUpperCase() + query.slice(1);
@@ -303,6 +307,10 @@ export default function GroupsSidebar({ isOpen = true }) {
     };
 
     const handleConfirmNewDept = () => {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showToast('Only Admin and Super Admin can create departments', 'error');
+            return;
+        }
         const trimmed = customDeptInput.trim();
         if (!trimmed) return;
         const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -417,6 +425,10 @@ export default function GroupsSidebar({ isOpen = true }) {
             // If in department creation mode and user typed a custom dept without clicking the small Create button
             const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
             if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
+                if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                    showToast('Only Admin and Super Admin can create departments', 'error');
+                    return;
+                }
                 const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
                 setFolderSuggestion({
                     isOpen: true,
@@ -493,7 +505,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 }
 
                 // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = !isIndividual && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
+                const folderNameToCreate = !isIndividual && ['super_admin', 'admin'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
                         await fetch('/api/documents/action', {
@@ -795,7 +807,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     <div className="p-5 border-t border-gray-100 bg-gray-50/30">
                         <button
                             onClick={() => {
-                                if (departments.length === 0) {
+                                if (departments.length === 0 && ['super_admin', 'admin'].includes(currentUserRole)) {
                                     setIsCreatingNewDept(true);
                                     setCustomDeptInput('');
                                     setNewGroupDepartment('');
@@ -910,7 +922,9 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                     {dept}
                                                 </option>
                                             ))}
-                                            <option value="__new__">+ Create New Department...</option>
+                                            {['super_admin', 'admin'].includes(currentUserRole) && (
+                                                <option value="__new__">+ Create New Department...</option>
+                                            )}
                                         </select>
                                     ) : (
                                         <div className="flex gap-2">
