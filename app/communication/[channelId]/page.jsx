@@ -99,6 +99,21 @@ export default function ChannelPage({ params }) {
     }
   }, [channelId, session]);
 
+  // Mark channel as read
+  const markAsRead = useCallback(async () => {
+    if (!channelId || !session?.id) return;
+    try {
+      await fetch(`/api/communication/channels/${channelId}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.id }),
+      });
+      window.dispatchEvent(new CustomEvent('communication_read', { detail: { channelId } }));
+    } catch (e) {
+      console.warn('Failed to mark channel as read:', e);
+    }
+  }, [channelId, session]);
+
   useEffect(() => {
     if (!session?.id) return;
 
@@ -106,20 +121,22 @@ export default function ChannelPage({ params }) {
     const load = async () => {
       if (isMounted) {
         await Promise.all([fetchChannelDetails(), fetchMessages()]);
+        markAsRead();
       }
     };
     load();
 
-    // Poll messages every 2.5 seconds for instant two-account sync
+    // Poll messages every 5 seconds for instant two-account sync
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchMessages();
-    }, 2500);
+    }, 5000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [session, fetchChannelDetails, fetchMessages]);
+  }, [session, fetchChannelDetails, fetchMessages, markAsRead]);
 
   // Realtime subscription (Supabase WebSocket when available)
   const handleNewRealtimeMessage = useCallback(

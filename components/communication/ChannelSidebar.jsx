@@ -60,13 +60,29 @@ export default function ChannelSidebar() {
     };
     run();
 
-    const interval = setInterval(() => {
-      fetchChannels();
-    }, 5000);
+    const handleReadEvent = (e) => {
+      const readChannelId = e?.detail?.channelId;
+      if (readChannelId) {
+        setChannels((prev) =>
+          prev.map((c) => (c.id === readChannelId ? { ...c, unreadCount: 0, unreadMentionsCount: 0 } : c))
+        );
+      }
+    };
+
+    const handleUnreadUpdated = (e) => {
+      if (Array.isArray(e?.detail?.channels) && e.detail.channels.length > 0) {
+        setChannels(e.detail.channels);
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('communication_read', handleReadEvent);
+    window.addEventListener('communication_unread_updated', handleUnreadUpdated);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      window.removeEventListener('communication_read', handleReadEvent);
+      window.removeEventListener('communication_unread_updated', handleUnreadUpdated);
     };
   }, [fetchChannels]);
 
@@ -177,10 +193,29 @@ export default function ChannelSidebar() {
                         </p>
                       </div>
                     </div>
-                    {channel.memberCount > 0 && (
-                      <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 shrink-0 ml-2">
-                        {channel.memberCount}
-                      </span>
+                    {!isActive && (channel.unreadCount || 0) > 0 ? (
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {(channel.unreadMentionsCount || 0) > 0 && (
+                          <span
+                            title={`${channel.unreadMentionsCount} mention${channel.unreadMentionsCount > 1 ? 's' : ''}`}
+                            className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold border border-purple-200/80 animate-pulse"
+                          >
+                            @{channel.unreadMentionsCount}
+                          </span>
+                        )}
+                        <span
+                          title={`${channel.unreadCount} unread message${channel.unreadCount > 1 ? 's' : ''}`}
+                          className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-xs animate-in zoom-in-75"
+                        >
+                          {channel.unreadCount > 99 ? '99+' : channel.unreadCount}
+                        </span>
+                      </div>
+                    ) : (
+                      channel.memberCount > 0 && (
+                        <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 shrink-0 ml-2">
+                          {channel.memberCount}
+                        </span>
+                      )
                     )}
                   </Link>
                 );
