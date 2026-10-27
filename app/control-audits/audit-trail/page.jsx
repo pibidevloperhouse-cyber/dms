@@ -72,17 +72,39 @@ export default function AuditTrailPage() {
   // Selected event for detail drawer (READ ONLY)
   const [selectedAuditLog, setSelectedAuditLog] = useState(null);
 
-  // Extract unique modules & actions from dynamic logs only (no dummy data)
+  // Extract unique modules & actions from dynamic logs with standard platform baselines
   const uniqueModules = useMemo(() => {
-    const modulesFromLogs = auditLogs.map((l) => l.module).filter(Boolean);
-    const set = new Set(modulesFromLogs);
-    if (set.size === 0) set.add("Authentication");
+    const set = new Set(["Authentication", "Documents"]);
+    auditLogs.forEach((l) => {
+      if (l.module) set.add(l.module);
+    });
     return Array.from(set);
   }, [auditLogs]);
 
   const uniqueActions = useMemo(() => {
-    return Array.from(new Set(auditLogs.map((l) => l.action).filter(Boolean)));
-  }, [auditLogs]);
+    const set = new Set();
+    auditLogs.forEach((l) => {
+      if (l.action) {
+        if (selectedModule === "all" || l.module?.toLowerCase() === selectedModule.toLowerCase()) {
+          set.add(l.action);
+        }
+      }
+    });
+
+    if (selectedModule === "Documents" || selectedModule === "all") {
+      set.add("Document View");
+      set.add("Document Download (Secure)");
+      set.add("Document Download (Original)");
+      set.add("Document Upload");
+      set.add("Document Moved to Trash");
+    }
+    if (selectedModule === "Authentication" || selectedModule === "all") {
+      set.add("Login Attempt");
+      set.add("Sign-up Attempt");
+    }
+
+    return Array.from(set);
+  }, [auditLogs, selectedModule]);
 
   // Filtered & Sorted logs
   const processedLogs = useMemo(() => {
@@ -457,6 +479,7 @@ export default function AuditTrailPage() {
               value={selectedModule}
               onChange={(e) => {
                 setSelectedModule(e.target.value);
+                setSelectedAction("all");
                 setCurrentPage(1);
               }}
               className="h-9 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[var(--brand)] cursor-pointer text-xs transition-colors"
@@ -480,7 +503,7 @@ export default function AuditTrailPage() {
               }}
               className="h-9 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[var(--brand)] cursor-pointer text-xs transition-colors"
             >
-              <option value="all">All Actions ({uniqueActions.length})</option>
+              <option value="all">All Actions</option>
               {uniqueActions.map((act) => (
                 <option key={act} value={act}>
                   {act}
@@ -574,19 +597,35 @@ export default function AuditTrailPage() {
                     </div>
                   </th>
 
-                  {/* Resource Column */}
-                  <th className="px-4 py-3.5 min-w-[200px]">Resource / Target</th>
-
-                  {/* View Duration Column */}
+                  {/* Resource / Target / Document File / Auth Detail Column */}
                   <th
-                    onClick={() => handleSort("durationSeconds")}
-                    className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
+                    onClick={() => handleSort("resource")}
+                    className="px-4 py-3.5 min-w-[200px] cursor-pointer hover:text-slate-800"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>View Time</span>
+                      <span>
+                        {selectedModule === "Authentication"
+                          ? "Auth Detail / Reason"
+                          : selectedModule === "Documents"
+                          ? "Document File"
+                          : "Resource / Target"}
+                      </span>
                       <ArrowUpDown size={12} className="text-slate-400" />
                     </div>
                   </th>
+
+                  {/* View Duration Column (Only shown for Documents & All Modules, omitted for Authentication) */}
+                  {selectedModule !== "Authentication" && (
+                    <th
+                      onClick={() => handleSort("durationSeconds")}
+                      className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>View Time</span>
+                        <ArrowUpDown size={12} className="text-slate-400" />
+                      </div>
+                    </th>
+                  )}
 
                   {/* Deal Column */}
                   <th className="px-4 py-3.5">Deal Context</th>
@@ -620,6 +659,7 @@ export default function AuditTrailPage() {
                     key={log.id}
                     event={log}
                     layout="table"
+                    moduleView={selectedModule}
                     onClick={(e) => setSelectedAuditLog(e)}
                   />
                 ))}
@@ -744,7 +784,13 @@ export default function AuditTrailPage() {
                 <span className="font-bold text-slate-900">{selectedAuditLog.action}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Target Resource:</span>
+                <span className="text-slate-400 font-medium">
+                  {selectedAuditLog.module === "Authentication"
+                    ? "Auth Detail / Target:"
+                    : selectedAuditLog.module === "Documents"
+                    ? "Document File:"
+                    : "Target Resource:"}
+                </span>
                 <span className="font-semibold text-slate-800">{selectedAuditLog.resource}</span>
               </div>
               <div className="flex justify-between">
@@ -764,7 +810,7 @@ export default function AuditTrailPage() {
                   {formatAuditDate(selectedAuditLog.timestamp).full}
                 </span>
               </div>
-              {selectedAuditLog.durationText && selectedAuditLog.durationText !== "—" && (
+              {selectedAuditLog.module !== "Authentication" && selectedAuditLog.durationText && selectedAuditLog.durationText !== "—" && (
                 <div className="flex justify-between items-center pt-2 border-t border-slate-200/70">
                   <span className="text-slate-500 font-medium flex items-center gap-1.5">
                     <Clock size={13} className="text-sky-600" />

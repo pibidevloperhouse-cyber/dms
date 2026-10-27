@@ -657,7 +657,7 @@ export function ControlsAuditProvider({ children }) {
 
     addAuditEvent({
       action: "Stage Changed",
-      resource: "Deal Progression: Stage 3 (Negotiation) → Stage 4 (Approvals)",
+      resource: "Deal Progression: Stage 3 (Negotiation) → Stage 4 (Bidding)",
       module: "Stage Control",
       result: "Success",
       permissionDecision: {
@@ -666,12 +666,12 @@ export function ControlsAuditProvider({ children }) {
       },
       metadata: {
         previousStage: "Negotiation",
-        nextStage: "Approvals",
+        nextStage: "Bidding",
         allGatesVerified: true,
       },
     });
 
-    showToast("Acme Corp Acquisition successfully advanced to Stage 4: Approvals!", "success");
+    showToast("Acme Corp Acquisition successfully advanced to Stage 4: Bidding!", "success");
   }, [addAuditEvent, showToast]);
 
   // ── WORKFLOW ACTION: UPDATE PERMISSION CELL IN MATRIX ──

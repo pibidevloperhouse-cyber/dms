@@ -98,7 +98,7 @@ export default function StageControlPage() {
       {/* ── HEADER ── */}
       <PageHeader
         title="Stage & Gate Control"
-        subtitle="Manage deal stage transitions, enforce gate satisfaction rules across documents, tasks, risks, and approvals, and control advancement."
+        // subtitle="Manage deal stage transitions, enforce gate satisfaction rules across documents, tasks, risks, and approvals, and control advancement."
         badge={
           <StatusBadge
             status={isReadyToAdvance ? "completed" : "blocked"}
@@ -138,24 +138,24 @@ export default function StageControlPage() {
         }
       />
 
-      {/* ── A. 6 STAGE STEPPER ── */}
+      {/* ── A. 5 STAGE STEPPER ── */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
-          <div>
+          {/* <div>
             <h3 className="text-sm font-bold text-slate-900">
               Transaction Lifecycle Stepper
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Current Deal: <span className="font-semibold text-slate-700">{activeDeal.name}</span> • Target Close: {activeDeal.targetCloseDate}
             </p>
-          </div>
+          </div> */}
           <span className="text-xs font-mono font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-            Stage {stages.findIndex((s) => s.isCurrent) + 1} of 6
+            Stage {stages.findIndex((s) => s.isCurrent) + 1} of {stages.length}
           </span>
         </div>
 
         {/* Stepper track */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
           {stages.map((stage, idx) => {
             const isSelected = stage.id === selectedStageTab;
             const isCompleted = stage.status === "completed";
@@ -229,9 +229,9 @@ export default function StageControlPage() {
                 size="sm"
               />
             </div>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+            {/* <p className="text-xs text-slate-500 mb-5 leading-relaxed">
               Stage gates enforce non-negotiable governance policies. Milestones must be 100% satisfied before counterparty advancement is authorized.
-            </p>
+            </p> */}
 
             {/* Checklist Table / Rows */}
             <div className="space-y-3.5">
@@ -347,8 +347,8 @@ export default function StageControlPage() {
                 }`}
               >
                 {isReadyToAdvance
-                  ? "All mandatory documents, task signoffs, risk reviews, and signatory approval chains are 100% satisfied. Advancement to Stage 4 is authorized."
-                  : `Stage advancement is currently blocked. ${currentBlockers.length} conditions must be resolved before proceeding to Approvals.`}
+                  ? "All mandatory documents, task signoffs, risk reviews, and signatory approval chains are 100% satisfied. Advancement to Stage 4: Bidding is authorized."
+                  : `Stage advancement is currently blocked. ${currentBlockers.length} conditions must be resolved before proceeding to Bidding.`}
               </p>
 
               {/* Exact Blocker List */}
@@ -501,7 +501,7 @@ export default function StageControlPage() {
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed">
-                You are authorizing the advancement of <span className="font-bold">{activeDeal.name}</span> from <span className="font-bold text-slate-800">Stage 3: Negotiation</span> to <span className="font-bold text-[var(--brand)]">Stage 4: Approvals</span>.
+                You are authorizing the advancement of <span className="font-bold">{activeDeal.name}</span> from <span className="font-bold text-slate-800">Stage 3: Negotiation</span> to <span className="font-bold text-[var(--brand)]">Stage 4: Bidding</span>.
               </p>
 
               <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900">
