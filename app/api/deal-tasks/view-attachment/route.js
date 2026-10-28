@@ -38,9 +38,30 @@ export async function GET(req) {
     const fileId = searchParams.get('fileId');
     const rawFileName = searchParams.get('fileName') || searchParams.get('name') || '';
     const filePathParam = searchParams.get('filePath');
+    const userRole = searchParams.get('userRole') || searchParams.get('role');
+    const userName = searchParams.get('userName') || searchParams.get('user');
 
     const fileName = path.basename(rawFileName || 'document.pdf');
     const mime = getMimeType(fileName);
+
+    // Rule: In Preparation stage sub admin to internal user task flow:
+    // Internal user can only view attachments uploaded by themselves!
+    if (taskId && userRole === 'internal_user') {
+      const [task] = await db.select().from(dealTasks).where(eq(dealTasks.taskId, taskId)).limit(1);
+      if (task && (task.dealStage === 'Preparation' || task.creatorRole === 'sub_admin')) {
+        const userNorm = (userName || '').trim().toLowerCase();
+        const attachments = Array.isArray(task.attachments) ? task.attachments : [];
+        const targetAtt = attachments.find((a) => (fileId && a.id === fileId) || (a.name === fileName || a.fileName === fileName));
+        if (targetAtt && targetAtt.uploadedBy) {
+          const uploaderNorm = targetAtt.uploadedBy.trim().toLowerCase();
+          if (uploaderNorm && uploaderNorm !== userNorm) {
+            return NextResponse.json({
+              error: 'Access Denied: In preparation stage, internal users can only view files they have uploaded.'
+            }, { status: 403 });
+          }
+        }
+      }
+    }
 
     // -------------------------------------------------------------
     // 1. Check in public/uploads/deal-tasks/

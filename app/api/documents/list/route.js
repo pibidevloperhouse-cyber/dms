@@ -2,6 +2,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { dealTasks } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 // 🔒 Uses SERVICE ROLE to bypass Row Level Security on the Backend
 const supabase = createClient(
@@ -19,9 +22,11 @@ export async function POST(req) {
         }
 
         const isGodMode = session.role === 'super_admin';
+        const isInternalUser = session.role === 'internal_user';
         let myPerms = {};
         let globalTemp = { can_create: false, can_merge: false, can_delete: false };
         let dealRestrictions = null;
+        const prepTaskFolderIds = new Set();
 
         // 1. 🛡️ CALCULATE ABAC PERMISSIONS ON THE SERVER
         if (!isGodMode) {
@@ -51,6 +56,35 @@ export async function POST(req) {
                         myPerms[key].can_delete = myPerms[key].can_delete || p.can_delete;
                     }
                 });
+            }
+
+            // If internal user, find folders assigned in Preparation stage tasks created by Sub Admin
+            if (isInternalUser) {
+                try {
+                    const prepTasks = await db
+                        .select()
+                        .from(dealTasks)
+                        .where(
+                            and(
+                                eq(dealTasks.dealStage, 'Preparation'),
+                                eq(dealTasks.creatorRole, 'sub_admin')
+                            )
+                        );
+
+                    const userName = (session.name || '').trim().toLowerCase();
+                    const userEmail = (session.email || '').trim().toLowerCase();
+
+                    prepTasks.forEach((t) => {
+                        const assignedUser = (t.assignedToUser || '').trim().toLowerCase();
+                        const isAssigned = !assignedUser || assignedUser === userName || assignedUser === userEmail;
+                        if (isAssigned) {
+                            if (t.folderId) prepTaskFolderIds.add(t.folderId);
+                            if (t.subfolderId) prepTaskFolderIds.add(t.subfolderId);
+                        }
+                    });
+                } catch (taskErr) {
+                    console.error('Error fetching preparation task folders for internal user:', taskErr);
+                }
             }
         }
 
@@ -109,6 +143,17 @@ export async function POST(req) {
             if (r.document_id) redactedMap[r.document_id] = r.redacted_path;
         });
 
+        // Ensure internal user has folder visibility & upload access for assigned prep folders
+        prepTaskFolderIds.forEach((fId) => {
+            const key = `fol_${fId}`;
+            if (!myPerms[key]) {
+                myPerms[key] = { can_view: true, can_upload: true, can_edit: false, can_delete: false };
+            } else {
+                myPerms[key].can_view = true;
+                myPerms[key].can_upload = true;
+            }
+        });
+
         // Utility to calculate human-readable bytes
         const formatBytes = (bytes) => {
             if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '--';
@@ -131,20 +176,71 @@ export async function POST(req) {
 
         // 3. 🧹 CLEAN AND FILTER THE DATA
         const mappedFolders = (foldersData || [])
-            .filter(f => isGodMode || (f.created_by === session.id && f.creator_revoked !== true) || myPerms[`fol_${f.id}`]?.can_view)
+            .filter(f => isGodMode || (f.created_by === session.id && f.creator_revoked !== true) || myPerms[`fol_${f.id}`]?.can_view || prepTaskFolderIds.has(f.id))
             .map(f => ({
                 id: f.id, parentId: f.parent_folder_id || null, index: f.index_number ? f.index_number.toString() : '1',
                 name: f.name, type: 'folder', size: calculateFolderSize(f.id), uploadedBy: userMap[f.created_by] || 'System',
                 dateCreated: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 deletedBy: userMap[f.deleted_by] || 'Unknown',
                 deletedAt: f.deleted_at ? new Date(f.deleted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--',
-                is_bookmarked: f.is_bookmarked, is_deleted: f.is_deleted, creator_id: f.created_by, creator_revoked: f.creator_revoked, version: parseInt(f.version) || 1
+                is_bookmarked: f.is_bookmarked, is_deleted: f.is_deleted, creator_id: f.created_by, creator_revoked: f.creator_revoked, version: parseInt(f.version) || 1,
+                isPrepAssignedFolder: prepTaskFolderIds.has(f.id)
             }));
 
         const mappedDocs = (docsData || [])
-            .filter(doc => isGodMode || (doc.uploaded_by === session.id && doc.creator_revoked !== true) || myPerms[`doc_${doc.id}`]?.can_view || (doc.folder_id && myPerms[`fol_${doc.folder_id}`]?.can_view))
+            .filter(doc => {
+                if (isGodMode) return true;
+                if (doc.uploaded_by === session.id && doc.creator_revoked !== true) return true;
+                if (myPerms[`doc_${doc.id}`]?.can_view) return true;
+                if (doc.folder_id && (myPerms[`fol_${doc.folder_id}`]?.can_view || prepTaskFolderIds.has(doc.folder_id))) return true;
+                return false;
+            })
             .map(doc => {
                 const isRedacted = Boolean(doc.is_redacted || redactedMap[doc.id]);
+                const isUploadedByMe = doc.uploaded_by === session.id;
+
+                // Sub Admin to Internal User Flow Rule:
+                // An internal user in preparation stage can see the folder and all file names inside it,
+                // but can ONLY view/download files that they themselves uploaded.
+                // Existing files or files uploaded by others are "Name only" (View restricted).
+                const isViewRestricted = isInternalUser && !isUploadedByMe;
+
+                const docPermKey = `doc_${doc.id}`;
+                if (isInternalUser) {
+                    if (isViewRestricted) {
+                        myPerms[docPermKey] = {
+                            can_view: false,
+                            can_edit: false,
+                            can_upload: false,
+                            can_download_secure: false,
+                            can_download_original: false,
+                            can_delete: false,
+                        };
+                    } else {
+                        myPerms[docPermKey] = {
+                            can_view: true,
+                            can_edit: true,
+                            can_upload: true,
+                            can_download_secure: true,
+                            can_download_original: true,
+                            can_delete: false,
+                        };
+                    }
+                } else if (!isGodMode) {
+                    // For sub_admin and admin roles, if they have folder view access, they can view files in that folder
+                    const parentFolPerm = doc.folder_id ? myPerms[`fol_${doc.folder_id}`] : null;
+                    if (parentFolPerm?.can_view && !myPerms[docPermKey]) {
+                        myPerms[docPermKey] = {
+                            can_view: true,
+                            can_edit: Boolean(parentFolPerm.can_edit),
+                            can_upload: Boolean(parentFolPerm.can_upload),
+                            can_download_secure: Boolean(parentFolPerm.can_download_secure),
+                            can_download_original: Boolean(parentFolPerm.can_download_original),
+                            can_delete: false,
+                        };
+                    }
+                }
+
                 return {
                     id: doc.id, parentId: doc.folder_id || null, index: doc.index ? doc.index.toString().replace('.0', '') : '99',
                     name: doc.name, type: doc.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/gi, '') || 'file',
@@ -156,7 +252,9 @@ export async function POST(req) {
                     file_path: doc.file_path, original_file_path: doc.original_file_path, dek_ref: doc.dek_ref, mime_type: doc.mime_type,
                     creator_id: doc.uploaded_by, creator_revoked: doc.creator_revoked, version: parseInt(doc.version) || 1,
                     is_redacted: isRedacted,
-                    redacted_path: redactedMap[doc.id] || null
+                    redacted_path: redactedMap[doc.id] || null,
+                    is_view_restricted: isViewRestricted,
+                    is_my_upload: isUploadedByMe,
                 };
             });
 
@@ -174,50 +272,3 @@ export async function POST(req) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import { createClient } from '@supabase/supabase-js';
-// import { NextResponse } from 'next/server';
-
-// const supabase = createClient(
-//     process.env.NEXT_PUBLIC_SUPABASE_URL,
-//     process.env.SUPABASE_SERVICE_ROLE_KEY
-// );
-
-// export async function GET(req) {
-//     try {
-//         const { searchParams } = new URL(req.url);
-//         const company_id = searchParams.get('company_id');
-
-//         const { data, error } = await supabase
-//             .from('documents')
-//             .select('id, name, folder_id, index, mime_type, file_size_bytes, uploaded_by, created_at, security, is_deleted, is_bookmarked, is_downloaded')
-//             .eq('company_id', company_id)
-//             .eq('is_deleted', false)
-//             .order('created_at', { ascending: true });
-
-//         if (error) {
-//             console.error('Fetch error:', error);
-//             return NextResponse.json({ error: error.message }, { status: 500 });
-//         }
-
-//         return NextResponse.json({ documents: data });
-//     } catch (err) {
-//         console.error('Route crash:', err);
-//         return NextResponse.json({ error: err.message }, { status: 500 });
-//     }
-// }

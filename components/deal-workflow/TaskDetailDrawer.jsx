@@ -83,6 +83,32 @@ export default function TaskDetailDrawer() {
 
   const subtasksList = selectedTask.subtasks || [];
   const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
+  const isInternalUser = normalizeRole(currentUser?.role) === 'internal_user';
+
+  // Sub Admin to Internal User Flow Rule:
+  // In Preparation stage, Internal Users can only view files that THEY uploaded.
+  // Other files uploaded by Sub Admin or other Internal Users are visible by name only!
+  const isFileUploadedByCurrentUser = (file) => {
+    if (!file) return false;
+    const myName = (currentUser?.name || '').trim().toLowerCase();
+    const myEmail = (currentUser?.email || '').trim().toLowerCase();
+    const myId = (currentUser?.id || '').trim().toLowerCase();
+    const uploader = (file.uploadedBy || file.uploaded_by || '').trim().toLowerCase();
+    const uploaderId = (file.uploadedByUserId || file.uploaded_by_user_id || '').trim().toLowerCase();
+
+    if (uploaderId && myId && uploaderId === myId) return true;
+    if (uploader && (uploader === myName || uploader === myEmail)) return true;
+    return false;
+  };
+
+  const canUserViewTaskFile = (file) => {
+    if (!file) return false;
+    if (isAdmin || isCreator) return true;
+    if (isSubAdminToInternalPrep && isInternalUser) {
+      return isFileUploadedByCurrentUser(file);
+    }
+    return true;
+  };
 
   // If user is creator, they see all subtasks created.
   // For assigned members (like Pranav or Lakshmi), ONLY tasks/subtasks assigned to them are shown!
@@ -160,6 +186,10 @@ export default function TaskDetailDrawer() {
 
   const handleViewFile = (file) => {
     if (!file) return;
+    if (!canUserViewTaskFile(file)) {
+      alert("Only the file name is visible. In preparation stage, you cannot view files uploaded by other users. You can only view files that you have uploaded.");
+      return;
+    }
     const fileName = file.name || file;
 
     // 1. If file already has a blobUrl in active memory
@@ -197,7 +227,7 @@ export default function TaskDetailDrawer() {
     // 4. Default to secure inline browser view endpoint
     const taskId = selectedTask?.task_id || '';
     const fileId = file.id || '';
-    const endpoint = `/api/deal-tasks/view-attachment?taskId=${encodeURIComponent(taskId)}&fileName=${encodeURIComponent(fileName)}&fileId=${encodeURIComponent(fileId)}`;
+    const endpoint = `/api/deal-tasks/view-attachment?taskId=${encodeURIComponent(taskId)}&fileName=${encodeURIComponent(fileName)}&fileId=${encodeURIComponent(fileId)}&userRole=${encodeURIComponent(currentUser?.role || '')}&userName=${encodeURIComponent(currentUser?.name || '')}`;
     window.open(endpoint, '_blank');
   };
 
@@ -462,16 +492,17 @@ export default function TaskDetailDrawer() {
                 {(selectedTask.folder_name || selectedTask.assigned_folder) && (
                   <div className="mb-3 p-3 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-950 flex items-start gap-2.5">
                     <Folder className="w-4 h-4 text-[#006666] shrink-0 mt-0.5" />
-                    <div>
+                    <div className="space-y-1">
                       <p className="font-bold text-[#006666]">
                         Assigned Documents Folder: <span className="text-slate-900">{selectedTask.folder_name || selectedTask.assigned_folder}</span>
                         {(selectedTask.subfolder_name || selectedTask.assigned_subfolder) && (
                           <span className="text-teal-700 font-semibold"> / {selectedTask.subfolder_name || selectedTask.assigned_subfolder}</span>
                         )}
                       </p>
-                      <p className="text-[11px] text-teal-800 mt-0.5">
+                      <p className="text-[11px] text-teal-800">
                         Assigned team members should upload requested preparation documents into this folder under Documents.
                       </p>
+
                     </div>
                   </div>
                 )}
@@ -765,16 +796,18 @@ export default function TaskDetailDrawer() {
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleViewFile(file)}
-                                className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#006666] bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                                title="View file in browser"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </button>
-                              {!isCreator && (
+                              {canUserViewTaskFile(file) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewFile(file)}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold text-[#006666] bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="View file in browser"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
+                                </button>
+                              ) : null}
+                              {!isCreator && canUserViewTaskFile(file) && (
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveAttachment(file.name, fIdx)}
@@ -976,14 +1009,16 @@ export default function TaskDetailDrawer() {
                             Signed
                           </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleViewFile(doc)}
-                          className="text-[11px] text-[#006666] hover:text-[#004d4d] bg-teal-50 hover:bg-teal-100 font-semibold px-2.5 py-1 rounded-md border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                        >
-                          <Eye className="w-3 h-3" />
-                          <span>View</span>
-                        </button>
+                        {canUserViewTaskFile(doc) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewFile(doc)}
+                            className="text-[11px] text-[#006666] hover:text-[#004d4d] bg-teal-50 hover:bg-teal-100 font-semibold px-2.5 py-1 rounded-md border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ))}

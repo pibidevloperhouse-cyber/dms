@@ -161,6 +161,30 @@ function UnifiedWorkspace() {
 
         const isAdminRole = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
 
+        // Preparation Stage Rule for Sub Admin to Internal User flow:
+        // Internal users can see folders and can upload files into them.
+        // But inside that folder, they can ONLY view/download/edit files they uploaded themselves!
+        // Files uploaded by other users or already existing in folder are "Name only".
+        if (session.role === 'internal_user') {
+            if (!item) {
+                if (action === 'can_upload') return true;
+                return false;
+            }
+            if (item.type === 'folder') {
+                const key = `fol_${item.id}`;
+                return mergedPerms[key]?.[action] === true;
+            }
+            const isMyUpload = item.creator_id === session.id || item.uploaded_by === session.id || item.uploadedBy === session.name || item.is_my_upload === true;
+            if (!isMyUpload) {
+                return false;
+            }
+            if (['can_view', 'can_download_secure', 'can_download_original', 'can_download', 'can_edit'].includes(action)) {
+                return true;
+            }
+            const key = `doc_${item.id}`;
+            return mergedPerms[key]?.[action] !== false;
+        }
+
         if (!item) {
             if (action === 'can_upload') return isAdminRole;
             if (action === 'can_create_folder') return ['super_admin', 'admin'].includes(session.role);
@@ -168,6 +192,12 @@ function UnifiedWorkspace() {
             return false;
         }
         if (item.creator_id === session.id && item.creator_revoked !== true) return true;
+        if (isAdminRole) {
+            if (['can_view', 'can_download_secure', 'can_download_original', 'can_download'].includes(action)) {
+                if (item.parentId && mergedPerms[`fol_${item.parentId}`]?.can_view) return true;
+                return true;
+            }
+        }
         const key = item.type === 'folder' ? `fol_${item.id}` : `doc_${item.id}`;
         return mergedPerms[key]?.[action] === true;
     };
@@ -540,6 +570,11 @@ function UnifiedWorkspace() {
         for (let id of selectedIds) {
             const file = files.find(f => f.id === id);
             if (!file || file.type === 'folder') continue;
+
+            if (session?.role === 'internal_user' && !canUser('can_view', file)) {
+                showToast(`Cannot download "${file.name}": In preparation stage, you can only view/download files you have uploaded.`, 'error');
+                continue;
+            }
 
             setDownloading(prev => ({ ...prev, [file.id]: true }));
             try {
@@ -980,6 +1015,8 @@ function UnifiedWorkspace() {
                         ))}
                     </div>
 
+
+
                     <div className="flex-1 overflow-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-white border-b border-slate-100">
@@ -1054,12 +1091,16 @@ function UnifiedWorkspace() {
                                                     )}
 
                                                     <span
-                                                        className={`text-[13px] font-semibold transition-colors ${!isFolder && canUser('can_view', item) ? 'text-slate-800 hover:text-[var(--brand)] hover:underline cursor-pointer' : isFolder ? 'text-slate-800 hover:text-[var(--brand)] hover:underline cursor-pointer' : 'text-slate-800'}`}
+                                                        className={`text-[13px] font-semibold transition-colors ${!isFolder && canUser('can_view', item) ? 'text-slate-800 hover:text-[var(--brand)] hover:underline cursor-pointer' : isFolder ? 'text-slate-800 hover:text-[var(--brand)] hover:underline cursor-pointer' : 'text-slate-500 cursor-not-allowed select-none'}`}
                                                         onClick={(e) => {
                                                              e.stopPropagation(); 
                                                             if (isFolder) {
                                                                 setCurrentFolderId(item.id);
                                                             } else {
+                                                                if (session?.role === 'internal_user' && !canUser('can_view', item)) {
+                                                                    showToast("Only the file name is visible. In preparation stage, you cannot view files uploaded by other users.", "error");
+                                                                    return;
+                                                                }
                                                                 if (currentView === 'buyers_side') {
                                                                     if (item.is_redacted) {
                                                                         window.open(`/redaction/view?id=${item.id}`, '_blank');
@@ -1076,6 +1117,8 @@ function UnifiedWorkspace() {
                                                     >
                                                         {item.name}
                                                     </span>
+
+
 
                                                     {currentView === 'buyers_side' && item.is_redacted && !isFolder && (
                                                         <span className="ml-1.5 px-1.5 py-0.5 text-[9.5px] font-bold rounded bg-purple-50 text-purple-700 border border-purple-200">
@@ -1192,7 +1235,16 @@ function UnifiedWorkspace() {
                                                                 }} 
                                                             />
                                                         ) : (
-                                                            <FaEye className="text-slate-200" title="No View Access" />
+                                                            <FaEye
+                                                                className="text-slate-300 cursor-not-allowed"
+                                                                title={session?.role === 'internal_user' ? "View restricted: You can only view files you have uploaded" : "No View Access"}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (session?.role === 'internal_user') {
+                                                                        showToast("Only the file name is visible. In preparation stage, you cannot view files uploaded by other users.", "error");
+                                                                    }
+                                                                }}
+                                                            />
                                                         )}
 
                                                         {/* EDIT */}
