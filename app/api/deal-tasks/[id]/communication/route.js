@@ -214,6 +214,7 @@ export async function GET(req, { params }) {
           messageType: messages.messageType,
           attachments: messages.attachments,
           metadata: messages.metadata,
+          isEdited: messages.isEdited,
           createdAt: messages.createdAt,
         })
         .from(messages)
@@ -233,7 +234,18 @@ export async function GET(req, { params }) {
 
       formattedMessages = dbMsgs
         .filter((m) => {
-          // If task has specific subtask assignments, FILTER strictly by activeTargetMember!
+          // 1. Check if deleted for me
+          const meta = m.metadata || {};
+          const deletedFor = Array.isArray(meta.deletedFor) ? meta.deletedFor : [];
+          if (
+            (userId && deletedFor.includes(userId)) ||
+            (callerEmail && deletedFor.includes(callerEmail)) ||
+            (callerName && deletedFor.includes(callerName))
+          ) {
+            return false;
+          }
+
+          // 2. If task has specific subtask assignments, FILTER strictly by activeTargetMember!
           if (activeTargetMember) {
             const msgTarget = m.metadata?.targetMember;
             const senderName = m.senderName || '';
@@ -265,6 +277,7 @@ export async function GET(req, { params }) {
             senderEmail: m.senderEmail || '',
             senderRole: m.senderRole || 'Member',
             text: m.messageText,
+            messageText: m.messageText,
             messageType: m.messageType,
             attachments: m.attachments || [],
             targetMember: m.metadata?.targetMember || null,
@@ -274,6 +287,7 @@ export async function GET(req, { params }) {
               minute: '2-digit',
             }),
             isMine: Boolean(isCurrentSender),
+            isEdited: Boolean(m.isEdited),
           };
         });
     }
@@ -282,6 +296,15 @@ export async function GET(req, { params }) {
     if (formattedMessages.length === 0 && Array.isArray(task.comments) && task.comments.length > 0) {
       formattedMessages = task.comments
         .filter((c) => {
+          if (c.isDeleted) return false;
+          const deletedFor = Array.isArray(c.deletedFor) ? c.deletedFor : [];
+          if (
+            (userId && deletedFor.includes(userId)) ||
+            (callerEmail && deletedFor.includes(callerEmail)) ||
+            (callerName && deletedFor.includes(callerName))
+          ) {
+            return false;
+          }
           if (activeTargetMember) {
             if (c.targetMember) return matchesMember(c.targetMember, activeTargetMember);
             if (matchesMember(c.author, activeTargetMember)) return true;
@@ -298,14 +321,17 @@ export async function GET(req, { params }) {
           senderEmail: c.authorEmail || '',
           senderRole: c.authorRole || 'Member',
           text: c.text,
+          messageText: c.text,
           messageType: 'text',
           attachments: [],
           targetMember: c.targetMember || null,
-          createdAt: c.timestamp ? new Date(c.timestamp).toISOString() : new Date().toISOString(),
+          createdAt: c.createdAt || new Date().toISOString(),
           timestamp: c.timestamp || 'Just now',
           isMine:
+            (userId && c.authorId === userId) ||
             (callerName && matchesMember(c.author, callerName)) ||
             (callerEmail && matchesMember(c.authorEmail, callerEmail)),
+          isEdited: Boolean(c.isEdited),
         }));
     }
 
@@ -548,3 +574,207 @@ export async function POST(req, { params }) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+/**
+ * PATCH /api/deal-tasks/[id]/communication
+ * Edit a task message (sender only)
+ */
+export async function PATCH(req, { params }) {
+  try {
+    const { id } = await params;
+    const task = await findTask(id);
+    if (!task) {
+      return NextResponse.json({ success: false, error: 'Task not found' }, { status: 404 });
+    }
+
+    const payload = await req.json();
+    const { messageId, messageText, userId, userEmail, userName } = payload;
+
+    if (!messageId || !messageText?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'messageId and messageText are required' },
+        { status: 400 }
+      );
+    }
+
+    const trimmedText = messageText.trim();
+    const now = new Date();
+
+    // 1. Update in messages table
+    await db
+      .update(messages)
+      .set({
+        messageText: trimmedText,
+        isEdited: true,
+        updatedAt: now,
+      })
+      .where(eq(messages.id, messageId));
+
+    // 2. Also update in dealTasks.comments array if present
+    if (Array.isArray(task.comments) && task.comments.length > 0) {
+      let commentUpdated = false;
+      const updatedComments = task.comments.map((c) => {
+        if (c.id === messageId) {
+          commentUpdated = true;
+          return {
+            ...c,
+            text: trimmedText,
+            isEdited: true,
+            updatedAt: now.toISOString(),
+          };
+        }
+        return c;
+      });
+
+      if (commentUpdated) {
+        await db
+          .update(dealTasks)
+          .set({
+            comments: updatedComments,
+            updatedAt: now,
+          })
+          .where(eq(dealTasks.id, task.id));
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: {
+        id: messageId,
+        text: trimmedText,
+        messageText: trimmedText,
+        isEdited: true,
+        updatedAt: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Task communication PATCH error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/deal-tasks/[id]/communication
+ * Delete message:
+ * - type='everyone': soft delete for everyone
+ * - type='me': hide message only for requesting user
+ */
+export async function DELETE(req, { params }) {
+  try {
+    const { id } = await params;
+    const task = await findTask(id);
+    if (!task) {
+      return NextResponse.json({ success: false, error: 'Task not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const messageId = searchParams.get('messageId');
+    const userId = searchParams.get('userId');
+    const userEmail = searchParams.get('userEmail');
+    const userName = searchParams.get('userName');
+    const type = searchParams.get('type') || 'me';
+
+    if (!messageId) {
+      return NextResponse.json({ success: false, error: 'messageId is required' }, { status: 400 });
+    }
+
+    const callerKey = userId || userEmail || userName || 'unknown';
+    const now = new Date();
+
+    if (type === 'everyone') {
+      // 1. Soft-delete in messages table
+      await db
+        .update(messages)
+        .set({
+          deletedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(messages.id, messageId));
+
+      // 2. In dealTasks.comments array: mark isDeleted = true
+      if (Array.isArray(task.comments) && task.comments.length > 0) {
+        const updatedComments = task.comments.map((c) => {
+          if (c.id === messageId) {
+            return { ...c, isDeleted: true, deletedAt: now.toISOString() };
+          }
+          return c;
+        });
+
+        await db
+          .update(dealTasks)
+          .set({
+            comments: updatedComments,
+            updatedAt: now,
+          })
+          .where(eq(dealTasks.id, task.id));
+      }
+
+      return NextResponse.json({
+        success: true,
+        deleteType: 'everyone',
+        messageId,
+      });
+    } else {
+      // Delete for ME: add caller key to metadata.deletedFor
+      const msgRows = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.id, messageId))
+        .limit(1);
+
+      if (msgRows.length > 0) {
+        const currentMeta = msgRows[0].metadata || {};
+        const deletedFor = Array.isArray(currentMeta.deletedFor)
+          ? [...currentMeta.deletedFor]
+          : [];
+
+        if (!deletedFor.includes(callerKey)) deletedFor.push(callerKey);
+        if (userId && !deletedFor.includes(userId)) deletedFor.push(userId);
+        if (userEmail && !deletedFor.includes(userEmail)) deletedFor.push(userEmail);
+
+        await db
+          .update(messages)
+          .set({
+            metadata: {
+              ...currentMeta,
+              deletedFor,
+            },
+            updatedAt: now,
+          })
+          .where(eq(messages.id, messageId));
+      }
+
+      // In dealTasks.comments:
+      if (Array.isArray(task.comments) && task.comments.length > 0) {
+        const updatedComments = task.comments.map((c) => {
+          if (c.id === messageId) {
+            const currentDeletedFor = Array.isArray(c.deletedFor) ? [...c.deletedFor] : [];
+            if (!currentDeletedFor.includes(callerKey)) currentDeletedFor.push(callerKey);
+            if (userId && !currentDeletedFor.includes(userId)) currentDeletedFor.push(userId);
+            if (userEmail && !currentDeletedFor.includes(userEmail)) currentDeletedFor.push(userEmail);
+            return { ...c, deletedFor: currentDeletedFor };
+          }
+          return c;
+        });
+
+        await db
+          .update(dealTasks)
+          .set({
+            comments: updatedComments,
+            updatedAt: now,
+          })
+          .where(eq(dealTasks.id, task.id));
+      }
+
+      return NextResponse.json({
+        success: true,
+        deleteType: 'me',
+        messageId,
+      });
+    }
+  } catch (error) {
+    console.error('Task communication DELETE error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
