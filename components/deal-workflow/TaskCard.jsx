@@ -17,11 +17,11 @@ import {
   FileCheck2,
   AlertCircle,
   CheckSquare,
-  MessageSquare,
   Folder,
   FolderUp,
   Paperclip,
 } from 'lucide-react';
+import CommunicationChatIcon from '@/components/communication/CommunicationChatIcon';
 
 export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
   const {
@@ -299,7 +299,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
           className="p-1.5 rounded-lg text-teal-700 hover:text-teal-900 bg-teal-50/80 hover:bg-teal-100 border border-teal-200/90 transition-all cursor-pointer shadow-2xs relative flex items-center justify-center shrink-0"
           title="Open Task Chat"
         >
-          <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
+          <CommunicationChatIcon className="w-4 h-4 text-teal-600" />
           {Array.isArray(task.comments) && task.comments.length > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] bg-[#006666] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 shadow-xs">
               {task.comments.length}

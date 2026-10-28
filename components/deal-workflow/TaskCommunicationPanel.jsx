@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  MessageSquare,
   Send,
   Users,
   Paperclip,
@@ -34,6 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useDealWorkflow } from './DealWorkflowContext';
+import CommunicationChatIcon from '@/components/communication/CommunicationChatIcon';
 
 function renderFormattedContent(text, isMine) {
   if (!text) return null;
@@ -717,7 +717,7 @@ export default function TaskCommunicationPanel({
   if (!activeTask) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white">
-        <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
+        <CommunicationChatIcon className="w-12 h-12 text-slate-300 mb-3" />
         <p className="text-sm font-semibold text-slate-600">No active task selected</p>
         <p className="text-xs text-slate-400 mt-1">Select a task from the board to initiate communication</p>
       </div>
@@ -796,7 +796,7 @@ export default function TaskCommunicationPanel({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-teal-50 text-[#006666] border border-teal-200">
-                  <MessageSquare className="w-3 h-3 text-teal-600" />
+                  <CommunicationChatIcon className="w-3.5 h-3.5 text-teal-600" />
                   {currentTask.taskId || currentTask.task_id}
                 </span>
 
@@ -915,7 +915,7 @@ export default function TaskCommunicationPanel({
           ) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
               <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#006666] mb-3 shadow-xs">
-                <MessageSquare className="w-7 h-7" />
+                <CommunicationChatIcon className="w-7 h-7" />
               </div>
               <p className="text-sm font-bold text-slate-800">No messages yet in this direct channel</p>
               <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
