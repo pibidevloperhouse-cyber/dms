@@ -94,14 +94,20 @@ export async function POST(req) {
             docsQuery = docsQuery.is('workspace_id', null);
         }
 
-        const [{ data: foldersData }, { data: docsData }, { data: usersData }] = await Promise.all([
+        const [{ data: foldersData }, { data: docsData }, { data: usersData }, { data: redactedData }] = await Promise.all([
             foldersQuery,
             docsQuery,
             supabase.from('users').select('id, name').eq('company_id', session.company_id),
+            supabase.from('redacted_documents').select('document_id, redacted_path'),
         ]);
 
         const userMap = {};
         (usersData || []).forEach(u => userMap[u.id] = u.name);
+
+        const redactedMap = {};
+        (redactedData || []).forEach(r => {
+            if (r.document_id) redactedMap[r.document_id] = r.redacted_path;
+        });
 
         // Utility to calculate human-readable bytes
         const formatBytes = (bytes) => {
@@ -137,17 +143,22 @@ export async function POST(req) {
 
         const mappedDocs = (docsData || [])
             .filter(doc => isGodMode || (doc.uploaded_by === session.id && doc.creator_revoked !== true) || myPerms[`doc_${doc.id}`]?.can_view || (doc.folder_id && myPerms[`fol_${doc.folder_id}`]?.can_view))
-            .map(doc => ({
-                id: doc.id, parentId: doc.folder_id || null, index: doc.index ? doc.index.toString().replace('.0', '') : '99',
-                name: doc.name, type: doc.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/gi, '') || 'file',
-                size: formatBytes(doc.file_size_bytes), uploadedBy: userMap[doc.uploaded_by] || 'System',
-                dateCreated: new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                deletedBy: userMap[doc.deleted_by] || 'Unknown',
-                deletedAt: doc.deleted_at ? new Date(doc.deleted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--',
-                is_bookmarked: doc.is_bookmarked, is_downloaded: doc.is_downloaded, is_deleted: doc.is_deleted,
-                file_path: doc.file_path, original_file_path: doc.original_file_path, dek_ref: doc.dek_ref, mime_type: doc.mime_type,
-                creator_id: doc.uploaded_by, creator_revoked: doc.creator_revoked, version: parseInt(doc.version) || 1
-            }));
+            .map(doc => {
+                const isRedacted = Boolean(doc.is_redacted || redactedMap[doc.id]);
+                return {
+                    id: doc.id, parentId: doc.folder_id || null, index: doc.index ? doc.index.toString().replace('.0', '') : '99',
+                    name: doc.name, type: doc.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/gi, '') || 'file',
+                    size: formatBytes(doc.file_size_bytes), uploadedBy: userMap[doc.uploaded_by] || 'System',
+                    dateCreated: new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    deletedBy: userMap[doc.deleted_by] || 'Unknown',
+                    deletedAt: doc.deleted_at ? new Date(doc.deleted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--',
+                    is_bookmarked: doc.is_bookmarked, is_downloaded: doc.is_downloaded, is_deleted: doc.is_deleted,
+                    file_path: doc.file_path, original_file_path: doc.original_file_path, dek_ref: doc.dek_ref, mime_type: doc.mime_type,
+                    creator_id: doc.uploaded_by, creator_revoked: doc.creator_revoked, version: parseInt(doc.version) || 1,
+                    is_redacted: isRedacted,
+                    redacted_path: redactedMap[doc.id] || null
+                };
+            });
 
         // 4. 🚀 SEND PERFECT JSON TO FRONTEND
         return NextResponse.json({

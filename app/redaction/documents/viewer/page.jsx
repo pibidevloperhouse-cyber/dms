@@ -704,6 +704,12 @@ function DocumentViewerContent() {
       );
     if (dbError) throw dbError;
 
+    // Mark document as redacted
+    await supabase
+      .from("documents")
+      .update({ is_redacted: true })
+      .eq("id", docId);
+
     // 5. Persist text-region selections to DB
     // Delete existing first, then insert fresh
     await supabase
@@ -846,6 +852,12 @@ function DocumentViewerContent() {
       }));
       await supabase.from("document_text_redactions").insert(rows);
     }
+
+    // Mark document as redacted
+    await supabase
+      .from("documents")
+      .update({ is_redacted: true })
+      .eq("id", docId);
   };
 
   /* ─────────────────────────────────────────

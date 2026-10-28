@@ -109,6 +109,11 @@ function UnifiedWorkspace() {
 
     useEffect(() => { if (session) loadData(session); }, [session]);
 
+    useEffect(() => {
+        setCurrentFolderId(null);
+        setSelectedIds(new Set());
+    }, [currentView]);
+
     // ── ACTION API HELPER ────────────────────────────────────────────────────
     const executeBackendAction = async (action, payload) => {
         const res = await fetch('/api/documents/action', {
@@ -137,6 +142,14 @@ function UnifiedWorkspace() {
 
     const canUser = (action, item = null) => {
         if (!session) return false;
+        if (currentView === 'buyers_side') {
+            if (['can_upload', 'can_create_folder', 'can_edit', 'can_delete', 'can_merge_folder'].includes(action)) {
+                return false;
+            }
+            if (['can_view', 'can_download_secure', 'can_download_original', 'can_download'].includes(action)) {
+                return true;
+            }
+        }
         if (session.role === 'super_admin') return true;
         
         // Strict Deal Restrictions override for Guests/Buyers
@@ -252,6 +265,7 @@ function UnifiedWorkspace() {
             if (currentView === 'trash') return files.filter(f => deletedIds.has(f.id));
             if (currentView === 'bookmarks') return files.filter(f => bookmarkedIds.has(f.id) && !deletedIds.has(f.id));
             if (currentView === 'downloads') return files.filter(f => downloadedIds.has(f.id) && !deletedIds.has(f.id));
+            // Both active files view and buyers_side show all items folderwise
             return files.filter(f => f.parentId === currentFolderId && !deletedIds.has(f.id));
         })();
         return raw.map(f => ({ 
@@ -533,7 +547,7 @@ function UnifiedWorkspace() {
                 const res = await fetch('/api/documents/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ docId: file.id, actionType: resolvedAction, session })
+                    body: JSON.stringify({ docId: file.id, actionType: resolvedAction, session, isBuyerSide: currentView === 'buyers_side' })
                 });
 
                 if (!res.ok) throw new Error("Download failed on server");
@@ -736,17 +750,18 @@ function UnifiedWorkspace() {
 
     // UI RENDERING LOGIC
     const isGod = session?.role === 'super_admin';
+    const isBuyerSide = currentView === 'buyers_side';
     const selectionEnabled = !['bookmarks', 'downloads'].includes(currentView);
     const selectedItemsArray = files.filter(f => selectedIds.has(f.id));
-    const canUploadHere = currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId });
-    const canCreateFolder = ['super_admin', 'admin'].includes(session?.role);
-    const canMergeFolder = isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_merge;
-    const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_secure', item));
-    const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_original', item));
-    const canDeleteSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type === 'folder' ? (isGod || globalFolderPerms.can_delete) : canUser('can_delete', item));
-    const hasAnyRenameAccess = isGod || canUser('can_edit', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_edit', f));
-    const hasAnyDownloadAccess = isGod || canUser('can_download_secure', { type: 'folder', id: currentFolderId }) || canUser('can_download_original', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_download_secure', f) || canUser('can_download_original', f));
-    const hasAnyDeleteAccess = isGod || globalFolderPerms.can_delete || canUser('can_delete', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_delete', f));
+    const canUploadHere = isBuyerSide ? false : (currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId }));
+    const canCreateFolder = isBuyerSide ? false : ['super_admin', 'admin'].includes(session?.role);
+    const canMergeFolder = isBuyerSide ? false : (isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_merge);
+    const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && (isBuyerSide || canUser('can_download_secure', item)));
+    const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && (isBuyerSide || canUser('can_download_original', item)));
+    const canDeleteSelected = isBuyerSide ? false : (selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type === 'folder' ? (isGod || globalFolderPerms.can_delete) : canUser('can_delete', item)));
+    const hasAnyRenameAccess = isBuyerSide ? false : (isGod || canUser('can_edit', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_edit', f)));
+    const hasAnyDownloadAccess = isBuyerSide || isGod || canUser('can_download_secure', { type: 'folder', id: currentFolderId }) || canUser('can_download_original', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_download_secure', f) || canUser('can_download_original', f));
+    const hasAnyDeleteAccess = isBuyerSide ? false : (isGod || globalFolderPerms.can_delete || canUser('can_delete', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_delete', f)));
     const hasAnyExportAccess = isGod || canUser('can_export');
 
     if (preparationBlockedMessage) {
@@ -823,14 +838,14 @@ function UnifiedWorkspace() {
                 {/* ── TOP ACTION BAR (Exact Firmata Match) ── */}
                 <div className="flex items-center px-6 py-4 bg-white border-b border-slate-200">
                     <div className="flex items-center gap-3">
-                        {!['trash', 'bookmarks', 'downloads'].includes(currentView) && canUploadHere && (
+                        {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && canUploadHere && (
                             <button onClick={() => { setInitialUploadFiles([]); setIsUploadModalOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-brand-soft hover:text-brand rounded-lg transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                                 Upload
                             </button>
                         )}
 
-                        {!['trash', 'bookmarks', 'downloads'].includes(currentView) && canCreateFolder && (
+                        {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && canCreateFolder && (
                             <button onClick={() => setIsNewFolderOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-brand-soft hover:text-brand rounded-lg transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
                                 Add Folder
@@ -881,7 +896,7 @@ function UnifiedWorkspace() {
                             </div>
                         )}
                         
-                        {!['trash', 'bookmarks', 'downloads'].includes(currentView) && (
+                        {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && (
                             <button onClick={async () => {
                                 await executeRebuildIndex(null, null, false);
                                 showToast("Index successfully rebuilt");
@@ -891,7 +906,7 @@ function UnifiedWorkspace() {
                             </button>
                         )}
 
-                        {!['trash', 'bookmarks', 'downloads'].includes(currentView) && hasAnyRenameAccess && (
+                        {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && hasAnyRenameAccess && (
                             <button disabled={selectedIds.size !== 1} onClick={() => {
                                 const item = files.find(f => f.id === [...selectedIds][0]);
                                 if (item) { setRenameValue(item.name); setIsRenameModalOpen(true); }
@@ -918,13 +933,13 @@ function UnifiedWorkspace() {
                             </div>
                         )}
 
-                        {currentView !== 'trash' && hasAnyDeleteAccess && (
+                        {!['trash', 'buyers_side'].includes(currentView) && hasAnyDeleteAccess && (
                             <button disabled={selectedIds.size === 0 || !canDeleteSelected} onClick={() => setIsDeleteModalOpen(true)} className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors ${selectedIds.size === 0 || !canDeleteSelected ? 'text-slate-900 cursor-not-allowed opacity-50' : 'text-rose-600 hover:bg-rose-50'}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" /></svg>
                                 Delete
                             </button>
                         )}
-                        {currentView !== 'trash' && canMergeFolder && (
+                        {!['trash', 'buyers_side'].includes(currentView) && canMergeFolder && (
                             <button disabled={selectedIds.size === 0 || !canMergeFolder} onClick={() => setIsMoveModalOpen(true)} className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors ${selectedIds.size === 0 || !canMergeFolder ? 'text-slate-900 cursor-not-allowed opacity-50' : 'text-[var(--brand)] hover:bg-[var(--brand-soft)]'}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" /></svg>
                                 Move Items
@@ -1045,13 +1060,28 @@ function UnifiedWorkspace() {
                                                             if (isFolder) {
                                                                 setCurrentFolderId(item.id);
                                                             } else {
-                                                                if (canUser('can_view', item)) window.open(`/view/${item.id}`, '_blank');
-                                                                else alert("You do not have permission to view this file.");
+                                                                if (currentView === 'buyers_side') {
+                                                                    if (item.is_redacted) {
+                                                                        window.open(`/redaction/view?id=${item.id}`, '_blank');
+                                                                    } else {
+                                                                        window.open(`/view/${item.id}`, '_blank');
+                                                                    }
+                                                                } else if (canUser('can_view', item)) {
+                                                                    window.open(`/view/${item.id}`, '_blank');
+                                                                } else {
+                                                                    alert("You do not have permission to view this file.");
+                                                                }
                                                             }
                                                         }}
                                                     >
                                                         {item.name}
                                                     </span>
+
+                                                    {currentView === 'buyers_side' && item.is_redacted && !isFolder && (
+                                                        <span className="ml-1.5 px-1.5 py-0.5 text-[9.5px] font-bold rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                                            Redacted
+                                                        </span>
+                                                    )}
 
                                                     {isDL && <span className="ml-2 text-[10px] text-emerald-600 font-bold animate-pulse">Downloading...</span>}
                                                 </div>
@@ -1144,7 +1174,23 @@ function UnifiedWorkspace() {
                                                     <div className="flex items-center gap-5 text-[15.5px]">
                                                         {/* VIEW */}
                                                         {canUser('can_view', item) ? (
-                                                            <FaEye className="text-slate-600 cursor-pointer hover:text-brand transition-colors" title="View" onClick={(e) => { e.stopPropagation(); setSelectedIds(new Set([item.id])); setTimeout(() => executeDownloadWrapper('view'), 50); }} />
+                                                            <FaEye 
+                                                                className="text-slate-600 cursor-pointer hover:text-brand transition-colors" 
+                                                                title={currentView === 'buyers_side' ? (item.is_redacted ? "View Redacted File" : "View File") : "View"} 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    if (currentView === 'buyers_side') {
+                                                                        if (item.is_redacted) {
+                                                                            window.open(`/redaction/view?id=${item.id}`, '_blank');
+                                                                        } else {
+                                                                            window.open(`/view/${item.id}`, '_blank');
+                                                                        }
+                                                                    } else {
+                                                                        setSelectedIds(new Set([item.id])); 
+                                                                        setTimeout(() => executeDownloadWrapper('view'), 50); 
+                                                                    }
+                                                                }} 
+                                                            />
                                                         ) : (
                                                             <FaEye className="text-slate-200" title="No View Access" />
                                                         )}
@@ -1229,7 +1275,11 @@ function UnifiedWorkspace() {
                                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                                                     <polyline points="14 2 14 8 20 8" />
                                                 </svg>
-                                                <p className="text-sm font-semibold text-slate-500">No documents or folders in this directory</p>
+                                                <p className="text-sm font-semibold text-slate-500">
+                                                    {currentView === 'buyers_side' 
+                                                        ? 'No redacted documents found in this directory' 
+                                                        : 'No documents or folders in this directory'}
+                                                </p>
                                                 {canUploadHere && (
                                                     <button
                                                         onClick={() => { setInitialUploadFiles([]); setIsUploadModalOpen(true); }}

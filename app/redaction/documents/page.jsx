@@ -294,6 +294,13 @@ const handleSaveConfig = async () => {
 
     if (error) throw error;
 
+    if (finalRanges.length > 0) {
+      await supabase
+        .from("documents")
+        .update({ is_redacted: true })
+        .eq("id", selectedDoc.id);
+    }
+
     // Update UI immediately
     setPageRanges(finalRanges);
     setInputValue("");

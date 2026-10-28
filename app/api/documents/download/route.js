@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function POST(req) {
     try {
-        const { docId, actionType, isHistoricalVersion, session } = await req.json();
+        const { docId, actionType, isHistoricalVersion, session, isBuyerSide } = await req.json();
 
         if (!session || !session.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -54,9 +54,28 @@ export async function POST(req) {
         const targetDocumentId = isHistoricalVersion ? doc.document_id : doc.id;
 
         if (actionType === 'original') {
-            if (!doc.original_file_path) throw new Error("Original file not available.");
+            let data, error;
 
-            const { data, error } = await supabase.storage.from('original-files').download(doc.original_file_path);
+            if (isBuyerSide) {
+                const { data: redactedDoc } = await supabase
+                    .from('redacted_documents')
+                    .select('redacted_path')
+                    .eq('document_id', targetDocumentId)
+                    .maybeSingle();
+
+                if (redactedDoc?.redacted_path) {
+                    const res = await supabase.storage.from('redacted-files').download(redactedDoc.redacted_path);
+                    data = res.data;
+                    error = res.error;
+                }
+            }
+
+            if (!data) {
+                if (!doc.original_file_path) throw new Error("Original file not available.");
+                const res = await supabase.storage.from('original-files').download(doc.original_file_path);
+                data = res.data;
+                error = res.error;
+            }
             if (error) throw new Error("Storage Error: " + error.message);
 
             // Log download edit action
