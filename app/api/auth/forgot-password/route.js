@@ -4,9 +4,13 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { logAuthActivity } from '@/lib/auth-audit';
 
-const SECRET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.JWT_SECRET || 'dms-secure-reset-secret-key-2026';
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(req) {
   try {
@@ -52,22 +56,32 @@ export async function POST(req) {
       );
     }
 
-    // 2. Generate secure, time-limited token with cryptographic HMAC
-    // Token is tied to current password_hash, so it automatically self-invalidates once used
-    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour validity
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      expiresAt,
-    };
+    // 2. Generate secure single-use token and register in database (email_otps)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour validity
 
-    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const signature = crypto
-      .createHmac('sha256', SECRET_KEY + (user.passwordHash || ''))
-      .update(payloadB64)
-      .digest('hex');
+    // Remove any previous reset tokens for this email and register the single active token
+    await supabaseAdmin
+      .from('email_otps')
+      .delete()
+      .eq('email', cleanEmail);
 
-    const token = `${payloadB64}.${signature}`;
+    const { error: dbInsertErr } = await supabaseAdmin
+      .from('email_otps')
+      .insert({
+        email: cleanEmail,
+        otp: token,
+        expires_at: expiresAt.toISOString(),
+        verified: false,
+      });
+
+    if (dbInsertErr) {
+      console.error('Failed to store reset token in email_otps:', dbInsertErr);
+      return NextResponse.json(
+        { error: 'Failed to generate password reset request. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // 3. Construct the password reset link
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');

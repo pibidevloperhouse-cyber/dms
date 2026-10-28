@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog } from "react-icons/fa";
+import { OverviewStatCard, AnalysisBoard } from "@/components/overview";
+import { METRIC_IDS } from "@/services/overviewAnalyticsService";
 
 export default function OverviewPage() {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedMetric, setSelectedMetric] = useState(METRIC_IDS.MATCHING_OPPORTUNITIES);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -22,6 +25,13 @@ export default function OverviewPage() {
   const [buyerProfiles, setBuyerProfiles] = useState([]);
   const [sentInterests, setSentInterests] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
+  const [overviewMetrics, setOverviewMetrics] = useState({
+    opportunitiesCount: 2,
+    activePipelinesCount: 2,
+    pendingNdaCount: 0,
+    completedNdaCount: 4,
+    deals: []
+  });
   const [vdrRole, setVdrRole] = useState('external_user');
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -109,8 +119,28 @@ export default function OverviewPage() {
       }
     };
 
+    const fetchOverviewMetrics = async () => {
+      try {
+        const companyId = localStorage.getItem('companyId');
+        const userId = localStorage.getItem('userId');
+        const params = new URLSearchParams();
+        if (companyId) params.set('companyId', companyId);
+        if (userId) params.set('userId', userId);
+        if (lowerRole) params.set('role', lowerRole);
+
+        const res = await fetch(`/api/dms/overview?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOverviewMetrics(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch overview metrics:", err);
+      }
+    };
+
     fetchData();
     fetchWorkspaces();
+    fetchOverviewMetrics();
   }, [router]);
 
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -189,58 +219,72 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-[0_2px_15px_rgb(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center text-lg">
-                    <FaBriefcase />
-                  </div>
-                  <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full">+2 this week</span>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-black text-gray-900 mb-1">{opportunities.length}</h3>
-                  <p className="text-sm font-bold text-gray-500">Matching Opportunities</p>
-                </div>
-              </div>
+            {/* Stats Overview - Interactive Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <OverviewStatCard
+                id={METRIC_IDS.MATCHING_OPPORTUNITIES}
+                title="Matching Opportunities"
+                value={overviewMetrics.opportunitiesCount}
+                badgeText="+2 this week"
+                badgeType="teal"
+                icon={FaBriefcase}
+                iconBgClass="bg-teal-50 text-teal-600"
+                isSelected={selectedMetric === METRIC_IDS.MATCHING_OPPORTUNITIES}
+                onClick={setSelectedMetric}
+                accentColor="#008f70"
+              />
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-[0_2px_15px_rgb(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
-                    <FaFolderOpen />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-black text-gray-900 mb-1">3</h3>
-                  <p className="text-sm font-bold text-gray-500">Active Pipelines</p>
-                </div>
-              </div>
+              <OverviewStatCard
+                id={METRIC_IDS.ACTIVE_PIPELINES}
+                title="Active Pipelines"
+                value={overviewMetrics.activePipelinesCount}
+                badgeText={`${overviewMetrics.activePipelinesCount} In Motion`}
+                badgeType="blue"
+                icon={FaFolderOpen}
+                iconBgClass="bg-blue-50 text-blue-600"
+                isSelected={selectedMetric === METRIC_IDS.ACTIVE_PIPELINES}
+                onClick={setSelectedMetric}
+                accentColor="#2563eb"
+              />
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-[0_2px_15px_rgb(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-lg">
-                    <FaRegClock />
-                  </div>
-                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">Action Needed</span>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-black text-gray-900 mb-1">1</h3>
-                  <p className="text-sm font-bold text-gray-500">Pending NDA</p>
-                </div>
-              </div>
+              <OverviewStatCard
+                id={METRIC_IDS.PENDING_NDA}
+                title="Pending NDA"
+                value={overviewMetrics.pendingNdaCount}
+                badgeText={overviewMetrics.pendingNdaCount > 0 ? "Action Needed" : "All Signed"}
+                badgeType={overviewMetrics.pendingNdaCount > 0 ? "warning" : "teal"}
+                icon={FaRegClock}
+                iconBgClass="bg-orange-50 text-orange-600"
+                isSelected={selectedMetric === METRIC_IDS.PENDING_NDA}
+                onClick={setSelectedMetric}
+                accentColor="#ea580c"
+              />
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-[0_2px_15px_rgb(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
-                    <FaCheckCircle />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-black text-gray-900 mb-1">5</h3>
-                  <p className="text-sm font-bold text-gray-500">Completed NDAs</p>
-                </div>
-              </div>
+              <OverviewStatCard
+                id={METRIC_IDS.COMPLETED_NDA}
+                title="Completed NDAs"
+                value={overviewMetrics.completedNdaCount}
+                badgeText={`${overviewMetrics.completedNdaCount} Executed`}
+                badgeType="purple"
+                icon={FaCheckCircle}
+                iconBgClass="bg-purple-50 text-purple-600"
+                isSelected={selectedMetric === METRIC_IDS.COMPLETED_NDA}
+                onClick={setSelectedMetric}
+                accentColor="#7c3aed"
+              />
             </div>
+
+            {/* Line Chart Analysis Board (Dynamic based on selected card) */}
+            <AnalysisBoard
+              selectedMetric={selectedMetric}
+              onSelectMetric={setSelectedMetric}
+              counts={{
+                opportunitiesCount: overviewMetrics.opportunitiesCount,
+                pipelinesCount: overviewMetrics.activePipelinesCount,
+                pendingNdaCount: overviewMetrics.pendingNdaCount,
+                completedNdaCount: overviewMetrics.completedNdaCount
+              }}
+            />
 
             {/* Bottom Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -253,41 +297,45 @@ export default function OverviewPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-300 bg-gray-100/50 hover:bg-gray-100 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-lg bg-[#00527c] text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                          PR
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 mb-0.5">Project Phoenix</p>
-                          <p className="text-xs font-semibold text-gray-500">Technology &bull; North America</p>
-                        </div>
+                    {overviewMetrics.deals && overviewMetrics.deals.length > 0 ? (
+                      overviewMetrics.deals.slice(0, 3).map((deal, idx) => {
+                        const initials = deal.dealName ? deal.dealName.substring(0, 2).toUpperCase() : 'DL';
+                        const isSigned = deal.ndaStatus === 'signed';
+                        return (
+                          <div 
+                            key={deal.id || idx}
+                            onClick={() => router.push('/dms/marketplace/workspace')}
+                            className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/70 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-11 h-11 rounded-lg ${idx % 2 === 0 ? 'bg-[#00527c]' : 'bg-[#008f70]'} text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform`}>
+                                {initials}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-900 mb-0.5">{deal.dealName}</p>
+                                <p className="text-xs font-semibold text-gray-500">M&amp;A Transaction &bull; Virtual Data Room</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                isSigned 
+                                  ? 'bg-green-100 text-green-700 border border-green-200' 
+                                  : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                              }`}>
+                                {isSigned ? 'Due Diligence' : 'NDA Pending'}
+                              </span>
+                              <span className="text-[11px] font-medium text-gray-400">
+                                {isSigned ? 'NDA Cleared' : 'Action Required'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-8 text-center text-gray-400 text-sm">
+                        No active pipeline deals found.
                       </div>
-                      <div className="flex flex-col items-end gap-1.5">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase tracking-wider">
-                          Due Diligence
-                        </span>
-                        <span className="text-[11px] font-medium text-gray-400">Updated 2h ago</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-300 bg-gray-100/50 hover:bg-gray-100 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-lg bg-[#b27200] text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                          AL
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 mb-0.5">Project Alpha</p>
-                          <p className="text-xs font-semibold text-gray-500">Healthcare &bull; Europe</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 uppercase tracking-wider">
-                          NDA Pending
-                        </span>
-                        <span className="text-[11px] font-bold text-orange-500">Action Required</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -146,16 +146,12 @@ export default function MarketplacePage() {
         const res = await fetch('/api/dms/marketplace', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          setTimeout(() => {
-            setOpportunities(data.teasers || []);
-            setBuyerProfiles(data.buyers || []);
-            setIsLoading(false);
-          }, 3000);
-        } else {
-          setIsLoading(false);
+          setOpportunities(data.teasers || []);
+          setBuyerProfiles(data.buyers || []);
         }
       } catch (err) {
         console.error("Failed to fetch marketplace deals:", err);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -553,9 +549,15 @@ export default function MarketplacePage() {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                 </span>
                 {isLoading ? (
-                  <span className="text-[#008f70] font-medium">Loading deals...</span>
+                  <span className="text-[#008f70] font-medium">
+                    {userRole === 'seller' ? 'Loading buyers...' : 'Loading deals...'}
+                  </span>
                 ) : (
-                  <span>{userRole === 'seller' ? filteredBuyers.length : filteredOpportunities.length} active matching deals</span>
+                  <span>
+                    {userRole === 'seller'
+                      ? `${filteredBuyers.length} active matching buyers`
+                      : `${filteredOpportunities.length} active matching deals`}
+                  </span>
                 )}
               </div>
             </div>
@@ -710,9 +712,62 @@ export default function MarketplacePage() {
                 /* Buyer Profiles Area */
                 <div className="w-full">
                   {isLoading ? (
-                    <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
-                      <div className="w-12 h-12 border-4 border-gray-200 border-t-[#008f70] rounded-full animate-spin mb-4"></div>
-                      <h3 className="text-xl font-bold text-gray-900">Loading buyers...</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 animate-pulse">
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-white rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.04)] border border-gray-100 p-6 flex flex-col justify-between h-full min-h-[400px]"
+                        >
+                          <div>
+                            {/* Header Section */}
+                            <div className="flex justify-between items-start mb-5">
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-gradient-to-br from-slate-200 to-slate-300 rounded-xl shrink-0"></div>
+                                <div className="space-y-2">
+                                  <div className="h-2.5 w-24 bg-slate-200 rounded"></div>
+                                  <div className="h-6 w-36 bg-slate-300 rounded"></div>
+                                </div>
+                              </div>
+                              <div className="w-5 h-5 bg-slate-200 rounded"></div>
+                            </div>
+
+                            {/* Tags */}
+                            <div className="flex gap-2 mb-6">
+                              <div className="h-7 w-36 bg-teal-50/80 border border-teal-100/80 rounded-lg"></div>
+                            </div>
+
+                            {/* Description lines */}
+                            <div className="space-y-2.5 mb-6">
+                              <div className="h-3.5 w-full bg-slate-200 rounded"></div>
+                              <div className="h-3.5 w-5/6 bg-slate-200 rounded"></div>
+                              <div className="h-3.5 w-2/3 bg-slate-100 rounded"></div>
+                            </div>
+                          </div>
+
+                          <div>
+                            {/* Metrics 3 Columns */}
+                            <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-5 mb-5 bg-[#fafbfc] -mx-6 px-6 py-4">
+                              <div className="space-y-2">
+                                <div className="h-2.5 w-14 bg-slate-200 rounded"></div>
+                                <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="h-2.5 w-16 bg-slate-200 rounded"></div>
+                                <div className="h-3.5 w-14 bg-slate-300 rounded"></div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="h-2.5 w-12 bg-slate-200 rounded"></div>
+                                <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
+                              </div>
+                            </div>
+
+                            {/* Footer Button */}
+                            <div className="border-t border-gray-100 pt-6 mt-2 flex justify-end items-center bg-white">
+                              <div className="h-11 w-40 bg-gradient-to-r from-slate-200 to-slate-300 rounded-[8px]"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : filteredBuyers.length === 0 ? (
                     <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">
@@ -841,42 +896,62 @@ export default function MarketplacePage() {
                 /* Projects Area (For Buyers) */
                 <div className="w-full">
                   {isLoading ? (
-                    <div className="w-full min-h-[450px] flex flex-col items-center justify-center bg-white border border-gray-100 rounded-3xl shadow-sm p-12">
-                      <div className="relative mb-6">
-                        {/* Outer spinning ring */}
-                        <div className="w-16 h-16 rounded-full border-4 border-teal-100 border-t-[#008f70] animate-spin"></div>
-                        {/* Center pulsing icon */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <FaBriefcase className="text-[#008f70] text-lg animate-pulse" />
-                        </div>
-                      </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Loading your deal...</h3>
-                      <p className="text-gray-400 text-sm max-w-md text-center mb-8">
-                        Discovering verified opportunities and teasers tailored to your mandate.
-                      </p>
-
-                      {/* Animated skeleton preview */}
-                      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse opacity-60">
-                        {[1, 2, 3].map((n) => (
-                          <div key={n} className="bg-gray-50/80 border border-gray-100 rounded-xl p-5 h-64 flex flex-col justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                              <div className="space-y-2 flex-1">
-                                <div className="h-3 bg-gray-200 rounded w-20"></div>
-                                <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-pulse">
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-white border border-gray-200 flex flex-col justify-between h-full rounded-xl p-5 shadow-[0_4px_25px_rgb(0,0,0,0.02)] min-h-[360px]"
+                        >
+                          <div>
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex gap-3 items-center">
+                                <div className="w-10 h-10 rounded bg-slate-200 shrink-0"></div>
+                                <div className="space-y-1.5">
+                                  <div className="h-2.5 w-28 bg-slate-200 rounded"></div>
+                                  <div className="h-4 w-32 bg-slate-300 rounded"></div>
+                                </div>
                               </div>
+                              <div className="w-5 h-5 bg-slate-200 rounded"></div>
                             </div>
-                            <div className="space-y-2 my-4">
-                              <div className="h-3 bg-gray-200 rounded w-full"></div>
-                              <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+
+                            {/* Tags */}
+                            <div className="flex gap-2 mb-4">
+                              <div className="h-6 w-20 bg-slate-100 rounded-full border border-gray-200"></div>
+                              <div className="h-6 w-24 bg-slate-100 rounded-full border border-gray-200"></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/40">
-                              <div className="h-4 bg-gray-200 rounded"></div>
-                              <div className="h-4 bg-gray-200 rounded"></div>
+
+                            {/* Description */}
+                            <div className="space-y-2 mb-6">
+                              <div className="h-3 w-full bg-slate-200 rounded"></div>
+                              <div className="h-3 w-4/5 bg-slate-200 rounded"></div>
                             </div>
                           </div>
-                        ))}
-                      </div>
+
+                          <div>
+                            {/* Divider */}
+                            <div className="h-px bg-gray-100 w-full mb-4"></div>
+
+                            {/* Metrics Grid */}
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4">
+                              <div className="space-y-1.5">
+                                <div className="h-2.5 w-12 bg-slate-200 rounded"></div>
+                                <div className="h-3.5 w-20 bg-slate-300 rounded"></div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="h-2.5 w-16 bg-slate-200 rounded"></div>
+                                <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
+                              </div>
+                            </div>
+
+                            {/* Footer Buttons */}
+                            <div className="border-t border-gray-100 pt-4 flex gap-2">
+                              <div className="h-9 flex-1 bg-slate-200 rounded-lg"></div>
+                              <div className="h-9 w-24 bg-slate-100 rounded-lg"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : filteredOpportunities.length === 0 ? (
                     <div className="w-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 rounded-3xl shadow-sm p-8">

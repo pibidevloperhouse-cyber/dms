@@ -216,7 +216,7 @@ function ResetPasswordForm() {
 
             {/* Subtitle / Description */}
             {modal.message && (
-              <p className="text-[16px] sm:text-[17px] text-[#545454] font-normal leading-relaxed max-w-[320px] mb-7">
+              <p className="text-[16px] sm:text-[17px] text-[#545454] font-normal leading-relaxed max-w-[320px] mb-7 whitespace-pre-line">
                 {modal.message}
               </p>
             )}

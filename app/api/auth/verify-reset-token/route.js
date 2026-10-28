@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
-const SECRET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.JWT_SECRET || 'dms-secure-reset-secret-key-2026';
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function GET(req) {
   try {
@@ -21,75 +21,32 @@ export async function GET(req) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Parse token
-    const parts = token.split('.');
-    if (parts.length !== 2) {
+    // 1. Query database token store (email_otps)
+    const { data: record, error: dbError } = await supabaseAdmin
+      .from('email_otps')
+      .select('*')
+      .eq('email', cleanEmail)
+      .eq('otp', token)
+      .single();
+
+    // If no record exists, it means the token was already consumed and deleted, or is invalid
+    if (dbError || !record) {
       return NextResponse.json(
-        { valid: false, error: 'Invalid reset link format.' },
-        { status: 400 }
-      );
-    }
-
-    const [payloadB64, signature] = parts;
-    let payload;
-    try {
-      const decodedJson = Buffer.from(payloadB64, 'base64url').toString('utf8');
-      payload = JSON.parse(decodedJson);
-    } catch {
-      return NextResponse.json(
-        { valid: false, error: 'Corrupted reset link.' },
-        { status: 400 }
-      );
-    }
-
-    // 2. Expiration check
-    if (!payload.expiresAt || payload.expiresAt < Date.now()) {
-      return NextResponse.json(
-        { valid: false, error: 'This reset link has expired. Please request a new one.' },
-        { status: 400 }
-      );
-    }
-
-    // 3. Email check
-    if (!payload.email || payload.email.toLowerCase() !== cleanEmail) {
-      return NextResponse.json(
-        { valid: false, error: 'Reset link does not match your account email.' },
-        { status: 400 }
-      );
-    }
-
-    // 4. Fetch user to verify single-use status
-    const userList = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        passwordHash: users.passwordHash,
-      })
-      .from(users)
-      .where(eq(users.email, cleanEmail))
-      .limit(1);
-
-    const user = userList[0];
-    if (!user) {
-      return NextResponse.json(
-        { valid: false, error: 'Account not found.' },
-        { status: 404 }
-      );
-    }
-
-    // 5. Verify cryptographic HMAC signature
-    // If the password was already changed, user.passwordHash is different and the signature will fail
-    const expectedSignature = crypto
-      .createHmac('sha256', SECRET_KEY + (user.passwordHash || ''))
-      .update(payloadB64)
-      .digest('hex');
-
-    if (signature !== expectedSignature) {
-      return NextResponse.json(
-        { 
-          valid: false, 
+        {
+          valid: false,
           alreadyUsed: true,
-          error: 'This reset link has already been used. Each link can only be used once.' 
+          error: 'This reset link has already been used.\nEach link can only be used once.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. Check expiration
+    if (new Date(record.expires_at) < new Date()) {
+      return NextResponse.json(
+        {
+          valid: false,
+          error: 'This password reset link has expired. Please request a new one.',
         },
         { status: 400 }
       );

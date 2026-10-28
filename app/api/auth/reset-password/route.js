@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { logAuthActivity } from '@/lib/auth-audit';
 
-const SECRET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.JWT_SECRET || 'dms-secure-reset-secret-key-2026';
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(req) {
   try {
@@ -28,49 +30,34 @@ export async function POST(req) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Parse token
-    const parts = token.split('.');
-    if (parts.length !== 2) {
-      return NextResponse.json(
-        { error: 'Invalid password reset token format.' },
-        { status: 400 }
-      );
-    }
+    // 1. Verify token exists in database token store (email_otps)
+    const { data: record, error: dbError } = await supabaseAdmin
+      .from('email_otps')
+      .select('*')
+      .eq('email', cleanEmail)
+      .eq('otp', token)
+      .single();
 
-    const [payloadB64, signature] = parts;
-    let payload;
-    try {
-      const decodedJson = Buffer.from(payloadB64, 'base64url').toString('utf8');
-      payload = JSON.parse(decodedJson);
-    } catch {
+    if (dbError || !record) {
       return NextResponse.json(
-        { error: 'Malformed password reset token.' },
+        { error: 'This reset link has already been used.\nEach link can only be used once.' },
         { status: 400 }
       );
     }
 
     // 2. Validate token expiration
-    if (!payload.expiresAt || payload.expiresAt < Date.now()) {
+    if (new Date(record.expires_at) < new Date()) {
       return NextResponse.json(
         { error: 'This password reset link has expired. Please request a new link.' },
         { status: 400 }
       );
     }
 
-    // 3. Validate token email match
-    if (!payload.email || payload.email.toLowerCase() !== cleanEmail) {
-      return NextResponse.json(
-        { error: 'Reset token does not match the provided email address.' },
-        { status: 400 }
-      );
-    }
-
-    // 4. Fetch user from DB
+    // 3. Fetch user from DB
     const userList = await db
       .select({
         id: users.id,
         email: users.email,
-        passwordHash: users.passwordHash,
         companyId: users.companyId,
       })
       .from(users)
@@ -86,22 +73,7 @@ export async function POST(req) {
       );
     }
 
-    // 5. Verify cryptographic HMAC signature
-    // The signature incorporates the user's previous passwordHash.
-    // If the password was already changed, the expected signature will differ, automatically invalidating reuse!
-    const expectedSignature = crypto
-      .createHmac('sha256', SECRET_KEY + (user.passwordHash || ''))
-      .update(payloadB64)
-      .digest('hex');
-
-    if (signature !== expectedSignature) {
-      return NextResponse.json(
-        { error: 'This reset link is invalid or has already been used. Please request a new one.' },
-        { status: 400 }
-      );
-    }
-
-    // 6. Update user's password in PostgreSQL / Supabase
+    // 4. Update user's password in PostgreSQL / Supabase
     await db
       .update(users)
       .set({
@@ -110,22 +82,25 @@ export async function POST(req) {
       })
       .where(eq(users.id, user.id));
 
-    // 7. Update user in Supabase Auth if user exists in auth.users
+    // 5. Update user in Supabase Auth if applicable
     try {
       if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        const supabaseAdmin = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
         await supabaseAdmin.auth.admin.updateUserById(user.id, {
           password: newPassword,
         });
       }
     } catch (authSyncErr) {
-      console.warn('Supabase Auth user sync skipped/warning:', authSyncErr.message);
+      console.warn('Supabase Auth user sync warning:', authSyncErr.message);
     }
 
-    // 8. Log audit trail
+    // 6. CONSUME AND DESTROY THE TOKEN IN DATABASE
+    // This permanently ensures clicking the button in the same email again is impossible
+    await supabaseAdmin
+      .from('email_otps')
+      .delete()
+      .eq('email', cleanEmail);
+
+    // 7. Log audit trail
     await logAuthActivity({
       userId: user.id,
       email: user.email,
