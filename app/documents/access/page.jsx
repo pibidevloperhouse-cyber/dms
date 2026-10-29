@@ -38,7 +38,15 @@ function AccessPageContent() {
     const [expandedGroups, setExpandedGroups] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [currentFolderId, setCurrentFolderId] = useState(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [expandedDepts, setExpandedDepts] = useState({});
+
+    const toggleDept = (deptName) => {
+        setExpandedDepts(prev => ({
+            ...prev,
+            [deptName]: !prev[deptName]
+        }));
+    };
 
     // ── SESSION ──────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -48,7 +56,7 @@ function AccessPageContent() {
         const s = JSON.parse(raw);
         const returnTo = searchParams.get('returnTo');
         const roleNorm = (s.role || '').toLowerCase().replace(/[\s-_]+/g, '');
-        const isAllowed = hasPermission(s.role, 'manage_access') || ['superadmin', 'admin', 'subadmin'].includes(roleNorm) || Boolean(returnTo);
+        const isAllowed = hasPermission(s.role, 'manage_access') || ['superadmin', 'admin', 'subadmin', 'internaluser', 'user'].includes(roleNorm) || ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(s.role) || Boolean(returnTo);
         if (!isAllowed) {
             router.replace('/documents');
             return;
@@ -83,7 +91,12 @@ function AccessPageContent() {
                 const matched = urlGroupId
                     ? data.groups.find(g => g.id === urlGroupId || (g.name && (g.name.toLowerCase() === decodeURIComponent(urlGroupId).toLowerCase() || g.name.toLowerCase() === urlGroupId.toLowerCase())))
                     : null;
-                setSelectedGroup(matched ? matched.id : data.groups[0].id);
+                const chosenId = matched ? matched.id : data.groups[0].id;
+                setSelectedGroup(chosenId);
+                const chosenGroup = data.groups.find(g => g.id === chosenId);
+                const dept = chosenGroup?.department || 'General';
+                setExpandedDepts(prev => ({ ...prev, [dept]: true }));
+                setExpandedGroups(prev => new Set(prev).add(chosenId));
             }
 
         } catch (err) { console.error('Fetch error:', err); }
@@ -280,49 +293,144 @@ function AccessPageContent() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-2 px-2">
-                    {groups.map(group => {
-                        const isActive = selectedGroup === group.id;
-                        const isExpanded = expandedGroups.has(group.id);
-                        const members = groupMembers[group.id] || [];
+                    {(() => {
+                        const allKnownDepts = Array.from(new Set(
+                            groups.map(g => g.department || 'General').filter(Boolean)
+                        ));
 
-                        return (
-                            <div key={group.id} className="mb-0.5">
-                                <button
-                                    onClick={() => setSelectedGroup(group.id)}
-                                    className={`w-full flex items-center gap-2 px-2 py-3 rounded-xl text-left transition-all ${isActive ? 'bg-brand text-white' : 'hover:bg-slate-50 text-slate-700'}`}
-                                >
-                                    <div
-                                        onClick={(e) => { e.stopPropagation(); setExpandedGroups(prev => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; }); }}
-                                        className={`w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/20 transition-transform cursor-pointer ${isExpanded ? 'rotate-180' : ''}`}
+                        if (allKnownDepts.length === 0) {
+                            return (
+                                <div className="px-4 py-8 text-center text-xs text-slate-400 italic">
+                                    No groups found
+                                </div>
+                            );
+                        }
+
+                        return allKnownDepts.map(deptName => {
+                            const deptGroups = groups.filter(g => (g.department || 'General').toLowerCase() === deptName.toLowerCase());
+                            const isDeptExpanded = !!expandedDepts[deptName];
+
+                            return (
+                                <div key={deptName} className="mb-1.5">
+                                    {/* Department Header Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleDept(deptName)}
+                                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left group ${
+                                            isDeptExpanded
+                                                ? 'bg-slate-100/90 text-slate-900 font-bold'
+                                                : 'text-slate-700 hover:bg-slate-50 font-semibold'
+                                        }`}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className={`text-[12.5px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-800'}`}>{group.name}</p>
-                                    </div>
-                                    <span className={`text-[10px] font-black shrink-0 px-2 py-1 rounded-md mr-1 ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                                        {members.length} Users
-                                    </span>
-                                </button>
+                                        <div className="flex items-center gap-2 truncate">
+                                            <span className="text-[12.5px] truncate capitalize font-medium">{deptName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                deptGroups.length > 0 ? 'bg-brand/10 text-brand' : 'bg-slate-200 text-slate-500'
+                                            }`}>
+                                                {deptGroups.length}
+                                            </span>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="14"
+                                                height="14"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className={`text-slate-400 transition-transform duration-200 ${isDeptExpanded ? 'rotate-90 text-slate-700' : ''}`}
+                                            >
+                                                <polyline points="9 18 15 12 9 6" />
+                                            </svg>
+                                        </div>
+                                    </button>
 
-                                {isExpanded && members.length > 0 && (
-                                    <div className="mt-1 mb-2 ml-4 pl-4 border-l-2 border-slate-100 flex flex-col gap-1">
-                                        {members.map(user => (
-                                            <div key={user.id} className="flex items-center gap-2 py-1">
-                                                <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-500 flex items-center justify-center text-[9px] font-bold shrink-0">
-                                                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[11.5px] font-semibold text-slate-600 truncate">{user.name || user.email}</p>
-                                                    {user.name && <p className="text-[9.5px] text-slate-400 truncate">{user.email}</p>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    {/* Department Groups List */}
+                                    {isDeptExpanded && (
+                                        <div className="mt-1 ml-2 pl-2 border-l-2 border-slate-100 space-y-1 py-0.5">
+                                            {deptGroups.length === 0 ? (
+                                                <div className="py-2 px-3 text-xs text-slate-400 italic">No groups in this department</div>
+                                            ) : (
+                                                deptGroups.map(group => {
+                                                    const isActive = selectedGroup === group.id;
+                                                    const isGroupExpanded = expandedGroups.has(group.id);
+                                                    const members = groupMembers[group.id] || [];
+
+                                                    return (
+                                                        <div key={group.id} className="mb-0.5">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedGroup(group.id);
+                                                                    setExpandedGroups(prev => new Set(prev).add(group.id));
+                                                                }}
+                                                                className={`w-full flex items-center gap-2 px-2 py-2 rounded-xl text-left transition-all ${
+                                                                    isActive ? 'bg-brand text-white' : 'hover:bg-slate-50 text-slate-700'
+                                                                }`}
+                                                            >
+                                                                <div
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setExpandedGroups(prev => {
+                                                                            const n = new Set(prev);
+                                                                            n.has(group.id) ? n.delete(group.id) : n.add(group.id);
+                                                                            return n;
+                                                                        });
+                                                                    }}
+                                                                    className={`w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/20 transition-transform cursor-pointer shrink-0 ${
+                                                                        isGroupExpanded ? 'rotate-180' : ''
+                                                                    }`}
+                                                                    title="Toggle members"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                                        <polyline points="6 9 12 15 18 9" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className={`text-[12px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                                                                        {group.name}
+                                                                    </p>
+                                                                </div>
+                                                                <span className={`text-[10px] font-black shrink-0 px-2 py-0.5 rounded-md mr-1 ${
+                                                                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                                                                }`}>
+                                                                    {members.length} Users
+                                                                </span>
+                                                            </button>
+
+                                                            {/* Members inside Group */}
+                                                            {isGroupExpanded && members.length > 0 && (
+                                                                <div className="mt-1 mb-2 ml-4 pl-3 border-l-2 border-slate-100 flex flex-col gap-1">
+                                                                    {members.map(user => (
+                                                                        <div key={user.id} className="flex items-center gap-2 py-1">
+                                                                            <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-500 flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                                                {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                                                                            </div>
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="text-[11.5px] font-semibold text-slate-600 truncate">{user.name || user.email}</p>
+                                                                                {user.name && <p className="text-[9.5px] text-slate-400 truncate">{user.email}</p>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {isGroupExpanded && members.length === 0 && (
+                                                                <div className="mt-1 mb-2 ml-4 pl-3 border-l-2 border-slate-100 py-1 text-[11px] text-slate-400 italic">
+                                                                    No members
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        });
+                    })()}
                 </div>
             </aside>
 

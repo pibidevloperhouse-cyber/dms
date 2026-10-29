@@ -42,7 +42,12 @@ function LayoutContent({ children }) {
     };
 
     const isSuperAdmin = session?.role === 'super_admin';
-    const hasAccessControlAccess = session ? hasPermission(session.role, 'manage_access') : false;
+    const roleNorm = (session?.role || '').toLowerCase().replace(/[\s-_]+/g, '');
+    const hasAccessControlAccess = session ? (
+        hasPermission(session.role, 'manage_access') ||
+        ['superadmin', 'admin', 'subadmin', 'internaluser'].includes(roleNorm) ||
+        ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(session.role)
+    ) : false;
     const currentView = searchParams.get('view');
 
     const isActive = (href) => {
