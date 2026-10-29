@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // 🔒 Supabase client with Service Role Key for full DB access
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 );
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,7 +44,7 @@ const DEFAULT_STAGES = [
 ];
 
 async function getValidCompanyId(companyId) {
-    if (!companyId || !UUID_REGEX.test(companyId)) return null;
+    if (!companyId || !UUID_REGEX.test(companyId.toString())) return null;
     try {
         const { data: comp } = await supabase.from('companies').select('id').eq('id', companyId).maybeSingle();
         return comp ? comp.id : null;
@@ -57,24 +57,32 @@ async function getValidCompanyId(companyId) {
 async function ensureStagesInDB(companyId, workspaceId) {
     const validCompanyId = await getValidCompanyId(companyId);
 
-    // 1. Check if stages already exist for this company
-    let query = supabase.from('buyer_disclosure_stages').select('*');
+    // 1. If validCompanyId is present, check for existing stages for this company
     if (validCompanyId) {
-        query = query.eq('company_id', validCompanyId);
-    }
-    const { data: existingStages } = await query.order('stage_number', { ascending: true });
+        const { data: existingStages } = await supabase
+            .from('buyer_disclosure_stages')
+            .select('*')
+            .eq('company_id', validCompanyId)
+            .order('stage_number', { ascending: true });
 
-    if (existingStages && existingStages.length > 0) {
-        return { stages: existingStages, validCompanyId };
+        if (existingStages && existingStages.length > 0) {
+            return { stages: existingStages, validCompanyId };
+        }
+    } else {
+        // If no companyId in session, check if any stages already exist in DB
+        const { data: anyStages } = await supabase
+            .from('buyer_disclosure_stages')
+            .select('*')
+            .order('stage_number', { ascending: true });
+
+        if (anyStages && anyStages.length > 0) {
+            const primaryCompanyId = anyStages[0].company_id;
+            const filtered = anyStages.filter(s => s.company_id === primaryCompanyId);
+            return { stages: filtered, validCompanyId: primaryCompanyId };
+        }
     }
 
-    // 2. If no stages for this specific company, check if any stages exist at all in DB
-    const { data: anyStages } = await supabase.from('buyer_disclosure_stages').select('*').order('stage_number', { ascending: true });
-    if (anyStages && anyStages.length > 0) {
-        return { stages: anyStages, validCompanyId: anyStages[0].company_id };
-    }
-
-    // 3. If DB is completely empty, seed default stages
+    // 2. If DB is completely empty, seed default stages
     const createdStages = [];
     for (const def of DEFAULT_STAGES) {
         const { data: newStage, error: stageErr } = await supabase
@@ -116,13 +124,13 @@ async function getFullStages(companyId, workspaceId) {
 
     let items = [];
     if (stageIds.length > 0) {
-        const { data: dbItems } = await supabase
+        const { data: dbItems, error: itemsErr } = await supabase
             .from('buyer_disclosure_items')
             .select('*')
             .in('stage_id', stageIds)
             .order('created_at', { ascending: true });
-        
-        if (dbItems) {
+
+        if (!itemsErr && dbItems) {
             items = dbItems;
         }
     }
@@ -131,17 +139,24 @@ async function getFullStages(companyId, workspaceId) {
     return stages.map(stg => {
         const stgItems = items
             .filter(i => i.stage_id === stg.id)
-            .map(i => ({
-                id: i.id,
-                stageId: i.stage_id,
-                name: i.name,
-                isFolder: i.is_folder,
-                type: i.type,
-                version: i.version || 'V1',
-                createdAt: new Date(i.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                size: i.size || '--',
-                buyerAccess: stg.buyer_access === 'can_view' ? 'visible' : 'hidden'
-            }));
+            .map(i => {
+                const d = i.created_at ? new Date(i.created_at) : new Date();
+                const dateFormatted = !isNaN(d.getTime())
+                    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Oct 23, 2026';
+
+                return {
+                    id: i.id,
+                    stageId: i.stage_id,
+                    name: i.name,
+                    isFolder: Boolean(i.is_folder),
+                    type: i.type || (i.is_folder ? 'folder' : 'file'),
+                    version: i.version || 'V1',
+                    createdAt: dateFormatted,
+                    size: i.size || '--',
+                    buyerAccess: stg.buyer_access === 'can_view' ? 'visible' : 'hidden'
+                };
+            });
 
         return {
             id: stg.id,
@@ -157,15 +172,11 @@ async function getFullStages(companyId, workspaceId) {
 
 export async function POST(req) {
     try {
-        const body = await req.json();
+        const body = await req.json().catch(() => ({}));
         const { action = 'get_stages', session } = body;
 
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized: Session required' }, { status: 401 });
-        }
-
-        const companyId = session.company_id || null;
-        const workspaceId = session.workspace_id || session.active_workspace_id || null;
+        const companyId = session?.company_id || null;
+        const workspaceId = session?.workspace_id || session?.active_workspace_id || null;
 
         switch (action) {
             case 'get_stages': {
@@ -183,9 +194,18 @@ export async function POST(req) {
                 }
 
                 const isGrant = mode === 'grant';
-                
-                // Safe update by UUID or stage_number
+                const { stages } = await ensureStagesInDB(companyId, workspaceId);
+
+                let matchedStage = null;
                 if (UUID_REGEX.test(stageId.toString())) {
+                    matchedStage = stages.find(s => s.id === stageId);
+                }
+                if (!matchedStage) {
+                    const num = parseInt(stageId.toString().replace(/[^0-9]/g, '') || '1', 10);
+                    matchedStage = stages.find(s => s.stage_number === num);
+                }
+
+                if (matchedStage) {
                     await supabase
                         .from('buyer_disclosure_stages')
                         .update({
@@ -193,19 +213,7 @@ export async function POST(req) {
                             is_locked: !isGrant,
                             updated_at: new Date().toISOString()
                         })
-                        .eq('id', stageId);
-                } else {
-                    const numMatch = stageId.toString().replace(/[^0-9]/g, '');
-                    if (numMatch) {
-                        await supabase
-                            .from('buyer_disclosure_stages')
-                            .update({
-                                buyer_access: isGrant ? 'can_view' : 'hidden',
-                                is_locked: !isGrant,
-                                updated_at: new Date().toISOString()
-                            })
-                            .eq('stage_number', parseInt(numMatch, 10));
-                    }
+                        .eq('id', matchedStage.id);
                 }
 
                 const fullStages = await getFullStages(companyId, workspaceId);
@@ -229,7 +237,7 @@ export async function POST(req) {
                 if (targetStageId && UUID_REGEX.test(targetStageId.toString())) {
                     targetStage = stages.find(s => s.id === targetStageId);
                 }
-                
+
                 if (!targetStage) {
                     const num = parseInt(targetStageId?.toString().replace(/[^0-9]/g, '') || '1', 10);
                     targetStage = stages.find(s => s.stage_number === num) || stages[0];
@@ -262,7 +270,7 @@ export async function POST(req) {
 
                 if (insErr) {
                     console.error('Failed to insert disclosure item:', insErr);
-                    throw insErr;
+                    return NextResponse.json({ error: insErr.message }, { status: 500 });
                 }
 
                 const fullStages = await getFullStages(companyId, workspaceId);
@@ -308,7 +316,10 @@ export async function POST(req) {
                     .select()
                     .single();
 
-                if (fErr) throw fErr;
+                if (fErr) {
+                    console.error('Failed to create folder:', fErr);
+                    return NextResponse.json({ error: fErr.message }, { status: 500 });
+                }
 
                 const fullStages = await getFullStages(companyId, workspaceId);
                 return NextResponse.json({

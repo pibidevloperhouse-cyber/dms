@@ -10,8 +10,8 @@ export default function BuyerDisclosurePage() {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeStageId, setActiveStageId] = useState(null);
-    const [viewMode, setViewMode] = useState('seller');
-    
+    const [viewMode, setViewMode] = useState('seller'); // 'seller' | 'buyer'
+
     // Modal controls
     const [accessModalState, setAccessModalState] = useState({
         isOpen: false,
@@ -22,7 +22,7 @@ export default function BuyerDisclosurePage() {
 
     const showToast = (message, type = 'success') => {
         setToastMessage({ message, type });
-        setTimeout(() => setToastMessage(null), 3000);
+        setTimeout(() => setToastMessage(null), 3500);
     };
 
     // Load stages from backend database
@@ -31,7 +31,7 @@ export default function BuyerDisclosurePage() {
         if (!s && typeof window !== 'undefined') {
             const raw = localStorage.getItem('vdr_session');
             if (raw) {
-                try { s = JSON.parse(raw); } catch (e) {}
+                try { s = JSON.parse(raw); } catch (e) { }
             }
         }
         s = s || {};
@@ -63,7 +63,7 @@ export default function BuyerDisclosurePage() {
                     setStages(parsed);
                     if (parsed.length > 0) setActiveStageId(parsed[0].id);
                 }
-            } catch (e) {}
+            } catch (e) { }
         } finally {
             setLoading(false);
         }
@@ -75,6 +75,9 @@ export default function BuyerDisclosurePage() {
             try {
                 const s = JSON.parse(raw);
                 setSession(s);
+                if (s?.role === 'buyer') {
+                    setViewMode('buyer');
+                }
                 loadStages(s);
             } catch (e) {
                 loadStages({});
@@ -103,9 +106,9 @@ export default function BuyerDisclosurePage() {
             window.removeEventListener('storage', handleRefresh);
             window.removeEventListener('focus', handleRefresh);
         };
-    }, []);
+    }, [loadStages]);
 
-    const activeStage = stages.find(s => s.id === activeStageId || s.stageNumber === activeStageId) || stages[0];
+    const activeStage = stages.find(s => s.id === activeStageId || s.stageNumber === activeStageId) || stages[0] || null;
 
     // Handle Open Access Modal
     const handleOpenAccessModal = (stage, mode) => {
@@ -123,7 +126,7 @@ export default function BuyerDisclosurePage() {
             if (!currentSession && typeof window !== 'undefined') {
                 const raw = localStorage.getItem('vdr_session');
                 if (raw) {
-                    try { currentSession = JSON.parse(raw); } catch (e) {}
+                    try { currentSession = JSON.parse(raw); } catch (e) { }
                 }
             }
             currentSession = currentSession || {};
@@ -145,10 +148,13 @@ export default function BuyerDisclosurePage() {
                 localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(data.stages));
             }
 
+            const targetStage = stages.find(s => s.id === stageId || s.stageNumber === stageId) || activeStage;
+            const stageName = targetStage?.name || 'stage';
+
             if (mode === 'grant') {
-                showToast(`Buyer access granted to ${activeStage?.name || 'stage'}!`, 'success');
+                showToast(`Buyer access granted to ${stageName}!`, 'success');
             } else {
-                showToast(`Buyer access revoked for ${activeStage?.name || 'stage'}.`, 'warning');
+                showToast(`Buyer access revoked for ${stageName}.`, 'warning');
             }
         } catch (err) {
             console.error('Error updating access:', err);
@@ -157,33 +163,78 @@ export default function BuyerDisclosurePage() {
     };
 
     const handleViewItem = (item) => {
-        showToast(`Opening viewer for "${item.name}"...`, 'info');
+        showToast(`Viewing "${item.name}"...`, 'info');
     };
 
     return (
         <div className="flex flex-col w-full h-full bg-[#f8f9fb] overflow-y-auto">
+            {/* Top Header Banner */}
+            <div className="bg-white border-b border-slate-200 px-6 py-4">
+                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Buyer Disclosure</h1>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Stage-gate confidential disclosure controls and due diligence packages.
+                        </p>
+                    </div>
+
+                    {/* View Switcher: Seller Admin vs Buyer Preview */}
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('seller')}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'seller'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                        >
+                            Seller View
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('buyer')}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'buyer'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                        >
+                            Buyer View
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {/* Main Content Area */}
             <div className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-4">
-                {/* Stage Cards Row (Compact, matching img2 exactly) */}
-                <StageCards
-                    stages={stages}
-                    activeStageId={activeStage?.id}
-                    onSelectStage={setActiveStageId}
-                    onOpenAccessModal={handleOpenAccessModal}
-                    viewMode={viewMode}
-                />
+                {loading && stages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-16">
+                        <div className="w-9 h-9 border-3 border-slate-200 border-t-[#0e7490] rounded-full animate-spin mb-3" />
+                        <p className="text-xs font-bold text-slate-500">Loading disclosure stages...</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Stage Cards Row */}
+                        <StageCards
+                            stages={stages}
+                            activeStageId={activeStage?.id}
+                            onSelectStage={setActiveStageId}
+                            onOpenAccessModal={handleOpenAccessModal}
+                            viewMode={viewMode}
+                        />
 
-                {/* Documents Table with Search bar and Action Toolbar */}
-                <DocumentsTable
-                    items={activeStage?.items || []}
-                    activeStage={activeStage}
-                    stages={stages}
-                    isStageLocked={activeStage?.buyerAccess === 'hidden'}
-                    viewMode={viewMode}
-                    onViewItem={handleViewItem}
-                    onRefreshStages={loadStages}
-                    showToast={showToast}
-                />
+                        {/* Documents Table with Search bar and Action Toolbar */}
+                        <DocumentsTable
+                            items={activeStage?.items || []}
+                            activeStage={activeStage}
+                            stages={stages}
+                            isStageLocked={activeStage?.buyerAccess === 'hidden'}
+                            viewMode={viewMode}
+                            onViewItem={handleViewItem}
+                            onRefreshStages={loadStages}
+                            showToast={showToast}
+                        />
+                    </>
+                )}
             </div>
 
             {/* Access Modal (for Revoke access / Grant buyer access) */}
@@ -206,7 +257,7 @@ export default function BuyerDisclosurePage() {
                     border: `1.5px solid ${toastMessage.type === 'error' ? '#FCA5A5' : toastMessage.type === 'warning' ? '#FCD34D' : '#86EFAC'}`,
                     color: toastMessage.type === 'error' ? '#DC2626' : toastMessage.type === 'warning' ? '#D97706' : '#16A34A',
                     fontSize: '13px', fontWeight: '700',
-                    maxWidth: '360px'
+                    maxWidth: '380px'
                 }}>
                     {toastMessage.message}
                 </div>
