@@ -928,3 +928,31 @@ export const authActivityLogs = pgTable('auth_activity_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+
+export const buyerDisclosureStages = pgTable('buyer_disclosure_stages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id'),
+  stageNumber: integer('stage_number').notNull(),
+  name: text('name').notNull(),
+  buyerAccess: text('buyer_access').default('hidden').notNull(),
+  isLocked: boolean('is_locked').default(true).notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const buyerDisclosureItems = pgTable('buyer_disclosure_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  stageId: uuid('stage_id').references(() => buyerDisclosureStages.id, { onDelete: 'cascade' }).notNull(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  originalDocumentId: uuid('original_document_id').references(() => documents.id, { onDelete: 'set null' }),
+  originalFolderId: uuid('original_folder_id').references(() => folders.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  isFolder: boolean('is_folder').default(false).notNull(),
+  type: text('type').default('file').notNull(),
+  version: text('version').default('V1').notNull(),
+  size: text('size').default('--'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

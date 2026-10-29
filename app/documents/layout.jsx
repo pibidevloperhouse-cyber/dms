@@ -51,6 +51,7 @@ function LayoutContent({ children }) {
     const currentView = searchParams.get('view');
 
     const isActive = (href) => {
+        if (href === '/documents/buyer-disclosure') return pathname === '/documents/buyer-disclosure' || pathname.startsWith('/documents/buyer-disclosure');
         if (href === '/documents/access') return pathname === '/documents/access';
         if (href === '/documents/versions') return pathname === '/documents/versions';
         if (href.includes('?view=')) return pathname === '/documents' && currentView === href.split('view=')[1];
@@ -64,7 +65,7 @@ function LayoutContent({ children }) {
             icon: <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
         },
         {
-            href: '/documents?view=buyers_side', label: 'Buyers Side Documents',
+            href: '/documents/buyer-disclosure', label: 'Buyer Disclosure',
             icon: <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4"/></svg>
         },
         ...(hasAccessControlAccess ? [{

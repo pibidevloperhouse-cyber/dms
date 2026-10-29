@@ -61,6 +61,15 @@ function UnifiedWorkspace() {
     const [uploadQueue, setUploadQueue] = useState([]);
     const [initialUploadFiles, setInitialUploadFiles] = useState([]);
     const [dragMode, setDragMode] = useState(null);
+    const [activeActionMenuId, setActiveActionMenuId] = useState(null);
+    const [copyModalItem, setCopyModalItem] = useState(null);
+    const [targetStageId, setTargetStageId] = useState('stage-1');
+
+    useEffect(() => {
+        const handleClickOutside = () => setActiveActionMenuId(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, []);
 
     const fileInputRef = useRef(null);
 
@@ -70,6 +79,12 @@ function UnifiedWorkspace() {
         if (!raw) { router.push('/login'); return; }
         setSession(JSON.parse(raw));
     }, [router]);
+
+    useEffect(() => {
+        if (currentView === 'buyers_side') {
+            router.replace('/documents/buyer-disclosure');
+        }
+    }, [currentView, router]);
 
     // ── SMART FETCH (CALLS THE BACKEND API) ──────────────────────────────────
     const loadData = async (userSession) => {
@@ -356,6 +371,42 @@ function UnifiedWorkspace() {
             setNewFolderName(''); setIsNewFolderOpen(false);
             showToast('Folder Created');
         } catch (err) { showToast("Failed to create folder", "error"); }
+    };
+
+    const handleExecuteCopyToBuyerDisclosure = async () => {
+        if (!copyModalItem) return;
+
+        try {
+            const raw = localStorage.getItem('vdr_session');
+            const currentSession = raw ? JSON.parse(raw) : (session || {});
+
+            const res = await fetch('/api/documents/buyer-disclosure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'copy_item',
+                    item: copyModalItem,
+                    targetStageId,
+                    session: currentSession
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to copy to buyer disclosure');
+            }
+
+            if (data.stages) {
+                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(data.stages));
+                window.dispatchEvent(new Event('storage'));
+            }
+
+            setCopyModalItem(null);
+            showToast(`Moved "${copyModalItem.name}" to Buyer Disclosure!`);
+        } catch (err) {
+            console.error('Error copying to buyer disclosure:', err);
+            showToast(err.message || 'Failed to copy to buyer disclosure', 'error');
+        }
     };
 
     const handleRename = async (e) => {
@@ -1043,6 +1094,7 @@ function UnifiedWorkspace() {
                                     )}
                                     <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Size</th>
                                     {currentView !== 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Permission Details</th>}
+                                    {currentView !== 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center w-16">Action</th>}
                                     {currentView === 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>}
                                 </tr>
                             </thead>
@@ -1288,6 +1340,61 @@ function UnifiedWorkspace() {
                                                     </div>
                                                 </td>
                                             )}
+                                            {currentView !== 'trash' && (
+                                                <td className="py-4 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="relative inline-block text-left">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveActionMenuId(activeActionMenuId === item.id ? null : item.id);
+                                                            }}
+                                                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                                                            title="Actions"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                                <circle cx="12" cy="5" r="2" />
+                                                                <circle cx="12" cy="12" r="2" />
+                                                                <circle cx="12" cy="19" r="2" />
+                                                            </svg>
+                                                        </button>
+
+                                                        {activeActionMenuId === item.id && (
+                                                            <div 
+                                                                className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        setRenameValue(item.name);
+                                                                        setSelectedIds(new Set([item.id]));
+                                                                        setIsRenameModalOpen(true);
+                                                                    }}
+                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                                    Rename
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        setCopyModalItem(item);
+                                                                        setTargetStageId('stage-1');
+                                                                    }}
+                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-teal-50 hover:text-[var(--brand)] flex items-center gap-2.5 transition-colors"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                                    Copy to buyer disclosure
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
                                             {currentView === 'trash' && (
                                                 <td className="py-4 px-3 text-center">
                                                     <div className="flex items-center justify-center gap-5">
@@ -1411,6 +1518,77 @@ function UnifiedWorkspace() {
                             <button type="submit" className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white font-bold rounded-xl text-[14px]">Rename</button>
                         </div>
                     </form>
+                </Modal>
+            )}
+
+            {/* Copy to Buyer Disclosure Modal */}
+            {copyModalItem && (
+                <Modal onClose={() => setCopyModalItem(null)}>
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-[var(--brand)] flex items-center justify-center font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </div>
+                        <div>
+                            <h3 className="text-[16px] font-black text-slate-900">Copy to Buyer Disclosure</h3>
+                            <p className="text-[12px] text-slate-500 font-medium">Add document or folder to staged buyer disclosure</p>
+                        </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Selected Item</p>
+                        <div className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
+                            {copyModalItem.type === 'folder' ? '📁' : '📄'}
+                            <span>{copyModalItem.name}</span>
+                        </div>
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            Select Target Disclosure Stage
+                        </label>
+                        <div className="space-y-2">
+                            {[
+                                { id: 'stage-1', name: 'Stage 1', status: 'Buyer can view' },
+                                { id: 'stage-2', name: 'Stage 2', status: 'Hidden from buyer' },
+                                { id: 'stage-3', name: 'Stage 3', status: 'Hidden from buyer' }
+                            ].map(stg => (
+                                <label 
+                                    key={stg.id}
+                                    onClick={() => setTargetStageId(stg.id)}
+                                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                        targetStageId === stg.id 
+                                            ? 'border-[var(--brand)] bg-teal-50/40 ring-1 ring-[var(--brand)]' 
+                                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <input 
+                                            type="radio" 
+                                            name="disclosureStage" 
+                                            checked={targetStageId === stg.id} 
+                                            onChange={() => setTargetStageId(stg.id)} 
+                                            className="text-[var(--brand)] focus:ring-[var(--brand)]" 
+                                        />
+                                        <span className="text-[13px] font-bold text-slate-800">{stg.name}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-slate-500">{stg.status}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => setCopyModalItem(null)} className="flex-1 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-xl text-[14px]">
+                            Cancel
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={handleExecuteCopyToBuyerDisclosure} 
+                            className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white font-bold rounded-xl text-[14px]"
+                        >
+                            Copy to Disclosure
+                        </button>
+                    </div>
                 </Modal>
             )}
 
