@@ -320,7 +320,7 @@ export default function TaskBoardView() {
             )}
           </div>
 
-          <button
+          {/* <button
             type="button"
             onClick={() => setIsChatPanelOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-2xs bg-white hover:bg-teal-50 text-slate-700 hover:text-[#006666] border-slate-200 hover:border-teal-300"
@@ -329,7 +329,7 @@ export default function TaskBoardView() {
             <MessageSquare className="w-3.5 h-3.5 text-[#006666]" />
             <span>Task Chat Overlay</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
-          </button>
+          </button> */}
         </div>
       </div>
 
