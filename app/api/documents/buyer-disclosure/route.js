@@ -108,7 +108,8 @@ async function ensureStagesInDB(companyId, workspaceId) {
                     is_folder: it.is_folder,
                     type: it.type,
                     version: it.version,
-                    size: it.size
+                    size: it.size,
+                    is_redacted: false
                 });
             }
         }
@@ -129,10 +130,25 @@ async function getFullStages(companyId, workspaceId) {
             .select('*')
             .in('stage_id', stageIds)
             .order('created_at', { ascending: true });
-
+        
         if (!itemsErr && dbItems) {
             items = dbItems;
         }
+    }
+
+    // Check if any referenced documents are marked as redacted in documents table
+    const origDocIds = items.map(i => i.original_document_id).filter(Boolean);
+    const docRedactedMap = {};
+    if (origDocIds.length > 0) {
+        try {
+            const { data: docs } = await supabase
+                .from('documents')
+                .select('id, is_redacted')
+                .in('id', origDocIds);
+            (docs || []).forEach(d => {
+                docRedactedMap[d.id] = Boolean(d.is_redacted);
+            });
+        } catch (e) {}
     }
 
     // Map into frontend format
@@ -143,7 +159,9 @@ async function getFullStages(companyId, workspaceId) {
                 const d = i.created_at ? new Date(i.created_at) : new Date();
                 const dateFormatted = !isNaN(d.getTime())
                     ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'Oct 23, 2026';
+                    : 'Oct 29, 2026';
+
+                const isRedacted = Boolean(i.is_redacted || (i.original_document_id && docRedactedMap[i.original_document_id]));
 
                 return {
                     id: i.id,
@@ -152,9 +170,10 @@ async function getFullStages(companyId, workspaceId) {
                     isFolder: Boolean(i.is_folder),
                     type: i.type || (i.is_folder ? 'folder' : 'file'),
                     version: i.version || 'V1',
+                    isRedacted,
+                    redactedVersion: i.is_folder ? '--' : (isRedacted ? 'V2' : 'V1'),
                     createdAt: dateFormatted,
-                    size: i.size || '--',
-                    buyerAccess: stg.buyer_access === 'can_view' ? 'visible' : 'hidden'
+                    size: i.size || '--'
                 };
             });
 
@@ -224,6 +243,46 @@ export async function POST(req) {
                 });
             }
 
+            case 'toggle_redact': {
+                const { itemId } = body;
+                if (!itemId) {
+                    return NextResponse.json({ error: 'Item ID required' }, { status: 400 });
+                }
+
+                const { data: item, error: itemErr } = await supabase
+                    .from('buyer_disclosure_items')
+                    .select('id, is_redacted, original_document_id')
+                    .eq('id', itemId)
+                    .single();
+
+                if (itemErr || !item) {
+                    return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+                }
+
+                const nextState = !Boolean(item.is_redacted);
+
+                await supabase
+                    .from('buyer_disclosure_items')
+                    .update({ is_redacted: nextState, updated_at: new Date().toISOString() })
+                    .eq('id', itemId);
+
+                if (item.original_document_id) {
+                    await supabase
+                        .from('documents')
+                        .update({ is_redacted: nextState })
+                        .eq('id', item.original_document_id);
+                }
+
+                const fullStages = await getFullStages(companyId, workspaceId);
+                return NextResponse.json({
+                    success: true,
+                    stages: fullStages,
+                    isRedacted: nextState,
+                    redactedVersion: nextState ? 'V2' : 'V1',
+                    message: nextState ? 'Redacted to V2' : 'Restored to original (V1)'
+                });
+            }
+
             case 'copy_item': {
                 const { item, targetStageId } = body;
                 if (!item) {
@@ -237,7 +296,7 @@ export async function POST(req) {
                 if (targetStageId && UUID_REGEX.test(targetStageId.toString())) {
                     targetStage = stages.find(s => s.id === targetStageId);
                 }
-
+                
                 if (!targetStage) {
                     const num = parseInt(targetStageId?.toString().replace(/[^0-9]/g, '') || '1', 10);
                     targetStage = stages.find(s => s.stage_number === num) || stages[0];
@@ -251,7 +310,7 @@ export async function POST(req) {
                 const originalDocId = !isFolder && item.id && UUID_REGEX.test(item.id.toString()) ? item.id : null;
                 const originalFoldId = isFolder && item.id && UUID_REGEX.test(item.id.toString()) ? item.id : null;
 
-                // Insert into database
+                // Insert into database with is_redacted: false (defaults to V1)
                 const { data: newItem, error: insErr } = await supabase
                     .from('buyer_disclosure_items')
                     .insert({
@@ -263,7 +322,8 @@ export async function POST(req) {
                         is_folder: isFolder,
                         type: item.type || (isFolder ? 'folder' : 'file'),
                         version: item.version ? `V${item.version}`.replace('VV', 'V') : 'V1',
-                        size: item.size || '--'
+                        size: item.size || '--',
+                        is_redacted: false
                     })
                     .select()
                     .single();
@@ -311,7 +371,8 @@ export async function POST(req) {
                         is_folder: true,
                         type: 'folder',
                         version: 'V1',
-                        size: '--'
+                        size: '--',
+                        is_redacted: false
                     })
                     .select()
                     .single();

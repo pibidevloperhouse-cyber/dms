@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { exportIndexToExcel, exportIndexToPDF } from '@/utils/exportIndexService';
 
 function Modal({ children, onClose, maxWidth = 'max-w-md' }) {
@@ -18,14 +18,10 @@ export default function DocumentsTable({
     items = [],
     activeStage,
     stages = [],
-    isStageLocked = false,
-    viewMode = 'seller',
     onViewItem,
     onRefreshStages,
     showToast = () => { }
 }) {
-    const isBuyerMode = viewMode === 'buyer';
-
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -40,8 +36,6 @@ export default function DocumentsTable({
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isExportIndexOpen, setIsExportIndexOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const fileInputRef = useRef(null);
 
     // Filter Items by Search & Type
     const filteredItems = (items || []).filter(item => {
@@ -202,44 +196,7 @@ export default function DocumentsTable({
         }
     };
 
-    // 5. UPLOAD FILE
-    const handleFileUpload = async (e) => {
-        const uploadedFiles = Array.from(e.target.files || []);
-        if (uploadedFiles.length === 0 || !activeStage?.id) return;
-
-        setIsSubmitting(true);
-        let successCount = 0;
-
-        for (const file of uploadedFiles) {
-            try {
-                const res = await fetch('/api/documents/buyer-disclosure', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'copy_item',
-                        item: {
-                            name: file.name,
-                            isFolder: false,
-                            type: file.name.split('.').pop() || 'file',
-                            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-                        },
-                        targetStageId: activeStage.id,
-                        session: getSession()
-                    })
-                });
-                if (res.ok) successCount++;
-            } catch (err) {
-                console.error('File upload error:', err);
-            }
-        }
-
-        setIsSubmitting(false);
-        showToast(`Uploaded ${successCount} file(s) to ${activeStage?.name || 'stage'}!`);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (onRefreshStages) await onRefreshStages();
-    };
-
-    // 6. DOWNLOAD ORIGINAL FILE DIRECTLY
+    // 5. DOWNLOAD ORIGINAL FILE DIRECTLY
     const handleDownloadOriginal = async (specificItem = null) => {
         let filesToDownload = [];
         if (specificItem && !specificItem.isFolder) {
@@ -289,6 +246,29 @@ export default function DocumentsTable({
         }
     };
 
+    // 6. TOGGLE REDACT VERSION (V1 <-> V2)
+    const handleToggleRedact = async (item) => {
+        if (item.isFolder) return;
+        try {
+            const res = await fetch('/api/documents/buyer-disclosure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'toggle_redact',
+                    itemId: item.id,
+                    session: getSession()
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to toggle redaction');
+            showToast(data.message || (data.isRedacted ? 'Redacted to V2!' : 'Restored to original (V1)'));
+            if (onRefreshStages) await onRefreshStages();
+        } catch (err) {
+            console.error('Toggle redact error:', err);
+            showToast(err.message, 'error');
+        }
+    };
+
     // 7. REBUILD INDEX
     const handleRebuildIndex = async () => {
         showToast('Rebuilding index...');
@@ -333,14 +313,6 @@ export default function DocumentsTable({
 
     return (
         <div className="space-y-3">
-            <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                className="hidden"
-            />
-
             {/* ── 1. WHITE SEARCH BAR ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
                 <div className="relative flex-1">
@@ -385,46 +357,27 @@ export default function DocumentsTable({
                 </div>
             </div>
 
-            {/* ── 2. ACTION TOOLBAR ── */}
-            <div className="flex items-center justify-between bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-2xs overflow-x-auto gap-2">
-                <div className="flex items-center gap-1.5 flex-nowrap">
-                    {!isBuyerMode && (
-                        <>
-                            {/* Upload */}
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isSubmitting}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="17 8 12 3 7 8" />
-                                    <line x1="12" y1="3" x2="12" y2="15" />
-                                </svg>
-                                Upload
-                            </button>
-
-                            {/* Add Folder */}
-                            <button
-                                type="button"
-                                onClick={() => { setFolderName(''); setIsAddFolderOpen(true); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                </svg>
-                                Add Folder
-                            </button>
-                        </>
-                    )}
+            {/* ── 2. ACTION TOOLBAR (Upload removed, gap adjusted - matching img1) ── */}
+            <div className="flex items-center justify-between bg-white px-5 py-2.5 rounded-xl border border-slate-200 shadow-2xs overflow-x-auto gap-4">
+                <div className="flex items-center gap-3.5 sm:gap-5 flex-nowrap">
+                    {/* Add Folder */}
+                    <button
+                        type="button"
+                        onClick={() => { setFolderName(''); setIsAddFolderOpen(true); }}
+                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        Add Folder
+                    </button>
 
                     {/* Export Index Dropdown */}
                     <div className="relative" onMouseLeave={() => setIsExportIndexOpen(false)}>
                         <button
                             type="button"
                             onClick={() => setIsExportIndexOpen(!isExportIndexOpen)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
+                            className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -472,7 +425,7 @@ export default function DocumentsTable({
                     <button
                         type="button"
                         onClick={handleRebuildIndex}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M21 2v6h-6" />
@@ -483,81 +436,80 @@ export default function DocumentsTable({
                         Rebuild Index
                     </button>
 
-                    {!isBuyerMode && (
-                        <>
-                            {/* Rename */}
-                            <button
-                                type="button"
-                                disabled={selectedIds.size !== 1}
-                                onClick={() => {
-                                    if (singleSelectedItem) {
-                                        setRenameValue(singleSelectedItem.name);
-                                        setIsRenameOpen(true);
-                                    }
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size !== 1
-                                        ? 'text-slate-400 cursor-not-allowed opacity-50'
-                                        : 'text-slate-700 hover:bg-teal-50 hover:text-[#0e7490]'
-                                    }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                                </svg>
-                                Rename
-                            </button>
+                    {/* Rename */}
+                    <button
+                        type="button"
+                        disabled={selectedIds.size !== 1}
+                        onClick={() => {
+                            if (singleSelectedItem) {
+                                setRenameValue(singleSelectedItem.name);
+                                setIsRenameOpen(true);
+                            }
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${
+                            selectedIds.size !== 1
+                                ? 'text-slate-400 cursor-not-allowed opacity-50'
+                                : 'text-slate-700 hover:bg-teal-50 hover:text-[#0e7490]'
+                        }`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        </svg>
+                        Rename
+                    </button>
 
-                            {/* Move to another stage */}
-                            <button
-                                type="button"
-                                disabled={selectedIds.size === 0}
-                                onClick={() => {
-                                    const firstTarget = otherStages[0]?.id || '';
-                                    setTargetStageId(firstTarget);
-                                    setIsMoveOpen(true);
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size === 0
-                                        ? 'text-slate-400 cursor-not-allowed opacity-50'
-                                        : 'text-[#0e7490] hover:bg-teal-50'
-                                    }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="5 9 2 12 5 15" />
-                                    <polyline points="9 5 12 2 15 5" />
-                                    <line x1="2" y1="12" x2="22" y2="12" />
-                                    <line x1="12" y1="2" x2="12" y2="22" />
-                                </svg>
-                                Move to another stage
-                            </button>
+                    {/* Move to another stage */}
+                    <button
+                        type="button"
+                        disabled={selectedIds.size === 0}
+                        onClick={() => {
+                            const firstTarget = otherStages[0]?.id || '';
+                            setTargetStageId(firstTarget);
+                            setIsMoveOpen(true);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${
+                            selectedIds.size === 0
+                                ? 'text-slate-400 cursor-not-allowed opacity-50'
+                                : 'text-[#0e7490] hover:bg-teal-50'
+                        }`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="5 9 2 12 5 15" />
+                            <polyline points="9 5 12 2 15 5" />
+                            <line x1="2" y1="12" x2="22" y2="12" />
+                            <line x1="12" y1="2" x2="12" y2="22" />
+                        </svg>
+                        Move to another stage
+                    </button>
 
-                            {/* Delete */}
-                            <button
-                                type="button"
-                                disabled={selectedIds.size === 0}
-                                onClick={() => setIsDeleteOpen(true)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size === 0
-                                        ? 'text-slate-400 cursor-not-allowed opacity-50'
-                                        : 'text-rose-600 hover:bg-rose-50'
-                                    }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14H6L5 6" />
-                                    <path d="M10 11v6M14 11v6" />
-                                    <path d="M9 6V4h6v2" />
-                                </svg>
-                                Delete
-                            </button>
-                        </>
-                    )}
+                    {/* Delete */}
+                    <button
+                        type="button"
+                        disabled={selectedIds.size === 0}
+                        onClick={() => setIsDeleteOpen(true)}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${
+                            selectedIds.size === 0
+                                ? 'text-slate-400 cursor-not-allowed opacity-50'
+                                : 'text-rose-600 hover:bg-rose-50'
+                        }`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4h6v2" />
+                        </svg>
+                        Delete
+                    </button>
                 </div>
 
                 {/* Right: Download Action */}
-                <div className="shrink-0">
+                <div className="shrink-0 pl-2">
                     <button
                         type="button"
                         onClick={() => handleDownloadOriginal()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 px-3.5 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
                         title={selectedIds.size > 0 ? "Download selected files" : "Download files from this stage"}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -570,7 +522,7 @@ export default function DocumentsTable({
                 </div>
             </div>
 
-            {/* ── 3. DOCUMENTS TABLE ── */}
+            {/* ── 3. DOCUMENTS TABLE (Redacted Version column - matching img3 requirements) ── */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -588,15 +540,14 @@ export default function DocumentsTable({
                                 <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Version</th>
                                 <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created at</th>
                                 <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Size</th>
-                                <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Buyer access</th>
-                                <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                                <th className="py-3.5 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Redacted Version</th>
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
                             {filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="py-14 text-center text-slate-400">
+                                    <td colSpan={6} className="py-14 text-center text-slate-400">
                                         <div className="flex flex-col items-center justify-center gap-2">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#fcd34d" className="opacity-80">
                                                 <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
@@ -605,7 +556,7 @@ export default function DocumentsTable({
                                                 {searchQuery ? 'No documents match your search' : 'No documents in this stage'}
                                             </p>
                                             <p className="text-[12px] text-slate-400">
-                                                {isBuyerMode ? 'Documents will appear here when granted access by seller' : 'Upload files or create folders to get started'}
+                                                Move documents from Files or create folders to get started
                                             </p>
                                         </div>
                                     </td>
@@ -613,13 +564,15 @@ export default function DocumentsTable({
                             ) : (
                                 filteredItems.map((item) => {
                                     const isSelected = selectedIds.has(item.id);
-                                    const isVisibleToBuyer = !isStageLocked;
+                                    const isRedacted = Boolean(item.isRedacted);
+                                    const redactedVer = isRedacted ? 'V2' : (item.redactedVersion || 'V1');
 
                                     return (
                                         <tr
                                             key={item.id}
-                                            className={`group transition-colors ${isSelected ? 'bg-teal-50/60' : 'hover:bg-slate-50/70'
-                                                }`}
+                                            className={`group transition-colors ${
+                                                isSelected ? 'bg-teal-50/60' : 'hover:bg-slate-50/70'
+                                            }`}
                                         >
                                             {/* Checkbox */}
                                             <td className="py-3.5 px-5">
@@ -653,7 +606,7 @@ export default function DocumentsTable({
                                                                 handleDownloadOriginal(item);
                                                             }
                                                         }}
-                                                        title={item.isFolder ? 'Open folder' : 'Download original file'}
+                                                        title={item.isFolder ? 'Open folder' : 'Click to download'}
                                                     >
                                                         {item.name}
                                                     </span>
@@ -667,7 +620,7 @@ export default function DocumentsTable({
 
                                             {/* Created At */}
                                             <td className="py-3.5 px-4 text-[12px] font-semibold text-slate-500 whitespace-nowrap">
-                                                {item.createdAt || 'Oct 23, 2026'}
+                                                {item.createdAt || 'Oct 29, 2026'}
                                             </td>
 
                                             {/* Size */}
@@ -675,50 +628,29 @@ export default function DocumentsTable({
                                                 {item.size || '--'}
                                             </td>
 
-                                            {/* Buyer Access */}
+                                            {/* Redacted Version Column (Value: V1 for new files, changes to V2 when redacted) */}
                                             <td className="py-3.5 px-4 whitespace-nowrap">
-                                                {isVisibleToBuyer ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        Visible
+                                                {item.isFolder ? (
+                                                    <span className="text-[12px] font-semibold text-slate-400">--</span>
+                                                ) : isRedacted ? (
+                                                    <span
+                                                        onClick={() => handleToggleRedact(item)}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors shadow-2xs"
+                                                        title="Redacted (Click to toggle)"
+                                                    >
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                                        {redactedVer}
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                                    <span
+                                                        onClick={() => handleToggleRedact(item)}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors shadow-2xs"
+                                                        title="New / Original file (Click to redact to V2)"
+                                                    >
                                                         <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                                        Hidden
+                                                        {redactedVer}
                                                     </span>
                                                 )}
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                    {!item.isFolder && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDownloadOriginal(item)}
-                                                            className="p-1.5 text-slate-500 hover:text-[#0e7490] hover:bg-slate-100 rounded-lg transition-colors"
-                                                            title="Download file"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                                <polyline points="7 10 12 15 17 10" />
-                                                                <line x1="12" y1="15" x2="12" y2="3" />
-                                                            </svg>
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onViewItem?.(item)}
-                                                        className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                                                        title="View details"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                            <circle cx="12" cy="12" r="3" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -835,10 +767,11 @@ export default function DocumentsTable({
                                 <label
                                     key={stg.id}
                                     onClick={() => setTargetStageId(stg.id)}
-                                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${targetStageId === stg.id
+                                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                        targetStageId === stg.id
                                             ? 'border-[#0e7490] bg-teal-50/40 text-slate-900 font-bold'
                                             : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                                        }`}
+                                    }`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <input
@@ -855,10 +788,11 @@ export default function DocumentsTable({
                                             </p>
                                         </div>
                                     </div>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stg.buyerAccess === 'can_view'
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                        stg.buyerAccess === 'can_view'
                                             ? 'bg-emerald-50 text-emerald-700'
                                             : 'bg-slate-100 text-slate-500'
-                                        }`}>
+                                    }`}>
                                         {stg.buyerAccess === 'can_view' ? 'Visible' : 'Hidden'}
                                     </span>
                                 </label>

@@ -10,8 +10,7 @@ export default function BuyerDisclosurePage() {
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeStageId, setActiveStageId] = useState(null);
-    const [viewMode, setViewMode] = useState('seller'); // 'seller' | 'buyer'
-
+    
     // Modal controls
     const [accessModalState, setAccessModalState] = useState({
         isOpen: false,
@@ -31,7 +30,7 @@ export default function BuyerDisclosurePage() {
         if (!s && typeof window !== 'undefined') {
             const raw = localStorage.getItem('vdr_session');
             if (raw) {
-                try { s = JSON.parse(raw); } catch (e) { }
+                try { s = JSON.parse(raw); } catch (e) {}
             }
         }
         s = s || {};
@@ -63,7 +62,7 @@ export default function BuyerDisclosurePage() {
                     setStages(parsed);
                     if (parsed.length > 0) setActiveStageId(parsed[0].id);
                 }
-            } catch (e) { }
+            } catch (e) {}
         } finally {
             setLoading(false);
         }
@@ -75,9 +74,6 @@ export default function BuyerDisclosurePage() {
             try {
                 const s = JSON.parse(raw);
                 setSession(s);
-                if (s?.role === 'buyer') {
-                    setViewMode('buyer');
-                }
                 loadStages(s);
             } catch (e) {
                 loadStages({});
@@ -126,7 +122,7 @@ export default function BuyerDisclosurePage() {
             if (!currentSession && typeof window !== 'undefined') {
                 const raw = localStorage.getItem('vdr_session');
                 if (raw) {
-                    try { currentSession = JSON.parse(raw); } catch (e) { }
+                    try { currentSession = JSON.parse(raw); } catch (e) {}
                 }
             }
             currentSession = currentSession || {};
@@ -168,39 +164,13 @@ export default function BuyerDisclosurePage() {
 
     return (
         <div className="flex flex-col w-full h-full bg-[#f8f9fb] overflow-y-auto">
-            {/* Top Header Banner */}
+            {/* Top Header Banner (Seller View only - matching img2) */}
             <div className="bg-white border-b border-slate-200 px-6 py-4">
-                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Buyer Disclosure</h1>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Stage-gate confidential disclosure controls and due diligence packages.
-                        </p>
-                    </div>
-
-                    {/* View Switcher: Seller Admin vs Buyer Preview */}
-                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200">
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('seller')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'seller'
-                                    ? 'bg-white text-slate-900 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                        >
-                            Seller View
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('buyer')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'buyer'
-                                    ? 'bg-white text-slate-900 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                        >
-                            Buyer View
-                        </button>
-                    </div>
+                <div className="max-w-7xl mx-auto">
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">Buyer Disclosure</h1>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                        Stage-gate confidential disclosure controls and due diligence packages.
+                    </p>
                 </div>
             </div>
 
@@ -219,7 +189,6 @@ export default function BuyerDisclosurePage() {
                             activeStageId={activeStage?.id}
                             onSelectStage={setActiveStageId}
                             onOpenAccessModal={handleOpenAccessModal}
-                            viewMode={viewMode}
                         />
 
                         {/* Documents Table with Search bar and Action Toolbar */}
@@ -227,8 +196,6 @@ export default function BuyerDisclosurePage() {
                             items={activeStage?.items || []}
                             activeStage={activeStage}
                             stages={stages}
-                            isStageLocked={activeStage?.buyerAccess === 'hidden'}
-                            viewMode={viewMode}
                             onViewItem={handleViewItem}
                             onRefreshStages={loadStages}
                             showToast={showToast}

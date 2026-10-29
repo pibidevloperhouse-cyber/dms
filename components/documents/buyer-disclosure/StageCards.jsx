@@ -7,11 +7,8 @@ export default function StageCards({
     stages = [],
     activeStageId,
     onSelectStage,
-    onOpenAccessModal,
-    viewMode = 'seller'
+    onOpenAccessModal
 }) {
-    const isBuyerMode = viewMode === 'buyer';
-
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-2">
             {(stages || []).map((stage) => {
@@ -51,40 +48,30 @@ export default function StageCards({
                             </div>
                         </div>
 
-                        {/* Right: Action Button */}
+                        {/* Right: Action Button (matching img2 exactly) */}
                         <div className="shrink-0 pl-3">
-                            {!isBuyerMode ? (
-                                canBuyerAccess ? (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onOpenAccessModal?.(stage, 'revoke');
-                                        }}
-                                        className="px-3.5 py-1.5 text-xs font-semibold text-[#8B0000] bg-white border border-rose-300 hover:bg-rose-50 rounded-lg transition-colors shadow-2xs"
-                                    >
-                                        Revoke access
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onOpenAccessModal?.(stage, 'grant');
-                                        }}
-                                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0e6f7c] hover:bg-[#09525c] active:bg-[#073c44] rounded-lg transition-colors shadow-2xs"
-                                    >
-                                        Grant buyer access
-                                    </button>
-                                )
+                            {canBuyerAccess ? (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenAccessModal?.(stage, 'revoke');
+                                    }}
+                                    className="px-3.5 py-1.5 text-xs font-semibold text-[#8B0000] bg-white border border-rose-300 hover:bg-rose-50 rounded-lg transition-colors shadow-2xs"
+                                >
+                                    Revoke access
+                                </button>
                             ) : (
-                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                    canBuyerAccess
-                                        ? 'bg-emerald-50 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                    {canBuyerAccess ? 'Visible' : 'Locked'}
-                                </span>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenAccessModal?.(stage, 'grant');
+                                    }}
+                                    className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0e6f7c] hover:bg-[#09525c] active:bg-[#073c44] rounded-lg transition-colors shadow-2xs"
+                                >
+                                    Grant buyer access
+                                </button>
                             )}
                         </div>
                     </div>
