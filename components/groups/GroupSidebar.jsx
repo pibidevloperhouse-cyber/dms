@@ -367,6 +367,12 @@ export default function GroupsSidebar({ isOpen = true }) {
         const trimmed = customDeptInput.trim();
         if (!trimmed) return;
         const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+
+        // Buyer side does not create default documents folder; create department directly
+        if (isBuyerSide) {
+            handleCreateNewDepartment(formatted);
+            return;
+        }
         setFolderSuggestion({
             isOpen: true,
             deptName: formatted,
@@ -485,6 +491,15 @@ export default function GroupsSidebar({ isOpen = true }) {
                     return;
                 }
                 const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
+                if (isBuyerSide) {
+                    setDepartments(prev => Array.from(new Set([...prev, formatted])));
+                    setNewGroupDepartment(formatted);
+                    setIsCreatingNewDept(false);
+                    setCustomDeptInput('');
+                    setExpandedDepts(prev => ({ ...prev, [formatted]: true }));
+                    await handleCreateGroup(formatted, null);
+                    return;
+                }
                 setFolderSuggestion({
                     isOpen: true,
                     deptName: formatted,
@@ -560,7 +575,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 }
 
                 // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = !isIndividual && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
+                const folderNameToCreate = !isIndividual && !isBuyerSide && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
                         await fetch('/api/documents/action', {
@@ -1105,7 +1120,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             )}
 
             {/* ── Compact Folder Suggestion Modal ───────────────────────── */}
-            {folderSuggestion.isOpen && (
+            {!isBuyerSide && folderSuggestion.isOpen && (
                 <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[250] p-4 animate-in fade-in duration-150">
                     <div className="bg-white rounded-2xl p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 font-sans animate-in zoom-in-95 duration-150">
                         {/* Header */}
