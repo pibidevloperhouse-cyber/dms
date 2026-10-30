@@ -22,6 +22,8 @@ import {
   Layers,
   Sparkles,
   Briefcase,
+  ListTodo,
+  CheckSquare,
 } from "lucide-react";
 import { useControlsAudit } from "@/components/controls-audit/ControlsAuditContext";
 import {
@@ -60,6 +62,7 @@ export default function AuditTrailPage() {
   const [selectedResult, setSelectedResult] = useState("all");
   const [selectedModule, setSelectedModule] = useState("all");
   const [selectedAction, setSelectedAction] = useState("all");
+  const [selectedStage, setSelectedStage] = useState("all"); // 'all' | 'Preparation' | 'Due Diligence' | 'Bidding'
   const [selectedDateRange, setSelectedDateRange] = useState("all"); // 'all' | 'today' | 'last7' | 'last30'
 
   // Sorting: { column: 'timestamp' | 'user' | 'action' | 'result', direction: 'asc' | 'desc' }
@@ -74,7 +77,7 @@ export default function AuditTrailPage() {
 
   // Extract unique modules & actions from dynamic logs with standard platform baselines
   const uniqueModules = useMemo(() => {
-    const set = new Set(["Authentication", "Documents", "Communication"]);
+    const set = new Set(["Authentication", "Documents", "Communication", "Tasks & Workflow"]);
     auditLogs.forEach((l) => {
       if (l.module) set.add(l.module);
     });
@@ -108,9 +111,34 @@ export default function AuditTrailPage() {
       set.add("Task Message Sent");
       set.add("Attachment Sent");
     }
+    if (selectedModule === "Tasks & Workflow" || selectedModule === "all") {
+      set.add("Internal Task Created");
+      set.add("External Task Created & Dispatched");
+      set.add("Task Created");
+      set.add("Task Claimed");
+      set.add("Submitted for Review");
+      set.add("All Subtasks Completed — Main Task Advanced to Review");
+      set.add("Review Query Raised by Sub Admin");
+      set.add("Files Moved to Documents Section & Marked as Done");
+      set.add("Approved & Completed");
+    }
 
     return Array.from(set);
   }, [auditLogs, selectedModule]);
+
+  // Extract unique stages from dynamic logs with standard platform baselines (scoped to Tasks & Workflow)
+  const uniqueStages = useMemo(() => {
+    const set = new Set(["Preparation", "Due Diligence", "Bidding"]);
+    auditLogs.forEach((l) => {
+      if (l.module === "Tasks & Workflow") {
+        const stage = l.metadata?.dealStage || l.metadata?.stage;
+        if (stage && typeof stage === "string") {
+          set.add(stage.trim());
+        }
+      }
+    });
+    return Array.from(set);
+  }, [auditLogs]);
 
   // Filtered & Sorted logs
   const processedLogs = useMemo(() => {
@@ -137,6 +165,15 @@ export default function AuditTrailPage() {
         // Action filter
         if (selectedAction !== "all" && log.action !== selectedAction) {
           return false;
+        }
+
+        // Stage filter (Preparation, Due Diligence, Bidding) - only active when Tasks & Workflow is selected
+        if (selectedModule === "Tasks & Workflow" && selectedStage !== "all") {
+          const targetNorm = selectedStage.toLowerCase().trim();
+          const logStage = (log.metadata?.dealStage || log.metadata?.stage || "").toLowerCase().trim();
+          if (!logStage || !logStage.includes(targetNorm)) {
+            return false;
+          }
         }
 
         // Date range filter
@@ -197,7 +234,7 @@ export default function AuditTrailPage() {
         if (valA > valB) return direction === "asc" ? 1 : -1;
         return 0;
       });
-  }, [auditLogs, selectedResult, selectedModule, selectedAction, selectedDateRange, searchQuery, sortConfig]);
+  }, [auditLogs, selectedResult, selectedModule, selectedAction, selectedStage, selectedDateRange, searchQuery, sortConfig]);
 
   // Paginated records
   const totalRecords = processedLogs.length;
@@ -223,6 +260,7 @@ export default function AuditTrailPage() {
     setSelectedResult("all");
     setSelectedModule("all");
     setSelectedAction("all");
+    setSelectedStage("all");
     setSelectedDateRange("all");
     if (callerSide === "super_admin" && selectedSide !== "all") {
       setSelectedSide("all");
@@ -237,6 +275,7 @@ export default function AuditTrailPage() {
       selectedResult !== "all" ||
       selectedModule !== "all" ||
       selectedAction !== "all" ||
+      (selectedModule === "Tasks & Workflow" && selectedStage !== "all") ||
       selectedDateRange !== "all" ||
       (callerSide === "super_admin" && selectedSide !== "all"));
 
@@ -486,8 +525,12 @@ export default function AuditTrailPage() {
             <select
               value={selectedModule}
               onChange={(e) => {
-                setSelectedModule(e.target.value);
+                const newModule = e.target.value;
+                setSelectedModule(newModule);
                 setSelectedAction("all");
+                if (newModule !== "Tasks & Workflow") {
+                  setSelectedStage("all");
+                }
                 setCurrentPage(1);
               }}
               className="h-9 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[var(--brand)] cursor-pointer text-xs transition-colors"
@@ -500,6 +543,31 @@ export default function AuditTrailPage() {
               ))}
             </select>
           </div>
+
+          {/* All Stages (Preparation, Due Diligence, Bidding) - Only visible when Tasks & Workflow module is selected */}
+          {selectedModule === "Tasks & Workflow" && (
+            <div className="relative">
+              <select
+                value={selectedStage}
+                onChange={(e) => {
+                  setSelectedStage(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={`h-9 px-3.5 py-1.5 border rounded-xl font-semibold cursor-pointer text-xs transition-colors ${
+                  selectedStage !== "all"
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold"
+                    : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-700 focus:outline-none focus:border-[var(--brand)]"
+                }`}
+              >
+                <option value="all">All Stages</option>
+                {uniqueStages.map((stg) => (
+                  <option key={stg} value={stg}>
+                    {stg} Stage
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* All Actions */}
           <div className="relative">
@@ -618,13 +686,15 @@ export default function AuditTrailPage() {
                           ? "Document File"
                           : selectedModule === "Communication"
                           ? "Message Content"
+                          : selectedModule === "Tasks & Workflow"
+                          ? "Task (ID & Title)"
                           : "Resource / Content"}
                       </span>
                       <ArrowUpDown size={12} className="text-slate-400" />
                     </div>
                   </th>
 
-                  {/* Channel / View Duration Column (Only shown for Documents, Communication, & All Modules; omitted for Authentication) */}
+                  {/* Channel / View Duration / Assignee Column */}
                   {selectedModule !== "Authentication" && (
                     <th
                       onClick={() => handleSort(selectedModule === "Communication" ? "channelName" : "durationSeconds")}
@@ -636,7 +706,9 @@ export default function AuditTrailPage() {
                             ? "Channel / Group"
                             : selectedModule === "Documents"
                             ? "View Time"
-                            : "Channel / View Time"}
+                            : selectedModule === "Tasks & Workflow"
+                            ? "Assignee & Stage"
+                            : "Channel / Details"}
                         </span>
                         <ArrowUpDown size={12} className="text-slate-400" />
                       </div>
@@ -807,14 +879,22 @@ export default function AuditTrailPage() {
                     ? "Document File:"
                     : selectedAuditLog.module === "Communication"
                     ? "Message Content:"
+                    : selectedAuditLog.module === "Tasks & Workflow"
+                    ? "Task (ID & Title):"
                     : "Target Resource:"}
                 </span>
                 <span className="font-semibold text-slate-800">{selectedAuditLog.resource}</span>
               </div>
               {selectedAuditLog.channelName && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Channel / Group:</span>
-                  <span className="font-semibold text-indigo-700">#{selectedAuditLog.channelName}</span>
+                  <span className="text-slate-400 font-medium">
+                    {selectedAuditLog.module === "Tasks & Workflow" ? "Assigned Group / Workstream:" : "Channel / Group:"}
+                  </span>
+                  <span className="font-semibold text-indigo-700">
+                    {selectedAuditLog.channelName.startsWith("@") || selectedAuditLog.channelName.startsWith("#")
+                      ? selectedAuditLog.channelName
+                      : `#${selectedAuditLog.channelName}`}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -846,6 +926,146 @@ export default function AuditTrailPage() {
                 </div>
               )}
             </div>
+
+            {/* Tasks & Workflow Lifecycle Forensic Insight */}
+            {selectedAuditLog.module === "Tasks & Workflow" && (
+              <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-slate-50 border border-emerald-200/90 rounded-xl space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-emerald-200/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      <ListTodo size={16} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
+                        Task Lifecycle & Workflow Intelligence
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        {selectedAuditLog.metadata?.taskId ? `[${selectedAuditLog.metadata.taskId}] ` : ""}{selectedAuditLog.metadata?.taskTitle || selectedAuditLog.resource}
+                      </h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-slate-700 border border-emerald-200 shadow-2xs">
+                      {selectedAuditLog.metadata?.dealStage || "Preparation Stage"}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide border shadow-2xs ${
+                        selectedAuditLog.metadata?.isCompleted || selectedAuditLog.metadata?.status === "DONE"
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "bg-amber-500 text-white border-amber-500"
+                      }`}
+                    >
+                      {selectedAuditLog.metadata?.currentStatus || (selectedAuditLog.metadata?.status === "DONE" ? "Completed" : "Active")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Assignment & Operational Specs Grid */}
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Assigned By (Creator)
+                    </span>
+                    <p className="font-bold text-slate-800 text-xs">
+                      {selectedAuditLog.metadata?.assignedBy || "Deal Admin"}
+                    </p>
+                    <span className="text-[10px] text-slate-500 block truncate">
+                      {selectedAuditLog.metadata?.creatorRole || "Admin"} • {selectedAuditLog.metadata?.creatorCompany || selectedAuditLog.companyName || "Organization"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Assigned To (Assignee)
+                    </span>
+                    <p className="font-bold text-emerald-900 text-xs truncate">
+                      {selectedAuditLog.metadata?.assignedToUser || "Unassigned"}
+                    </p>
+                    <span className="text-[10px] text-emerald-700 block font-medium truncate">
+                      Group: {selectedAuditLog.metadata?.assignedToGroup ? `@${selectedAuditLog.metadata.assignedToGroup}` : "General"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Deal Stage & State
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-semibold text-slate-800 text-xs">
+                        {selectedAuditLog.metadata?.dealStage || "Preparation"} Stage
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span className="font-bold text-xs text-slate-700">
+                        {selectedAuditLog.metadata?.currentStatus || "Active"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Priority & Workstream
+                    </span>
+                    <p className="font-semibold text-slate-800 text-xs mt-0.5 truncate">
+                      {selectedAuditLog.metadata?.priority || "Medium"} • {selectedAuditLog.metadata?.workstream || "General"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Subtasks and Attached Files Indicators */}
+                {(selectedAuditLog.metadata?.subtasksCount > 0 || selectedAuditLog.metadata?.attachmentsCount > 0) && (
+                  <div className="flex items-center gap-3 pt-2 border-t border-emerald-200/60 text-xs flex-wrap">
+                    {selectedAuditLog.metadata?.subtasksCount > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-[11px]">
+                        <CheckSquare size={12} className="text-emerald-600" />
+                        <span>{selectedAuditLog.metadata.subtasksCount} Subtask(s) Configured</span>
+                      </span>
+                    )}
+                    {selectedAuditLog.metadata?.attachmentsCount > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-emerald-200 text-sky-800 font-semibold text-[11px]">
+                        <FileCode2 size={12} className="text-sky-600" />
+                        <span>{selectedAuditLog.metadata.attachmentsCount} Attachment File(s)</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Step-by-Step Task Lifecycle Audit Trail Timeline */}
+                {Array.isArray(selectedAuditLog.metadata?.allTaskAuditTrail) && selectedAuditLog.metadata.allTaskAuditTrail.length > 0 && (
+                  <div className="pt-2 border-t border-emerald-200/70">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                      Task Audit Trail History ({selectedAuditLog.metadata.allTaskAuditTrail.length} Recorded Steps)
+                    </span>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {selectedAuditLog.metadata.allTaskAuditTrail.map((step, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2 rounded-lg bg-white/90 border border-slate-200/80 flex items-start justify-between gap-2 text-[11px]"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 truncate">
+                              {step.action}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              By: <strong>{step.performed_by}</strong> {step.role ? `(${step.role})` : ""} {step.details ? `— ${step.details}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono text-[10px] text-slate-500 block">
+                              {step.timestamp}
+                            </span>
+                            {step.ip && (
+                              <span className="font-mono text-[9px] text-slate-400 block">
+                                IP: {step.ip}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Document View Time Forensic Insight */}
             {selectedAuditLog.action?.toLowerCase().includes("view") && (

@@ -16,6 +16,7 @@ import {
   workspaceMembers,
   messages,
   communicationChannels,
+  dealTasks,
 } from '@/db/schema';
 import { eq, desc, or, and, ne, isNull, inArray, isNotNull } from 'drizzle-orm';
 
@@ -891,8 +892,260 @@ export async function GET(req) {
       };
     });
 
-    // 13. Merge and sort all audit logs (Auth + Document + Communication events) by timestamp DESC
-    const allFormattedLogs = [...formattedAuthLogs, ...formattedDocLogs, ...formattedMessageLogs].sort(
+    // 12c. Query persistent tasks from Tasks and Workflow module (deal_tasks)
+    let rawDealTasks = [];
+    try {
+      rawDealTasks = await db
+        .select()
+        .from(dealTasks)
+        .orderBy(desc(dealTasks.createdAt))
+        .limit(200);
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch dealTasks:', e.message);
+    }
+
+    // Helper to parse dates from task audit entries safely
+    const parseTaskTimestamp = (ts, fallbackDate) => {
+      if (!ts) return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
+      const parsed = new Date(ts);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
+      return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
+    };
+
+    // Filter tasks strictly to active deal
+    const dealScopedTasks = rawDealTasks.filter((task) => {
+      if (task.workspaceId) {
+        if (
+          task.workspaceId === activeDeal.dealId ||
+          (activeDeal.workspaceId && task.workspaceId === activeDeal.workspaceId)
+        ) {
+          return true;
+        }
+      }
+      if (task.dealId) {
+        if (
+          task.dealId === activeDeal.dealId ||
+          (activeDeal.projectId && task.dealId === activeDeal.projectId)
+        ) {
+          return true;
+        }
+      }
+      const createdByLower = (task.createdBy || '').toLowerCase();
+      const assignedLower = (task.assignedToUser || '').toLowerCase();
+      const matchesCreator =
+        dealMemberUserIds.has(task.createdBy) ||
+        dealMemberEmails.has(createdByLower) ||
+        Array.from(dealMemberEmails).some((e) => e.includes(createdByLower));
+      const matchesAssigned =
+        dealMemberUserIds.has(task.assignedToUser) ||
+        dealMemberEmails.has(assignedLower) ||
+        Array.from(dealMemberEmails).some((e) => e.includes(assignedLower));
+      return matchesCreator || matchesAssigned;
+    });
+
+    // Transform Task Logs into forensic audit trail records
+    const formattedTaskLogs = [];
+    dealScopedTasks.forEach((task) => {
+      const creatorSide = (task.creatorSide || 'seller').toLowerCase();
+      const targetSide = (task.targetSide || creatorSide || 'seller').toLowerCase();
+
+      const creatorUser =
+        allUsers.find((u) => u.name?.toLowerCase() === (task.createdBy || '').toLowerCase()) ||
+        allUsers.find((u) => u.email?.toLowerCase().includes((task.createdBy || '').toLowerCase()));
+      const creatorEmail = creatorUser?.email || `${(task.createdBy || 'admin').toLowerCase().replace(/\s+/g, '')}@vdr.com`;
+
+      const taskAuditList = Array.isArray(task.auditTrail) ? task.auditTrail : [];
+      const subtasksList = Array.isArray(task.subtasks) ? task.subtasks : [];
+      const attachmentsList = Array.isArray(task.attachments) ? task.attachments : [];
+
+      const currentStatusLabel =
+        task.status === 'DONE'
+          ? 'Completed'
+          : task.status === 'IN_PROGRESS'
+          ? 'Active / In Progress'
+          : task.status === 'REVIEW'
+          ? 'Under Review'
+          : 'To Do';
+
+      const commonTaskMetadata = {
+        taskId: task.taskId,
+        taskTitle: task.title,
+        description: task.description,
+        assignedBy: task.createdBy || 'Admin',
+        creatorRole: formatRoleName(task.creatorRole || 'Admin'),
+        creatorCompany: task.creatorCompany || activeDeal.companyName || 'Associated Company',
+        creatorSide,
+        assignedToUser: task.assignedToUser,
+        assignedToGroup: task.assignedToGroup,
+        assignedTo: task.assignedToUser
+          ? `${task.assignedToUser}${task.assignedToGroup ? ` (@${task.assignedToGroup})` : ''}`
+          : task.assignedToGroup
+          ? `@${task.assignedToGroup}`
+          : 'Unassigned',
+        targetCompany: task.targetCompany || activeDeal.companyName,
+        targetSide,
+        stage: task.dealStage || 'Preparation',
+        dealStage: task.dealStage || 'Preparation',
+        status: task.status || 'TO_DO',
+        currentStatus: currentStatusLabel,
+        isCompleted: task.status === 'DONE',
+        isActive: task.status !== 'DONE',
+        priority: task.priority || 'Medium',
+        workstream: task.workstream || task.department || 'General',
+        dueDate: task.dueDate || '—',
+        folderName: task.folderName || '—',
+        subtasksCount: subtasksList.length,
+        subtasks: subtasksList,
+        attachmentsCount: attachmentsList.length,
+        attachments: attachmentsList,
+        allTaskAuditTrail: taskAuditList,
+        dealName: activeDeal.dealName,
+        projectName: activeDeal.projectName,
+      };
+
+      if (taskAuditList.length > 0) {
+        taskAuditList.forEach((entry, idx) => {
+          const actionText = entry.action || 'Task Action';
+          const performerName = entry.performed_by || task.createdBy || 'Authorized User';
+          const performerRole = formatRoleName(entry.role || task.creatorRole || 'Member');
+          const isCreatorAction =
+            actionText.toLowerCase().includes('creat') ||
+            performerName.toLowerCase() === (task.createdBy || '').toLowerCase();
+          const entrySide = isCreatorAction ? creatorSide : targetSide;
+
+          const performerUser =
+            allUsers.find((u) => u.name?.toLowerCase() === performerName.toLowerCase()) ||
+            allUsers.find((u) => u.email?.toLowerCase().includes(performerName.toLowerCase()));
+          const performerEmail = performerUser?.email || `${performerName.toLowerCase().replace(/\s+/g, '')}@vdr.com`;
+
+          const isSuccess =
+            !actionText.toLowerCase().includes('reject') &&
+            !actionText.toLowerCase().includes('denied') &&
+            !actionText.toLowerCase().includes('fail');
+
+          const eventTimestamp = parseTaskTimestamp(entry.timestamp, task.createdAt);
+
+          formattedTaskLogs.push({
+            id: `task-audit-${task.id}-${idx}`,
+            user: performerName,
+            userEmail: performerEmail,
+            userRole: performerRole,
+            side: entrySide,
+            sideLabel: entrySide === 'buyer' ? 'Buyer Side' : 'Seller Side',
+            action: actionText,
+            resource: `[${task.taskId}] ${task.title}`,
+            channelName: task.assignedToGroup ? `@${task.assignedToGroup}` : task.workstream || 'General',
+            module: 'Tasks & Workflow',
+            deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+            dealId: activeDeal.dealId,
+            projectName: activeDeal.projectName || 'Project',
+            companyName: activeDeal.companyName || task.creatorCompany || 'Associated Company',
+            result: isSuccess ? 'Success' : 'Failure',
+            timestamp: eventTimestamp,
+            ip: entry.ip || '127.0.0.1',
+            device: '—',
+            duration: '—',
+            durationSeconds: null,
+            durationFormatted: '—',
+            durationText: '—',
+            eventType: `task.${actionText.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+            outcome: isSuccess ? 'SUCCESS' : 'FAILURE',
+            failureReason: isSuccess ? null : (entry.details || 'Task action rejected'),
+            permissionDecision: {
+              rule: 'Task Assignment & Execution Policy',
+              verdict: 'Permitted',
+            },
+            metadata: {
+              ...commonTaskMetadata,
+              actionPerformed: actionText,
+              performedBy: performerName,
+              actionDetails: entry.details || null,
+              auditTimestamp: entry.timestamp,
+              checksum: `sha256:task-${task.taskId.toLowerCase()}-${idx}`,
+            },
+            jsonPayload: {
+              event_type: `task.${actionText.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+              task_id: task.taskId,
+              task_title: task.title,
+              action: actionText,
+              performed_by: performerName,
+              assigned_by: task.createdBy,
+              assigned_to_user: task.assignedToUser,
+              assigned_to_group: task.assignedToGroup,
+              deal_stage: task.dealStage,
+              status: task.status,
+              current_status: currentStatusLabel,
+              deal_id: activeDeal.dealId,
+              deal_name: activeDeal.dealName,
+              ip: entry.ip,
+              timestamp: entry.timestamp,
+            },
+          });
+        });
+      } else {
+        // Fallback: If no audit trail array, push primary Task Created event
+        const isSuccess = true;
+        formattedTaskLogs.push({
+          id: `task-created-${task.id}`,
+          user: task.createdBy || 'Admin',
+          userEmail: creatorEmail,
+          userRole: formatRoleName(task.creatorRole || 'Admin'),
+          side: creatorSide,
+          sideLabel: creatorSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
+          action: 'Task Created',
+          resource: `[${task.taskId}] ${task.title}`,
+          channelName: task.assignedToGroup ? `@${task.assignedToGroup}` : task.workstream || 'General',
+          module: 'Tasks & Workflow',
+          deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+          dealId: activeDeal.dealId,
+          projectName: activeDeal.projectName || 'Project',
+          companyName: activeDeal.companyName || task.creatorCompany || 'Associated Company',
+          result: 'Success',
+          timestamp: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
+          ip: '127.0.0.1',
+          device: '—',
+          duration: '—',
+          durationSeconds: null,
+          durationFormatted: '—',
+          durationText: '—',
+          eventType: 'task.task_created',
+          outcome: 'SUCCESS',
+          failureReason: null,
+          permissionDecision: {
+            rule: 'Task Assignment & Execution Policy',
+            verdict: 'Permitted',
+          },
+          metadata: {
+            ...commonTaskMetadata,
+            actionPerformed: 'Task Created',
+            performedBy: task.createdBy || 'Admin',
+            checksum: `sha256:task-${task.taskId.toLowerCase()}-0`,
+          },
+          jsonPayload: {
+            event_type: 'task.task_created',
+            task_id: task.taskId,
+            task_title: task.title,
+            action: 'Task Created',
+            assigned_by: task.createdBy,
+            assigned_to_user: task.assignedToUser,
+            assigned_to_group: task.assignedToGroup,
+            deal_stage: task.dealStage,
+            status: task.status,
+            current_status: currentStatusLabel,
+            deal_id: activeDeal.dealId,
+            deal_name: activeDeal.dealName,
+          },
+        });
+      }
+    });
+
+    // 13. Merge and sort all audit logs (Auth + Document + Communication + Task events) by timestamp DESC
+    const allFormattedLogs = [
+      ...formattedAuthLogs,
+      ...formattedDocLogs,
+      ...formattedMessageLogs,
+      ...formattedTaskLogs,
+    ].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 

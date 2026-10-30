@@ -17,11 +17,16 @@ import {
   Trash2,
   Clock,
   FileText,
+  ListTodo,
+  CheckSquare,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
 export function getActionIcon(action = "") {
   const norm = action.toLowerCase();
+  if (norm.includes("task") || norm.includes("workflow") || norm.includes("subtask") || norm.includes("assign") || norm.includes("claim")) {
+    return <ListTodo className="w-3.5 h-3.5 text-emerald-600" />;
+  }
   if (norm.includes("download")) return <Download className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("upload")) return <Upload className="w-3.5 h-3.5 text-blue-600" />;
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
@@ -128,6 +133,30 @@ export default function AuditEventRow({
                 <span>{event.durationText}</span>
               </span>
             )}
+            {event.module === "Tasks & Workflow" && (
+              <div className="flex items-center gap-1.5 w-full mt-1.5 flex-wrap">
+                {event.metadata?.assignedTo && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-semibold border border-emerald-200">
+                    <span className="text-emerald-500 font-normal">To:</span> {event.metadata.assignedTo}
+                  </span>
+                )}
+                {event.metadata?.assignedBy && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] text-slate-500 bg-slate-100">
+                    By: {event.metadata.assignedBy}
+                  </span>
+                )}
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                  {event.metadata?.dealStage || "Preparation"}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                  event.metadata?.isCompleted || event.metadata?.status === 'DONE'
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}>
+                  {event.metadata?.currentStatus || "Active"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -198,6 +227,20 @@ export default function AuditEventRow({
               {event.resource || "User Portal Session"}
             </span>
           )
+        ) : moduleView === "Tasks & Workflow" || (moduleView === "all" && event.module === "Tasks & Workflow") ? (
+          <div className="flex items-start gap-2 min-w-0" title={event.resource || "Task"}>
+            <ListTodo size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div className="min-w-0 truncate">
+              <span className="font-bold text-slate-800 truncate block text-xs">
+                {event.resource || "Task"}
+              </span>
+              {event.metadata?.assignedBy && (
+                <span className="text-[10px] text-slate-400 font-medium truncate block">
+                  Assigned by: <strong className="text-slate-600">{event.metadata.assignedBy}</strong>
+                </span>
+              )}
+            </div>
+          </div>
         ) : moduleView === "Documents" || (moduleView === "all" && event.module === "Documents") ? (
           <div className="flex items-center gap-2 min-w-0" title={event.resource || "Document"}>
             <FileText size={14} className="text-sky-600 shrink-0" />
@@ -224,10 +267,34 @@ export default function AuditEventRow({
         )}
       </td>
 
-      {/* Channel / View Time (Only rendered for Documents, Communication, and All Modules; omitted for Authentication) */}
+      {/* Channel / View Time / Assignee & Status */}
       {moduleView !== "Authentication" && (
         <td className="px-4 py-3.5 whitespace-nowrap">
-          {moduleView === "Communication" || event.module === "Communication" ? (
+          {moduleView === "Tasks & Workflow" || event.module === "Tasks & Workflow" ? (
+            <div className="flex flex-col gap-1 min-w-0 max-w-[210px]">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-semibold text-[11px] border border-emerald-200/80 truncate"
+                title={`Assigned to: ${event.metadata?.assignedTo || 'Unassigned'}`}
+              >
+                <span className="text-emerald-500 font-normal shrink-0">To:</span>
+                <span className="truncate">{event.metadata?.assignedTo || event.channelName || "Team"}</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  {event.metadata?.dealStage || "Preparation"}
+                </span>
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wide ${
+                    event.metadata?.isCompleted || event.metadata?.status === 'DONE'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                  }`}
+                >
+                  {event.metadata?.currentStatus || (event.metadata?.status === 'DONE' ? 'Completed' : 'Active')}
+                </span>
+              </div>
+            </div>
+          ) : moduleView === "Communication" || event.module === "Communication" ? (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-semibold text-[11px] border border-indigo-200/80">
               #{event.channelName || event.metadata?.channelName || "General"}
             </span>
