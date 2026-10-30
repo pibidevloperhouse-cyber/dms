@@ -18,7 +18,7 @@ export async function POST(req) {
         // 1. Fetch document metadata
         const { data: doc, error: docErr } = await supabase
             .from('documents')
-            .select('name, folder_id, uploaded_by, creator_revoked, file_path, dek_ref, company_id')
+            .select('name, folder_id, uploaded_by, creator_revoked, file_path, dek_ref, company_id, is_redacted, workspace_id')
             .eq('id', docId)
             .single();
 
@@ -116,11 +116,20 @@ export async function POST(req) {
 
         const accessLogId = logRes?.id || null;
 
-        // Also record VIEW entry in document_edit_logs with IP address and access_log_id
+        // Check if document has an active redacted version
+        const { data: redDoc } = await supabase
+            .from('redacted_documents')
+            .select('redacted_path')
+            .eq('document_id', docId)
+            .maybeSingle();
+
+        const isRedactedDoc = Boolean(doc.is_redacted || redDoc?.redacted_path);
+
+        // Record VIEW entry in document_edit_logs with redaction fidelity
         await supabase.from('document_edit_logs').insert([{
             user_id: session.id,
             document_id: docId,
-            action_type: 'VIEW',
+            action_type: isRedactedDoc ? 'VIEW_REDACTED' : 'VIEW',
             metadata: {
                 ip_address: clientIp,
                 file_name: doc.name,
@@ -129,6 +138,9 @@ export async function POST(req) {
                 access_log_id: accessLogId,
                 duration_seconds: 0,
                 duration_formatted: '00:00',
+                is_redacted: isRedactedDoc,
+                document_version: isRedactedDoc ? 'V2' : 'V1',
+                redacted_path: redDoc?.redacted_path || null,
             },
             changed_at: new Date().toISOString()
         }]);

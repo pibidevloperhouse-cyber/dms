@@ -19,6 +19,8 @@ import {
   FileText,
   ListTodo,
   CheckSquare,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -27,6 +29,7 @@ export function getActionIcon(action = "") {
   if (norm.includes("task") || norm.includes("workflow") || norm.includes("subtask") || norm.includes("assign") || norm.includes("claim")) {
     return <ListTodo className="w-3.5 h-3.5 text-emerald-600" />;
   }
+  if (norm.includes("redact")) return <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />;
   if (norm.includes("download")) return <Download className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("upload")) return <Upload className="w-3.5 h-3.5 text-blue-600" />;
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
@@ -118,7 +121,19 @@ export default function AuditEventRow({
             <StatusBadge status={event.result} size="sm" showIcon={false} />
           </div>
           <p className="text-xs text-slate-600 font-medium truncate mb-1">
-            {event.action} — <span className="text-slate-800 font-semibold">{event.resource}</span>
+            <span className={event.isRedacted || event.action?.includes("Redact") ? "text-purple-700 font-bold" : "text-slate-800 font-semibold"}>
+              {event.action}
+            </span>{" "}
+            — <span className="text-slate-800 font-semibold">{event.resource}</span>
+            {event.module === "Documents" && (
+              <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                event.isRedacted || event.action?.includes("Redact")
+                  ? "bg-purple-100 text-purple-800 border border-purple-200"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}>
+                {event.isRedacted || event.action?.includes("Redact") ? "Redacted V2" : "Original V1"}
+              </span>
+            )}
           </p>
           <div suppressHydrationWarning className="flex items-center gap-2 text-[11px] text-slate-400 font-mono flex-wrap">
             <span>{date} {time} IST</span>
@@ -200,10 +215,14 @@ export default function AuditEventRow({
       {/* Action */}
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+          <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+            event.action?.includes("Redact") || event.isRedacted ? "bg-purple-50 text-purple-600" : "bg-slate-100"
+          }`}>
             {getActionIcon(event.action)}
           </span>
-          <span className="font-semibold text-slate-800 whitespace-nowrap">
+          <span className={`font-semibold whitespace-nowrap ${
+            event.action?.includes("Redact") || event.isRedacted ? "text-purple-900 font-bold" : "text-slate-800"
+          }`}>
             {event.action}
           </span>
         </div>
@@ -243,10 +262,19 @@ export default function AuditEventRow({
           </div>
         ) : moduleView === "Documents" || (moduleView === "all" && event.module === "Documents") ? (
           <div className="flex items-center gap-2 min-w-0" title={event.resource || "Document"}>
-            <FileText size={14} className="text-sky-600 shrink-0" />
+            <FileText size={14} className={event.isRedacted || event.action?.includes("Redact") ? "text-purple-600 shrink-0" : "text-sky-600 shrink-0"} />
             <span className="font-semibold text-slate-800 truncate text-xs">
               {event.resource || "Document"}
             </span>
+            {event.isRedacted || event.metadata?.is_redacted || event.action?.includes("Redact") ? (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                Redacted V2
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                Original V1
+              </span>
+            )}
           </div>
         ) : moduleView === "Communication" || (moduleView === "all" && event.module === "Communication") ? (
           <div className="flex items-center gap-2 min-w-0" title={event.resource || "Message"}>
@@ -299,8 +327,12 @@ export default function AuditEventRow({
               #{event.channelName || event.metadata?.channelName || "General"}
             </span>
           ) : event.durationText && event.durationText !== "—" ? (
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-mono font-semibold text-[11px] border border-sky-200/80">
-              <Clock size={11} className="text-sky-600 shrink-0" />
+            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-semibold text-[11px] border ${
+              event.isRedacted || event.action?.includes("Redact")
+                ? "bg-purple-50 text-purple-700 border-purple-200/80"
+                : "bg-sky-50 text-sky-700 border-sky-200/80"
+            }`}>
+              <Clock size={11} className={event.isRedacted || event.action?.includes("Redact") ? "text-purple-600 shrink-0" : "text-sky-600 shrink-0"} />
               <span>{event.durationText}</span>
             </div>
           ) : (

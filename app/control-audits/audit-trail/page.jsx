@@ -95,7 +95,11 @@ export default function AuditTrailPage() {
     });
 
     if (selectedModule === "Documents" || selectedModule === "all") {
-      set.add("Document View");
+      set.add("Document View (Redacted)");
+      set.add("Document View (Original)");
+      set.add("Document Redaction Applied");
+      set.add("Document Redaction Restored");
+      set.add("Document Download (Redacted)");
       set.add("Document Download (Secure)");
       set.add("Document Download (Original)");
       set.add("Document Upload");
@@ -1062,6 +1066,80 @@ export default function AuditTrailPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Document Redaction & Integrity Forensics Card */}
+            {selectedAuditLog.module === "Documents" && (
+              <div className="p-4 bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-slate-50 border border-purple-200/90 rounded-xl space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-purple-200/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      <ShieldCheck size={16} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800 block">
+                        Document Version & Redaction Forensics
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        {selectedAuditLog.resource}
+                      </h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide border shadow-2xs ${
+                        selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
+                          ? "bg-purple-600 text-white border-purple-600"
+                          : "bg-slate-200 text-slate-800 border-slate-300"
+                      }`}
+                    >
+                      {selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
+                        ? "Redacted (V2)"
+                        : "Original (V1)"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Specs Grid */}
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Redaction Mask Status
+                    </span>
+                    <p className="font-bold text-slate-800 text-xs">
+                      {selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
+                        ? "PII & Financial Clauses Masked"
+                        : "Full Original Disclosure"}
+                    </p>
+                    <span className="text-[10px] text-purple-700 block font-medium mt-0.5">
+                      {selectedAuditLog.isRedacted || selectedAuditLog.action?.includes("Redact") ? "V2 Immutable Copy" : "V1 Unaltered Document"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Deal Stage Governance
+                    </span>
+                    <p className="font-bold text-slate-800 text-xs">
+                      {selectedAuditLog.metadata?.dealStage || "Preparation Stage"}
+                    </p>
+                    <span className="text-[10px] text-slate-500 block font-medium mt-0.5">
+                      Audited Deal Data Room
+                    </span>
+                  </div>
+                </div>
+
+                {selectedAuditLog.redactedPath && (
+                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg text-xs">
+                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
+                      Redacted Storage Bucket & Path
+                    </span>
+                    <p className="font-mono text-[10px] text-purple-900 break-all">
+                      {selectedAuditLog.redactedPath}
+                    </p>
                   </div>
                 )}
               </div>

@@ -122,6 +122,29 @@ function ViewOnlyContent() {
         setFileType(detectedType);
         setFileUrl(resolvedUrl);
 
+        // Audit log: Redacted Document View
+        try {
+          const isRedactedDoc = Boolean(redactedDoc?.redacted_path || docData.is_redacted);
+          await supabase.from("document_edit_logs").insert([{
+            user_id: session.id,
+            document_id: docId,
+            action_type: isRedactedDoc ? "VIEW_REDACTED" : "VIEW",
+            metadata: {
+              file_name: docData.name,
+              folder_id: docData.folder_id,
+              workspace_id: docData.workspace_id,
+              is_redacted: isRedactedDoc,
+              document_version: isRedactedDoc ? "V2" : "V1",
+              redacted_path: redactedDoc?.redacted_path || null,
+              view_source: "Redaction Viewer",
+              duration_seconds: 0,
+              duration_formatted: "00:00",
+            },
+            changed_at: new Date().toISOString(),
+          }]);
+        } catch (logErr) {
+          console.warn("[RedactionView] Could not insert audit log:", logErr);
+        }
       } catch (err) {
         console.error(err);
         setError(err.message || "Failed to load document.");

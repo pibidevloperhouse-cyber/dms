@@ -24,9 +24,7 @@ export default function ControlsAuditHeader() {
                 DMS Governance
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              Enterprise compliance, stage progression & immutable audit ledger
-            </p>
+            
           </div>
         </div>
 
