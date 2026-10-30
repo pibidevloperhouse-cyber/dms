@@ -344,8 +344,8 @@ export default function GroupsSidebar({ isOpen = true }) {
     }, []);
 
     const handleCreateNewDepartment = (nameToCreate) => {
-        if (!['super_admin', 'admin'].includes(currentUserRole)) {
-            showToast('Only Admin and Super Admin can create departments', 'error');
+        if (!['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
+            showToast('Only Admin, Super Admin, Guest Admin, and Advisor can create departments', 'error');
             return;
         }
         const query = (nameToCreate || newGroupDepartment || customDeptInput || '').trim();
@@ -360,8 +360,8 @@ export default function GroupsSidebar({ isOpen = true }) {
     };
 
     const handleConfirmNewDept = () => {
-        if (!['super_admin', 'admin'].includes(currentUserRole)) {
-            showToast('Only Admin and Super Admin can create departments', 'error');
+        if (!['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
+            showToast('Only Admin, Super Admin, Guest Admin, and Advisor can create departments', 'error');
             return;
         }
         const trimmed = customDeptInput.trim();
@@ -480,8 +480,8 @@ export default function GroupsSidebar({ isOpen = true }) {
             // If in department creation mode and user typed a custom dept without clicking the small Create button
             const rawCustom = (typeof customDeptInput === 'string' ? customDeptInput : '').trim();
             if (!safeOverrideDept && isCreatingNewDept && rawCustom && !departments.includes(rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1))) {
-                if (!['super_admin', 'admin'].includes(currentUserRole)) {
-                    showToast('Only Admin and Super Admin can create departments', 'error');
+                if (!['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
+                    showToast('Only Admin, Super Admin, Guest Admin, and Advisor can create departments', 'error');
                     return;
                 }
                 const formatted = rawCustom.charAt(0).toUpperCase() + rawCustom.slice(1);
@@ -560,7 +560,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 }
 
                 // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = !isIndividual && ['super_admin', 'admin'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
+                const folderNameToCreate = !isIndividual && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
                 if (folderNameToCreate && session?.company_id) {
                     try {
                         await fetch('/api/documents/action', {
@@ -866,7 +866,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     <div className="p-5 border-t border-gray-100 bg-gray-50/30">
                         <button
                             onClick={() => {
-                                if (departments.length === 0 && ['super_admin', 'admin'].includes(currentUserRole)) {
+                                if (departments.length === 0 && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
                                     setIsCreatingNewDept(true);
                                     setCustomDeptInput('');
                                     setNewGroupDepartment('');
@@ -981,7 +981,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                     {dept}
                                                 </option>
                                             ))}
-                                            {['super_admin', 'admin'].includes(currentUserRole) && (
+                                            {['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && (
                                                 <option value="__new__">+ Create New Department...</option>
                                             )}
                                         </select>
