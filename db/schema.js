@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 // ENUMS
 export const companyStatusEnum = pgEnum('company_status', ['pending', 'active', 'suspended', 'rejected']);
 export const planStatusEnum = pgEnum('plan_status', ['active', 'expired', 'cancelled', 'trial']);
-export const userRoleEnum = pgEnum('user_role', ['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user']);
+export const userRoleEnum = pgEnum('user_role', ['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user', 'advisor']);
 export const userStatusEnum = pgEnum('user_status', ['invited', 'active', 'suspended', 'revoked']);
 export const permissionScopeEnum = pgEnum('permission_scope', ['group', 'document', 'folder', 'workspace', 'files']);
 export const channelTypeEnum = pgEnum('channel_type', ['public', 'private', 'direct_message']);
@@ -956,3 +956,4 @@ export const buyerDisclosureItems = pgTable('buyer_disclosure_items', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+                            

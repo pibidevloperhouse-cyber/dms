@@ -562,7 +562,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_access_qa: true, can_access_settings: true };
                 } else if (newGroupRole === 'internal_user') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_communication: true, can_access_qa: true, can_access_settings: true };
-                } else if (newGroupRole === 'guest_admin') {
+                } else if (newGroupRole === 'guest_admin' || newGroupRole === 'advisor') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_tasks: true, can_access_communication: true, can_access_qa: true };
                 } else if (newGroupRole === 'guest_lead') {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_groups: true, can_access_qa: true };
@@ -570,710 +570,710 @@ export default function GroupsSidebar({ isOpen = true }) {
                     workspacePerms = { ...workspacePerms, can_access_documents: true, can_access_qa: true };
                 }
 
-                if (['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user'].includes(newGroupRole)) {
-                    await supabase.from('permissions').insert([workspacePerms]);
-                }
-
-                // Create Documents folder now (after full form submission) if pending!
-                const folderNameToCreate = !isIndividual && !isBuyerSide && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
-                if (folderNameToCreate && session?.company_id) {
-                    try {
-                        await fetch('/api/documents/action', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                action: 'create_folder',
-                                payload: {
-                                    parentId: null,
-                                    name: folderNameToCreate
-                                },
-                                session
-                            })
-                        });
-                        // Do NOT auto-assign folder permissions to the newly created group.
-                        // The folder is created with created_by: session.id (super admin)
-                        // and remains strictly visible only to the creator until they explicitly grant access.
-                    } catch (permErr) {
-                        console.warn("Could not create folder:", permErr);
+                    if (['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'guest_lead', 'external_user', 'advisor'].includes(newGroupRole)) {
+                        await supabase.from('permissions').insert([workspacePerms]);
                     }
-                }
 
-                if (newGroupType === 'individual' && newGroupEmail.trim()) {
-                    try {
-                        const inviteRes = await fetch('/api/invite', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                email: newGroupEmail.trim(),
-                                description: newGroupDescription.trim(),
-                                group_id: data.id,
-                                invited_by: session?.id,
-                                requires_nda: false
-                            })
-                        });
-                        const inviteData = await inviteRes.json();
-                        if (inviteData.error) {
-                            alert(`Group created but invite failed: ${inviteData.error}`);
-                        } else {
-                            alert(`Individual created and invite generated successfully!\n\nInvite Link (also printed in terminal):\n${inviteData.registrationUrl}`);
+                    // Create Documents folder now (after full form submission) if pending!
+                    const folderNameToCreate = !isIndividual && !isBuyerSide && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && ((typeof linkedFolderId === 'string' ? linkedFolderId : null) || pendingFolderToCreate);
+                    if (folderNameToCreate && session?.company_id) {
+                        try {
+                            await fetch('/api/documents/action', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    action: 'create_folder',
+                                    payload: {
+                                        parentId: null,
+                                        name: folderNameToCreate
+                                    },
+                                    session
+                                })
+                            });
+                            // Do NOT auto-assign folder permissions to the newly created group.
+                            // The folder is created with created_by: session.id (super admin)
+                            // and remains strictly visible only to the creator until they explicitly grant access.
+                        } catch (permErr) {
+                            console.warn("Could not create folder:", permErr);
                         }
-                    } catch (err) {
-                        console.error("Failed to send invite:", err);
-                        alert("Group created but failed to trigger invite: " + err.message);
                     }
-                }
 
-                if (isIndividual) {
-                    setSellerMembers(prev => [{
-                        id: data.id,
-                        name: data.name || finalGroupName,
-                        email: newGroupEmail.trim(),
-                        role: data.role || '',
-                        isIndividualGroup: true
-                    }, ...prev]);
+                    if (newGroupType === 'individual' && newGroupEmail.trim()) {
+                        try {
+                            const inviteRes = await fetch('/api/invite', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    email: newGroupEmail.trim(),
+                                    description: newGroupDescription.trim(),
+                                    group_id: data.id,
+                                    invited_by: session?.id,
+                                    requires_nda: false
+                                })
+                            });
+                            const inviteData = await inviteRes.json();
+                            if (inviteData.error) {
+                                alert(`Group created but invite failed: ${inviteData.error}`);
+                            } else {
+                                alert(`Individual created and invite generated successfully!\n\nInvite Link (also printed in terminal):\n${inviteData.registrationUrl}`);
+                            }
+                        } catch (err) {
+                            console.error("Failed to send invite:", err);
+                            alert("Group created but failed to trigger invite: " + err.message);
+                        }
+                    }
+
+                    if (isIndividual) {
+                        setSellerMembers(prev => [{
+                            id: data.id,
+                            name: data.name || finalGroupName,
+                            email: newGroupEmail.trim(),
+                            role: data.role || '',
+                            isIndividualGroup: true
+                        }, ...prev]);
+                    } else {
+                        setNavItems(prev => [{
+                            id: data.id,
+                            name: data.name,
+                            href: `/groups/${data.id}`,
+                            role: data.role || '',
+                            department: finalDept
+                        }, ...prev]);
+
+                        // Automatically expand this department so the new group is immediately visible
+                        setExpandedDepts(prev => ({ ...prev, [finalDept]: true }));
+                    }
+
+                    showToast(isIndividual ? "Individual member created successfully!" : "Group created successfully!", 'success');
+
+                    closeAddGroupModal();
                 } else {
-                    setNavItems(prev => [{
-                        id: data.id,
-                        name: data.name,
-                        href: `/groups/${data.id}`,
-                        role: data.role || '',
-                        department: finalDept
-                    }, ...prev]);
-
-                    // Automatically expand this department so the new group is immediately visible
-                    setExpandedDepts(prev => ({ ...prev, [finalDept]: true }));
+                    alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
+                    console.error("Group creation error:", error);
                 }
-
-                showToast(isIndividual ? "Individual member created successfully!" : "Group created successfully!", 'success');
-
-                closeAddGroupModal();
-            } else {
-                alert(`Failed to create group: ${error?.message || 'Unknown error'}`);
-                console.error("Group creation error:", error);
+            } finally {
+                setIsSubmitting(false);
             }
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+        };
 
-    return (
-        <>
-            <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
-                <div
-                    className="flex-1 overflow-y-auto pb-6 white-scrollbar"
-                    style={{
-                        scrollbarColor: '#ffffff transparent',
-                        scrollbarWidth: 'thin'
-                    }}
-                >
-                    {guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
-                        <>
-                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                                <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
-                            </div>
-                            <nav className="py-3 space-y-1 mb-2">
-                                <Link
-                                    href="/groups/buyer-member"
-                                    className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
-                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
+        return (
+            <>
+                <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
+                    <div
+                        className="flex-1 overflow-y-auto pb-6 white-scrollbar"
+                        style={{
+                            scrollbarColor: '#ffffff transparent',
+                            scrollbarWidth: 'thin'
+                        }}
+                    >
+                        {guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
+                            <>
+                                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                    <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
+                                </div>
+                                <nav className="py-3 space-y-1 mb-2">
+                                    <Link
+                                        href="/groups/buyer-member"
+                                        className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
+                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
                                         ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
-                                        <span className="font-bold font-sans text-[13px]">{guestLead.name?.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                    <div className="flex flex-col flex-1 truncate">
-                                        <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
-                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Advisor</span>
-                                    </div>
-                                </Link>
-                            </nav>
-                        </>
-                    )}
+                                            <span className="font-bold font-sans text-[13px]">{guestLead.name?.charAt(0).toUpperCase()}</span>
+                                        </div>
+                                        <div className="flex flex-col flex-1 truncate">
+                                            <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
+                                            <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Advisor</span>
+                                        </div>
+                                    </Link>
+                                </nav>
+                            </>
+                        )}
 
-                    {(currentUserRole === 'super_admin' || (!isBuyerSide && ['admin', 'sub_admin', 'internal_user', 'user'].includes(currentUserRole)) || sellerMembers.length > 0) && (
-                        <>
-                            <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
-                                <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
-                            </div>
+                        {(currentUserRole === 'super_admin' || (!isBuyerSide && ['admin', 'sub_admin', 'internal_user', 'user'].includes(currentUserRole)) || sellerMembers.length > 0) && (
+                            <>
+                                <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
+                                    <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
+                                </div>
 
-                            <nav className="py-3 space-y-1 mb-2">
-                                {sellerMembers.length === 0 ? (
-                                    <div className="px-5 py-2 text-xs text-gray-400 italic">No members found</div>
-                                ) : (
-                                    sellerMembers.map((seller) => (
-                                        <Link
-                                            href={`/groups/${seller.id}`}
-                                            key={seller.id}
-                                            className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
-                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                                : 'text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-3 truncate">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
-                                                    }`}>
-                                                    <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
-                                                </div>
-                                                <div className="flex flex-col flex-1 truncate">
-                                                    <span className="font-sans text-[14px] truncate">{seller.name}</span>
-                                                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
-                                                        {ROLE_LABELS[seller.role] || (seller.role || '').replace('_', ' ')}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1 shrink-0">
-                                                {canDeleteGroup && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setDeleteTarget({
-                                                                id: seller.id,
-                                                                name: seller.name,
-                                                                isUser: !seller.isIndividualGroup,
-                                                                isIndividualGroup: seller.isIndividualGroup
-                                                            });
-                                                        }}
-                                                        className="text-gray-400 hover:text-red-500 transition-colors"
-                                                        title="Delete member"
-                                                    >
-                                                        {TRASH_ICON}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </Link>
-                                    ))
-                                )}
-                            </nav>
-                        </>
-                    )}
-
-                    <div className={`p-5 border-b border-gray-100 flex items-center justify-between border-t mt-2`}>
-                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">
-                            {isBuyerSide ? 'Group Members' : 'Seller Group Members'}
-                        </h2>
-                    </div>
-
-                    <nav className="py-3 space-y-1">
-                        {isLoading ? (
-                            <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-100 rounded w-full"></div></div>
-                        ) : (
-                            (() => {
-                                const allKnownDepts = Array.from(new Set(
-                                    navItems.map(g => g.department || 'General').filter(Boolean)
-                                ));
-
-                                if (allKnownDepts.length === 0) {
-                                    return (
-                                        <div className="px-5 py-4 text-xs text-gray-400 italic">No groups found</div>
-                                    );
-                                }
-
-                                return allKnownDepts.map((deptName) => {
-                                    const deptGroups = navItems.filter(g => (g.department || 'General').toLowerCase() === deptName.toLowerCase());
-                                    const isExpanded = !!expandedDepts[deptName]; // collapsed by default, expands only on click
-
-                                    return (
-                                        <div key={deptName} className="mx-2 mb-1">
-                                            {/* Department Header Button */}
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleDept(deptName)}
-                                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${isExpanded
-                                                    ? 'bg-gray-100/90 text-gray-900 font-semibold'
-                                                    : 'text-gray-700 hover:bg-gray-50'
+                                <nav className="py-3 space-y-1 mb-2">
+                                    {sellerMembers.length === 0 ? (
+                                        <div className="px-5 py-2 text-xs text-gray-400 italic">No members found</div>
+                                    ) : (
+                                        sellerMembers.map((seller) => (
+                                            <Link
+                                                href={`/groups/${seller.id}`}
+                                                key={seller.id}
+                                                className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
+                                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                    : 'text-gray-600 hover:bg-gray-50'
                                                     }`}
                                             >
-                                                <div className="flex items-center truncate">
-                                                    <span className="font-sans text-[13px] tracking-tight truncate capitalize font-medium">{deptName}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
+                                                <div className="flex items-center gap-3 truncate">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm ${pathname === `/groups/${seller.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"
                                                         }`}>
-                                                        {deptGroups.length}
-                                                    </span>
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        width="14"
-                                                        height="14"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-gray-700' : ''}`}
-                                                    >
-                                                        <polyline points="9 18 15 12 9 6" />
-                                                    </svg>
+                                                        <span className="font-bold font-sans text-[13px]">{seller.name?.charAt(0).toUpperCase()}</span>
+                                                    </div>
+                                                    <div className="flex flex-col flex-1 truncate">
+                                                        <span className="font-sans text-[14px] truncate">{seller.name}</span>
+                                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">
+                                                            {ROLE_LABELS[seller.role] || (seller.role || '').replace('_', ' ')}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </button>
-
-                                            {/* Expanded Groups list in a scroll manner */}
-                                            {isExpanded && (
-                                                <div
-                                                    className="mt-1 ml-3.5 pl-2.5 border-l-2 border-white max-h-48 overflow-y-auto space-y-1 py-1 pr-1 white-scrollbar"
-                                                    style={{
-                                                        scrollbarColor: '#ffffff transparent',
-                                                        scrollbarWidth: 'thin'
-                                                    }}
-                                                >
-                                                    {deptGroups.length === 0 ? (
-                                                        <div className="py-2 px-3 text-xs text-gray-400 italic">
-                                                            Empty
-                                                        </div>
-                                                    ) : (
-                                                        deptGroups.map((item) => {
-                                                            const active = pathname === item.href;
-                                                            return (
-                                                                <Link
-                                                                    key={item.id}
-                                                                    href={item.href}
-                                                                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${active
-                                                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                                                        : 'text-gray-600 hover:bg-gray-50'
-                                                                        }`}
-                                                                >
-                                                                    <div className="flex items-center gap-2 truncate">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>
-                                                                            {GROUP_ICON}
-                                                                        </svg>
-                                                                        <span className="text-[13px] font-sans truncate max-w-[115px]">{item.name}</span>
-                                                                    </div>
-
-                                                                    <div className="flex flex-col items-end gap-1 shrink-0">
-                                                                        {canDeleteGroup && (
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    e.stopPropagation();
-                                                                                    setDeleteTarget({ id: item.id, name: item.name });
-                                                                                }}
-                                                                                className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
-                                                                                title="Delete group"
-                                                                            >
-                                                                                {TRASH_ICON}
-                                                                            </button>
-                                                                        )}
-                                                                        {item.role && (
-                                                                            <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">
-                                                                                {ROLE_LABELS[item.role] || item.role.replace('_', ' ')}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </Link>
-                                                            );
-                                                        })
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    {canDeleteGroup && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setDeleteTarget({
+                                                                    id: seller.id,
+                                                                    name: seller.name,
+                                                                    isUser: !seller.isIndividualGroup,
+                                                                    isIndividualGroup: seller.isIndividualGroup
+                                                                });
+                                                            }}
+                                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                                            title="Delete member"
+                                                        >
+                                                            {TRASH_ICON}
+                                                        </button>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                });
-                            })()
+                                            </Link>
+                                        ))
+                                    )}
+                                </nav>
+                            </>
                         )}
-                    </nav>
-                </div>
 
-                {canCreateGroup && (
-                    <div className="p-5 border-t border-gray-100 bg-gray-50/30">
-                        <button
-                            onClick={() => {
-                                if (departments.length === 0 && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
-                                    setIsCreatingNewDept(true);
-                                    setCustomDeptInput('');
-                                    setNewGroupDepartment('');
-                                } else {
-                                    setIsCreatingNewDept(false);
-                                    setCustomDeptInput('');
-                                    setNewGroupDepartment(departments[0] || '');
-                                }
-                                setNewGroupType('group');
-                                setNewGroupRole('');
-                                setIsAddGroupModalOpen(true);
-                            }}
-                            className="w-full py-2.5 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-[13px] hover:bg-[var(--brand-dark)] transition-all flex items-center justify-center gap-2 shadow-sm"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                            Add Groups
-                        </button>
-                    </div>
-                )}
-            </aside>
-
-            {/* ── Delete Confirmation Modal ─────────────────────────────── */}
-            {deleteTarget && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl font-sans">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500">
-                                {TRASH_ICON}
-                            </div>
-                            <h3 className="text-[16px] font-bold font-sans text-gray-800">Delete Group</h3>
+                        <div className={`p-5 border-b border-gray-100 flex items-center justify-between border-t mt-2`}>
+                            <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">
+                                {isBuyerSide ? 'Group Members' : 'Seller Group Members'}
+                            </h2>
                         </div>
-                        <p className="text-[14px] font-sans text-gray-600 mb-1">
-                            Are you sure you want to delete
-                        </p>
-                        <p className="text-[14px] font-bold font-sans text-gray-900 mb-5">
-                            "{deleteTarget.name}"?
-                        </p>
-                        <p className="text-[12px] font-sans text-red-500 mb-6">
-                            ⚠ This action cannot be undone. All members in this group will be unlinked.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteTarget(null)}
-                                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans text-[13px] hover:bg-gray-200 transition"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteGroup}
-                                disabled={isDeleting}
-                                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-bold font-sans text-[13px] hover:bg-red-700 transition disabled:opacity-50"
-                            >
-                                {isDeleting ? "Deleting..." : "Yes, Delete"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* ── Add Group Modal (img1) ────────────────────────────────── */}
-            {isAddGroupModalOpen && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
-                    <div className="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 font-sans max-h-[92vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold font-sans text-gray-800 uppercase">Create New Group</h3>
-                            <button
-                                onClick={closeAddGroupModal}
-                                className="text-gray-400 hover:text-black font-sans"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {/* 1st Field: Type */}
-                            <div>
-                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Type</label>
-                                <select
-                                    value={newGroupType}
-                                    onChange={e => {
-                                        setNewGroupType(e.target.value);
-                                        setNewGroupRole('');
-                                    }}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                >
-                                    <option value="group">Group</option>
-                                    <option value="individual">Individual</option>
-                                </select>
-                            </div>
+                        <nav className="py-3 space-y-1">
+                            {isLoading ? (
+                                <div className="p-6 space-y-4 animate-pulse"><div className="h-4 bg-gray-100 rounded w-full"></div></div>
+                            ) : (
+                                (() => {
+                                    const allKnownDepts = Array.from(new Set(
+                                        navItems.map(g => g.department || 'General').filter(Boolean)
+                                    ));
 
-                            {/* 2nd Field: Department (hidden if Individual) */}
-                            {newGroupType !== 'individual' && (
-                                <div>
-                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">
-                                        Department
-                                    </label>
-                                    {!isCreatingNewDept ? (
-                                        <select
-                                            value={newGroupDepartment || ''}
-                                            onChange={(e) => {
-                                                if (e.target.value === '__new__') {
-                                                    setIsCreatingNewDept(true);
-                                                    setCustomDeptInput('');
-                                                } else {
-                                                    setNewGroupDepartment(e.target.value);
-                                                }
-                                            }}
-                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                        >
-                                            <option value="" disabled>Select Department</option>
-                                            {departments.map((dept) => (
-                                                <option key={dept} value={dept}>
-                                                    {dept}
-                                                </option>
-                                            ))}
-                                            {['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && (
-                                                <option value="__new__">+ Create New Department...</option>
-                                            )}
-                                        </select>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={customDeptInput}
-                                                onChange={(e) => setCustomDeptInput(e.target.value)}
-                                                placeholder="Enter department name..."
-                                                autoFocus
-                                                className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        handleConfirmNewDept();
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleConfirmNewDept}
-                                                disabled={!customDeptInput.trim()}
-                                                className="px-4 py-3 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-xs hover:bg-[var(--brand-dark)] transition-all disabled:opacity-50 shrink-0"
-                                            >
-                                                Create
-                                            </button>
-                                            {departments.length > 0 && (
+                                    if (allKnownDepts.length === 0) {
+                                        return (
+                                            <div className="px-5 py-4 text-xs text-gray-400 italic">No groups found</div>
+                                        );
+                                    }
+
+                                    return allKnownDepts.map((deptName) => {
+                                        const deptGroups = navItems.filter(g => (g.department || 'General').toLowerCase() === deptName.toLowerCase());
+                                        const isExpanded = !!expandedDepts[deptName]; // collapsed by default, expands only on click
+
+                                        return (
+                                            <div key={deptName} className="mx-2 mb-1">
+                                                {/* Department Header Button */}
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        setIsCreatingNewDept(false);
-                                                        setCustomDeptInput('');
-                                                    }}
-                                                    className="px-3 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold font-sans text-xs hover:bg-gray-200 transition-all shrink-0"
-                                                    title="Back to dropdown"
+                                                    onClick={() => toggleDept(deptName)}
+                                                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${isExpanded
+                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold'
+                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                        }`}
                                                 >
-                                                    ✕
+                                                    <div className="flex items-center truncate">
+                                                        <span className="font-sans text-[13px] tracking-tight truncate capitalize font-medium">{deptName}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deptGroups.length > 0 ? 'bg-[var(--brand-50)] text-[var(--brand)]' : 'bg-gray-200/70 text-gray-500'
+                                                            }`}>
+                                                            {deptGroups.length}
+                                                        </span>
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="14"
+                                                            height="14"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2.5"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-gray-700' : ''}`}
+                                                        >
+                                                            <polyline points="9 18 15 12 9 6" />
+                                                        </svg>
+                                                    </div>
                                                 </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+
+                                                {/* Expanded Groups list in a scroll manner */}
+                                                {isExpanded && (
+                                                    <div
+                                                        className="mt-1 ml-3.5 pl-2.5 border-l-2 border-white max-h-48 overflow-y-auto space-y-1 py-1 pr-1 white-scrollbar"
+                                                        style={{
+                                                            scrollbarColor: '#ffffff transparent',
+                                                            scrollbarWidth: 'thin'
+                                                        }}
+                                                    >
+                                                        {deptGroups.length === 0 ? (
+                                                            <div className="py-2 px-3 text-xs text-gray-400 italic">
+                                                                Empty
+                                                            </div>
+                                                        ) : (
+                                                            deptGroups.map((item) => {
+                                                                const active = pathname === item.href;
+                                                                return (
+                                                                    <Link
+                                                                        key={item.id}
+                                                                        href={item.href}
+                                                                        className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${active
+                                                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                                            : 'text-gray-600 hover:bg-gray-50'
+                                                                            }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-2 truncate">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={active ? 'text-[var(--brand)]' : 'text-gray-400'}>
+                                                                                {GROUP_ICON}
+                                                                            </svg>
+                                                                            <span className="text-[13px] font-sans truncate max-w-[115px]">{item.name}</span>
+                                                                        </div>
+
+                                                                        <div className="flex flex-col items-end gap-1 shrink-0">
+                                                                            {canDeleteGroup && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        setDeleteTarget({ id: item.id, name: item.name });
+                                                                                    }}
+                                                                                    className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
+                                                                                    title="Delete group"
+                                                                                >
+                                                                                    {TRASH_ICON}
+                                                                                </button>
+                                                                            )}
+                                                                            {item.role && (
+                                                                                <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">
+                                                                                    {ROLE_LABELS[item.role] || item.role.replace('_', ' ')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </Link>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    });
+                                })()
                             )}
+                        </nav>
+                    </div>
 
-                            {/* 3rd Field: Group Name or Email Address */}
-                            {newGroupType !== 'individual' ? (
-                                <div>
-                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
-                                    <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
+                    {canCreateGroup && (
+                        <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+                            <button
+                                onClick={() => {
+                                    if (departments.length === 0 && ['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole)) {
+                                        setIsCreatingNewDept(true);
+                                        setCustomDeptInput('');
+                                        setNewGroupDepartment('');
+                                    } else {
+                                        setIsCreatingNewDept(false);
+                                        setCustomDeptInput('');
+                                        setNewGroupDepartment(departments[0] || '');
+                                    }
+                                    setNewGroupType('group');
+                                    setNewGroupRole('');
+                                    setIsAddGroupModalOpen(true);
+                                }}
+                                className="w-full py-2.5 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-[13px] hover:bg-[var(--brand-dark)] transition-all flex items-center justify-center gap-2 shadow-sm"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                Add Groups
+                            </button>
+                        </div>
+                    )}
+                </aside>
+
+                {/* ── Delete Confirmation Modal ─────────────────────────────── */}
+                {deleteTarget && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4">
+                        <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl font-sans">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+                                    {TRASH_ICON}
                                 </div>
-                            ) : (
-                                <div>
-                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Email Address</label>
-                                    <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
-                                </div>
-                            )}
-
-                            {/* 4th Field: Role */}
-                            <div>
-                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Role</label>
-                                <select
-                                    value={newGroupRole}
-                                    onChange={e => setNewGroupRole(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
-                                >
-                                    <option value="" disabled>Select Role</option>
-                                    {isBuyerSide ? (
-                                        <>
-                                            {newGroupType === 'individual' ? (
-                                                <option value="advisor">Advisor</option>
-                                            ) : (
-                                                <>
-                                                    <option value="guest_lead">Guest Lead</option>
-                                                    <option value="external_user">External User</option>
-                                                </>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {newGroupType === 'individual' ? (
-                                                <>
-                                                    <option value="super_admin">Super Admin</option>
-                                                    <option value="admin">Admin</option>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <option value="sub_admin">Sub Admin</option>
-                                                    <option value="internal_user">Internal User</option>
-                                                </>
-                                            )}
-                                        </>
-                                    )}
-                                </select>
+                                <h3 className="text-[16px] font-bold font-sans text-gray-800">Delete Group</h3>
                             </div>
-
-                            {/* 5th Field: Description */}
-                            <div>
-                                <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Description</label>
-                                <textarea value={newGroupDescription} onChange={e => setNewGroupDescription(e.target.value)} placeholder="Description (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] resize-none text-black font-sans text-sm" rows="3" />
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
+                            <p className="text-[14px] font-sans text-gray-600 mb-1">
+                                Are you sure you want to delete
+                            </p>
+                            <p className="text-[14px] font-bold font-sans text-gray-900 mb-5">
+                                "{deleteTarget.name}"?
+                            </p>
+                            <p className="text-[12px] font-sans text-red-500 mb-6">
+                                ⚠ This action cannot be undone. All members in this group will be unlinked.
+                            </p>
+                            <div className="flex gap-3">
                                 <button
-                                    onClick={closeAddGroupModal}
-                                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans"
+                                    onClick={() => setDeleteTarget(null)}
+                                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans text-[13px] hover:bg-gray-200 transition"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={() => handleCreateGroup()}
-                                    disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || (newGroupType !== 'individual' && !(newGroupDepartment.trim() || customDeptInput.trim())) || isSubmitting}
-                                    className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50"
+                                    onClick={handleDeleteGroup}
+                                    disabled={isDeleting}
+                                    className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-bold font-sans text-[13px] hover:bg-red-700 transition disabled:opacity-50"
                                 >
-                                    {isSubmitting ? "Creating..." : "Create"}
+                                    {isDeleting ? "Deleting..." : "Yes, Delete"}
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ── Compact Folder Suggestion Modal ───────────────────────── */}
-            {!isBuyerSide && folderSuggestion.isOpen && (
-                <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[250] p-4 animate-in fade-in duration-150">
-                    <div className="bg-white rounded-2xl p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 font-sans animate-in zoom-in-95 duration-150">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[var(--brand,#1C7F9F)] border border-teal-100 flex items-center justify-center shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-                                        <line x1="12" y1="10" x2="12" y2="16" />
-                                        <line x1="9" y1="13" x2="15" y2="13" />
-                                    </svg>
-                                </div>
-                                <div className="min-w-0">
-                                    <h4 className="text-sm font-bold text-gray-900 leading-tight truncate">Folder Suggestion</h4>
-                                    <p className="text-[11px] text-gray-500 truncate">Documents Section</p>
-                                </div>
+                {/* ── Add Group Modal (img1) ────────────────────────────────── */}
+                {isAddGroupModalOpen && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
+                        <div className="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 font-sans max-h-[92vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold font-sans text-gray-800 uppercase">Create New Group</h3>
+                                <button
+                                    onClick={closeAddGroupModal}
+                                    className="text-gray-400 hover:text-black font-sans"
+                                >
+                                    ✕
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition text-xs font-bold shrink-0"
-                                title="Close"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Question */}
-                        <p className="text-xs text-gray-600 mb-3 leading-snug">
-                            Create a documents folder for <span className="font-bold text-gray-900">"{folderSuggestion.deptName}"</span>?
-                        </p>
-
-                        {/* 2 Options */}
-                        <div className="space-y-2 mb-4">
-                            {/* Option 1: Use Department Name */}
-                            <div
-                                onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
-                                className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'dept_name'
-                                    ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
-                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                    <input
-                                        type="radio"
-                                        id="compact_choice_dept"
-                                        name="compact_folder_choice"
-                                        checked={folderSuggestion.mode === 'dept_name'}
-                                        onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
-                                        className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
-                                    />
-                                    <label htmlFor="compact_choice_dept" className="text-xs font-semibold text-gray-800 cursor-pointer flex items-center gap-1.5 truncate">
-                                        <span>📁</span>
-                                        <span className="truncate">{folderSuggestion.deptName}</span>
-                                    </label>
-                                </div>
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--brand,#1C7F9F)] text-white shrink-0">
-                                    Default
-                                </span>
-                            </div>
-
-                            {/* Option 2: Custom / Suggested Name */}
-                            <div
-                                onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
-                                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'custom'
-                                    ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
-                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <input
-                                        type="radio"
-                                        id="compact_choice_custom"
-                                        name="compact_folder_choice"
-                                        checked={folderSuggestion.mode === 'custom'}
-                                        onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
-                                        className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
-                                    />
-                                    <label htmlFor="compact_choice_custom" className="text-xs font-semibold text-gray-800 cursor-pointer">
-                                        Custom folder name
-                                    </label>
+                            <div className="space-y-4">
+                                {/* 1st Field: Type */}
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Type</label>
+                                    <select
+                                        value={newGroupType}
+                                        onChange={e => {
+                                            setNewGroupType(e.target.value);
+                                            setNewGroupRole('');
+                                        }}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                    >
+                                        <option value="group">Group</option>
+                                        <option value="individual">Individual</option>
+                                    </select>
                                 </div>
 
-                                {folderSuggestion.mode === 'custom' && (
-                                    <div className="mt-2 pt-1 border-t border-teal-100">
-                                        <input
-                                            type="text"
-                                            value={folderSuggestion.customName}
-                                            onChange={(e) => setFolderSuggestion(prev => ({ ...prev, customName: e.target.value }))}
-                                            placeholder="Enter folder name..."
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleConfirmFolderDecision();
-                                                }
-                                            }}
-                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-sans text-gray-900 outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-[var(--brand)]"
-                                        />
+                                {/* 2nd Field: Department (hidden if Individual) */}
+                                {newGroupType !== 'individual' && (
+                                    <div>
+                                        <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">
+                                            Department
+                                        </label>
+                                        {!isCreatingNewDept ? (
+                                            <select
+                                                value={newGroupDepartment || ''}
+                                                onChange={(e) => {
+                                                    if (e.target.value === '__new__') {
+                                                        setIsCreatingNewDept(true);
+                                                        setCustomDeptInput('');
+                                                    } else {
+                                                        setNewGroupDepartment(e.target.value);
+                                                    }
+                                                }}
+                                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                            >
+                                                <option value="" disabled>Select Department</option>
+                                                {departments.map((dept) => (
+                                                    <option key={dept} value={dept}>
+                                                        {dept}
+                                                    </option>
+                                                ))}
+                                                {['super_admin', 'admin', 'guest_admin', 'advisor'].includes(currentUserRole) && (
+                                                    <option value="__new__">+ Create New Department...</option>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={customDeptInput}
+                                                    onChange={(e) => setCustomDeptInput(e.target.value)}
+                                                    placeholder="Enter department name..."
+                                                    autoFocus
+                                                    className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            handleConfirmNewDept();
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleConfirmNewDept}
+                                                    disabled={!customDeptInput.trim()}
+                                                    className="px-4 py-3 bg-[var(--brand)] text-white rounded-lg font-bold font-sans text-xs hover:bg-[var(--brand-dark)] transition-all disabled:opacity-50 shrink-0"
+                                                >
+                                                    Create
+                                                </button>
+                                                {departments.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsCreatingNewDept(false);
+                                                            setCustomDeptInput('');
+                                                        }}
+                                                        className="px-3 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold font-sans text-xs hover:bg-gray-200 transition-all shrink-0"
+                                                        title="Back to dropdown"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
+
+                                {/* 3rd Field: Group Name or Email Address */}
+                                {newGroupType !== 'individual' ? (
+                                    <div>
+                                        <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Group Name</label>
+                                        <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Enter group name..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Email Address</label>
+                                        <input type="email" value={newGroupEmail} onChange={e => setNewGroupEmail(e.target.value)} placeholder="Enter email address..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm" />
+                                    </div>
+                                )}
+
+                                {/* 4th Field: Role */}
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Role</label>
+                                    <select
+                                        value={newGroupRole}
+                                        onChange={e => setNewGroupRole(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] text-black font-sans text-sm"
+                                    >
+                                        <option value="" disabled>Select Role</option>
+                                        {isBuyerSide ? (
+                                            <>
+                                                {newGroupType === 'individual' ? (
+                                                    <option value="advisor">Advisor</option>
+                                                ) : (
+                                                    <>
+                                                        <option value="guest_lead">Guest Lead</option>
+                                                        <option value="external_user">External User</option>
+                                                    </>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {newGroupType === 'individual' ? (
+                                                    <>
+                                                        <option value="super_admin">Super Admin</option>
+                                                        <option value="admin">Admin</option>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <option value="sub_admin">Sub Admin</option>
+                                                        <option value="internal_user">Internal User</option>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </select>
+                                </div>
+
+                                {/* 5th Field: Description */}
+                                <div>
+                                    <label className="block text-xs font-bold font-sans text-black uppercase tracking-widest mb-2">Description</label>
+                                    <textarea value={newGroupDescription} onChange={e => setNewGroupDescription(e.target.value)} placeholder="Description (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[var(--brand)] resize-none text-black font-sans text-sm" rows="3" />
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={closeAddGroupModal}
+                                        className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold font-sans"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => handleCreateGroup()}
+                                        disabled={(newGroupType === 'individual' ? !newGroupEmail.trim() : !newGroupName.trim()) || !newGroupRole || (newGroupType !== 'individual' && !(newGroupDepartment.trim() || customDeptInput.trim())) || isSubmitting}
+                                        className="flex-1 py-3 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? "Creating..." : "Create"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                )}
 
-                        {/* Actions */}
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
-                                disabled={folderSuggestion.isSubmitting}
-                                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold font-sans text-xs transition"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleConfirmFolderDecision}
-                                disabled={folderSuggestion.mode === 'custom' && !folderSuggestion.customName.trim()}
-                                className="flex-1 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans text-xs transition shadow-xs disabled:opacity-50 flex items-center justify-center gap-1"
-                            >
-                                Save
-                            </button>
+                {/* ── Compact Folder Suggestion Modal ───────────────────────── */}
+                {!isBuyerSide && folderSuggestion.isOpen && (
+                    <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[250] p-4 animate-in fade-in duration-150">
+                        <div className="bg-white rounded-2xl p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 font-sans animate-in zoom-in-95 duration-150">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-[var(--brand,#1C7F9F)] border border-teal-100 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                                            <line x1="12" y1="10" x2="12" y2="16" />
+                                            <line x1="9" y1="13" x2="15" y2="13" />
+                                        </svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h4 className="text-sm font-bold text-gray-900 leading-tight truncate">Folder Suggestion</h4>
+                                        <p className="text-[11px] text-gray-500 truncate">Documents Section</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition text-xs font-bold shrink-0"
+                                    title="Close"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Question */}
+                            <p className="text-xs text-gray-600 mb-3 leading-snug">
+                                Create a documents folder for <span className="font-bold text-gray-900">"{folderSuggestion.deptName}"</span>?
+                            </p>
+
+                            {/* 2 Options */}
+                            <div className="space-y-2 mb-4">
+                                {/* Option 1: Use Department Name */}
+                                <div
+                                    onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
+                                    className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'dept_name'
+                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                            type="radio"
+                                            id="compact_choice_dept"
+                                            name="compact_folder_choice"
+                                            checked={folderSuggestion.mode === 'dept_name'}
+                                            onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
+                                            className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
+                                        />
+                                        <label htmlFor="compact_choice_dept" className="text-xs font-semibold text-gray-800 cursor-pointer flex items-center gap-1.5 truncate">
+                                            <span>📁</span>
+                                            <span className="truncate">{folderSuggestion.deptName}</span>
+                                        </label>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--brand,#1C7F9F)] text-white shrink-0">
+                                        Default
+                                    </span>
+                                </div>
+
+                                {/* Option 2: Custom / Suggested Name */}
+                                <div
+                                    onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
+                                    className={`p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'custom'
+                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <input
+                                            type="radio"
+                                            id="compact_choice_custom"
+                                            name="compact_folder_choice"
+                                            checked={folderSuggestion.mode === 'custom'}
+                                            onChange={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
+                                            className="accent-[var(--brand,#1C7F9F)] cursor-pointer"
+                                        />
+                                        <label htmlFor="compact_choice_custom" className="text-xs font-semibold text-gray-800 cursor-pointer">
+                                            Custom folder name
+                                        </label>
+                                    </div>
+
+                                    {folderSuggestion.mode === 'custom' && (
+                                        <div className="mt-2 pt-1 border-t border-teal-100">
+                                            <input
+                                                type="text"
+                                                value={folderSuggestion.customName}
+                                                onChange={(e) => setFolderSuggestion(prev => ({ ...prev, customName: e.target.value }))}
+                                                placeholder="Enter folder name..."
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleConfirmFolderDecision();
+                                                    }
+                                                }}
+                                                className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-sans text-gray-900 outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-[var(--brand)]"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setFolderSuggestion(prev => ({ ...prev, isOpen: false, isSubmitting: false }))}
+                                    disabled={folderSuggestion.isSubmitting}
+                                    className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold font-sans text-xs transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmFolderDecision}
+                                    disabled={folderSuggestion.mode === 'custom' && !folderSuggestion.customName.trim()}
+                                    className="flex-1 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white rounded-lg font-bold font-sans text-xs transition shadow-xs disabled:opacity-50 flex items-center justify-center gap-1"
+                                >
+                                    Save
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ── Toast Notifications ────────────────────────────────────── */}
-            {toast && (
-                <div
-                    className={`fixed top-5 right-5 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border bg-white animate-in slide-in-from-top-3 duration-300 text-sm font-sans ${toast.type === 'error'
-                        ? 'border-red-200 bg-red-50 text-red-900'
-                        : toast.type === 'info'
-                            ? 'border-blue-200 bg-blue-50 text-blue-900'
-                            : 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                        }`}
-                >
+                {/* ── Toast Notifications ────────────────────────────────────── */}
+                {toast && (
                     <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${toast.type === 'error'
-                            ? 'bg-red-500'
+                        className={`fixed top-5 right-5 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border bg-white animate-in slide-in-from-top-3 duration-300 text-sm font-sans ${toast.type === 'error'
+                            ? 'border-red-200 bg-red-50 text-red-900'
                             : toast.type === 'info'
-                                ? 'bg-blue-500'
-                                : 'bg-emerald-500'
+                                ? 'border-blue-200 bg-blue-50 text-blue-900'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-900'
                             }`}
-                    />
-                    <span className="font-semibold text-xs leading-normal">{toast.message}</span>
-                    <button
-                        onClick={() => setToast(null)}
-                        className="ml-2 text-gray-400 hover:text-gray-700 font-bold text-xs"
                     >
-                        ✕
-                    </button>
-                </div>
-            )}
-        </>
-    );
-}
+                        <div
+                            className={`w-2 h-2 rounded-full shrink-0 ${toast.type === 'error'
+                                ? 'bg-red-500'
+                                : toast.type === 'info'
+                                    ? 'bg-blue-500'
+                                    : 'bg-emerald-500'
+                                }`}
+                        />
+                        <span className="font-semibold text-xs leading-normal">{toast.message}</span>
+                        <button
+                            onClick={() => setToast(null)}
+                            className="ml-2 text-gray-400 hover:text-gray-700 font-bold text-xs"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+            </>
+        );
+    }
