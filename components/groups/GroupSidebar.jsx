@@ -23,7 +23,7 @@ const ROLE_LABELS = {
     sub_admin: 'Sub Admin',
     internal_user: 'Internal User',
     user: 'User',
-    guest_admin: 'Guest Admin',
+    advisor: 'Advisor',
     guest_lead: 'Guest Lead',
     external_user: 'External User',
     buyer: 'Buyer',
@@ -628,7 +628,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                     // Automatically expand this department so the new group is immediately visible
                     setExpandedDepts(prev => ({ ...prev, [finalDept]: true }));
                 }
-                
+
                 showToast(isIndividual ? "Individual member created successfully!" : "Group created successfully!", 'success');
 
                 closeAddGroupModal();
@@ -660,8 +660,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                 <Link
                                     href="/groups/buyer-member"
                                     className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
-                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                        : 'text-gray-600 hover:bg-gray-50'
                                         }`}
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
@@ -670,7 +670,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     </div>
                                     <div className="flex flex-col flex-1 truncate">
                                         <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
-                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Guest Admin</span>
+                                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Advisor</span>
                                     </div>
                                 </Link>
                             </nav>
@@ -692,8 +692,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                             href={`/groups/${seller.id}`}
                                             key={seller.id}
                                             className={`group flex items-center justify-between mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${seller.id}`
-                                                    ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                                    : 'text-gray-600 hover:bg-gray-50'
+                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                : 'text-gray-600 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3 truncate">
@@ -767,8 +767,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                 type="button"
                                                 onClick={() => toggleDept(deptName)}
                                                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left group ${isExpanded
-                                                        ? 'bg-gray-100/90 text-gray-900 font-semibold'
-                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                    ? 'bg-gray-100/90 text-gray-900 font-semibold'
+                                                    : 'text-gray-700 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 <div className="flex items-center truncate">
@@ -817,8 +817,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                                                                     key={item.id}
                                                                     href={item.href}
                                                                     className={`group flex items-center justify-between px-2.5 py-2 rounded-lg transition-all ${active
-                                                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                                                            : 'text-gray-600 hover:bg-gray-50'
+                                                                        ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                                        : 'text-gray-600 hover:bg-gray-50'
                                                                         }`}
                                                                 >
                                                                     <div className="flex items-center gap-2 truncate">
@@ -1052,7 +1052,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                     {isBuyerSide ? (
                                         <>
                                             {newGroupType === 'individual' ? (
-                                                <option value="guest_admin">Guest Admin</option>
+                                                <option value="advisor">Advisor</option>
                                             ) : (
                                                 <>
                                                     <option value="guest_lead">Guest Lead</option>
@@ -1142,11 +1142,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                             {/* Option 1: Use Department Name */}
                             <div
                                 onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'dept_name' }))}
-                                className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-                                    folderSuggestion.mode === 'dept_name'
-                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
-                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
-                                }`}
+                                className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'dept_name'
+                                    ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                    }`}
                             >
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <input
@@ -1170,11 +1169,10 @@ export default function GroupsSidebar({ isOpen = true }) {
                             {/* Option 2: Custom / Suggested Name */}
                             <div
                                 onClick={() => setFolderSuggestion(prev => ({ ...prev, mode: 'custom' }))}
-                                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
-                                    folderSuggestion.mode === 'custom'
-                                        ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
-                                        : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
-                                }`}
+                                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${folderSuggestion.mode === 'custom'
+                                    ? 'border-[var(--brand,#1C7F9F)] bg-teal-50/40 ring-1 ring-[var(--brand,#1C7F9F)]/30'
+                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50/30'
+                                    }`}
                             >
                                 <div className="flex items-center gap-2.5">
                                     <input
@@ -1237,22 +1235,20 @@ export default function GroupsSidebar({ isOpen = true }) {
             {/* ── Toast Notifications ────────────────────────────────────── */}
             {toast && (
                 <div
-                    className={`fixed top-5 right-5 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border bg-white animate-in slide-in-from-top-3 duration-300 text-sm font-sans ${
-                        toast.type === 'error'
-                            ? 'border-red-200 bg-red-50 text-red-900'
-                            : toast.type === 'info'
+                    className={`fixed top-5 right-5 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border bg-white animate-in slide-in-from-top-3 duration-300 text-sm font-sans ${toast.type === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-900'
+                        : toast.type === 'info'
                             ? 'border-blue-200 bg-blue-50 text-blue-900'
                             : 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                    }`}
+                        }`}
                 >
                     <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                            toast.type === 'error'
-                                ? 'bg-red-500'
-                                : toast.type === 'info'
+                        className={`w-2 h-2 rounded-full shrink-0 ${toast.type === 'error'
+                            ? 'bg-red-500'
+                            : toast.type === 'info'
                                 ? 'bg-blue-500'
                                 : 'bg-emerald-500'
-                        }`}
+                            }`}
                     />
                     <span className="font-semibold text-xs leading-normal">{toast.message}</span>
                     <button
