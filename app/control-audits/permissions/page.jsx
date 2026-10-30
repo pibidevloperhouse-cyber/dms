@@ -240,68 +240,6 @@ export default function PermissionsPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* DEAL & WORKSPACE SELECTOR DROPDOWN */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsDealDropdownOpen(!isDealDropdownOpen)}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl shadow-xs text-xs font-bold text-slate-800 transition-all cursor-pointer hover:bg-slate-50"
-              >
-                <Briefcase size={14} className="text-[var(--brand)]" />
-                <span className="text-slate-400 font-medium">Deal:</span>
-                <span className="max-w-[150px] truncate text-slate-900">
-                  {activeDeal?.name || "Select Deal"}
-                </span>
-                <ChevronDown
-                  size={13}
-                  className={`text-slate-400 transition-transform ${
-                    isDealDropdownOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {isDealDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsDealDropdownOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95">
-                    <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
-                      <span>Available Deals & Workspaces</span>
-                      <span className="font-mono">{availableDeals.length} deals</span>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto space-y-1">
-                      {availableDeals.map((d) => {
-                        const isSelected = d.id === selectedDealId;
-                        return (
-                          <div
-                            key={d.id}
-                            onClick={() => handleDealChange(d.id)}
-                            className={`px-3 py-2.5 rounded-xl cursor-pointer text-xs transition-colors flex items-center justify-between ${
-                              isSelected
-                                ? "bg-[var(--brand-50)] text-[var(--brand)] font-bold"
-                                : "hover:bg-slate-50 text-slate-700"
-                            }`}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <p className="truncate font-semibold">{d.name}</p>
-                              <p className="text-[10px] text-slate-400">
-                                Stage: {d.stage}
-                              </p>
-                            </div>
-                            {isSelected && (
-                              <Check size={14} className="text-[var(--brand)] shrink-0" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
             {/* PARTY SIDE TOGGLE */}
             {callerSide === "super_admin" ? (
               <div className="inline-flex p-1 bg-white border border-slate-200 rounded-xl shadow-2xs">
