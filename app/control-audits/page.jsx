@@ -63,7 +63,12 @@ export default function ControlsAuditOverviewPage() {
   const pendingApprovals = approvals.filter(
     (a) => a.overallStatus === "pending"
   );
-  const gatedTasksCount = isReadyToAdvance ? 0 : 12;
+  const currentTasksGate = gates.find((g) => g.source === "tasks");
+  const gatedTasksCount = currentTasksGate
+    ? Math.max(0, currentTasksGate.total - currentTasksGate.satisfied)
+    : isReadyToAdvance
+    ? 0
+    : 1;
 
   // Gate icon mapping helper
   const getGateIcon = (source) => {
@@ -324,7 +329,7 @@ export default function ControlsAuditOverviewPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Stage 3 Gate Checklist ({currentStage.name})
+              Stage {currentStage.order} Gate Checklist ({currentStage.name})
             </span>
             <span className="text-xs font-semibold text-slate-500">
               {gates.filter((g) => g.status === "completed").length} of {gates.length} Gates Cleared
@@ -407,7 +412,7 @@ export default function ControlsAuditOverviewPage() {
               </div>
               <p className="text-[11px] text-slate-600 mt-0.5">
                 {isReadyToAdvance
-                  ? "All prerequisite document, task, risk, and approval conditions have been satisfied. Transaction can advance to Stage 4."
+                  ? `All prerequisite document, task, risk, and approval conditions have been satisfied. Transaction can advance to Stage ${currentStage.order + 1}.`
                   : currentBlockers.map((b) => b.title).join(" • ")}
               </p>
             </div>
@@ -509,12 +514,16 @@ export default function ControlsAuditOverviewPage() {
                       {gatedTasksCount} Gated Tasks
                     </div>
                     <p className="text-[11px] text-slate-500 truncate">
-                      Critical milestone checklist blockers
+                      {currentTasksGate?.details || "Milestone checklist task blockers"}
                     </p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                  Gated
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${
+                  gatedTasksCount === 0
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-slate-100 text-slate-700 border-slate-200"
+                }`}>
+                  {gatedTasksCount === 0 ? "Cleared" : "Gated"}
                 </span>
               </div>
             </div>

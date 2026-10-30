@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useControlsAudit } from "@/components/controls-audit/ControlsAuditContext";
 import {
   LayoutDashboard,
   KeyRound,
@@ -66,6 +67,13 @@ export const CONTROLS_AUDIT_NAV_ITEMS = [
 
 export default function ControlsAuditNav() {
   const pathname = usePathname();
+  let currentStageOrder = 2;
+  try {
+    const controlsContext = useControlsAudit();
+    if (controlsContext?.currentStage?.order) {
+      currentStageOrder = controlsContext.currentStage.order;
+    }
+  } catch (e) {}
 
   const isItemActive = (item) => {
     if (item.exact) {
@@ -100,6 +108,7 @@ export default function ControlsAuditNav() {
       {CONTROLS_AUDIT_NAV_ITEMS.map((item) => {
         const active = isItemActive(item);
         const Icon = item.icon;
+        const displayBadge = item.key === "stage-control" ? `Gate ${currentStageOrder}` : item.badge;
 
         return (
           <Link
@@ -122,14 +131,14 @@ export default function ControlsAuditNav() {
 
             <span>{item.label}</span>
 
-            {item.badge !== undefined && (
+            {displayBadge !== undefined && (
               <span
                 className={`px-1.5 py-0.5 min-w-[18px] text-center rounded-full text-[10px] font-semibold leading-none ${getBadgeStyle(
                   item.badgeType,
                   active
                 )}`}
               >
-                {item.badge}
+                {displayBadge}
               </span>
             )}
 
