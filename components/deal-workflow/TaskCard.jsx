@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import CommunicationChatIcon from '@/components/communication/CommunicationChatIcon';
 
-export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
+const TaskCard = React.memo(
+  function TaskCard({ task, onCardClick, isActive, onOpenChat, onOpenDetails }) {
   const {
     currentUser,
     isAuditModeActive,
@@ -53,7 +54,7 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
   const canSubmit = canUserSubmitForReview ? canUserSubmitForReview(task, currentUser) : false;
   const canApprove = !isAssignee && (canUserApproveTask ? canUserApproveTask(task, currentUser) : isCreator);
 
-  const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
+  const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'guest_admin' || normalizeRole(currentUser?.role) === 'admin' || normalizeRole(currentUser?.role) === 'advisor';
   const displayedSubtasks = useMemo(() => {
     if (isCreator) {
       return task.subtasks || [];
@@ -108,11 +109,10 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
         if (onOpenDetails) onOpenDetails(task);
         else onCardClick?.(task);
       }}
-      className={`group bg-white rounded-xl border transition-all duration-200 p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden ${
-        isActive
+      className={`group bg-white rounded-xl border transition-all duration-300 ease-in-out p-4 cursor-pointer flex flex-col justify-between relative overflow-hidden animate-in fade-in zoom-in-[0.98] ${isActive
           ? 'ring-2 ring-[#006666] border-[#006666] shadow-md bg-teal-50/15'
           : 'border-slate-200/90 hover:border-teal-400/80 shadow-xs hover:shadow-md'
-      }`}
+        }`}
     >
       {/* Top Accent Stripe based on status and side */}
       <div
@@ -424,4 +424,25 @@ export default function TaskCard({ task, onCardClick, isActive, onOpenChat, onOp
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  if (prevProps.isActive !== nextProps.isActive) return false;
+  const pt = prevProps.task;
+  const nt = nextProps.task;
+  if (!pt || !nt) return false;
+  return (
+    pt.task_id === nt.task_id &&
+    pt.status === nt.status &&
+    pt.deal_stage === nt.deal_stage &&
+    pt.assigned_to_user === nt.assigned_to_user &&
+    pt.assigned_to_group === nt.assigned_to_group &&
+    pt.priority === nt.priority &&
+    pt.title === nt.title &&
+    pt.is_enabled === nt.is_enabled &&
+    pt.digital_signature === nt.digital_signature &&
+    (pt.subtasks?.length === nt.subtasks?.length) &&
+    (pt.comments?.length === nt.comments?.length) &&
+    (pt.attachments?.length === nt.attachments?.length)
+  );
+});
+
+export default TaskCard;

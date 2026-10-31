@@ -46,12 +46,13 @@ export async function GET(req) {
       dbGroups = allGroups.filter((g) => g.companyId === companyId);
       dbExternalGroups = allGroups.filter((g) => g.companyId !== companyId);
     } else {
+      const buyerRoles = ['buyer', 'guest_admin', 'advisor', 'guest_lead', 'external_user'];
       if (currentCompanyRole === 'buyer') {
-        dbGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
-        dbExternalGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbGroups = allGroups.filter((g) => buyerRoles.includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => !buyerRoles.includes(g.role));
       } else {
-        dbGroups = allGroups.filter((g) => !['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
-        dbExternalGroups = allGroups.filter((g) => ['buyer', 'guest_admin', 'guest_lead'].includes(g.role));
+        dbGroups = allGroups.filter((g) => !buyerRoles.includes(g.role));
+        dbExternalGroups = allGroups.filter((g) => buyerRoles.includes(g.role));
       }
     }
 

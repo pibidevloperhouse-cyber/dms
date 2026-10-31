@@ -11,6 +11,7 @@ import { supabase } from '@/utils/supabase/client';
 // 4. Internal User cannot assign to other roles
 // ============================================================================
 export const ROLE_HIERARCHY = {
+  // Seller Side Hierarchy
   super_admin: {
     level: 4,
     label: 'Super Admin',
@@ -39,12 +40,56 @@ export const ROLE_HIERARCHY = {
     canAssignTo: [],
     desc: 'Task executor (Cannot assign to other roles)',
   },
+  // Buyer Side Hierarchy
+  // Super Admin <-> Guest Admin (Level 4: can assign to Advisor only)
+  // Admin <-> Advisor (Level 3: can assign to Guest Lead only)
+  // Sub Admin <-> Guest Lead (Level 2: can assign to External User only)
+  // Internal User <-> External User (Level 1: task executor)
+  guest_admin: {
+    level: 4,
+    label: 'Guest Admin',
+    badge: '👑 Guest Admin',
+    canAssignTo: ['advisor'],
+    desc: 'Can assign to Advisor only',
+  },
+  advisor: {
+    level: 3,
+    label: 'Advisor',
+    badge: '👔 Advisor',
+    canAssignTo: ['guest_lead'],
+    desc: 'Can assign to Guest Lead only',
+  },
+  guest_lead: {
+    level: 2,
+    label: 'Guest Lead',
+    badge: '⚡ Guest Lead',
+    canAssignTo: ['external_user'],
+    desc: 'Can assign to External User only',
+  },
+  external_user: {
+    level: 1,
+    label: 'External User',
+    badge: '👤 External User',
+    canAssignTo: [],
+    desc: 'Task executor (Cannot assign to other roles)',
+  },
+  buyer: {
+    level: 1,
+    label: 'External User',
+    badge: '👤 External User',
+    canAssignTo: [],
+    desc: 'Task executor (Cannot assign to other roles)',
+  },
 };
 
 export const normalizeRole = (roleStr) => {
   if (!roleStr) return 'internal_user';
   const lower = roleStr.toLowerCase().replace(/[\s-_]+/g, '_');
+  if (lower === 'guest_admin') return 'guest_admin';
   if (lower.includes('super')) return 'super_admin';
+  if (lower === 'advisor' || lower.includes('advisor')) return 'advisor';
+  if (lower === 'guest_lead' || lower.includes('lead')) return 'guest_lead';
+  if (lower === 'external_user' || lower.includes('external') || lower === 'buyer') return 'external_user';
   if (lower.includes('sub')) return 'sub_admin';
   if (lower.includes('admin')) return 'admin';
   if (lower.includes('internal') || lower.includes('user') || lower.includes('member') || lower.includes('guest')) return 'internal_user';
@@ -118,26 +163,50 @@ export const DEMO_USERS = {
   arjun: {
     id: 'arjun',
     name: 'Arjun Mehta',
-    role: 'admin',
-    roleLabel: 'Buyer Admin',
+    role: 'guest_admin',
+    roleLabel: 'Guest Admin',
     side: 'buyer',
     company: 'XYZ Capital',
-    group: 'Buyer Admin',
+    group: 'Buyer Executive Team',
     email: 'arjun@xyzcapital.com',
     avatar: 'A',
+    color: 'from-indigo-600 to-violet-700',
+  },
+  rohit: {
+    id: 'rohit',
+    name: 'Rohit Verma',
+    role: 'advisor',
+    roleLabel: 'Advisor',
+    side: 'buyer',
+    company: 'XYZ Capital',
+    group: 'Buyer Advisory',
+    email: 'rohit@xyzcapital.com',
+    avatar: 'R',
     color: 'from-teal-600 to-emerald-700',
   },
   priya: {
     id: 'priya',
     name: 'Priya Sharma',
-    role: 'sub_admin',
-    roleLabel: 'Buyer Sub Admin',
+    role: 'guest_lead',
+    roleLabel: 'Guest Lead',
     side: 'buyer',
     company: 'XYZ Capital',
-    group: 'Buyer Legal Team',
+    group: 'Buyer Diligence Lead',
     email: 'priya.sharma@xyzcapital.com',
     avatar: 'P',
     color: 'from-purple-600 to-pink-700',
+  },
+  vikram: {
+    id: 'vikram',
+    name: 'Vikram Seth',
+    role: 'external_user',
+    roleLabel: 'External User',
+    side: 'buyer',
+    company: 'XYZ Capital',
+    group: 'Buyer Legal Team',
+    email: 'vikram.seth@xyzcapital.com',
+    avatar: 'V',
+    color: 'from-cyan-600 to-blue-700',
   },
 };
 
@@ -181,40 +250,49 @@ export const SELLER_GROUPS = [
 ];
 export const BUYER_GROUPS = [
   {
-    id: 'buyer_legal',
-    name: 'Buyer Legal Team',
-    department: 'Legal',
-    role: 'sub_admin',
-    side: 'buyer',
-    company: 'XYZ Capital',
-    members: ['Priya Sharma'],
-  },
-  {
-    id: 'buyer_finance',
-    name: 'Buyer Finance Team',
-    department: 'Finance',
-    role: 'sub_admin',
-    side: 'buyer',
-    company: 'XYZ Capital',
-    members: ['Arjun Mehta', 'Priya Sharma'],
-  },
-  {
-    id: 'buyer_admin',
-    name: 'Buyer Admin',
+    id: 'buyer_executive',
+    name: 'Buyer Executive Team',
     department: 'General',
-    role: 'admin',
+    role: 'guest_admin',
     side: 'buyer',
     company: 'XYZ Capital',
     members: ['Arjun Mehta'],
   },
   {
-    id: 'buyer_diligence',
-    name: 'Buyer Due Diligence Team',
+    id: 'buyer_advisory',
+    name: 'Buyer Advisory',
+    department: 'General',
+    role: 'advisor',
+    side: 'buyer',
+    company: 'XYZ Capital',
+    members: ['Rohit Verma'],
+  },
+  {
+    id: 'buyer_lead',
+    name: 'Buyer Diligence Lead',
     department: 'Operations',
-    role: 'internal_user',
+    role: 'guest_lead',
     side: 'buyer',
     company: 'XYZ Capital',
     members: ['Priya Sharma'],
+  },
+  {
+    id: 'buyer_legal',
+    name: 'Buyer Legal Team',
+    department: 'Legal',
+    role: 'external_user',
+    side: 'buyer',
+    company: 'XYZ Capital',
+    members: ['Vikram Seth'],
+  },
+  {
+    id: 'buyer_finance',
+    name: 'Buyer Finance Team',
+    department: 'Finance',
+    role: 'external_user',
+    side: 'buyer',
+    company: 'XYZ Capital',
+    members: ['Vikram Seth'],
   },
 ];
 export const DEFAULT_DEPARTMENTS = [];
@@ -273,7 +351,7 @@ export const readSessionUser = () => {
     if (s && (s.name || s.id || s.email)) {
       const roleStr = s.role || 'internal_user';
       const userDmsRole = (s.dms_role || s.dmsRole || '').toLowerCase();
-      const isBuyerRole = userDmsRole === 'buyer' || ['guest_admin', 'buyer', 'guest_lead', 'external_user'].includes(roleStr);
+      const isBuyerRole = userDmsRole === 'buyer' || ['guest_admin', 'buyer', 'guest_lead', 'external_user', 'advisor'].includes(roleStr);
       const side = isBuyerRole ? 'buyer' : 'seller';
       return {
         id: s.id || 'session_user',
@@ -300,6 +378,11 @@ export function DealWorkflowProvider({ children }) {
   const [sessionUser, setSessionUser] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const tasksRef = useRef(tasks);
+  const inFlightTasksRef = useRef(new Set());
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
   const [dbGroups, setDbGroups] = useState([]);
   const [workflowGroups, setWorkflowGroups] = useState([]);
   const [externalGroupsState, setExternalGroupsState] = useState([]);
@@ -323,7 +406,13 @@ export function DealWorkflowProvider({ children }) {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
-  const [selectedDealStage, setSelectedDealStage] = useState('Preparation');
+  const [selectedDealStage, setSelectedDealStage] = useState(() => {
+    const active = readSessionUser();
+    if (active?.side === 'buyer') {
+      return 'Due Diligence';
+    }
+    return 'Preparation';
+  });
 
   // ============================================================================
   // ACTIVE DEAL STAGE: Exclusively activated by Super Admin
@@ -337,10 +426,18 @@ export function DealWorkflowProvider({ children }) {
   // Load saved stage on client mount after hydration
   useEffect(() => {
     try {
+      const activeUser = readSessionUser();
+      const isBuyer = activeUser?.side === 'buyer';
       const saved = localStorage.getItem('dms_active_deal_stage');
       if (saved && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(saved))) {
         setActiveDealStage(saved);
-        setSelectedDealStage(saved);
+        if (isBuyer && normalizeStage(saved) === 'Preparation') {
+          setSelectedDealStage('Due Diligence');
+        } else {
+          setSelectedDealStage(saved);
+        }
+      } else if (isBuyer) {
+        setSelectedDealStage('Due Diligence');
       }
       const savedQuery = localStorage.getItem('dms_stage_query');
       if (savedQuery) {
@@ -350,7 +447,7 @@ export function DealWorkflowProvider({ children }) {
       if (savedReq) {
         setStageAdvanceRequest(JSON.parse(savedReq));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Preparation stage is strictly for internal groups - reset visibility filter if set to EXTERNAL
@@ -376,11 +473,11 @@ export function DealWorkflowProvider({ children }) {
         });
 
         if (data.stageQuery !== undefined) {
-          setStageQuery(data.stageQuery);
+          setStageQuery((prev) => (JSON.stringify(prev) === JSON.stringify(data.stageQuery) ? prev : data.stageQuery));
         }
 
         if (data.stageAdvanceRequest !== undefined) {
-          setStageAdvanceRequest(data.stageAdvanceRequest);
+          setStageAdvanceRequest((prev) => (JSON.stringify(prev) === JSON.stringify(data.stageAdvanceRequest) ? prev : data.stageAdvanceRequest));
         }
 
         if (data.notificationPayload) {
@@ -397,11 +494,11 @@ export function DealWorkflowProvider({ children }) {
     }
   };
 
-  // Super Admin stage activation handler
+  // Super Admin / Guest Admin stage activation handler
   const activateStage = async (stageName) => {
     const normRole = normalizeRole(currentUser?.role);
-    if (normRole !== 'super_admin') {
-      console.warn('Only Super Admin can activate stages.');
+    if (normRole !== 'super_admin' && normRole !== 'guest_admin') {
+      console.warn('Only Super Admin or Guest Admin can activate stages.');
       return;
     }
     const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(stageName)) || stageName;
@@ -459,8 +556,8 @@ export function DealWorkflowProvider({ children }) {
   // Super Admin stage review query handler (when results are not OK)
   const submitStageQuery = async ({ stageName, queryText, targetTaskIds = [] }) => {
     const normRole = normalizeRole(currentUser?.role);
-    if (normRole !== 'super_admin') {
-      alert('Only Super Admin can raise a stage review query.');
+    if (normRole !== 'super_admin' && normRole !== 'guest_admin') {
+      alert('Only Super Admin or Guest Admin can raise a stage review query.');
       return false;
     }
     if (!queryText || !queryText.trim()) {
@@ -606,8 +703,8 @@ export function DealWorkflowProvider({ children }) {
   // Super Admin approves results and enables the next stage
   const approveStageAndAdvance = async (nextStageName) => {
     const normRole = normalizeRole(currentUser?.role);
-    if (normRole !== 'super_admin') {
-      alert('Only Super Admin has authority to enable stages.');
+    if (normRole !== 'super_admin' && normRole !== 'guest_admin') {
+      alert('Only Super Admin or Guest Admin has authority to enable stages.');
       return;
     }
     await clearStageQuery();
@@ -619,7 +716,7 @@ export function DealWorkflowProvider({ children }) {
     if (stageNotification?.id && typeof window !== 'undefined') {
       try {
         localStorage.setItem(`dms_stage_dismissed_${stageNotification.id}`, 'true');
-      } catch (e) {}
+      } catch (e) { }
     }
     setStageNotification(null);
   };
@@ -639,7 +736,7 @@ export function DealWorkflowProvider({ children }) {
           setStageNotification(parsed);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const handleStageEvent = (e) => {
       const stage = e.detail?.stage || localStorage.getItem('dms_active_deal_stage');
@@ -675,13 +772,13 @@ export function DealWorkflowProvider({ children }) {
           if (!isDismissed) {
             setStageNotification(parsed);
           }
-        } catch (err) {}
+        } catch (err) { }
       }
       if (e.key === 'dms_stage_query') {
         if (e.newValue) {
           try {
             setStageQuery(JSON.parse(e.newValue));
-          } catch (err) {}
+          } catch (err) { }
         } else {
           setStageQuery(null);
         }
@@ -690,7 +787,7 @@ export function DealWorkflowProvider({ children }) {
         if (e.newValue) {
           try {
             setStageAdvanceRequest(JSON.parse(e.newValue));
-          } catch (err) {}
+          } catch (err) { }
         } else {
           setStageAdvanceRequest(null);
         }
@@ -715,6 +812,35 @@ export function DealWorkflowProvider({ children }) {
   const [memberFilter, setMemberFilter] = useState('ALL'); // 'ALL', 'MY_TASKS', or specific member name
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'THIS_WEEK', 'OVERDUE'
 
+  // Helper to compare tasks and prevent redundant state updates & screen flickering
+  const areTasksIdentical = (prevList, newList) => {
+    if (!prevList || !newList) return false;
+    if (prevList.length !== newList.length) return false;
+    for (let i = 0; i < newList.length; i++) {
+      const a = prevList[i];
+      const b = newList[i];
+      if (!a || !b) return false;
+      if (
+        a.task_id !== b.task_id ||
+        a.status !== b.status ||
+        a.deal_stage !== b.deal_stage ||
+        a.is_enabled !== b.is_enabled ||
+        a.assigned_to_user !== b.assigned_to_user ||
+        a.assigned_to_group !== b.assigned_to_group ||
+        a.priority !== b.priority ||
+        a.title !== b.title ||
+        a.digital_signature !== b.digital_signature ||
+        (a.subtasks?.length !== b.subtasks?.length) ||
+        (a.subtasks && b.subtasks && a.subtasks.some((st, idx) => st.status !== b.subtasks[idx]?.status)) ||
+        (a.comments?.length !== b.comments?.length) ||
+        (a.attachments?.length !== b.attachments?.length)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   // Fetch real deal tasks and dynamic department/group structure
   const fetchTasks = async (showLoading = true, customWsId = null) => {
     if (showLoading) setIsLoading(true);
@@ -730,20 +856,31 @@ export function DealWorkflowProvider({ children }) {
       const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.tasks)) {
-        setTasks(data.tasks);
+        // Protect tasks undergoing in-flight transitions from being reverted by stale background polling
+        const mergedTasks = data.tasks.map((incoming) => {
+          if (inFlightTasksRef.current.has(incoming.task_id)) {
+            const currentLocal = tasksRef.current.find((t) => t.task_id === incoming.task_id);
+            return currentLocal || incoming;
+          }
+          return incoming;
+        });
+
+        if (!areTasksIdentical(tasksRef.current, mergedTasks)) {
+          setTasks(mergedTasks);
+        }
 
         if (Array.isArray(data.groups) && data.groups.length > 0) {
-          setWorkflowGroups(data.groups);
-          setDbGroups(data.groups.map((g) => g.name));
+          setWorkflowGroups((prev) => (prev?.length === data.groups.length ? prev : data.groups));
+          setDbGroups((prev) => (prev?.length === data.groups.length ? prev : data.groups.map((g) => g.name)));
         }
         if (data.groupMembersMap && Object.keys(data.groupMembersMap).length > 0) {
-          setGroupMembersMap(data.groupMembersMap);
+          setGroupMembersMap((prev) => (Object.keys(prev || {}).length === Object.keys(data.groupMembersMap).length ? prev : data.groupMembersMap));
         }
         if (Array.isArray(data.users) && data.users.length > 0) {
-          setAllUsers(data.users);
+          setAllUsers((prev) => (prev?.length === data.users.length ? prev : data.users));
         }
         if (Array.isArray(data.departments) && data.departments.length > 0) {
-          setDepartments(data.departments);
+          setDepartments((prev) => (prev?.length === data.departments.length ? prev : data.departments));
         }
       }
     } catch (err) {
@@ -902,6 +1039,13 @@ export function DealWorkflowProvider({ children }) {
     return DEMO_USERS.ravi;
   }, [sessionUser, currentUserId]);
 
+  // For Buyer side, the workflow starts from Due Diligence (Preparation is completed by Seller)
+  useEffect(() => {
+    if (currentUser?.side === 'buyer') {
+      setSelectedDealStage((prev) => (normalizeStage(prev) === 'Preparation' ? 'Due Diligence' : prev));
+    }
+  }, [currentUser?.side]);
+
   // Memoized external groups (dynamically targets counterparty based on current user side)
   const externalGroups = useMemo(() => {
     const userSide = currentUser?.side || 'seller';
@@ -925,16 +1069,16 @@ export function DealWorkflowProvider({ children }) {
   // 2 Tracking Sections: 'ASSIGNED_TO_ME' (Tasks assigned to you by others) vs 'CREATED_BY_ME' (Tasks created by you) vs 'ALL'
   const [trackingSection, setTrackingSection] = useState(() => {
     const roleNorm = normalizeRole(currentUser?.role);
-    if (roleNorm === 'super_admin') return 'CREATED_BY_ME';
+    if (roleNorm === 'super_admin' || roleNorm === 'guest_admin') return 'CREATED_BY_ME';
     return 'ASSIGNED_TO_ME';
   });
 
-  // Super admin only tracks created tasks; Internal user cannot create tasks and only tracks assigned tasks
+  // Super admin / guest admin only tracks created tasks; Internal user / external user cannot create tasks and only tracks assigned tasks
   useEffect(() => {
     const roleNorm = normalizeRole(currentUser?.role);
-    if (roleNorm === 'super_admin') {
+    if (roleNorm === 'super_admin' || roleNorm === 'guest_admin') {
       setTrackingSection('CREATED_BY_ME');
-    } else if (roleNorm === 'internal_user') {
+    } else if (roleNorm === 'internal_user' || roleNorm === 'external_user') {
       setTrackingSection('ASSIGNED_TO_ME');
     }
   }, [currentUser?.role]);
@@ -1033,15 +1177,20 @@ export function DealWorkflowProvider({ children }) {
         return normalizeRole(u.role);
       }
     }
+    const dbMatch = allUsers.find((u) => (u.name || '').trim().toLowerCase() === createdBy || (u.id || '').trim().toLowerCase() === createdBy || (u.email || '').trim().toLowerCase() === createdBy);
+    if (dbMatch?.role) return normalizeRole(dbMatch.role);
+
     if (createdBy.includes('super')) return 'super_admin';
+    if (createdBy.includes('advisor')) return 'advisor';
+    if (createdBy.includes('lead')) return 'guest_lead';
     if (createdBy.includes('sub')) return 'sub_admin';
     if (createdBy.includes('admin')) return 'admin';
-    return 'admin';
+    return (task.creator_side === 'buyer' || task.creatorSide === 'buyer') ? 'advisor' : 'admin';
   };
 
   // Helper to resolve task assignee's normalized role (user or group)
   const getTaskAssigneeRole = (task) => {
-    if (!task) return 'internal_user';
+    if (!task) return (task?.target_side === 'buyer' || task?.creator_side === 'buyer') ? 'external_user' : 'internal_user';
     if (task.assigned_to_role) return normalizeRole(task.assigned_to_role);
     const assignedUser = (task.assigned_to_user || task.assignedToUser || '').trim().toLowerCase();
     if (assignedUser) {
@@ -1050,33 +1199,41 @@ export function DealWorkflowProvider({ children }) {
           return normalizeRole(u.role);
         }
       }
+      const dbMatch = allUsers.find((u) => (u.name || '').trim().toLowerCase() === assignedUser || (u.id || '').trim().toLowerCase() === assignedUser || (u.email || '').trim().toLowerCase() === assignedUser);
+      if (dbMatch?.role) return normalizeRole(dbMatch.role);
     }
     const assignedGroup = (task.assigned_to_group || task.assignedToGroup || '').trim().toLowerCase();
     if (assignedGroup) {
-      const allKnownGroups = [...(workflowGroups || []), ...SELLER_GROUPS, ...BUYER_GROUPS];
+      const allKnownGroups = [...(workflowGroups || []), ...(externalGroupsState || []), ...SELLER_GROUPS, ...BUYER_GROUPS];
       const match = allKnownGroups.find((g) => (g.name || '').trim().toLowerCase() === assignedGroup || (g.id || '').trim().toLowerCase() === assignedGroup);
       if (match?.role) return normalizeRole(match.role);
       if (assignedGroup.includes('super')) return 'super_admin';
+      if (assignedGroup.includes('advisor')) return 'advisor';
+      if (assignedGroup.includes('lead')) return 'guest_lead';
       if (assignedGroup.includes('sub')) return 'sub_admin';
       if (assignedGroup.includes('admin')) return 'admin';
-      return 'internal_user';
+      return (task.target_side === 'buyer' || task.creator_side === 'buyer' || task.targetSide === 'buyer' || task.creatorSide === 'buyer') ? 'external_user' : 'internal_user';
     }
-    return 'internal_user';
+    return (task.target_side === 'buyer' || task.creator_side === 'buyer' || task.targetSide === 'buyer' || task.creatorSide === 'buyer') ? 'external_user' : 'internal_user';
   };
 
-  // Flow Condition: Only when Sub Admin assigns task to Internal User in Preparation stage
+  // Flow Condition: When Sub Admin assigns task to Internal User (Seller side),
+  // OR when Guest Lead assigns task to External User (Buyer side) in Preparation stage
   const isSubAdminToInternalPrepTask = (task) => {
     if (!task) return false;
     const stage = normalizeStage(task.deal_stage || task.dealStage);
     if (stage !== 'Preparation') return false;
 
     const creatorRole = getTaskCreatorRole(task);
-    if (creatorRole !== 'sub_admin') return false;
-
     const assigneeRole = getTaskAssigneeRole(task);
-    if (assigneeRole !== 'internal_user') return false;
 
-    return true;
+    // Seller side flow: Sub Admin -> Internal User
+    const isSellerSubAdminToInternal = creatorRole === 'sub_admin' && assigneeRole === 'internal_user';
+
+    // Buyer side flow: Guest Lead -> External User
+    const isBuyerGuestLeadToExternal = creatorRole === 'guest_lead' && assigneeRole === 'external_user';
+
+    return isSellerSubAdminToInternal || isBuyerGuestLeadToExternal;
   };
 
   // ============================================================================
@@ -1089,6 +1246,18 @@ export function DealWorkflowProvider({ children }) {
   // Task creators can view and oversee all stages they created to track deal room progress.
   // ============================================================================
   const getMaxUnlockedStageIndex = (tasksList = tasks) => {
+    if (currentUser?.side === 'buyer') {
+      // On Buyer side, Preparation is already completed by Seller. Buyer starts at Due Diligence (index 1)
+      const ddTasks = tasksList.filter((t) => normalizeStage(t.deal_stage) === 'Due Diligence');
+      if (ddTasks.length > 0) {
+        const isDdDone = ddTasks.every((t) => t.status === 'DONE');
+        if (!isDdDone) {
+          return 1;
+        }
+      }
+      return 2;
+    }
+
     if (!tasksList || tasksList.length === 0) return 0;
 
     // Check Stage 0: Preparation
@@ -1114,15 +1283,23 @@ export function DealWorkflowProvider({ children }) {
   };
 
   const stageTrackerInfo = useMemo(() => {
+    const isBuyerSide = currentUser?.side === 'buyer';
     const stages = DEAL_STAGES.map((stageName, idx) => {
+      const isPrepStage = normalizeStage(stageName) === 'Preparation';
       // Deal-wide statistics for this stage (used for analysis shown to Super Admin)
       // Calculates all tasks created by all users for this stage across the deal room
       const dealStageTasks = tasks.filter((t) => normalizeStage(t.deal_stage) === stageName);
       const dealTotal = dealStageTasks.length;
       const dealDone = dealStageTasks.filter((t) => t.status === 'DONE').length;
       const dealPending = Math.max(0, dealTotal - dealDone);
-      const isDealStageCompleted = dealTotal > 0 && dealDone === dealTotal;
-      const percent = dealTotal > 0 ? Math.round((dealDone / dealTotal) * 100) : 0;
+      let isDealStageCompleted = dealTotal > 0 && dealDone === dealTotal;
+      let percent = dealTotal > 0 ? Math.round((dealDone / dealTotal) * 100) : 0;
+
+      // Special rule: On Buyer side, Preparation is already completed by Seller!
+      if (isBuyerSide && isPrepStage) {
+        isDealStageCompleted = true;
+        percent = 100;
+      }
 
       const inProgress = dealStageTasks.filter((t) => t.status === 'IN_PROGRESS').length;
       const review = dealStageTasks.filter((t) => t.status === 'REVIEW').length;
@@ -1138,27 +1315,32 @@ export function DealWorkflowProvider({ children }) {
       const isActive = normalizeStage(stageName) === normalizeStage(activeDealStage);
       const isDisabled = !isActive;
 
+      const totalCount = isBuyerSide && isPrepStage && dealTotal === 0 ? 5 : dealTotal;
+      const doneCount = isBuyerSide && isPrepStage && dealTotal === 0 ? 5 : (isBuyerSide && isPrepStage ? dealTotal : dealDone);
+      const pendingCount = isBuyerSide && isPrepStage ? 0 : dealPending;
+
       return {
         name: stageName,
         index: idx,
-        total: dealTotal,
-        done: dealDone,
-        pending: dealPending,
-        dealTotal,
-        dealDone,
-        dealPending,
+        total: totalCount,
+        done: doneCount,
+        pending: pendingCount,
+        dealTotal: totalCount,
+        dealDone: doneCount,
+        dealPending: pendingCount,
         inProgress,
         review,
         todo,
-        percent,
-        isCompleted: isDealStageCompleted,
-        isUnlocked: isActive,
-        isLocked: isDisabled,
+        percent: isBuyerSide && isPrepStage ? 100 : percent,
+        isCompleted: isBuyerSide && isPrepStage ? true : isDealStageCompleted,
+        isUnlocked: isActive || (isBuyerSide && isPrepStage),
+        isLocked: isDisabled && !(isBuyerSide && isPrepStage),
         isActive,
         isDisabled,
         myTotal,
         myDone,
         isMyTasksCompleted,
+        isCompletedBySeller: isBuyerSide && isPrepStage,
       };
     });
 
@@ -1185,16 +1367,14 @@ export function DealWorkflowProvider({ children }) {
     // Task creator is never locked out of tracking tasks they created in Task Creation
     if (isTaskCreator(task, user) && trackingSection === 'TASK_CREATION') return false;
 
+    // On buyer side, preparation is completed by seller and buyer starts at Due Diligence
+    if (user.side === 'buyer' && normalizeStage(task.deal_stage) === 'Due Diligence') {
+      return false;
+    }
+
     // A task is locked if its stage is not the currently active stage activated by Super Admin
     return normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage);
   };
-
-  // Keep selectedDealStage in sync with activeDealStage on stage switches
-  useEffect(() => {
-    if (activeDealStage && selectedDealStage !== activeDealStage) {
-      setSelectedDealStage(activeDealStage);
-    }
-  }, [activeDealStage]);
 
   // ============================================================================
   // TASK VISIBILITY PERMISSION LOGIC
@@ -1214,8 +1394,12 @@ export function DealWorkflowProvider({ children }) {
       return false;
     }
 
-    // 2. Task MUST belong to the active deal stage activated by Super Admin!
-    if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+    // 2. Task MUST belong to the viewed stage or active deal stage
+    const currentViewedStage = selectedDealStage || activeDealStage;
+    if (
+      normalizeStage(task.deal_stage) !== normalizeStage(currentViewedStage) &&
+      normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)
+    ) {
       return false;
     }
 
@@ -1223,8 +1407,15 @@ export function DealWorkflowProvider({ children }) {
     if (isTaskCreator(task, user)) return true;
 
     const normRole = normalizeRole(user.role);
-    // Super Admins, Admins, and Sub Admins see all tasks in active stage
-    if (normRole === 'super_admin' || normRole === 'admin' || normRole === 'sub_admin') return true;
+    // Super Admins, Guest Admins, Admins, Sub Admins, Advisors, and Guest Leads see all tasks in active stage
+    if (
+      normRole === 'super_admin' ||
+      normRole === 'guest_admin' ||
+      normRole === 'admin' ||
+      normRole === 'sub_admin' ||
+      normRole === 'advisor' ||
+      normRole === 'guest_lead'
+    ) return true;
 
     // Assignees see tasks assigned to them or their group in active stage
     if (isTaskAssignee(task, user)) return true;
@@ -1321,17 +1512,18 @@ export function DealWorkflowProvider({ children }) {
   // Base tasks permitted for the current user
   const permittedTasks = useMemo(() => {
     return tasks.filter((t) => isTaskVisibleToUser(t, currentUser));
-  }, [tasks, currentUser, stageTrackerInfo, activeDealStage, trackingSection]);
+  }, [tasks, currentUser, stageTrackerInfo, activeDealStage, selectedDealStage, trackingSection]);
 
   // Counts for tracking sections: Assigned to You, Created by You, Task Creation
   const trackingCounts = useMemo(() => {
-    // All tasks belonging to the active deal stage are automatically enabled
-    const activeStageTasks = tasks.filter((t) =>
-      normalizeStage(t.deal_stage) === normalizeStage(activeDealStage)
+    // Stage tasks belonging to the current viewed deal stage
+    const currentTargetStage = selectedDealStage && selectedDealStage !== 'ALL' ? selectedDealStage : activeDealStage;
+    const stageTasks = tasks.filter((t) =>
+      normalizeStage(t.deal_stage) === normalizeStage(currentTargetStage)
     );
 
-    const totalAssignedByOthers = activeStageTasks.filter((t) => isAssignedByOthers(t, currentUser)).length;
-    const totalCreatedByMe = activeStageTasks.filter((t) => isTaskCreator(t, currentUser)).length;
+    const totalAssignedByOthers = stageTasks.filter((t) => isAssignedByOthers(t, currentUser)).length;
+    const totalCreatedByMe = stageTasks.filter((t) => isTaskCreator(t, currentUser)).length;
 
     // Task Creation section: all tasks manageable in studio across all stages
     const taskCreationTasks = tasks.filter((t) => canManageTaskInStudio(t, currentUser));
@@ -1340,30 +1532,31 @@ export function DealWorkflowProvider({ children }) {
     return {
       assignedByOthers: totalAssignedByOthers,
       createdByMe: totalCreatedByMe,
-      allStage: activeStageTasks.length,
+      allStage: stageTasks.length,
       totalAssignedByOthers,
       totalCreatedByMe,
       totalTaskCreation,
       totalAll: tasks.length,
     };
-  }, [tasks, activeDealStage, currentUser]);
+  }, [tasks, activeDealStage, selectedDealStage, currentUser]);
 
   // Filtered tasks based on active filters
   const visibleTasks = useMemo(() => {
+    const currentTargetStage = selectedDealStage && selectedDealStage !== 'ALL' ? selectedDealStage : activeDealStage;
     return permittedTasks.filter((task) => {
       // 3 Tracking Sections: 'ASSIGNED_TO_ME' vs 'CREATED_BY_ME' vs 'TASK_CREATION'
       if (trackingSection === 'ASSIGNED_TO_ME') {
         if (!isAssignedByOthers(task, currentUser)) {
           return false;
         }
-        if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+        if (normalizeStage(task.deal_stage) !== normalizeStage(currentTargetStage)) {
           return false;
         }
       } else if (trackingSection === 'CREATED_BY_ME') {
         if (!isTaskCreator(task, currentUser)) {
           return false;
         }
-        if (normalizeStage(task.deal_stage) !== normalizeStage(activeDealStage)) {
+        if (normalizeStage(task.deal_stage) !== normalizeStage(currentTargetStage)) {
           return false;
         }
       } else if (trackingSection === 'TASK_CREATION') {
@@ -1562,7 +1755,7 @@ export function DealWorkflowProvider({ children }) {
           return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
         }));
       const normRole = normalizeRole(user.role);
-      const isAdmin = normRole === 'admin' || normRole === 'super_admin';
+      const isAdmin = normRole === 'admin' || normRole === 'super_admin' || normRole === 'advisor' || normRole === 'guest_admin';
 
       return Boolean(isGroupMember || (isTargetSide && isAdmin));
     }
@@ -1609,6 +1802,11 @@ export function DealWorkflowProvider({ children }) {
 
   const canUserApproveTask = (task, user = currentUser) => {
     if (!task || task.status !== 'REVIEW' || !user) return false;
+    const normRole = normalizeRole(user.role);
+    const isPrep = isSubAdminToInternalPrepTask ? isSubAdminToInternalPrepTask(task) : false;
+    if (isPrep && (normRole === 'sub_admin' || normRole === 'guest_lead')) {
+      return true;
+    }
     // RULE: Assignee can NEVER approve/review their own submitted task
     const isAssignee = isTaskAssignee ? isTaskAssignee(task, user) : false;
     if (isAssignee) return false;
@@ -1619,9 +1817,11 @@ export function DealWorkflowProvider({ children }) {
 
   // ============================================================================
   // HIERARCHICAL TASK DELEGATION
-  // Super Admin -> Admin, Sub Admin, Internal User
-  // Admin -> Sub Admin, Internal User
-  // Sub Admin -> Internal User
+  // Super Admin -> Admin
+  // Admin -> Sub Admin (main task)
+  // Sub Admin -> Internal User (subtasks)
+  // Advisor -> Guest Lead (main task)
+  // Guest Lead -> External User (subtasks)
   // ============================================================================
   const getAssignableMembersForUser = (user = currentUser) => {
     if (!user) return [];
@@ -1644,7 +1844,8 @@ export function DealWorkflowProvider({ children }) {
       if (currentUserEmail && u.email && u.email.toLowerCase() === currentUserEmail) return;
       if (currentUserId && currentUserId !== 'session_user' && u.id && u.id.toLowerCase() === currentUserId) return;
 
-      const targetNormRole = normalizeRole(u.role || u.dmsRole || 'internal_user');
+      const defaultRole = (user.side === 'buyer' || u.side === 'buyer') ? 'external_user' : 'internal_user';
+      const targetNormRole = normalizeRole(u.role || u.dmsRole || defaultRole);
       if (allowedRoles.includes(targetNormRole)) {
         seen.add(name.toLowerCase());
         candidates.push({
@@ -1654,7 +1855,7 @@ export function DealWorkflowProvider({ children }) {
           roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || u.role,
           group: u.group || 'General',
           email: u.email || '',
-          side: u.side || 'seller',
+          side: u.side || (user.side === 'buyer' ? 'buyer' : 'seller'),
         });
       }
     };
@@ -1690,6 +1891,10 @@ export function DealWorkflowProvider({ children }) {
     const candidates = [];
     const seen = new Set();
 
+    const allKnownGroups = [...(workflowGroups || []), ...(externalGroupsState || []), ...SELLER_GROUPS, ...BUYER_GROUPS];
+    const matchedGroup = allKnownGroups.find((g) => (g.name || '').trim().toLowerCase() === groupName.trim().toLowerCase() || (g.id || '').trim().toLowerCase() === groupName.trim().toLowerCase());
+    const groupRoleNorm = matchedGroup?.role ? normalizeRole(matchedGroup.role) : null;
+
     memberNames.forEach((mName) => {
       if (!mName) return;
       const cleanName = typeof mName === 'string' ? mName.trim() : (mName.name || '').trim();
@@ -1705,28 +1910,30 @@ export function DealWorkflowProvider({ children }) {
       if (currentUserEmail && (dbUser?.email?.toLowerCase() === currentUserEmail || demoUser?.email?.toLowerCase() === currentUserEmail)) return;
       if (currentUserId && currentUserId !== 'session_user' && (dbUser?.id?.toLowerCase() === currentUserId || demoUser?.id?.toLowerCase() === currentUserId)) return;
 
-      const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : 'internal_user');
+      const defaultRoleForSide = (user.side === 'buyer' || dbUser?.side === 'buyer') ? 'external_user' : 'internal_user';
+      const rawRole = dbUser?.role || demoUser?.role || (typeof mName === 'object' ? mName.role : null) || groupRoleNorm || defaultRoleForSide;
       const targetNormRole = normalizeRole(rawRole);
 
-      if (isExternalGroup || allowedRoles.includes(targetNormRole)) {
-        seen.add(cleanName.toLowerCase());
-        candidates.push({
-          id: dbUser?.id || demoUser?.id || cleanName,
-          name: cleanName,
-          role: targetNormRole,
-          roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || rawRole,
-          email: dbUser?.email || demoUser?.email || '',
-          group: groupName,
-          side: dbUser?.side || demoUser?.side || (isExternalGroup ? (user.side === 'buyer' ? 'seller' : 'buyer') : user.side),
-        });
-      }
-    });
+        if (isExternalGroup || allowedRoles.includes(targetNormRole) || (groupRoleNorm && allowedRoles.includes(groupRoleNorm))) {
+          seen.add(cleanName.toLowerCase());
+          candidates.push({
+            id: dbUser?.id || demoUser?.id || cleanName,
+            name: cleanName,
+            role: targetNormRole,
+            roleLabel: ROLE_HIERARCHY[targetNormRole]?.label || rawRole,
+            email: dbUser?.email || demoUser?.email || '',
+            group: groupName,
+            side: dbUser?.side || demoUser?.side || (isExternalGroup ? (user.side === 'buyer' ? 'seller' : 'buyer') : user.side),
+          });
+        }
+      });
 
     return candidates.sort((a, b) => (ROLE_HIERARCHY[b.role]?.level || 0) - (ROLE_HIERARCHY[a.role]?.level || 0));
   };
 
   // Action: Claim Task
   const claimTask = async (taskId) => {
+    inFlightTasksRef.current.add(taskId);
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
@@ -1764,18 +1971,29 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
       }
     } catch (e) {
       console.error('Claim task API error:', e);
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
   // Action: Submit for Review
   const submitForReview = async (taskId) => {
+    inFlightTasksRef.current.add(taskId);
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
@@ -1812,22 +2030,34 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
       }
     } catch (e) {
       console.error('Submit review API error:', e);
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
   // Action: Approve & Complete
   const approveAndComplete = async (taskId) => {
+    inFlightTasksRef.current.add(taskId);
     const target = tasks.find((t) => t.task_id === taskId);
     if (target && Array.isArray(target.subtasks) && target.subtasks.length > 0) {
       const pendingSubtasks = target.subtasks.filter((st) => st.status !== 'DONE');
       if (pendingSubtasks.length > 0) {
+        inFlightTasksRef.current.delete(taskId);
         alert(`Cannot mark task as Done: ${pendingSubtasks.length} subtask(s) are still pending. All assignees must complete their subtasks first.`);
         return;
       }
@@ -1871,18 +2101,29 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
       }
     } catch (e) {
       console.error('Approve task API error:', e);
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
   // Action: Send Back to In Progress (revisions requested)
   const sendBack = async (taskId, reason = 'Revisions requested by reviewer') => {
+    inFlightTasksRef.current.add(taskId);
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
@@ -1963,13 +2204,23 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
       }
     } catch (e) {
       console.error('Send back API error:', e);
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
@@ -2108,6 +2359,7 @@ export function DealWorkflowProvider({ children }) {
 
   // Action: Move to Documents Section (Sub Admin reviewing in Preparation stage)
   const moveToDocumentsSection = async (taskId) => {
+    inFlightTasksRef.current.add(taskId);
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.12' : '10.0.4.18';
@@ -2174,6 +2426,8 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {
       console.error('Move to documents API error:', e);
       return { success: false, error: e.message };
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
@@ -2252,7 +2506,15 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
@@ -2306,8 +2568,8 @@ export function DealWorkflowProvider({ children }) {
       if (data.success && data.task) {
         setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
         setIsCreateModalOpen(false);
-        // Refresh tasks from DB in background to ensure all counters and relations are synced
-        fetchTasks();
+        // Refresh tasks from DB in background to ensure all counters and relations are synced without flashing loading
+        fetchTasks(false);
         return data.task;
       } else {
         console.error('Task creation API error:', data.error);
@@ -2357,7 +2619,15 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
@@ -2407,6 +2677,7 @@ export function DealWorkflowProvider({ children }) {
 
   // Action: Toggle Subtask Status
   const toggleSubtask = async (taskId, subtaskId) => {
+    inFlightTasksRef.current.add(taskId);
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
@@ -2488,13 +2759,23 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }
       }
     } catch (e) {
       console.error('Toggle subtask API error:', e);
+    } finally {
+      inFlightTasksRef.current.delete(taskId);
     }
   };
 
@@ -2556,7 +2837,15 @@ export function DealWorkflowProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.task) {
-        setTasks((prev) => prev.map((t) => (t.task_id === taskId ? data.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.task_id !== taskId) return t;
+            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
+              return t;
+            }
+            return data.task;
+          })
+        );
         if (selectedTask?.task_id === taskId) {
           setSelectedTask(data.task);
         }

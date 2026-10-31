@@ -48,7 +48,16 @@ export default function StageControlPage() {
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [selectedStageTab, setSelectedStageTab] = useState(currentStage.id);
 
+  // Sync selected stage tab with active stage whenever current stage changes
+  React.useEffect(() => {
+    if (currentStage?.id) {
+      setSelectedStageTab(currentStage.id);
+    }
+  }, [currentStage?.id]);
+
   const displayedStage = stages.find((s) => s.id === selectedStageTab) || currentStage;
+  const currentStageIndex = stages.findIndex((s) => s.id === currentStage.id);
+  const nextStage = currentStageIndex >= 0 && currentStageIndex < stages.length - 1 ? stages[currentStageIndex + 1] : null;
 
   const handleAdvanceClick = () => {
     if (!isReadyToAdvance) {
@@ -112,11 +121,10 @@ export default function StageControlPage() {
             {!isReadyToAdvance && (
               <button
                 onClick={() => {
-                  resolveStageGateCondition("risks");
-                  resolveStageGateCondition("approvals");
+                  resolveStageGateCondition("all");
                 }}
                 className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                title="Sign off outstanding risks and approvals in mock state"
+                title="Sign off outstanding gate conditions in mock state"
               >
                 <CheckCircle2 size={13} className="text-emerald-600" />
                 <span>Resolve Pending Gates</span>
@@ -347,8 +355,8 @@ export default function StageControlPage() {
                 }`}
               >
                 {isReadyToAdvance
-                  ? "All mandatory documents, task signoffs, risk reviews, and signatory approval chains are 100% satisfied. Advancement to Stage 4: Bidding is authorized."
-                  : `Stage advancement is currently blocked. ${currentBlockers.length} conditions must be resolved before proceeding to Bidding.`}
+                  ? `All mandatory documents, task signoffs, risk reviews, and signatory approval chains are 100% satisfied. Advancement to Stage ${nextStage?.order || currentStage.order + 1}: ${nextStage?.name || 'Next Stage'} is authorized.`
+                  : `Stage advancement is currently blocked. ${currentBlockers.length} condition(s) must be resolved before proceeding to ${nextStage?.name || 'the next stage'}.`}
               </p>
 
               {/* Exact Blocker List */}
@@ -391,7 +399,7 @@ export default function StageControlPage() {
                     : "bg-white border border-rose-300 text-rose-800 hover:bg-rose-100/50"
                 }`}
               >
-                <span>{isReadyToAdvance ? "Proceed to Stage 4" : "Inspect Blocker Resolution"}</span>
+                <span>{isReadyToAdvance ? `Proceed to Stage ${nextStage?.order || currentStage.order + 1}: ${nextStage?.name || 'Next Stage'}` : "Inspect Blocker Resolution"}</span>
                 <ArrowRight size={13} />
               </button>
             </div>
@@ -436,7 +444,7 @@ export default function StageControlPage() {
                     Stage Advancement Blocked
                   </h3>
                   <p className="text-xs text-rose-600 font-semibold">
-                    Cannot advance to Stage 4: Approvals
+                    Cannot advance to Stage {nextStage?.order || currentStage.order + 1}: {nextStage?.name || 'Next Stage'}
                   </p>
                 </div>
               </div>
@@ -457,8 +465,7 @@ export default function StageControlPage() {
               <div className="pt-2 flex items-center justify-between text-xs">
                 <button
                   onClick={() => {
-                    resolveStageGateCondition("risks");
-                    resolveStageGateCondition("approvals");
+                    resolveStageGateCondition("all");
                     setShowBlockedModal(false);
                   }}
                   className="text-xs font-semibold text-[var(--brand)] hover:underline"
@@ -495,24 +502,25 @@ export default function StageControlPage() {
                     Advance Transaction Stage
                   </h3>
                   <p className="text-xs text-emerald-700 font-semibold">
-                    All 4 gate conditions 100% satisfied
+                    All mandatory gate conditions 100% satisfied
                   </p>
                 </div>
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed">
-                You are authorizing the advancement of <span className="font-bold">{activeDeal.name}</span> from <span className="font-bold text-slate-800">Stage 3: Negotiation</span> to <span className="font-bold text-[var(--brand)]">Stage 4: Bidding</span>.
+                You are authorizing the advancement of <span className="font-bold">{activeDeal?.name || "Deal"}</span> from <span className="font-bold text-slate-800">Stage {currentStage.order}: {currentStage.name}</span> to <span className="font-bold text-[var(--brand)]">Stage {nextStage?.order || currentStage.order + 1}: {nextStage?.name || 'Next Stage'}</span>.
               </p>
 
               <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900">
-                <div className="flex items-center gap-1.5 font-bold">
+                <div className="flex items-center gap-1.5 font-bold mb-1">
                   <CheckCircle2 size={13} className="text-emerald-600" />
                   <span>Verified Gate Checklist:</span>
                 </div>
-                <p className="text-[11px] text-emerald-700">✓ 18/18 Documents requested verified</p>
-                <p className="text-[11px] text-emerald-700">✓ 24/24 Milestone tasks completed</p>
-                <p className="text-[11px] text-emerald-700">✓ 5/5 High risks reviewed and mitigated</p>
-                <p className="text-[11px] text-emerald-700">✓ 3/3 Core signatory approvals obtained</p>
+                {gates.map((g) => (
+                  <p key={g.id} className="text-[11px] text-emerald-700">
+                    ✓ {g.satisfied}/{g.total} {g.title} verified
+                  </p>
+                ))}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2.5 text-xs">

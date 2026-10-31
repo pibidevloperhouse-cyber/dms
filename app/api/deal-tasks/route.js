@@ -146,14 +146,18 @@ export async function GET(req) {
     return NextResponse.json({
       success: true,
       tasks,
-      groups: dbGroups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        department: g.department || 'General',
-        role: g.role,
-        type: g.type,
-        members: groupMembersMap[g.name] || [],
-      })),
+      groups: dbGroups.map((g) => {
+        const isBuyer = ['buyer', 'guest_admin', 'advisor', 'guest_lead', 'external_user'].includes(g.role?.toLowerCase());
+        return {
+          id: g.id,
+          name: g.name,
+          department: g.department || 'General',
+          role: g.role,
+          type: g.type,
+          side: isBuyer ? 'buyer' : 'seller',
+          members: groupMembersMap[g.name] || [],
+        };
+      }),
       departments: departments.length > 0 ? departments : ['Finance', 'Legal', 'Operations', 'General'],
       groupMembersMap,
       users: dbAllUsers.map((u) => ({
@@ -211,8 +215,8 @@ export async function POST(req) {
     const finalIsEnabled = is_enabled !== undefined
       ? Boolean(is_enabled)
       : isEnabled !== undefined
-      ? Boolean(isEnabled)
-      : true;
+        ? Boolean(isEnabled)
+        : true;
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -225,8 +229,8 @@ export async function POST(req) {
     const resolvedCreatorSide = creator_side || 'seller';
     const resolvedTargetSide = target_side || (effectiveVisibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
     const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (effectiveVisibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (effectiveVisibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
-    const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : 'Buyer Legal Team');
-    const resolvedCreatedBy = created_by || 'Admin';
+    const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : (resolvedCreatorSide === 'buyer' ? 'Buyer Due Diligence Team' : 'Buyer Legal Team'));
+    const resolvedCreatedBy = created_by || (resolvedCreatorSide === 'buyer' ? 'Advisor' : 'Admin');
 
     const resolvedFolderId = isPrep ? (folder_id || assigned_folder_id || null) : null;
     const resolvedFolderName = isPrep ? (folder_name || assigned_folder_name || assigned_folder || null) : null;

@@ -140,7 +140,7 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
       </div>
 
       {/* Compliance / Status footer panel (matching DocumentsSidebar storage panel style) */}
-      <div className="p-4 border-t border-gray-100 w-64 bg-slate-50/50 select-none">
+      {/* <div className="p-4 border-t border-gray-100 w-64 bg-slate-50/50 select-none">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -154,7 +154,7 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
     </aside>
   );
 }

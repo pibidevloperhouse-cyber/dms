@@ -78,7 +78,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     if (!isNaN(parsed.getTime())) {
       try {
         return parsed.toISOString().split('T')[0];
-      } catch (e) {}
+      } catch (e) { }
     }
     return '';
   };
@@ -146,7 +146,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
             sessionStorage.removeItem('deal_workflow_edit_task_draft');
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       setTitle(draft?.title !== undefined ? draft.title : (task.title || ''));
       setDescription(draft?.description !== undefined ? draft.description : (task.description || ''));
@@ -177,9 +177,12 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     if (g?.role) return normalizeRole(g.role);
     const lower = (g?.name || '').toLowerCase();
     if (lower.includes('super')) return 'super_admin';
+    if (lower.includes('advisor')) return 'advisor';
+    if (lower.includes('lead')) return 'guest_lead';
+    if (lower.includes('external')) return 'external_user';
     if (lower.includes('sub')) return 'sub_admin';
     if (lower.includes('admin')) return 'admin';
-    return 'internal_user';
+    return userSide === 'buyer' ? 'external_user' : 'internal_user';
   };
 
   // 1. Candidate groups allowed for the current logged-in role based on delegation rules:
@@ -818,7 +821,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                                       };
                                       try {
                                         sessionStorage.setItem('deal_workflow_edit_task_draft', JSON.stringify(draft));
-                                      } catch (err) {}
+                                      } catch (err) { }
                                       if (onClose) onClose();
                                       window.location.href = targetUrl;
                                     }}
@@ -861,7 +864,11 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     }}
                     className="w-full appearance-none px-3 py-2 pr-8 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all cursor-pointer"
                   >
-                    {DEAL_STAGES.map((s) => (
+                    {DEAL_STAGES.filter((s) => {
+                      const isPrep = normalizeStage(s) === 'Preparation';
+                      const isBuyer = currentUser?.side === 'buyer';
+                      return !(isBuyer && isPrep);
+                    }).map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
@@ -881,7 +888,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                     onClick={(e) => {
                       try {
                         e.target.showPicker?.();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none bg-white transition-all font-sans cursor-pointer"
                   />
@@ -939,9 +946,8 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                           {st.title}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase ${
-                            st.status === 'DONE' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border uppercase ${st.status === 'DONE' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
                             {st.status === 'DONE' ? 'Done' : 'To Do'}
                           </span>
                           <button
@@ -1001,9 +1007,9 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                 }
                 title={
                   normalizeStage(dealStage) === 'Preparation' &&
-                  Boolean(assignedFolderId) &&
-                  folderAccessStatus &&
-                  !folderAccessStatus.hasAccess
+                    Boolean(assignedFolderId) &&
+                    folderAccessStatus &&
+                    !folderAccessStatus.hasAccess
                     ? 'This group does not have access to this folder. Please grant access.'
                     : undefined
                 }
@@ -1109,7 +1115,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                       onClick={(e) => {
                         try {
                           e.target.showPicker?.();
-                        } catch (err) {}
+                        } catch (err) { }
                       }}
                       className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#006666] bg-white font-sans cursor-pointer"
                     />

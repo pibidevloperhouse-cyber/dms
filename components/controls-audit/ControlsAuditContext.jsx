@@ -29,6 +29,11 @@ export function ControlsAuditProvider({ children }) {
   const [liveAuthLogs, setLiveAuthLogs] = useState([]);
   const [isLoadingAuthLogs, setIsLoadingAuthLogs] = useState(false);
 
+  // Real Deal Tasks & Active Stage state from Deal Workflow
+  const [dealTasksList, setDealTasksList] = useState([]);
+  const [activeStageName, setActiveStageName] = useState("Due Diligence");
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
   // Party Side Filtering State: 'all' | 'buyer' | 'seller'
   const [selectedSide, setSelectedSide] = useState("all");
   const [callerSide, setCallerSide] = useState("super_admin"); // 'super_admin' | 'buyer' | 'seller'
@@ -145,23 +150,143 @@ export function ControlsAuditProvider({ children }) {
     }
   }, [selectedDealId, selectedSide]);
 
+  // Stage name normalizer matching Deals Workflow conventions
+  const normalizeStage = useCallback((stage) => {
+    if (!stage) return "Preparation";
+    const s = (typeof stage === "string" ? stage : String(stage?.name || stage || "")).trim().toLowerCase();
+    if (s.includes("prep")) return "Preparation";
+    if (s.includes("due") || s.includes("diligence")) return "Due Diligence";
+    if (s.includes("neg")) return "Negotiation";
+    if (s.includes("bid")) return "Bidding";
+    if (s.includes("clos")) return "Closing";
+    return "Preparation";
+  }, []);
+
+  // Fetch real deal tasks and active stage from backend Deal Workflow
+  const fetchDealTasksAndStage = useCallback(async () => {
+    try {
+      setIsLoadingTasks(true);
+
+      // 1. Fetch current active stage
+      let currentActiveStage = "Due Diligence";
+      try {
+        const stageRes = await fetch("/api/deal-workflow/active-stage");
+        if (stageRes.ok) {
+          const stageData = await stageRes.json();
+          if (stageData.success && stageData.activeStage) {
+            currentActiveStage = stageData.activeStage;
+            setActiveStageName(stageData.activeStage);
+          }
+        }
+      } catch (e) {
+        console.warn("[ControlsAudit] Could not fetch active stage:", e);
+      }
+
+      // 2. Fetch real deal tasks
+      let rawTasks = [];
+      try {
+        const tasksRes = await fetch("/api/deal-tasks");
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          if (tasksData.success && Array.isArray(tasksData.tasks)) {
+            rawTasks = tasksData.tasks;
+            setDealTasksList(tasksData.tasks);
+          }
+        }
+      } catch (e) {
+        console.warn("[ControlsAudit] Could not fetch deal tasks:", e);
+      }
+
+      // 3. Compute and apply active stage & real task metrics to stages
+      setStages((prevStages) => {
+        const baseStages = prevStages && prevStages.length > 0 ? prevStages : MOCK_STAGES;
+        const activeIndex = baseStages.findIndex(
+          (s) => normalizeStage(s.name) === normalizeStage(currentActiveStage)
+        );
+        const currentIdx = activeIndex !== -1 ? activeIndex : 1;
+
+        return baseStages.map((stage, idx) => {
+          const isCurrent = idx === currentIdx;
+          const isCompleted = idx < currentIdx;
+          const isLocked = idx > currentIdx;
+
+          // Find tasks matching this stage in Deals Workflow
+          const stageTasks = rawTasks.filter(
+            (t) => normalizeStage(t.deal_stage || t.dealStage) === normalizeStage(stage.name)
+          );
+          const totalTasks = stageTasks.length;
+          const doneTasks = stageTasks.filter(
+            (t) => (t.status || "").toUpperCase() === "DONE"
+          ).length;
+          const pendingTasks = stageTasks.filter(
+            (t) => (t.status || "").toUpperCase() !== "DONE"
+          );
+
+          // Update gates with real task figures
+          const updatedGates = (stage.gates || []).map((gate) => {
+            if (gate.source === "tasks") {
+              if (totalTasks > 0) {
+                const isTasksSatisfied = doneTasks === totalTasks;
+                return {
+                  ...gate,
+                  satisfied: doneTasks,
+                  total: totalTasks,
+                  status: isTasksSatisfied ? "completed" : "blocked",
+                  details: isTasksSatisfied
+                    ? `All ${totalTasks} ${stage.name} checklist tasks resolved (DONE) in Deals Workflow.`
+                    : `${doneTasks} of ${totalTasks} tasks resolved. ${totalTasks - doneTasks} pending ("${pendingTasks.map((p) => p.title).slice(0, 2).join('", "')}"${pendingTasks.length > 2 ? '...' : ''}).`,
+                };
+              } else if (isCompleted) {
+                return {
+                  ...gate,
+                  satisfied: gate.total,
+                  status: "completed",
+                  details: `All milestone tasks for ${stage.name} verified completed in Deals Workflow.`,
+                };
+              }
+            }
+            return gate;
+          });
+
+          return {
+            ...stage,
+            status: isCompleted ? "completed" : isCurrent ? "in_progress" : "locked",
+            isCurrent,
+            completedAt: isCompleted ? (stage.completedAt || "2026-05-02") : null,
+            gates: updatedGates,
+          };
+        });
+      });
+    } catch (err) {
+      console.error("[ControlsAudit] Error in fetchDealTasksAndStage:", err);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  }, [normalizeStage]);
+
   useEffect(() => {
     fetchAuthLogs();
+    fetchDealTasksAndStage();
 
-    // Auto-refresh when tab gains focus or on storage event
-    const handleRefresh = () => fetchAuthLogs();
+    // Auto-refresh when tab gains focus, storage changes or active stage changes
+    const handleRefresh = () => {
+      fetchAuthLogs();
+      fetchDealTasksAndStage();
+    };
     window.addEventListener("focus", handleRefresh);
     window.addEventListener("storage", handleRefresh);
+    window.addEventListener("dms_active_stage_changed", handleRefresh);
 
-    // Periodic auto-poll every 12 seconds so new logins appear immediately
-    const pollInterval = setInterval(fetchAuthLogs, 12000);
+    // Periodic auto-poll every 12 seconds so new logins and tasks appear immediately
+    const pollInterval = setInterval(handleRefresh, 12000);
 
     return () => {
       window.removeEventListener("focus", handleRefresh);
       window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("dms_active_stage_changed", handleRefresh);
       clearInterval(pollInterval);
     };
-  }, [fetchAuthLogs]);
+  }, [fetchAuthLogs, fetchDealTasksAndStage]);
 
   // Combined audit logs: live auth logs merged with other audit logs, deduplicated by id & filtered by selectedSide
   const combinedAuditLogs = useMemo(() => {
@@ -595,7 +720,7 @@ export function ControlsAuditProvider({ children }) {
         return {
           ...stage,
           gates: stage.gates.map((gate) => {
-            if (gate.source === gateSource) {
+            if (gateSource === "all" || gate.source === gateSource) {
               return {
                 ...gate,
                 satisfied: gate.total,
@@ -609,8 +734,8 @@ export function ControlsAuditProvider({ children }) {
       })
     );
 
-    // If resolving risks, mark high risks as mitigated
-    if (gateSource === "risks") {
+    // If resolving risks or all, mark high risks as mitigated
+    if (gateSource === "risks" || gateSource === "all") {
       setRisks((prev) =>
         prev.map((r) =>
           r.severity === "High" ? { ...r, status: "mitigated" } : r
@@ -620,7 +745,7 @@ export function ControlsAuditProvider({ children }) {
 
     addAuditEvent({
       action: "Gate Condition Satisfied",
-      resource: `Stage 3 Gate: ${gateSource}`,
+      resource: `Gate Condition: ${gateSource.toUpperCase()}`,
       module: "Stage Control",
       result: "Success",
       metadata: { gateSource, updatedStatus: "completed" },
@@ -630,10 +755,16 @@ export function ControlsAuditProvider({ children }) {
   }, [addAuditEvent, showToast]);
 
   // ── WORKFLOW ACTION: ADVANCE STAGE ──
-  const advanceDealStage = useCallback(() => {
+  const advanceDealStage = useCallback(async () => {
+    let nextStageName = "";
+    let currentStageName = "";
+
     setStages((prev) => {
       const currentIdx = prev.findIndex((s) => s.isCurrent);
       if (currentIdx === -1 || currentIdx === prev.length - 1) return prev;
+
+      currentStageName = prev[currentIdx].name;
+      nextStageName = prev[currentIdx + 1].name;
 
       return prev.map((s, idx) => {
         if (idx === currentIdx) {
@@ -655,9 +786,39 @@ export function ControlsAuditProvider({ children }) {
       });
     });
 
+    if (nextStageName) {
+      setActiveStageName(nextStageName);
+
+      // Post to server so DMS and Deal Workflow update their active stage
+      try {
+        await fetch("/api/deal-workflow/active-stage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stage: nextStageName,
+            notificationPayload: {
+              id: `stage-activate-${nextStageName}-${Date.now()}`,
+              stage: nextStageName,
+              activatedBy: "Controls & Audit Governance",
+              timestamp: Date.now(),
+              message: `Deal stage advanced to ${nextStageName} upon 100% gate condition satisfaction.`,
+            },
+          }),
+        });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("dms_active_deal_stage", nextStageName);
+          window.dispatchEvent(
+            new CustomEvent("dms_active_stage_changed", { detail: { stage: nextStageName } })
+          );
+        }
+      } catch (err) {
+        console.warn("Could not post stage update to server:", err);
+      }
+    }
+
     addAuditEvent({
       action: "Stage Changed",
-      resource: "Deal Progression: Stage 3 (Negotiation) → Stage 4 (Bidding)",
+      resource: `Deal Progression: ${currentStageName || "Current Stage"} → ${nextStageName || "Next Stage"}`,
       module: "Stage Control",
       result: "Success",
       permissionDecision: {
@@ -665,14 +826,17 @@ export function ControlsAuditProvider({ children }) {
         verdict: "Advancement Authorized",
       },
       metadata: {
-        previousStage: "Negotiation",
-        nextStage: "Bidding",
+        previousStage: currentStageName,
+        nextStage: nextStageName,
         allGatesVerified: true,
       },
     });
 
-    showToast("Acme Corp Acquisition successfully advanced to Stage 4: Bidding!", "success");
-  }, [addAuditEvent, showToast]);
+    showToast(
+      `${activeDeal?.name || "Deal"} successfully advanced to Stage ${nextStageName}!`,
+      "success"
+    );
+  }, [activeDeal, addAuditEvent, showToast]);
 
   // ── WORKFLOW ACTION: UPDATE PERMISSION CELL IN MATRIX ──
   const updatePermissionCell = useCallback((actionName, roleName, newStatus, reason = "") => {
@@ -963,6 +1127,13 @@ export function ControlsAuditProvider({ children }) {
     reports,
     settings,
     kpis,
+
+    // Real Deal Tasks & Active Stage Integration
+    dealTasksList,
+    activeStageName,
+    isLoadingTasks,
+    fetchDealTasksAndStage,
+    normalizeStage,
 
     // Workflow actions
     addAuditEvent,

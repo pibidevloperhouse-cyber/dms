@@ -361,7 +361,7 @@ export async function POST(req) {
 
                 const { data: item, error: itemErr } = await supabase
                     .from('buyer_disclosure_items')
-                    .select('id, is_redacted, original_document_id')
+                    .select('id, is_redacted, original_document_id, name')
                     .eq('id', itemId)
                     .single();
 
@@ -381,6 +381,26 @@ export async function POST(req) {
                         .from('documents')
                         .update({ is_redacted: nextState })
                         .eq('id', item.original_document_id);
+
+                    // Insert audit log for redaction state change
+                    try {
+                        await supabase.from('document_edit_logs').insert([{
+                            user_id: session?.id || null,
+                            document_id: item.original_document_id,
+                            action_type: nextState ? 'REDACT' : 'RESTORE_REDACTION',
+                            metadata: {
+                                file_name: item.name || 'Document',
+                                workspace_id: workspaceId,
+                                company_id: companyId,
+                                is_redacted: nextState,
+                                document_version: nextState ? 'V2' : 'V1',
+                                action_desc: nextState ? 'Document Redacted to V2' : 'Document Restored to Original V1',
+                            },
+                            changed_at: new Date().toISOString()
+                        }]);
+                    } catch (logErr) {
+                        console.warn('[ToggleRedact] Could not insert audit log:', logErr);
+                    }
                 }
 
                 const fullStages = await getFullStages(companyId, workspaceId);

@@ -5,6 +5,7 @@ import {
   documentEditLogs,
   documentAccessLogs,
   documents,
+  redactedDocuments,
   users,
   companies,
   dmsDeals,
@@ -481,7 +482,7 @@ export async function GET(req) {
       };
     });
 
-    // 10. Query documentEditLogs (Document Actions: download, upload, view, delete)
+    // 10. Query documentEditLogs (Document Actions: download, upload, view, delete, redact)
     let rawDocLogs = [];
     try {
       rawDocLogs = await db
@@ -500,6 +501,8 @@ export async function GET(req) {
           docWorkspaceId: documents.workspaceId,
           docCompanyId: documents.companyId,
           companyName: companies.name,
+          isDocRedacted: documents.isRedacted,
+          dealStage: documents.dealStage,
         })
         .from(documentEditLogs)
         .leftJoin(users, eq(documentEditLogs.userId, users.id))
@@ -509,6 +512,24 @@ export async function GET(req) {
         .limit(300);
     } catch (e) {
       console.warn('[AuditTrail] Could not fetch documentEditLogs:', e.message);
+    }
+
+    // Query redacted documents map to resolve redacted status for all documents
+    let redactedDocsMap = new Map();
+    try {
+      const redRows = await db
+        .select({
+          documentId: redactedDocuments.documentId,
+          redactedPath: redactedDocuments.redactedPath,
+          createdBy: redactedDocuments.createdBy,
+          createdAt: redactedDocuments.createdAt,
+        })
+        .from(redactedDocuments);
+      redRows.forEach((r) => {
+        if (r.documentId) redactedDocsMap.set(r.documentId, r);
+      });
+    } catch (e) {
+      console.warn('[AuditTrail] Could not fetch redactedDocuments:', e.message);
     }
 
     // Query documentAccessLogs to link view durations for VIEW actions
@@ -592,11 +613,25 @@ export async function GET(req) {
       };
     };
 
-    // Helper: format document action name
-    const getDocumentActionName = (actionType, metadata) => {
+    // Helper: format document action name with Redacted vs Original fidelity
+    const getDocumentActionName = (actionType, metadata, isRedactedDoc) => {
       const type = (actionType || '').toUpperCase();
       if (type === 'UPLOAD') return 'Document Upload';
-      if (type === 'VIEW') return 'Document View';
+      if (type === 'VIEW_REDACTED' || (type === 'VIEW' && isRedactedDoc)) {
+        return 'Document View (Redacted)';
+      }
+      if (type === 'VIEW') {
+        return 'Document View (Original)';
+      }
+      if (type === 'REDACT' || type === 'APPLY_REDACTION') {
+        return 'Document Redaction Applied';
+      }
+      if (type === 'RESTORE_REDACTION') {
+        return 'Document Redaction Restored';
+      }
+      if (type === 'DOWNLOAD_REDACTED' || (type.includes('DOWNLOAD') && isRedactedDoc)) {
+        return 'Document Download (Redacted)';
+      }
       if (type === 'DOWNLOAD_ORIGINAL') return 'Document Download (Original)';
       if (type === 'DOWNLOAD_SECURE') return 'Document Download (Secure)';
       if (type.includes('DOWNLOAD')) return 'Document Download';
@@ -631,10 +666,18 @@ export async function GET(req) {
 
     // 12. Transform Document Logs with active deal metadata
     const formattedDocLogs = dealScopedDocLogs.map((log) => {
-      const actionName = getDocumentActionName(log.actionType, log.metadata);
+      const redDocInfo = log.documentId ? redactedDocsMap.get(log.documentId) : null;
+      const isRedactedDoc = Boolean(
+        log.isDocRedacted ||
+        log.metadata?.is_redacted ||
+        log.metadata?.document_version === 'V2' ||
+        (log.actionType || '').toUpperCase().includes('REDACT') ||
+        redDocInfo
+      );
+      const actionName = getDocumentActionName(log.actionType, log.metadata, isRedactedDoc);
       const fileName = log.docName || log.metadata?.file_name || 'Document File';
 
-      const isView = (log.actionType || '').toUpperCase() === 'VIEW';
+      const isView = (log.actionType || '').toUpperCase().includes('VIEW');
       let durationSeconds = null;
       let durationFormatted = '—';
       let durationText = '—';
@@ -715,14 +758,21 @@ export async function GET(req) {
         outcome: 'SUCCESS',
         failureReason: null,
         permissionDecision: {
-          rule: 'Document Operation Authorization',
+          rule: isRedactedDoc ? 'Redacted Document Access Permitted' : 'Document Operation Authorization',
           verdict: 'Permitted',
         },
+        isRedacted: isRedactedDoc,
+        documentVersion: isRedactedDoc ? 'V2 (Redacted)' : 'V1 (Original)',
+        redactedPath: redDocInfo?.redactedPath || log.metadata?.redacted_path || null,
         metadata: {
           actionType: log.actionType,
           fileName,
+          isRedacted: isRedactedDoc,
+          documentVersion: isRedactedDoc ? 'V2 (Redacted)' : 'V1 (Original)',
+          redactedPath: redDocInfo?.redactedPath || log.metadata?.redacted_path || null,
           dealName: activeDeal.dealName,
           projectName: activeDeal.projectName,
+          dealStage: log.dealStage || 'Preparation',
           duration: durationText,
           duration_seconds: durationSeconds,
           duration_formatted: durationFormatted,
@@ -736,6 +786,9 @@ export async function GET(req) {
           user_id: log.userId,
           document_id: log.documentId,
           file_name: fileName,
+          is_redacted: isRedactedDoc,
+          document_version: isRedactedDoc ? 'V2' : 'V1',
+          redacted_path: redDocInfo?.redactedPath || null,
           deal_id: activeDeal.dealId,
           deal_name: activeDeal.dealName,
           project_name: activeDeal.projectName,
