@@ -34,8 +34,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
   const [isRequesting, setIsRequesting] = useState(false);
 
   const normRole = normalizeRole(currentUser?.role);
-  const isSuperAdmin = normRole === 'super_admin';
-  const isAdmin = normRole === 'admin';
+  const isSuperAdmin = normRole === 'super_admin' || normRole === 'guest_admin';
+  const isAdmin = normRole === 'admin' || normRole === 'advisor';
 
   // Get active stage details from stageTrackerInfo
   const activeStageObj = stageTrackerInfo?.stages?.find(

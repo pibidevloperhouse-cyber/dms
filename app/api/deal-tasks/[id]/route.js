@@ -294,9 +294,9 @@ export async function PATCH(req, { params }) {
           const fileExt = fileName.split('.').pop()?.toLowerCase();
           const mime = fileExt === 'pdf' ? 'application/pdf' :
             ['xlsx', 'xls'].includes(fileExt) ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
-            ['docx', 'doc'].includes(fileExt) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-            ['png', 'jpg', 'jpeg'].includes(fileExt) ? `image/${fileExt}` :
-            'application/octet-stream';
+              ['docx', 'doc'].includes(fileExt) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+                ['png', 'jpg', 'jpeg'].includes(fileExt) ? `image/${fileExt}` :
+                  'application/octet-stream';
 
           const sizeBytes = att.fileSizeBytes || (typeof att.size === 'number' ? att.size : 153600);
 
@@ -320,6 +320,9 @@ export async function PATCH(req, { params }) {
           movedDocs.push(newDoc);
         }
 
+        const isBuyerTask = task.creatorSide === 'buyer' || user.side === 'buyer';
+        const defaultReviewRole = isBuyerTask ? 'Guest Lead' : 'Sub Admin';
+
         // 3. Mark task as DONE
         updatedFields = {
           ...updatedFields,
@@ -331,7 +334,7 @@ export async function PATCH(req, { params }) {
             {
               action: 'Files Moved to Documents Section & Marked as Done',
               performed_by: userName,
-              role: user.role || 'Sub Admin',
+              role: user.role || defaultReviewRole,
               timestamp: formattedDate,
               ip: ipAddress,
               details: `Successfully uploaded ${movedDocs.length} deliverable file(s) directly into Documents folder "${targetFolderName}". Task approved.`,
@@ -343,12 +346,14 @@ export async function PATCH(req, { params }) {
 
       case 'inform_query':
       case 'send_back': {
-        const userName = user.name || 'Sub Admin';
+        const isBuyerTask = task.creatorSide === 'buyer' || user.side === 'buyer';
+        const defaultRole = isBuyerTask ? 'Guest Lead' : 'Sub Admin';
+        const userName = user.name || defaultRole;
         const queryText = payload.queryText || payload.reason || 'Revisions requested by reviewer';
         const newComment = {
           id: `comm_${Date.now()}`,
           author: userName,
-          company: user.company || 'ABC Textiles',
+          company: user.company || (isBuyerTask ? 'XYZ Capital' : 'ABC Textiles'),
           scope: 'INTERNAL',
           text: `Review Query: ${queryText}`,
           timestamp: formattedDate,
@@ -368,9 +373,9 @@ export async function PATCH(req, { params }) {
           auditTrail: [
             ...currentAudit,
             {
-              action: 'Review Query Raised by Sub Admin',
+              action: `Review Query Raised by ${user.role || defaultRole}`,
               performed_by: userName,
-              role: user.role || 'Sub Admin',
+              role: user.role || defaultRole,
               timestamp: formattedDate,
               ip: ipAddress,
               details: queryText,

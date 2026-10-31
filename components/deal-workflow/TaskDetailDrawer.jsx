@@ -75,15 +75,22 @@ export default function TaskDetailDrawer() {
   const isCreator = isTaskCreator ? isTaskCreator(selectedTask, currentUser) : false;
   const isAssignee = isTaskAssignee ? isTaskAssignee(selectedTask, currentUser) : (selectedTask.assigned_to_user === currentUser.name);
   const isStageLocked = isStageLockedForUser ? isStageLockedForUser(selectedTask, currentUser) : false;
-  const canApprove = !isAssignee && (canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : isCreator);
   const isSubAdminToInternalPrep = isSubAdminToInternalPrepTask ? isSubAdminToInternalPrepTask(selectedTask) : false;
+
+  const isBuyer = currentUser.side === 'buyer' || selectedTask.creator_side === 'buyer' || selectedTask.target_side === 'buyer';
+  const leadRoleName = isBuyer ? 'Guest Lead' : 'Sub Admin';
+  const executorRoleName = isBuyer ? 'External User' : 'Internal User';
+
+  const userNormRole = normalizeRole(currentUser?.role);
+  const isLeadReviewer = isSubAdminToInternalPrep && (userNormRole === 'sub_admin' || userNormRole === 'guest_lead');
+  const canApprove = (!isAssignee || isLeadReviewer) && (canUserApproveTask ? canUserApproveTask(selectedTask, currentUser) : (isCreator || isLeadReviewer));
 
   const isCreatorSide = currentUser.side === selectedTask.creator_side;
   const isTargetSide = currentUser.side === selectedTask.target_side;
 
   const subtasksList = selectedTask.subtasks || [];
-  const isAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'admin';
-  const isInternalUser = normalizeRole(currentUser?.role) === 'internal_user';
+  const isAdmin = userNormRole === 'super_admin' || userNormRole === 'guest_admin' || userNormRole === 'admin' || userNormRole === 'advisor';
+  const isInternalUser = userNormRole === 'internal_user' || userNormRole === 'external_user';
 
   // Sub Admin to Internal User Flow Rule:
   // In Preparation stage, Internal Users can only view files that THEY uploaded.
@@ -341,12 +348,12 @@ export default function TaskDetailDrawer() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Edit Task Button - allows task creator to edit task after assignment */}
-                {isCreator && (
+                  {/* Edit Task Button - allows task creator or lead assignee to edit task / divide subtasks */ }
+                {(isCreator || (isAssignee && (userNormRole === 'sub_admin' || userNormRole === 'guest_lead'))) && (
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
-                    title="Edit Task"
+                    title="Edit Task & Manage Subtasks"
                     className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#006666] hover:bg-teal-50 hover:border-teal-200 transition-colors cursor-pointer flex items-center justify-center"
                   >
                     <Edit3 className="w-4 h-4" />
@@ -607,8 +614,8 @@ export default function TaskDetailDrawer() {
                       <p className="font-bold text-teal-950">Task In Progress — Assigned to You</p>
                       <p className="text-[11px] text-teal-700 mt-0.5">
                         {isSubAdminToInternalPrep
-                          ? 'Attach your deliverable files below and complete your checklist items, then click "Submit Review" in the bottom bar to forward to Sub Admin for sign-off.'
-                          : 'Complete your deliverables and checklist items below, then click "Submit Review" in the bottom bar to forward to creator for sign-off.'}
+                            ? `Attach your deliverable files below and complete your checklist items, then click "Submit Review" in the bottom bar to forward to ${leadRoleName} for sign-off.`
+                            : 'Complete your deliverables and checklist items below, then click "Submit Review" in the bottom bar to forward to creator for sign-off.'}
                       </p>
                     </div>
                   </div>
@@ -726,7 +733,7 @@ export default function TaskDetailDrawer() {
                     <div className="flex items-center justify-between mb-2">
                       <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Paperclip className="w-3.5 h-3.5 text-[#006666]" />
-                        <span>Attach Files for Sub Admin Review</span>
+                        <span>Attach Files for {leadRoleName} Review</span>
                       </h5>
                       <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                         {(selectedTask.attachments || []).length} attached
@@ -1080,7 +1087,7 @@ export default function TaskDetailDrawer() {
                   type="button"
                   onClick={() => {
                     if (isSubAdminToInternalPrep && (!selectedTask.attachments || selectedTask.attachments.length === 0)) {
-                      alert('Please attach your deliverable files for Sub Admin review before submitting.');
+                      alert(`Please attach your deliverable files for ${leadRoleName} review before submitting.`);
                       return;
                     }
                     submitForReview(selectedTask.task_id);
@@ -1096,11 +1103,10 @@ export default function TaskDetailDrawer() {
                   const doneSub = selectedTask.subtasks.filter((s) => s.status === 'DONE').length;
                   const mySubDone = displayedSubtasks.length > 0 && displayedSubtasks.every((s) => s.status === 'DONE');
                   return (
-                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5 ${
-                      mySubDone
+                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-lg border inline-flex items-center gap-1.5 ${mySubDone
                         ? 'text-teal-800 bg-teal-50 border-teal-200'
                         : 'text-amber-800 bg-amber-50 border-amber-200'
-                    }`}>
+                      }`}>
                       <Clock className="w-3.5 h-3.5" />
                       <span>
                         {mySubDone
@@ -1172,7 +1178,7 @@ export default function TaskDetailDrawer() {
               ) : (
                 <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{isSubAdminToInternalPrep ? 'Pending Sub Admin Review & Sign-off' : 'Pending Review & Sign-off'}</span>
+                  <span>{isSubAdminToInternalPrep ? `Pending ${leadRoleName} Review & Sign-off` : 'Pending Review & Sign-off'}</span>
                 </div>
               )
             )}

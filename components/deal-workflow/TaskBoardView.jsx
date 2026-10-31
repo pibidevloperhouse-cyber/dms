@@ -193,9 +193,9 @@ export default function TaskBoardView() {
     },
   ];
 
-  // Check if current user is super_admin or internal_user
-  const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin';
-  const isInternalUser = normalizeRole(currentUser?.role) === 'internal_user';
+  // Check if current user is super_admin (or guest_admin) or internal/external task executor
+  const isSuperAdmin = normalizeRole(currentUser?.role) === 'super_admin' || normalizeRole(currentUser?.role) === 'guest_admin';
+  const isInternalUser = normalizeRole(currentUser?.role) === 'internal_user' || normalizeRole(currentUser?.role) === 'external_user';
 
   // Current stage tracking metadata
   const currentStageObj = useMemo(() => {
@@ -608,17 +608,17 @@ export default function TaskBoardView() {
                 return (
                   <div
                     key={col.id}
-                    className={`flex flex-col bg-slate-100/80 rounded-2xl border border-slate-200/80 p-3 min-h-[500px] ${isHiddenOnMobile ? 'hidden md:flex' : 'flex'
+                    className={`flex flex-col bg-slate-100/80 rounded-2xl border border-slate-200/80 p-3 min-h-[500px] transition-all duration-300 ease-in-out ${isHiddenOnMobile ? 'hidden md:flex' : 'flex'
                       }`}
                   >
                     {/* Column Header */}
                     <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
                       <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
+                        <span className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${col.dotColor}`} />
                         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                           {col.label}
                         </h2>
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${col.badgeColor}`}>
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors duration-300 ${col.badgeColor}`}>
                           {col.count}
                         </span>
                       </div>
@@ -629,9 +629,9 @@ export default function TaskBoardView() {
                     </div>
 
                     {/* Cards Container */}
-                    <div className="flex flex-col gap-3 flex-1">
+                    <div className="flex flex-col gap-3 flex-1 transition-all duration-300 ease-in-out min-h-[120px]">
                       {colTasks.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-300 bg-white/40 my-2">
+                        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-300 bg-white/40 my-2 animate-in fade-in duration-200">
                           <p className="text-xs font-medium text-slate-400">
                             No tasks in {col.label.toLowerCase()}
                           </p>
@@ -655,7 +655,7 @@ export default function TaskBoardView() {
 
                           return (
                             <TaskCard
-                              key={task.task_id}
+                              key={task.task_id || task.id}
                               task={task}
                               isActive={isTaskActive && isChatPanelOpen}
                               onOpenChat={(t) => {
