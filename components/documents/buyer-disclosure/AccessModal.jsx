@@ -31,7 +31,7 @@ export default function AccessModal({ isOpen, onClose, mode = 'grant', stage, on
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity">
-            <div 
+            <div
                 className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -43,17 +43,17 @@ export default function AccessModal({ isOpen, onClose, mode = 'grant', stage, on
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-slate-800">
-                                {isGrant ? `Grant Buyer Access: ${stage.name}` : `Revoke Access: ${stage.name}`}
+                                {isGrant ? `Grant Access: ${stage.name}` : `Revoke Access: ${stage.name}`}
                             </h3>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                {isGrant 
+                                {isGrant
                                     ? `Allow buyer parties to view documents under ${stage.name}.`
                                     : `Remove buyer visibility to documents under ${stage.name}.`}
                             </p>
                         </div>
                     </div>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                         disabled={isSubmitting}
                     >
@@ -74,11 +74,10 @@ export default function AccessModal({ isOpen, onClose, mode = 'grant', stage, on
                                 <span className="text-xs text-slate-500">{stage.itemCount || (stage.items ? stage.items.length : 0)} items included</span>
                             </div>
                         </div>
-                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
-                            isGrant
-                                ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${isGrant
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
                             Current: {isGrant ? 'Hidden from buyer' : 'Buyer can view'}
                         </span>
                     </div>
@@ -86,7 +85,7 @@ export default function AccessModal({ isOpen, onClose, mode = 'grant', stage, on
                     {isGrant ? (
                         <div className="space-y-3.5">
                             <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Access Configuration</p>
-                            
+
                             <label className="flex items-start gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-teal-300 transition-colors cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -166,18 +165,17 @@ export default function AccessModal({ isOpen, onClose, mode = 'grant', stage, on
                         type="button"
                         onClick={handleConfirm}
                         disabled={isSubmitting}
-                        className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl text-white shadow-sm transition-all ${
-                            isGrant
-                                ? 'bg-[#0e6f7c] hover:bg-[#09525c] active:scale-95'
-                                : 'bg-rose-600 hover:bg-rose-700 active:scale-95'
-                        }`}
+                        className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl text-white shadow-sm transition-all ${isGrant
+                            ? 'bg-[#0e6f7c] hover:bg-[#09525c] active:scale-95'
+                            : 'bg-rose-600 hover:bg-rose-700 active:scale-95'
+                            }`}
                     >
                         {isSubmitting ? (
                             <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : isGrant ? (
                             <>
                                 <FaCheck className="text-xs" />
-                                Grant Buyer Access
+                                Grant Access
                             </>
                         ) : (
                             <>

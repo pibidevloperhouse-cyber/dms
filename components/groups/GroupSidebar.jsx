@@ -18,6 +18,7 @@ const DEPT_ICON = (
 );
 
 const ROLE_LABELS = {
+    guest_admin: 'Guest Admin',
     super_admin: 'Super Admin',
     admin: 'Admin',
     sub_admin: 'Sub Admin',
@@ -54,6 +55,7 @@ export default function GroupsSidebar({ isOpen = true }) {
     const [isBuyerSide, setIsBuyerSide] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [guestLead, setGuestLead] = useState(null);
+    const [sellerSuperAdmin, setSellerSuperAdmin] = useState(null);
     const [sellerMembers, setSellerMembers] = useState([]);
 
     // Department States for Form & Sidebar (Simple select dropdown like other fields)
@@ -100,7 +102,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             const userId = session?.id;
             const companyId = session?.company_id;
             const dmsRole = session?.dms_role || localStorage.getItem('userRole') || '';
-            const isBuyer = dmsRole === 'buyer' || userRole === 'guest_admin' || userRole === 'guest_lead' || userRole === 'buyer';
+            const isBuyer = dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'buyer', 'advisor'].includes(userRole);
             setIsBuyerSide(isBuyer);
             setCurrentUserRole(userRole || '');
             let individualGroups = [];
@@ -120,7 +122,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                 setCanViewSellerMembers(true);
                 setCanViewSellerGroups(true);
             } else {
-                if (session?.active_workspace_id && (userRole === 'guest_admin' || userRole === 'buyer' || userRole === 'external_user')) {
+                if (session?.active_workspace_id && (['guest_admin', 'buyer', 'external_user', 'advisor'].includes(userRole))) {
                     const { data: deal } = await supabase
                         .from('dms_deals')
                         .select('guest_can_create_groups')
@@ -165,11 +167,10 @@ export default function GroupsSidebar({ isOpen = true }) {
             let query = supabase
                 .from('groups')
                 .select('*')
-                .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
 
             if (session?.active_workspace_id) query = query.eq('workspace_id', session.active_workspace_id);
-            else query = query.is('workspace_id', null);
+            else if (companyId) query = query.eq('company_id', companyId).is('workspace_id', null);
 
             const { data } = await query;
 
@@ -197,12 +198,11 @@ export default function GroupsSidebar({ isOpen = true }) {
                         .eq('user_id', userId);
 
                     const myGroupIds = new Set((ugRows || []).map(r => r.group_id));
-                    groups = groups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user'].includes(g.role));
+                    groups = groups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user', 'advisor'].includes(g.role));
                 }
 
-                if (userRole !== 'super_admin' && !localCanViewSellerMembers) {
-                    individualGroups = [];
-                }
+                // Filter individual groups for buyer side (show only advisor role)
+                individualGroups = individualGroups.filter(g => g.role === 'advisor');
             } else {
                 // Role Hierarchy filtering for Seller side:
                 // Super Admin sees: super_admin, admin, sub_admin, internal_user
@@ -255,6 +255,7 @@ export default function GroupsSidebar({ isOpen = true }) {
             const existingGroupDepts = Array.from(new Set(loadedGroups.map(g => g.department).filter(Boolean)));
             setDepartments(existingGroupDepts);
 
+            let fetchedGuestLead = null;
             // Fetch Guest Lead if in a workspace
             if (session?.active_workspace_id) {
                 const { data: deal } = await supabase
@@ -269,72 +270,135 @@ export default function GroupsSidebar({ isOpen = true }) {
                         .select('id, name, email, role')
                         .eq('id', deal.buyer_id)
                         .single();
-                    if (lead) setGuestLead(lead);
+                    if (lead) {
+                        fetchedGuestLead = lead;
+                        setGuestLead(lead);
+                    }
                 }
             }
 
-            // Fetch Seller Members (Internal users)
-            if (companyId) {
-                if (isBuyer) {
-                    if (localCanViewSellerMembers) {
-                        const { data: sellers } = await supabase
+            // Fetch Seller Member (Super Admin) for buyer side
+            if (isBuyer) {
+                let sAdmin = null;
+                const adminGrp = allGroups.find(g => g.role === 'super_admin');
+                if (adminGrp) {
+                    sAdmin = {
+                        id: adminGrp.id,
+                        name: adminGrp.name,
+                        email: adminGrp.name,
+                        role: 'super_admin'
+                    };
+                } else if (session?.active_workspace_id) {
+                    const { data: deal } = await supabase
+                        .from('dms_deals')
+                        .select('id, dms_projects(company_id)')
+                        .eq('id', session.active_workspace_id)
+                        .single();
+                    const sellerCompanyId = deal?.dms_projects?.company_id || companyId;
+                    if (sellerCompanyId) {
+                        const { data: admins } = await supabase
                             .from('users')
                             .select('id, name, email, role')
-                            .eq('company_id', companyId)
-                            .in('role', ['super_admin', 'admin', 'sub_admin', 'user', 'internal_user']);
-
-                        const formattedIndividuals = individualGroups.map(g => ({
-                            id: g.id,
-                            name: g.name,
-                            email: g.name,
-                            role: g.role || '',
-                            isIndividualGroup: true
-                        }));
-
-                        setSellerMembers([...formattedIndividuals, ...(sellers || [])]);
-                    } else {
-                        setSellerMembers([]);
+                            .eq('company_id', sellerCompanyId)
+                            .eq('role', 'super_admin')
+                            .limit(1);
+                        if (admins && admins.length > 0) sAdmin = admins[0];
                     }
-                } else {
-                    const { data: sellers } = await supabase
+                } else if (companyId) {
+                    const { data: admins } = await supabase
                         .from('users')
                         .select('id, name, email, role')
                         .eq('company_id', companyId)
-                        .in('role', allowedSellerRoles);
+                        .eq('role', 'super_admin')
+                        .limit(1);
+                    if (admins && admins.length > 0) sAdmin = admins[0];
+                }
+                if (sAdmin) setSellerSuperAdmin(sAdmin);
 
-                    const formattedIndividuals = individualGroups.map(g => ({
+                // Populate Buyer Members (individuals - show only advisor role)
+                const formattedIndividuals = individualGroups
+                    .filter(g => g.role === 'advisor')
+                    .map(g => ({
                         id: g.id,
                         name: g.name,
                         email: g.name,
-                        role: g.role || '',
+                        role: 'advisor',
                         isIndividualGroup: true
                     }));
 
-                    const combined = [...formattedIndividuals, ...(sellers || [])];
-                    const seen = new Set();
-                    const uniqueMembers = combined.filter(m => {
-                        const key = (m.email || m.name || m.id).toLowerCase();
-                        if (seen.has(key)) return false;
-                        seen.add(key);
-                        return true;
+                const buyerUsers = [];
+                if (fetchedGuestLead && fetchedGuestLead.role === 'advisor') {
+                    buyerUsers.push({
+                        id: fetchedGuestLead.id,
+                        name: fetchedGuestLead.name,
+                        email: fetchedGuestLead.email,
+                        role: 'advisor',
+                        isIndividualGroup: false
                     });
-
-                    const memberRoleOrder = {
-                        'super_admin': 1,
-                        'admin': 2,
-                        'sub_admin': 3,
-                        'internal_user': 4,
-                        'user': 4,
-                    };
-                    uniqueMembers.sort((a, b) => {
-                        const orderA = memberRoleOrder[a.role] || 99;
-                        const orderB = memberRoleOrder[b.role] || 99;
-                        if (orderA !== orderB) return orderA - orderB;
-                        return (a.name || '').localeCompare(b.name || '');
-                    });
-
-                    setSellerMembers(uniqueMembers);
                 }
+
+                if (companyId) {
+                    const { data: bUsers } = await supabase
+                        .from('users')
+                        .select('id, name, email, role')
+                        .eq('company_id', companyId)
+                        .eq('role', 'advisor');
+                    if (bUsers) {
+                        bUsers.forEach(u => buyerUsers.push({ ...u, isIndividualGroup: false }));
+                    }
+                }
+
+                const combined = [...formattedIndividuals, ...buyerUsers].filter(m => m.role === 'advisor');
+                const seen = new Set();
+                const uniqueMembers = combined.filter(m => {
+                    const key = (m.email || m.name || m.id).toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+
+                uniqueMembers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                setSellerMembers(uniqueMembers);
+            } else if (companyId) {
+                const { data: sellers } = await supabase
+                    .from('users')
+                    .select('id, name, email, role')
+                    .eq('company_id', companyId)
+                    .in('role', allowedSellerRoles);
+
+                const formattedIndividuals = individualGroups.map(g => ({
+                    id: g.id,
+                    name: g.name,
+                    email: g.name,
+                    role: g.role || '',
+                    isIndividualGroup: true
+                }));
+
+                const combined = [...formattedIndividuals, ...(sellers || [])];
+                const seen = new Set();
+                const uniqueMembers = combined.filter(m => {
+                    const key = (m.email || m.name || m.id).toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+
+                const memberRoleOrder = {
+                    'super_admin': 1,
+                    'admin': 2,
+                    'sub_admin': 3,
+                    'internal_user': 4,
+                    'user': 4,
+                };
+                uniqueMembers.sort((a, b) => {
+                    const orderA = memberRoleOrder[a.role] || 99;
+                    const orderB = memberRoleOrder[b.role] || 99;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return (a.name || '').localeCompare(b.name || '');
+                });
+
+                setSellerMembers(uniqueMembers);
             }
 
             setIsLoading(false);
@@ -666,36 +730,66 @@ export default function GroupsSidebar({ isOpen = true }) {
                             scrollbarWidth: 'thin'
                         }}
                     >
-                        {guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
-                            <>
-                                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                                    <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
-                                </div>
-                                <nav className="py-3 space-y-1 mb-2">
-                                    <Link
-                                        href="/groups/buyer-member"
-                                        className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
-                                            ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
-                                        ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
-                                            <span className="font-bold font-sans text-[13px]">{guestLead.name?.charAt(0).toUpperCase()}</span>
-                                        </div>
-                                        <div className="flex flex-col flex-1 truncate">
-                                            <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
-                                            <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Advisor</span>
-                                        </div>
-                                    </Link>
-                                </nav>
-                            </>
+                        {isBuyerSide ? (
+                            sellerSuperAdmin && (
+                                <>
+                                    <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Member</h2>
+                                    </div>
+                                    <nav className="py-3 space-y-1 mb-2">
+                                        <Link
+                                            href={`/groups/${sellerSuperAdmin.id}`}
+                                            className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === `/groups/${sellerSuperAdmin.id}`
+                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
+                                            ${pathname === `/groups/${sellerSuperAdmin.id}` ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
+                                                <span className="font-bold font-sans text-[13px]">{sellerSuperAdmin.name?.charAt(0).toUpperCase()}</span>
+                                            </div>
+                                            <div className="flex flex-col flex-1 truncate">
+                                                <span className="font-sans text-[14px] truncate">{sellerSuperAdmin.name}</span>
+                                                <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Super Admin</span>
+                                            </div>
+                                        </Link>
+                                    </nav>
+                                </>
+                            )
+                        ) : (
+                            guestLead && (currentUserRole === 'super_admin' || canViewBuyer) && (
+                                <>
+                                    <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                        <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Buyer Member</h2>
+                                    </div>
+                                    <nav className="py-3 space-y-1 mb-2">
+                                        <Link
+                                            href="/groups/buyer-member"
+                                            className={`group flex items-center gap-3 mx-3 px-3.5 py-2.5 rounded-xl transition-all ${pathname === '/groups/buyer-member'
+                                                ? 'bg-[var(--brand-50)] text-[var(--brand)] font-bold'
+                                                : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all shadow-sm
+                                            ${pathname === '/groups/buyer-member' ? "bg-[var(--brand)] text-white" : "bg-white text-[var(--brand)] border border-gray-200"}`}>
+                                                <span className="font-bold font-sans text-[13px]">{guestLead.name?.charAt(0).toUpperCase()}</span>
+                                            </div>
+                                            <div className="flex flex-col flex-1 truncate">
+                                                <span className="font-sans text-[14px] truncate">{guestLead.name}</span>
+                                                <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400">Advisor</span>
+                                            </div>
+                                        </Link>
+                                    </nav>
+                                </>
+                            )
                         )}
 
-                        {(currentUserRole === 'super_admin' || (!isBuyerSide && ['admin', 'sub_admin', 'internal_user', 'user'].includes(currentUserRole)) || sellerMembers.length > 0) && (
+                        {((isBuyerSide ? ['guest_admin', 'advisor'].includes(currentUserRole) : (currentUserRole === 'super_admin' || ['admin', 'sub_admin', 'internal_user', 'user'].includes(currentUserRole))) || sellerMembers.length > 0) && (
                             <>
-                                <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${guestLead ? 'border-t mt-2' : ''}`}>
-                                    <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">Seller Members</h2>
+                                <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${(isBuyerSide ? sellerSuperAdmin : guestLead) ? 'border-t mt-2' : ''}`}>
+                                    <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">
+                                        {isBuyerSide ? 'Buyer Members' : 'Seller Members'}
+                                    </h2>
                                 </div>
 
                                 <nav className="py-3 space-y-1 mb-2">
@@ -752,7 +846,7 @@ export default function GroupsSidebar({ isOpen = true }) {
 
                         <div className={`p-5 border-b border-gray-100 flex items-center justify-between border-t mt-2`}>
                             <h2 className="text-[14px] font-bold font-sans text-gray-800 tracking-tight uppercase">
-                                {isBuyerSide ? 'Group Members' : 'Seller Group Members'}
+                                {isBuyerSide ? 'Buyer Group Members' : 'Seller Group Members'}
                             </h2>
                         </div>
 

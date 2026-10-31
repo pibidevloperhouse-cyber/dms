@@ -107,6 +107,130 @@ export default function RedactionDocumentsPage() {
         if (!raw) return;
         const session = JSON.parse(raw);
 
+        const isBuyer = session?.dms_role === 'buyer' || ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes(session?.role);
+        const isSeller = !isBuyer;
+
+        // ── 🛡️ SELLER SIDE: SHOW ALL FILES FROM BUYER DISCLOSURE SECTION ──
+        if (isSeller) {
+          const wsId = session.active_workspace_id || session.workspace_id;
+          const compId = session.company_id;
+
+          // 1. Fetch disclosure stages for this workspace/company
+          let stageQuery = supabase
+            .from('buyer_disclosure_stages')
+            .select('id, name, stage_number');
+
+          if (wsId) {
+            stageQuery = stageQuery.eq('workspace_id', wsId);
+          } else if (compId) {
+            stageQuery = stageQuery.eq('company_id', compId);
+          }
+
+          let { data: stages } = await stageQuery;
+
+          // Fallback check by compId if no stages found by workspaceId
+          if ((!stages || stages.length === 0) && compId) {
+            const { data: compStages } = await supabase
+              .from('buyer_disclosure_stages')
+              .select('id, name, stage_number')
+              .eq('company_id', compId);
+            if (compStages && compStages.length > 0) {
+              stages = compStages;
+            }
+          }
+
+          const stageIds = (stages || []).map(s => s.id);
+
+          let disclosureItems = [];
+          if (stageIds.length > 0) {
+            const { data: dItems } = await supabase
+              .from('buyer_disclosure_items')
+              .select('*')
+              .in('stage_id', stageIds);
+            if (dItems) disclosureItems = dItems;
+          }
+
+          // 2. Fetch workspace folders & documents
+          let fQuery = supabase.from('folders').select('*').neq('is_deleted', true);
+          let dQuery = supabase.from('documents').select('*').neq('is_deleted', true);
+
+          if (wsId) {
+            fQuery = fQuery.eq('workspace_id', wsId);
+            dQuery = dQuery.eq('workspace_id', wsId);
+          } else if (compId) {
+            fQuery = fQuery.eq('company_id', compId);
+            dQuery = dQuery.eq('company_id', compId);
+          }
+
+          const [{ data: allFolders }, { data: allDocs }] = await Promise.all([fQuery, dQuery]);
+
+          // 3. Resolve folder IDs in disclosure
+          const folderIds = new Set();
+          disclosureItems.filter(i => i.is_folder).forEach(it => {
+            if (it.original_folder_id) folderIds.add(it.original_folder_id);
+            const match = (allFolders || []).find(f =>
+              f.id === it.original_folder_id ||
+              (f.name && it.name && f.name.trim().toLowerCase() === it.name.trim().toLowerCase())
+            );
+            if (match) folderIds.add(match.id);
+          });
+
+          // Cascade to subfolders
+          let added = true;
+          while (added) {
+            added = false;
+            (allFolders || []).forEach(f => {
+              if (f.parent_folder_id && folderIds.has(f.parent_folder_id) && !folderIds.has(f.id)) {
+                folderIds.add(f.id);
+                added = true;
+              }
+            });
+          }
+
+          // 4. Collect all files belonging to Buyer Disclosure
+          const resultDocs = [];
+          const seenIds = new Set();
+
+          // A. Files inside disclosure folders
+          (allDocs || []).forEach(doc => {
+            if (doc.folder_id && folderIds.has(doc.folder_id) && !seenIds.has(doc.id)) {
+              seenIds.add(doc.id);
+              resultDocs.push(doc);
+            }
+          });
+
+          // B. Direct file items in buyer disclosure
+          disclosureItems.filter(i => !i.is_folder).forEach(item => {
+            const matchDoc = (allDocs || []).find(d =>
+              d.id === item.original_document_id ||
+              (d.name && item.name && d.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+            );
+            if (matchDoc) {
+              if (!seenIds.has(matchDoc.id)) {
+                seenIds.add(matchDoc.id);
+                resultDocs.push(matchDoc);
+              }
+            } else {
+              if (!seenIds.has(item.id)) {
+                seenIds.add(item.id);
+                resultDocs.push({
+                  id: item.id,
+                  name: item.name,
+                  created_at: item.created_at,
+                  file_path: null,
+                  is_disclosure_item: true,
+                  version: item.version
+                });
+              }
+            }
+          });
+
+          resultDocs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          setDocuments(resultDocs);
+          return;
+        }
+
+        // ── FALLBACK FOR NON-SELLER USERS ──
         // 1. Fetch user's groups
         const { data: userGroups, error: groupsError } = await supabase
           .from("user_groups")
@@ -155,7 +279,6 @@ export default function RedactionDocumentsPage() {
 
         // 3b. Fetch redacted docs if any
         if (redactedDocIds.length > 0) {
-            // Filter out ones we already fetched
             const existingIds = new Set(docsData.map(d => d.id));
             const idsToFetch = redactedDocIds.filter(id => !existingIds.has(id));
 
@@ -172,7 +295,6 @@ export default function RedactionDocumentsPage() {
                 if (redactErr) throw redactErr;
                 docsData = [...docsData, ...(redactedDocs || [])];
 
-                // Re-sort the combined array
                 docsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             }
         }
@@ -295,10 +417,17 @@ const handleSaveConfig = async () => {
     if (error) throw error;
 
     if (finalRanges.length > 0) {
-      await supabase
-        .from("documents")
-        .update({ is_redacted: true })
-        .eq("id", selectedDoc.id);
+      if (selectedDoc.is_disclosure_item) {
+        await supabase
+          .from("buyer_disclosure_items")
+          .update({ is_redacted: true })
+          .eq("id", selectedDoc.id);
+      } else {
+        await supabase
+          .from("documents")
+          .update({ is_redacted: true })
+          .eq("id", selectedDoc.id);
+      }
     }
 
     // Update UI immediately
@@ -334,7 +463,7 @@ const handleSaveConfig = async () => {
   const openPreview = async () => {
     if (!selectedDoc) return;
 
-    const ext = selectedDoc.file_path ? selectedDoc.file_path.split(".").pop().toLowerCase().trim() : "";
+    const ext = selectedDoc.file_path ? selectedDoc.file_path.split(".").pop().toLowerCase().trim() : (selectedDoc.name || "").split(".").pop().toLowerCase().trim();
     if (ext !== "pdf") {
       window.open(`/redaction/view?id=${selectedDoc.id}`, "_blank");
       return;

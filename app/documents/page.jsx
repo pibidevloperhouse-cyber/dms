@@ -80,11 +80,7 @@ function UnifiedWorkspace() {
         setSession(JSON.parse(raw));
     }, [router]);
 
-    useEffect(() => {
-        if (currentView === 'buyers_side') {
-            router.replace('/documents/buyer-disclosure');
-        }
-    }, [currentView, router]);
+
 
     // ── SMART FETCH (CALLS THE BACKEND API) ──────────────────────────────────
     const loadData = async (userSession) => {
@@ -214,7 +210,9 @@ function UnifiedWorkspace() {
             }
         }
         const key = item.type === 'folder' ? `fol_${item.id}` : `doc_${item.id}`;
-        return mergedPerms[key]?.[action] === true;
+        if (mergedPerms[key]?.[action] === true) return true;
+        if (item.type !== 'folder' && item.parentId && mergedPerms[`fol_${item.parentId}`]?.[action] === true) return true;
+        return false;
     };
 
     // ── SORTING & INDEXING (Standard VDR Hierarchical Engine) ────────────────
@@ -836,7 +834,7 @@ function UnifiedWorkspace() {
 
     // UI RENDERING LOGIC
     const isGod = session?.role === 'super_admin';
-    const isBuyerSide = currentView === 'buyers_side';
+    const isBuyerSide = currentView === 'buyers_side' || session?.dms_role === 'buyer' || ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes(session?.role);
     const selectionEnabled = !['bookmarks', 'downloads'].includes(currentView);
     const selectedItemsArray = files.filter(f => selectedIds.has(f.id));
     const canUploadHere = isBuyerSide ? false : (currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId }));
@@ -992,15 +990,7 @@ function UnifiedWorkspace() {
                             </button>
                         )}
 
-                        {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && hasAnyRenameAccess && (
-                            <button disabled={selectedIds.size !== 1} onClick={() => {
-                                const item = files.find(f => f.id === [...selectedIds][0]);
-                                if (item) { setRenameValue(item.name); setIsRenameModalOpen(true); }
-                            }} className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors ${selectedIds.size !== 1 ? 'text-slate-900 cursor-not-allowed opacity-50' : 'text-slate-600 hover:bg-brand-soft hover:text-brand'}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                                Rename
-                            </button>
-                        )}
+
 
                         {!['trash', 'bookmarks', 'downloads'].includes(currentView) && hasAnyDownloadAccess && (
                             <div className="relative">
@@ -1093,8 +1083,8 @@ function UnifiedWorkspace() {
                                         <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created At</th>
                                     )}
                                     <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Size</th>
-                                    {currentView !== 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Permission Details</th>}
                                     {currentView !== 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center w-16">Action</th>}
+                                    {currentView !== 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Permission Details</th>}
                                     {currentView === 'trash' && <th className="py-4 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>}
                                 </tr>
                             </thead>
@@ -1153,7 +1143,7 @@ function UnifiedWorkspace() {
                                                                     showToast("Only the file name is visible. In preparation stage, you cannot view files uploaded by other users.", "error");
                                                                     return;
                                                                 }
-                                                                if (currentView === 'buyers_side') {
+                                                                if (currentView === 'buyers_side' || isBuyerSide) {
                                                                     if (item.is_redacted) {
                                                                         window.open(`/redaction/view?id=${item.id}`, '_blank');
                                                                     } else {
@@ -1263,7 +1253,64 @@ function UnifiedWorkspace() {
                                                 </td>
                                             )} */}
 
-                                            {/* 🔥 THE ACTIONS COLUMN - Perfectly Aligned & Restored */}
+                                            {/* 🔥 THE ACTION COLUMN (Moved to left of Permission Details) */}
+                                            {currentView !== 'trash' && (
+                                                <td className="py-4 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="relative inline-block text-left">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveActionMenuId(activeActionMenuId === item.id ? null : item.id);
+                                                            }}
+                                                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                                                            title="Actions"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                                <circle cx="12" cy="5" r="2" />
+                                                                <circle cx="12" cy="12" r="2" />
+                                                                <circle cx="12" cy="19" r="2" />
+                                                            </svg>
+                                                        </button>
+
+                                                        {activeActionMenuId === item.id && (
+                                                            <div 
+                                                                className="absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        setRenameValue(item.name);
+                                                                        setSelectedIds(new Set([item.id]));
+                                                                        setIsRenameModalOpen(true);
+                                                                    }}
+                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                                    Rename
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        setCopyModalItem(item);
+                                                                        setTargetStageId('stage-1');
+                                                                    }}
+                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-teal-50 hover:text-[var(--brand)] flex items-center gap-2.5 transition-colors"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                                    Copy to buyer disclosure
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
+
+                                            {/* 🔥 THE PERMISSION DETAILS COLUMN */}
                                             {currentView !== 'trash' && (
                                                 <td className="py-4 px-3">
                                                     <div className="flex items-center gap-5 text-[15.5px]">
@@ -1271,10 +1318,10 @@ function UnifiedWorkspace() {
                                                         {canUser('can_view', item) ? (
                                                             <FaEye 
                                                                 className="text-slate-600 cursor-pointer hover:text-brand transition-colors" 
-                                                                title={currentView === 'buyers_side' ? (item.is_redacted ? "View Redacted File" : "View File") : "View"} 
+                                                                title={(currentView === 'buyers_side' || isBuyerSide) ? (item.is_redacted ? "View Redacted File" : "View File") : "View"} 
                                                                 onClick={(e) => { 
                                                                     e.stopPropagation(); 
-                                                                    if (currentView === 'buyers_side') {
+                                                                    if (currentView === 'buyers_side' || isBuyerSide) {
                                                                         if (item.is_redacted) {
                                                                             window.open(`/redaction/view?id=${item.id}`, '_blank');
                                                                         } else {
@@ -1336,61 +1383,6 @@ function UnifiedWorkspace() {
                                                             <FaTrash className="text-slate-600 cursor-pointer hover:text-red-500 transition-colors text-[14px]" title="Delete" onClick={(e) => { e.stopPropagation(); setSelectedIds(new Set([item.id])); setIsDeleteModalOpen(true); }} />
                                                         ) : (
                                                             <FaTrash className="text-slate-200 text-[14px]" title="No Delete Access" />
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            )}
-                                            {currentView !== 'trash' && (
-                                                <td className="py-4 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                                    <div className="relative inline-block text-left">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActiveActionMenuId(activeActionMenuId === item.id ? null : item.id);
-                                                            }}
-                                                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                                                            title="Actions"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                                                <circle cx="12" cy="5" r="2" />
-                                                                <circle cx="12" cy="12" r="2" />
-                                                                <circle cx="12" cy="19" r="2" />
-                                                            </svg>
-                                                        </button>
-
-                                                        {activeActionMenuId === item.id && (
-                                                            <div 
-                                                                className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setActiveActionMenuId(null);
-                                                                        setRenameValue(item.name);
-                                                                        setSelectedIds(new Set([item.id]));
-                                                                        setIsRenameModalOpen(true);
-                                                                    }}
-                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                                                                    Rename
-                                                                </button>
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setActiveActionMenuId(null);
-                                                                        setCopyModalItem(item);
-                                                                        setTargetStageId('stage-1');
-                                                                    }}
-                                                                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-slate-700 hover:bg-teal-50 hover:text-[var(--brand)] flex items-center gap-2.5 transition-colors"
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                                                    Copy to buyer disclosure
-                                                                </button>
-                                                            </div>
                                                         )}
                                                     </div>
                                                 </td>

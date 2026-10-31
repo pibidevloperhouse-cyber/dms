@@ -42,6 +42,8 @@ function LayoutContent({ children }) {
     };
 
     const isSuperAdmin = session?.role === 'super_admin';
+    const isBuyerSide = session?.dms_role === 'buyer' || ['buyer', 'guest_admin', 'guest_lead', 'advisor', 'external_user'].includes(session?.role);
+    const isSellerAdmin = !isBuyerSide && ['super_admin', 'admin'].includes(session?.role);
     const roleNorm = (session?.role || '').toLowerCase().replace(/[\s-_]+/g, '');
     const hasAccessControlAccess = session ? (
         hasPermission(session.role, 'manage_access') ||
@@ -64,10 +66,10 @@ function LayoutContent({ children }) {
             href: '/documents', label: 'Files',
             icon: <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
         },
-        {
+        ...(isSellerAdmin ? [{
             href: '/documents/buyer-disclosure', label: 'Buyer Disclosure',
             icon: <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4"/></svg>
-        },
+        }] : []),
         ...(hasAccessControlAccess ? [{
             href: '/documents/access', label: 'Access Control',
             icon: <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>

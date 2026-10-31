@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import StageCards from '@/components/documents/buyer-disclosure/StageCards';
 import DocumentsTable from '@/components/documents/buyer-disclosure/DocumentsTable';
 import AccessModal from '@/components/documents/buyer-disclosure/AccessModal';
 
 export default function BuyerDisclosurePage() {
+    const router = useRouter();
     const [session, setSession] = useState(null);
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeStageId, setActiveStageId] = useState(null);
-    
+
     // Modal controls
     const [accessModalState, setAccessModalState] = useState({
         isOpen: false,
@@ -30,7 +32,7 @@ export default function BuyerDisclosurePage() {
         if (!s && typeof window !== 'undefined') {
             const raw = localStorage.getItem('vdr_session');
             if (raw) {
-                try { s = JSON.parse(raw); } catch (e) {}
+                try { s = JSON.parse(raw); } catch (e) { }
             }
         }
         s = s || {};
@@ -44,14 +46,24 @@ export default function BuyerDisclosurePage() {
             });
             const data = await res.json();
             if (data.success && Array.isArray(data.stages) && data.stages.length > 0) {
-                setStages(data.stages);
+                // Deduplicate stages to prevent duplicate stage cards
+                const uniqueStages = [];
+                const seen = new Set();
+                for (const st of data.stages) {
+                    const key = st.stageNumber ?? st.name ?? st.id;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueStages.push(st);
+                    }
+                }
+                setStages(uniqueStages);
                 setActiveStageId(prev => {
-                    if (prev && data.stages.some(st => st.id === prev || st.stageNumber === prev)) {
+                    if (prev && uniqueStages.some(st => st.id === prev || st.stageNumber === prev)) {
                         return prev;
                     }
-                    return data.stages[0].id;
+                    return uniqueStages[0].id;
                 });
-                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(data.stages));
+                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(uniqueStages));
             }
         } catch (err) {
             console.error('Failed to load disclosure stages:', err);
@@ -62,7 +74,7 @@ export default function BuyerDisclosurePage() {
                     setStages(parsed);
                     if (parsed.length > 0) setActiveStageId(parsed[0].id);
                 }
-            } catch (e) {}
+            } catch (e) { }
         } finally {
             setLoading(false);
         }
@@ -74,12 +86,20 @@ export default function BuyerDisclosurePage() {
             try {
                 const s = JSON.parse(raw);
                 setSession(s);
+                const isBuyer = s?.dms_role === 'buyer' || ['buyer', 'guest_admin', 'guest_lead', 'advisor', 'external_user'].includes(s?.role);
+                const isSellerAdmin = !isBuyer && ['super_admin', 'admin'].includes(s?.role);
+                if (!isSellerAdmin) {
+                    router.replace('/documents');
+                    return;
+                }
                 loadStages(s);
             } catch (e) {
-                loadStages({});
+                router.replace('/documents');
+                return;
             }
         } else {
-            loadStages({});
+            router.replace('/login');
+            return;
         }
 
         // Auto-refresh when window regains focus or storage changes (e.g. copied from Files)
@@ -122,7 +142,7 @@ export default function BuyerDisclosurePage() {
             if (!currentSession && typeof window !== 'undefined') {
                 const raw = localStorage.getItem('vdr_session');
                 if (raw) {
-                    try { currentSession = JSON.parse(raw); } catch (e) {}
+                    try { currentSession = JSON.parse(raw); } catch (e) { }
                 }
             }
             currentSession = currentSession || {};
@@ -159,7 +179,22 @@ export default function BuyerDisclosurePage() {
     };
 
     const handleViewItem = (item) => {
-        showToast(`Viewing "${item.name}"...`, 'info');
+        if (!item) return;
+        if (item.isFolder) {
+            const fId = item.folderId || item.originalFolderId;
+            if (fId) {
+                router.push(`/documents?folderId=${fId}`);
+            }
+        } else {
+            const docId = item.docId || item.originalDocumentId || item.id;
+            if (docId) {
+                if (item.isRedacted) {
+                    window.open(`/redaction/view?id=${docId}`, '_blank');
+                } else {
+                    window.open(`/view/${docId}`, '_blank');
+                }
+            }
+        }
     };
 
     return (

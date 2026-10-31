@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import { FaLock } from 'react-icons/fa';
 
 export default function StageCards({
     stages = [],
@@ -9,9 +8,23 @@ export default function StageCards({
     onSelectStage,
     onOpenAccessModal
 }) {
+    // Deduplicate stages to guarantee no duplicate stage cards render (fixes img1)
+    const uniqueStages = React.useMemo(() => {
+        const result = [];
+        const seen = new Set();
+        for (const stage of (stages || [])) {
+            const key = stage.stageNumber ?? stage.name ?? stage.id;
+            if (!seen.has(key)) {
+                seen.add(key);
+                result.push(stage);
+            }
+        }
+        return result;
+    }, [stages]);
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-2">
-            {(stages || []).map((stage) => {
+            {uniqueStages.map((stage) => {
                 const isActive = stage.id === activeStageId || stage.stageNumber === activeStageId;
                 const canBuyerAccess = stage.buyerAccess === 'can_view';
                 const count = stage.itemCount ?? (stage.items ? stage.items.length : 0);
@@ -20,23 +33,16 @@ export default function StageCards({
                     <div
                         key={stage.id}
                         onClick={() => onSelectStage?.(stage.id)}
-                        className={`bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all duration-150 shadow-2xs hover:shadow-xs ${
-                            isActive
-                                ? 'border-2 border-[#0e7490] ring-1 ring-[#0e7490]/20'
-                                : 'border border-slate-200 hover:border-slate-300'
-                        }`}
+                        className={`bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all duration-150 shadow-2xs hover:shadow-xs ${isActive
+                            ? 'border-2 border-[#0e7490] ring-1 ring-[#0e7490]/20'
+                            : 'border border-slate-200 hover:border-slate-300'
+                            }`}
                     >
                         {/* Left: Icon + Title & items count */}
                         <div className="flex items-center gap-3">
-                            {canBuyerAccess ? (
-                                <div className="w-7 h-7 rounded-full bg-[#086375] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                                    {stage.stageNumber || '1'}
-                                </div>
-                            ) : (
-                                <div className="w-7 h-7 rounded-full bg-slate-800 text-amber-300 flex items-center justify-center text-[11px] shrink-0">
-                                    <FaLock />
-                                </div>
-                            )}
+                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                                {stage.stageNumber || '1'}
+                            </div>
 
                             <div>
                                 <h3 className="text-[14px] font-bold text-slate-900 leading-tight">
@@ -70,7 +76,7 @@ export default function StageCards({
                                     }}
                                     className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0e6f7c] hover:bg-[#09525c] active:bg-[#073c44] rounded-lg transition-colors shadow-2xs"
                                 >
-                                    Grant buyer access
+                                    Grant access
                                 </button>
                             )}
                         </div>

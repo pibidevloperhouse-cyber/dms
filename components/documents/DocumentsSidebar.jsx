@@ -8,6 +8,18 @@ export default function DocumentsSidebar({ isOpen = true }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const currentView = searchParams.get('view') || 'files';
+    const [isSellerAdmin, setIsSellerAdmin] = useState(false);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('vdr_session');
+            if (raw) {
+                const s = JSON.parse(raw);
+                const isBuyer = s?.dms_role === 'buyer' || ['buyer', 'guest_admin', 'guest_lead', 'advisor', 'external_user'].includes(s?.role);
+                setIsSellerAdmin(!isBuyer && ['super_admin', 'admin'].includes(s?.role));
+            }
+        } catch (e) {}
+    }, []);
 
     const [counts, setCounts] = useState({
         totalCount: 0,
@@ -41,12 +53,12 @@ export default function DocumentsSidebar({ isOpen = true }) {
             badge: counts.totalCount,
             isActive: currentView === 'files'
         },
-        {
+        ...(isSellerAdmin ? [{
             name: 'Buyer Disclosure',
             href: '/documents/buyer-disclosure',
             icon: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4"/></>,
             isActive: pathname.startsWith('/documents/buyer-disclosure')
-        },
+        }] : []),
         {
             name: 'New Document',
             href: '/documents?view=upload',

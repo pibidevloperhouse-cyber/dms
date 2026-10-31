@@ -66,7 +66,16 @@ async function ensureStagesInDB(companyId, workspaceId) {
             .order('stage_number', { ascending: true });
 
         if (existingStages && existingStages.length > 0) {
-            return { stages: existingStages, validCompanyId };
+            const uniqueStages = [];
+            const seenStageNums = new Set();
+            for (const s of existingStages) {
+                const num = s.stage_number ?? s.name;
+                if (!seenStageNums.has(num)) {
+                    seenStageNums.add(num);
+                    uniqueStages.push(s);
+                }
+            }
+            return { stages: uniqueStages, validCompanyId };
         }
     } else {
         // If no companyId in session, check if any stages already exist in DB
@@ -78,7 +87,16 @@ async function ensureStagesInDB(companyId, workspaceId) {
         if (anyStages && anyStages.length > 0) {
             const primaryCompanyId = anyStages[0].company_id;
             const filtered = anyStages.filter(s => s.company_id === primaryCompanyId);
-            return { stages: filtered, validCompanyId: primaryCompanyId };
+            const uniqueStages = [];
+            const seenStageNums = new Set();
+            for (const s of filtered) {
+                const num = s.stage_number ?? s.name;
+                if (!seenStageNums.has(num)) {
+                    seenStageNums.add(num);
+                    uniqueStages.push(s);
+                }
+            }
+            return { stages: uniqueStages, validCompanyId: primaryCompanyId };
         }
     }
 
@@ -118,9 +136,19 @@ async function ensureStagesInDB(companyId, workspaceId) {
     return { stages: createdStages, validCompanyId };
 }
 
-// Fetch full stages with their items from database
+// Fetch full stages with their items and children from database
 async function getFullStages(companyId, workspaceId) {
-    const { stages } = await ensureStagesInDB(companyId, workspaceId);
+    const { stages: rawStages } = await ensureStagesInDB(companyId, workspaceId);
+    // Deduplicate stages to guarantee only 1 entry per stage number
+    const stages = [];
+    const seenStages = new Set();
+    for (const stg of rawStages) {
+        const key = stg.stage_number ?? stg.name ?? stg.id;
+        if (!seenStages.has(key)) {
+            seenStages.add(key);
+            stages.push(stg);
+        }
+    }
     const stageIds = stages.map(s => s.id);
 
     let items = [];
@@ -136,16 +164,78 @@ async function getFullStages(companyId, workspaceId) {
         }
     }
 
+    // Fetch workspace/company folders & documents to resolve real folder contents and viewing targets
+    let folders = [];
+    let docs = [];
+    try {
+        let fQuery = supabase.from('folders').select('*');
+        let dQuery = supabase.from('documents').select('*');
+        if (workspaceId) {
+            fQuery = fQuery.eq('workspace_id', workspaceId);
+            dQuery = dQuery.eq('workspace_id', workspaceId);
+        } else if (companyId) {
+            fQuery = fQuery.eq('company_id', companyId);
+            dQuery = dQuery.eq('company_id', companyId);
+        }
+        const [{ data: fData }, { data: dData }] = await Promise.all([fQuery, dQuery]);
+        if (fData) folders = fData;
+        if (dData) docs = dData;
+    } catch (e) {
+        console.error('Error fetching folders/docs for buyer disclosure:', e);
+    }
+
+    const formatBytes = (bytes) => {
+        if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '--';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    };
+
+    // Recursive helper to get real contents of a folder
+    const getFolderChildren = (folderId) => {
+        const childDocs = docs.filter(d => d.folder_id === folderId).map(d => ({
+            id: d.id,
+            docId: d.id,
+            originalDocumentId: d.id,
+            name: d.name,
+            isFolder: false,
+            type: (d.name.split('.').pop() || 'file').toLowerCase(),
+            version: d.version ? `V${d.version}`.replace('VV', 'V') : 'V1',
+            isRedacted: Boolean(d.is_redacted),
+            redactedVersion: d.is_redacted ? 'V2' : 'V1',
+            createdAt: d.created_at ? new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Oct 29, 2026',
+            size: formatBytes(d.file_size_bytes)
+        }));
+
+        const childFolders = folders.filter(f => f.parent_folder_id === folderId).map(f => ({
+            id: f.id,
+            folderId: f.id,
+            originalFolderId: f.id,
+            name: f.name,
+            isFolder: true,
+            type: 'folder',
+            version: 'V1',
+            isRedacted: false,
+            redactedVersion: '--',
+            createdAt: f.created_at ? new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Oct 29, 2026',
+            size: '--',
+            children: getFolderChildren(f.id)
+        }));
+
+        return [...childFolders, ...childDocs];
+    };
+
     // Check if any referenced documents are marked as redacted in documents table
     const origDocIds = items.map(i => i.original_document_id).filter(Boolean);
     const docRedactedMap = {};
     if (origDocIds.length > 0) {
         try {
-            const { data: docs } = await supabase
+            const { data: docsRes } = await supabase
                 .from('documents')
                 .select('id, is_redacted')
                 .in('id', origDocIds);
-            (docs || []).forEach(d => {
+            (docsRes || []).forEach(d => {
                 docRedactedMap[d.id] = Boolean(d.is_redacted);
             });
         } catch (e) {}
@@ -161,7 +251,22 @@ async function getFullStages(companyId, workspaceId) {
                     ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     : 'Oct 29, 2026';
 
-                const isRedacted = Boolean(i.is_redacted || (i.original_document_id && docRedactedMap[i.original_document_id]));
+                let matchFol = null;
+                let matchDoc = null;
+                let folderId = null;
+                let docId = null;
+                let children = [];
+
+                if (i.is_folder) {
+                    matchFol = folders.find(f => f.id === i.original_folder_id || (f.name && i.name && f.name.trim().toLowerCase() === i.name.trim().toLowerCase()));
+                    folderId = matchFol ? matchFol.id : (i.original_folder_id || i.id);
+                    children = matchFol ? getFolderChildren(matchFol.id) : [];
+                } else {
+                    matchDoc = docs.find(doc => doc.id === i.original_document_id || (doc.name && i.name && doc.name.trim().toLowerCase() === i.name.trim().toLowerCase()));
+                    docId = matchDoc ? matchDoc.id : (i.original_document_id || i.id);
+                }
+
+                const isRedacted = Boolean(i.is_redacted || (i.original_document_id && docRedactedMap[i.original_document_id]) || (matchDoc && matchDoc.is_redacted));
 
                 return {
                     id: i.id,
@@ -173,7 +278,12 @@ async function getFullStages(companyId, workspaceId) {
                     isRedacted,
                     redactedVersion: i.is_folder ? '--' : (isRedacted ? 'V2' : 'V1'),
                     createdAt: dateFormatted,
-                    size: i.size || '--'
+                    size: i.size || (matchDoc ? formatBytes(matchDoc.file_size_bytes) : '--'),
+                    originalFolderId: i.original_folder_id || (matchFol ? matchFol.id : null),
+                    originalDocumentId: i.original_document_id || (matchDoc ? matchDoc.id : null),
+                    folderId,
+                    docId,
+                    children
                 };
             });
 
@@ -478,13 +588,33 @@ export async function POST(req) {
                     return NextResponse.json({ error: 'Item ID required' }, { status: 400 });
                 }
 
-                const { data: item, error: itErr } = await supabase
+                let item = null;
+                const { data: dbItem } = await supabase
                     .from('buyer_disclosure_items')
                     .select('*')
                     .eq('id', itemId)
-                    .single();
+                    .maybeSingle();
 
-                if (itErr || !item) {
+                if (dbItem) {
+                    item = dbItem;
+                } else {
+                    const { data: docItem } = await supabase
+                        .from('documents')
+                        .select('*')
+                        .eq('id', itemId)
+                        .maybeSingle();
+                    if (docItem) {
+                        item = {
+                            id: docItem.id,
+                            name: docItem.name,
+                            version: docItem.version ? `V${docItem.version}` : 'V1',
+                            created_at: docItem.created_at,
+                            original_document_id: docItem.id
+                        };
+                    }
+                }
+
+                if (!item) {
                     return NextResponse.json({ error: 'Item not found' }, { status: 404 });
                 }
 

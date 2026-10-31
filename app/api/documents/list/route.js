@@ -91,15 +91,15 @@ export async function POST(req) {
         // 2. 🗄️ FETCH RAW DATA
         const workspaceId = session.active_workspace_id;
         
-        let foldersQuery = supabase.from('folders').select('*').eq('company_id', session.company_id);
-        let docsQuery = supabase.from('documents').select('*').eq('company_id', session.company_id);
+        let foldersQuery = supabase.from('folders').select('*');
+        let docsQuery = supabase.from('documents').select('*');
         
         if (workspaceId) {
             foldersQuery = foldersQuery.eq('workspace_id', workspaceId);
             docsQuery = docsQuery.eq('workspace_id', workspaceId);
             
             // Check Deal Restrictions & Stage Gating for Buyers/Guests
-            if (['guest_admin', 'buyer', 'external_user', 'guest_lead'].includes(session.role) || session.dms_role === 'buyer') {
+            if (['guest_admin', 'buyer', 'external_user', 'guest_lead', 'advisor'].includes(session.role) || session.dms_role === 'buyer') {
                 const { data: dealData } = await supabase
                     .from('dms_deals')
                     .select('current_stage, guest_can_upload_docs, guest_can_download_docs, guest_can_create_folders')
@@ -123,15 +123,14 @@ export async function POST(req) {
                 }
             }
         } else {
-            // If no workspace is selected, we might want to return nothing or only items with no workspace
-            foldersQuery = foldersQuery.is('workspace_id', null);
-            docsQuery = docsQuery.is('workspace_id', null);
+            foldersQuery = foldersQuery.eq('company_id', session.company_id).is('workspace_id', null);
+            docsQuery = docsQuery.eq('company_id', session.company_id).is('workspace_id', null);
         }
 
         const [{ data: foldersData }, { data: docsData }, { data: usersData }, { data: redactedData }] = await Promise.all([
             foldersQuery,
             docsQuery,
-            supabase.from('users').select('id, name').eq('company_id', session.company_id),
+            workspaceId ? supabase.from('users').select('id, name') : supabase.from('users').select('id, name').eq('company_id', session.company_id),
             supabase.from('redacted_documents').select('document_id, redacted_path'),
         ]);
 
@@ -153,6 +152,118 @@ export async function POST(req) {
                 myPerms[key].can_upload = true;
             }
         });
+
+        // ── 🛡️ BUYER DISCLOSURE STAGE ACCESS (GRANT / REVOKE ACCESS) ──
+        const isBuyerSideUser = ['guest_admin', 'buyer', 'external_user', 'guest_lead', 'advisor'].includes(session.role) || session.dms_role === 'buyer';
+        let standaloneDisclosureFolders = [];
+        let standaloneDisclosureDocs = [];
+
+        if (isBuyerSideUser) {
+            try {
+                let stageQuery = supabase
+                    .from('buyer_disclosure_stages')
+                    .select('id, name, stage_number, buyer_access, is_locked')
+                    .eq('buyer_access', 'can_view')
+                    .eq('is_locked', false);
+
+                if (workspaceId) {
+                    stageQuery = stageQuery.eq('workspace_id', workspaceId);
+                } else if (session.company_id) {
+                    stageQuery = stageQuery.eq('company_id', session.company_id);
+                }
+
+                const { data: grantedStages } = await stageQuery;
+
+                if (grantedStages && grantedStages.length > 0) {
+                    const grantedStageIds = grantedStages.map(s => s.id);
+                    const { data: items } = await supabase
+                        .from('buyer_disclosure_items')
+                        .select('*')
+                        .in('stage_id', grantedStageIds);
+
+                    if (items && items.length > 0) {
+                        const grantedFolderIds = new Set();
+                        const grantedDocIds = new Set();
+
+                        items.forEach(item => {
+                            if (item.is_folder) {
+                                if (item.original_folder_id) grantedFolderIds.add(item.original_folder_id);
+                                const matchFol = (foldersData || []).find(f =>
+                                    f.id === item.original_folder_id ||
+                                    (f.name && item.name && f.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+                                );
+                                if (matchFol) {
+                                    grantedFolderIds.add(matchFol.id);
+                                } else {
+                                    standaloneDisclosureFolders.push(item);
+                                }
+                            } else {
+                                if (item.original_document_id) grantedDocIds.add(item.original_document_id);
+                                const matchDoc = (docsData || []).find(d =>
+                                    d.id === item.original_document_id ||
+                                    (d.name && item.name && d.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+                                );
+                                if (matchDoc) {
+                                    grantedDocIds.add(matchDoc.id);
+                                } else {
+                                    standaloneDisclosureDocs.push(item);
+                                }
+                            }
+                        });
+
+                        // Cascade to all subfolders inside granted folders
+                        let added = true;
+                        while (added) {
+                            added = false;
+                            (foldersData || []).forEach(f => {
+                                if (f.parent_folder_id && grantedFolderIds.has(f.parent_folder_id) && !grantedFolderIds.has(f.id)) {
+                                    grantedFolderIds.add(f.id);
+                                    added = true;
+                                }
+                            });
+                        }
+
+                        // Grant view & download access to all matching folders
+                        grantedFolderIds.forEach(fId => {
+                            const key = `fol_${fId}`;
+                            if (!myPerms[key]) {
+                                myPerms[key] = {
+                                    can_view: true,
+                                    can_upload: Boolean(dealRestrictions?.guestCanUploadDocs),
+                                    can_download_secure: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
+                                    can_download_original: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
+                                    can_edit: false,
+                                    can_delete: false
+                                };
+                            } else {
+                                myPerms[key].can_view = true;
+                            }
+                        });
+
+                        // Grant view & download access to all matching documents (and docs in granted folders)
+                        (docsData || []).forEach(doc => {
+                            if (grantedDocIds.has(doc.id) || (doc.folder_id && grantedFolderIds.has(doc.folder_id))) {
+                                const key = `doc_${doc.id}`;
+                                if (!myPerms[key]) {
+                                    myPerms[key] = {
+                                        can_view: true,
+                                        can_upload: false,
+                                        can_download_secure: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
+                                        can_download_original: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
+                                        can_edit: false,
+                                        can_delete: false
+                                    };
+                                } else {
+                                    myPerms[key].can_view = true;
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (discErr) {
+                console.error('Error resolving buyer disclosure stage permissions:', discErr);
+            }
+        }
 
         // Utility to calculate human-readable bytes
         const formatBytes = (bytes) => {
@@ -257,6 +368,50 @@ export async function POST(req) {
                     is_my_upload: isUploadedByMe,
                 };
             });
+
+        if (standaloneDisclosureFolders.length > 0) {
+            standaloneDisclosureFolders.forEach(item => {
+                myPerms[`fol_${item.id}`] = { can_view: true, can_download_secure: true, can_download_original: true };
+                mappedFolders.push({
+                    id: item.id,
+                    parentId: item.parent_id || null,
+                    index: '1',
+                    name: item.name,
+                    type: 'folder',
+                    size: item.size || '--',
+                    uploadedBy: 'Seller',
+                    dateCreated: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--',
+                    deletedBy: 'Unknown',
+                    deletedAt: '--',
+                    is_bookmarked: false,
+                    is_deleted: false,
+                    creator_id: null,
+                    version: 1
+                });
+            });
+        }
+
+        if (standaloneDisclosureDocs.length > 0) {
+            standaloneDisclosureDocs.forEach(item => {
+                myPerms[`doc_${item.id}`] = { can_view: true, can_download_secure: true, can_download_original: true };
+                mappedDocs.push({
+                    id: item.id,
+                    parentId: item.parent_id || null,
+                    index: '99',
+                    name: item.name,
+                    type: (item.name.split('.').pop() || 'file').toLowerCase(),
+                    size: item.size || '--',
+                    uploadedBy: 'Seller',
+                    dateCreated: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--',
+                    deletedBy: 'Unknown',
+                    deletedAt: '--',
+                    is_bookmarked: false,
+                    is_deleted: false,
+                    is_redacted: Boolean(item.is_redacted),
+                    version: 1
+                });
+            });
+        }
 
         // 4. 🚀 SEND PERFECT JSON TO FRONTEND
         return NextResponse.json({

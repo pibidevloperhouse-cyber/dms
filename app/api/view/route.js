@@ -28,7 +28,8 @@ export async function POST(req) {
 
         // 2. Access Control Verification
         let hasAccess = false;
-        if (session.role === 'super_admin' || (doc.uploaded_by === session.id && !doc.creator_revoked)) {
+        const isSellerAdmin = ['super_admin', 'admin'].includes(session.role) && session.dms_role !== 'buyer';
+        if (isSellerAdmin || session.role === 'super_admin' || (doc.uploaded_by === session.id && !doc.creator_revoked)) {
             hasAccess = true;
         } else {
             const { data: groups } = await supabase
