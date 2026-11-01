@@ -158,7 +158,7 @@ async function getFullStages(companyId, workspaceId) {
             .select('*')
             .in('stage_id', stageIds)
             .order('created_at', { ascending: true });
-        
+
         if (!itemsErr && dbItems) {
             items = dbItems;
         }
@@ -238,13 +238,55 @@ async function getFullStages(companyId, workspaceId) {
             (docsRes || []).forEach(d => {
                 docRedactedMap[d.id] = Boolean(d.is_redacted);
             });
-        } catch (e) {}
+        } catch (e) { }
     }
+
+    // Helper to get all disclosure children for a folder item
+    const getDisclosureFolderChildren = (parentItem) => {
+        const matchFol = folders.find(f => f.id === parentItem.original_folder_id || (f.name && parentItem.name && f.name.trim().toLowerCase() === parentItem.name.trim().toLowerCase()));
+        const dbChildren = matchFol ? getFolderChildren(matchFol.id) : [];
+
+        // Direct children in buyer_disclosure_items with parent_id === parentItem.id
+        const directChildren = items.filter(child => child.parent_id === parentItem.id).map(child => {
+            const cd = child.created_at ? new Date(child.created_at) : new Date();
+            const childDateFormatted = !isNaN(cd.getTime()) ? cd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Oct 29, 2026';
+            const childChildren = child.is_folder ? getDisclosureFolderChildren(child) : [];
+            const isChildRedacted = Boolean(child.is_redacted || (child.original_document_id && docRedactedMap[child.original_document_id]));
+            return {
+                id: child.id,
+                stageId: child.stage_id,
+                name: child.name,
+                isFolder: Boolean(child.is_folder),
+                type: child.type || (child.is_folder ? 'folder' : 'file'),
+                version: child.version || 'V1',
+                isRedacted: isChildRedacted,
+                redactedVersion: child.is_folder ? '--' : (isChildRedacted ? 'V2' : 'V1'),
+                createdAt: childDateFormatted,
+                size: child.size || '--',
+                originalFolderId: child.original_folder_id,
+                originalDocumentId: child.original_document_id,
+                folderId: child.original_folder_id || child.id,
+                docId: child.original_document_id || child.id,
+                children: childChildren
+            };
+        });
+
+        const seen = new Set(dbChildren.map(c => c.docId || c.originalDocumentId || c.id));
+        const combined = [...dbChildren];
+        directChildren.forEach(dc => {
+            const key = dc.docId || dc.originalDocumentId || dc.id;
+            if (!seen.has(key)) {
+                seen.add(key);
+                combined.push(dc);
+            }
+        });
+        return combined;
+    };
 
     // Map into frontend format
     return stages.map(stg => {
         const stgItems = items
-            .filter(i => i.stage_id === stg.id)
+            .filter(i => i.stage_id === stg.id && !i.parent_id)
             .map(i => {
                 const d = i.created_at ? new Date(i.created_at) : new Date();
                 const dateFormatted = !isNaN(d.getTime())
@@ -260,7 +302,7 @@ async function getFullStages(companyId, workspaceId) {
                 if (i.is_folder) {
                     matchFol = folders.find(f => f.id === i.original_folder_id || (f.name && i.name && f.name.trim().toLowerCase() === i.name.trim().toLowerCase()));
                     folderId = matchFol ? matchFol.id : (i.original_folder_id || i.id);
-                    children = matchFol ? getFolderChildren(matchFol.id) : [];
+                    children = getDisclosureFolderChildren(i);
                 } else {
                     matchDoc = docs.find(doc => doc.id === i.original_document_id || (doc.name && i.name && doc.name.trim().toLowerCase() === i.name.trim().toLowerCase()));
                     docId = matchDoc ? matchDoc.id : (i.original_document_id || i.id);
@@ -426,7 +468,7 @@ export async function POST(req) {
                 if (targetStageId && UUID_REGEX.test(targetStageId.toString())) {
                     targetStage = stages.find(s => s.id === targetStageId);
                 }
-                
+
                 if (!targetStage) {
                     const num = parseInt(targetStageId?.toString().replace(/[^0-9]/g, '') || '1', 10);
                     targetStage = stages.find(s => s.stage_number === num) || stages[0];
@@ -576,6 +618,143 @@ export async function POST(req) {
                     success: true,
                     stages: fullStages,
                     message: `Moved ${validUuids.length} item(s) to ${targetStage.name}`
+                });
+            }
+
+            case 'move_to_folder': {
+                const { itemIds, targetFolderId } = body;
+                const ids = Array.isArray(itemIds) ? itemIds : [body.itemId].filter(Boolean);
+                if (ids.length === 0) {
+                    return NextResponse.json({ error: 'Item IDs required' }, { status: 400 });
+                }
+
+                let targetDbFolderId = null;
+                let resolvedParentId = null;
+
+                if (targetFolderId && targetFolderId !== 'root') {
+                    // Try to find in buyer_disclosure_items
+                    const { data: bFolder } = await supabase
+                        .from('buyer_disclosure_items')
+                        .select('id, original_folder_id')
+                        .eq('id', targetFolderId)
+                        .maybeSingle();
+
+                    if (bFolder) {
+                        resolvedParentId = bFolder.id;
+                        targetDbFolderId = bFolder.original_folder_id || null;
+                    } else {
+                        // Check folders table directly
+                        const { data: dbFol } = await supabase
+                            .from('folders')
+                            .select('id')
+                            .eq('id', targetFolderId)
+                            .maybeSingle();
+                        if (dbFol) {
+                            targetDbFolderId = dbFol.id;
+                            const { data: matchB } = await supabase
+                                .from('buyer_disclosure_items')
+                                .select('id')
+                                .eq('original_folder_id', dbFol.id)
+                                .maybeSingle();
+                            resolvedParentId = matchB ? matchB.id : targetFolderId;
+                        } else {
+                            resolvedParentId = targetFolderId;
+                        }
+                    }
+                }
+
+                // Fetch items to be moved
+                const { data: itemsToMove } = await supabase
+                    .from('buyer_disclosure_items')
+                    .select('*')
+                    .in('id', ids);
+
+                const validUuids = (itemsToMove || []).map(i => i.id);
+
+                if (validUuids.length > 0) {
+                    await supabase
+                        .from('buyer_disclosure_items')
+                        .update({
+                            parent_id: resolvedParentId,
+                            updated_at: new Date().toISOString()
+                        })
+                        .in('id', validUuids);
+                }
+
+                // Also update documents and folders tables if linked to original items
+                for (const it of (itemsToMove || [])) {
+                    if (!it.is_folder && it.original_document_id) {
+                        await supabase
+                            .from('documents')
+                            .update({ folder_id: targetDbFolderId || null })
+                            .eq('id', it.original_document_id);
+                    } else if (it.is_folder && it.original_folder_id) {
+                        await supabase
+                            .from('folders')
+                            .update({ parent_folder_id: targetDbFolderId || null })
+                            .eq('id', it.original_folder_id);
+                    }
+                }
+
+                const fullStages = await getFullStages(companyId, workspaceId);
+                return NextResponse.json({
+                    success: true,
+                    stages: fullStages,
+                    message: `Moved ${validUuids.length} item(s) successfully`
+                });
+            }
+
+            case 'add_uploaded_item': {
+                const { stageId, parentId, document } = body;
+                if (!stageId || !document) {
+                    return NextResponse.json({ error: 'Stage ID and document required' }, { status: 400 });
+                }
+
+                const { stages } = await ensureStagesInDB(companyId, workspaceId);
+                let targetStage = null;
+                if (UUID_REGEX.test(stageId.toString())) {
+                    targetStage = stages.find(s => s.id === stageId);
+                }
+                if (!targetStage) {
+                    const num = parseInt(stageId.toString().replace(/[^0-9]/g, '') || '1', 10);
+                    targetStage = stages.find(s => s.stage_number === num) || stages[0];
+                }
+
+                if (!targetStage) {
+                    return NextResponse.json({ error: 'Target stage not found' }, { status: 404 });
+                }
+
+                const fileExt = (document.name || '').split('.').pop()?.toLowerCase() || document.type || 'file';
+                const fileSize = formatBytes(document.size || 0);
+
+                const { data: newItem, error: insErr } = await supabase
+                    .from('buyer_disclosure_items')
+                    .insert({
+                        stage_id: targetStage.id,
+                        company_id: targetStage.company_id || null,
+                        original_document_id: document.id || null,
+                        parent_id: parentId || null,
+                        name: document.name,
+                        is_folder: false,
+                        type: fileExt,
+                        version: 'V1',
+                        size: fileSize,
+                        is_redacted: false
+                    })
+                    .select()
+                    .single();
+
+                if (insErr) {
+                    console.error('Failed to insert uploaded disclosure item:', insErr);
+                    return NextResponse.json({ error: insErr.message }, { status: 500 });
+                }
+
+                const fullStages = await getFullStages(companyId, workspaceId);
+                return NextResponse.json({
+                    success: true,
+                    stages: fullStages,
+                    item: newItem,
+                    message: `Uploaded "${document.name}" to ${targetStage.name}`
                 });
             }
 

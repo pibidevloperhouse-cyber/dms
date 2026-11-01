@@ -318,39 +318,145 @@ export default function DocumentsTable({
         }
     };
 
-    // 7. REBUILD INDEX
-    const handleRebuildIndex = async () => {
-        showToast('Rebuilding index...');
+    // 7. FILE UPLOAD (Upload files into active stage or current folder)
+    const handleFileUpload = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0 || !activeStage?.id) return;
+        setIsUploading(true);
+        showToast(`Uploading ${files.length} file(s)...`);
+
+        const session = getSession();
+        const targetFolderDbId = currentFolder?.folderId || currentFolder?.originalFolderId || null;
+
+        for (const file of files) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('company_id', session.company_id || '');
+                formData.append('workspace_id', session.workspace_id || session.active_workspace_id || '');
+                formData.append('uploaded_by', session.id || '');
+                if (targetFolderDbId) {
+                    formData.append('folder_id', targetFolderDbId);
+                }
+
+                // Upload to storage & documents table
+                const uploadRes = await fetch('/api/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const uploadData = await uploadRes.json();
+                if (!uploadRes.ok || !uploadData.success) {
+                    throw new Error(uploadData.error || `Upload failed for ${file.name}`);
+                }
+
+                const doc = uploadData.document;
+
+                // Link to buyer disclosure stage & parent folder
+                await fetch('/api/documents/buyer-disclosure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'add_uploaded_item',
+                        stageId: activeStage.id,
+                        parentId: currentFolder?.id || null,
+                        document: {
+                            id: doc.id,
+                            name: file.name,
+                            size: file.size,
+                            type: (file.name.split('.').pop() || 'file').toLowerCase()
+                        },
+                        session
+                    })
+                });
+            } catch (err) {
+                console.error('File upload error:', err);
+                showToast(err.message, 'error');
+            }
+        }
+
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        showToast('Upload completed successfully!');
         if (onRefreshStages) await onRefreshStages();
-        showToast('Index successfully rebuilt');
     };
 
-    // 8. EXPORT INDEX
+    // 8. EXPORT INDEX (Download directly in Excel .xlsx)
     const handleExportExcel = () => {
-        setIsExportIndexOpen(false);
         try {
+            const allItems = [];
+            const collect = (list, parentId = null) => {
+                (list || []).forEach((it, idx) => {
+                    allItems.push({
+                        id: it.id,
+                        name: it.name,
+                        type: it.isFolder ? 'folder' : (it.type || 'file'),
+                        parentId: parentId,
+                        index: (idx + 1).toString()
+                    });
+                    if (it.children && it.children.length > 0) {
+                        collect(it.children, it.id);
+                    }
+                });
+            };
+            collect(items || []);
+
             exportIndexToExcel(
-                items.map(it => ({ id: it.id, name: it.name, is_folder: it.isFolder, type: it.type, size: it.size })),
+                allItems,
                 new Set(),
                 `VDR Buyer Disclosure - ${activeStage?.name || 'Index'}`
             );
-            showToast('Document Index exported as Excel (.xlsx)');
+            showToast('Document Index exported in Excel (.xlsx)');
         } catch (err) {
             showToast('Excel export failed: ' + err.message, 'error');
         }
     };
 
-    const handleExportPDF = async () => {
-        setIsExportIndexOpen(false);
+    // Available folders in this stage for moving files/folders into another folder
+    const availableFolders = React.useMemo(() => {
+        const result = [];
+        const traverse = (list, prefix = '') => {
+            (list || []).forEach(it => {
+                if (it.isFolder && !selectedIds.has(it.id)) {
+                    result.push({
+                        id: it.id,
+                        folderId: it.folderId || it.originalFolderId || it.id,
+                        name: prefix ? `${prefix} / ${it.name}` : it.name
+                    });
+                    if (it.children && it.children.length > 0) {
+                        traverse(it.children, prefix ? `${prefix} / ${it.name}` : it.name);
+                    }
+                }
+            });
+        };
+        traverse(items || []);
+        return result;
+    }, [items, selectedIds]);
+
+    // Move files/folders into another folder inside the stage
+    const handleMoveItemsToFolder = async () => {
+        if (selectedIds.size === 0) return;
+        setIsSubmitting(true);
         try {
-            await exportIndexToPDF(
-                items.map(it => ({ id: it.id, name: it.name, is_folder: it.isFolder, type: it.type, size: it.size })),
-                new Set(),
-                `VDR Buyer Disclosure - ${activeStage?.name || 'Index'}`
-            );
-            showToast('Document Index exported as PDF');
+            const res = await fetch('/api/documents/buyer-disclosure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'move_to_folder',
+                    itemIds: [...selectedIds],
+                    targetFolderId: targetMoveFolderId,
+                    session: getSession()
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to move items');
+            showToast(data.message || 'Items moved successfully!');
+            setIsMoveItemModalOpen(false);
+            setSelectedIds(new Set());
+            if (onRefreshStages) await onRefreshStages();
         } catch (err) {
-            showToast('PDF export failed: ' + err.message, 'error');
+            showToast(err.message, 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -413,19 +519,62 @@ export default function DocumentsTable({
                 </div>
             </div>
 
-            {/* ── 2. ACTION TOOLBAR (Upload removed, gap adjusted - matching img1) ── */}
+            {/* ── 2. ACTION TOOLBAR ── */}
             <div className="flex items-center justify-between bg-white px-5 py-2.5 rounded-xl border border-slate-200 shadow-2xs overflow-x-auto gap-4">
                 <div className="flex items-center gap-3.5 sm:gap-5 flex-nowrap">
+                    {/* Upload */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                        title="Upload files to this stage or folder"
+                    >
+                        {isUploading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-[#0e7490] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                        )}
+                        {isUploading ? 'Uploading...' : 'Upload'}
+                    </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        multiple
+                        className="hidden"
+                    />
+
                     {/* Add Folder */}
                     <button
                         type="button"
                         onClick={() => { setFolderName(''); setIsAddFolderOpen(true); }}
-                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap cursor-pointer"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                         </svg>
                         Add Folder
+                    </button>
+
+                    {/* Export Index (Download in Excel) */}
+                    <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-teal-50 hover:text-[#0e7490] rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                        title="Export document index in Excel (.xlsx)"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        Export Index
                     </button>
 
                     {/* Move to another stage */}
@@ -439,7 +588,7 @@ export default function DocumentsTable({
                         }}
                         className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size === 0
                             ? 'text-slate-400 cursor-not-allowed opacity-50'
-                            : 'text-[#0e7490] hover:bg-teal-50'
+                            : 'text-[#0e7490] hover:bg-teal-50 cursor-pointer'
                             }`}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -451,6 +600,28 @@ export default function DocumentsTable({
                         Move to another stage
                     </button>
 
+                    {/* Move Items (can move files/folders into another folder) */}
+                    <button
+                        type="button"
+                        disabled={selectedIds.size === 0}
+                        onClick={() => {
+                            setTargetMoveFolderId(null);
+                            setIsMoveItemModalOpen(true);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size === 0
+                            ? 'text-slate-400 cursor-not-allowed opacity-50'
+                            : 'text-[#0e7490] hover:bg-teal-50 cursor-pointer'
+                            }`}
+                        title="Move selected files/folders into another folder"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            <line x1="12" y1="11" x2="12" y2="17" />
+                            <line x1="9" y1="14" x2="15" y2="14" />
+                        </svg>
+                        Move Items
+                    </button>
+
                     {/* Delete */}
                     <button
                         type="button"
@@ -458,7 +629,7 @@ export default function DocumentsTable({
                         onClick={() => setIsDeleteOpen(true)}
                         className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg transition-colors whitespace-nowrap ${selectedIds.size === 0
                             ? 'text-slate-400 cursor-not-allowed opacity-50'
-                            : 'text-rose-600 hover:bg-rose-50'
+                            : 'text-rose-600 hover:bg-rose-50 cursor-pointer'
                             }`}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -812,6 +983,86 @@ export default function DocumentsTable({
                                 className="flex-1 py-2.5 bg-[#0e7490] hover:bg-[#0c627a] text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
                             >
                                 {isSubmitting ? 'Moving...' : 'Confirm Move'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {/* 3b. Move Items into Folder Modal */}
+            {isMoveItemModalOpen && (
+                <Modal onClose={() => setIsMoveItemModalOpen(false)}>
+                    <div>
+                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-[#0e7490] flex items-center justify-center font-bold mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                <line x1="12" y1="11" x2="12" y2="17" />
+                                <line x1="9" y1="14" x2="15" y2="14" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">Move {selectedIds.size} item(s) to folder</h3>
+                        <p className="text-xs text-slate-500 mb-4">
+                            Select a destination folder in {activeStage?.name || 'this stage'}:
+                        </p>
+
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto mb-5 pr-1">
+                            <button
+                                type="button"
+                                onClick={() => setTargetMoveFolderId(null)}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${
+                                    targetMoveFolderId === null
+                                        ? 'bg-[#0e7490] text-white shadow-2xs'
+                                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                    <polyline points="9 22 9 12 15 12 15 22" />
+                                </svg>
+                                <span>{activeStage?.name || 'Stage Root'} (Top Level)</span>
+                            </button>
+
+                            {availableFolders.map(folder => (
+                                <button
+                                    key={folder.id}
+                                    type="button"
+                                    onClick={() => setTargetMoveFolderId(folder.id)}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${
+                                        targetMoveFolderId === folder.id
+                                            ? 'bg-[#0e7490] text-white shadow-2xs'
+                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                    }`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#fcd34d">
+                                        <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                                    </svg>
+                                    <span className="truncate">{folder.name}</span>
+                                </button>
+                            ))}
+
+                            {availableFolders.length === 0 && (
+                                <p className="text-[11px] text-slate-400 italic px-2 py-1">
+                                    No other folders available in this stage. Create a folder using &quot;Add Folder&quot; first.
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsMoveItemModalOpen(false)}
+                                disabled={isSubmitting}
+                                className="flex-1 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-xl text-xs transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleMoveItemsToFolder}
+                                disabled={isSubmitting}
+                                className="flex-1 py-2.5 bg-[#0e7490] hover:bg-[#0c627a] text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {isSubmitting ? 'Moving...' : 'Move Here'}
                             </button>
                         </div>
                     </div>
