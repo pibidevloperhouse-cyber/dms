@@ -123,7 +123,8 @@ export default function TaskDetailDrawer() {
   const myEmail = (currentUser?.email || '').trim().toLowerCase();
   const myId = (currentUser?.id || '').trim().toLowerCase();
 
-  const displayedSubtasks = isCreator
+  const isLeadRole = userNormRole === 'sub_admin' || userNormRole === 'guest_lead' || userNormRole === 'admin' || userNormRole === 'super_admin' || userNormRole === 'advisor' || userNormRole === 'guest_admin';
+  const displayedSubtasks = (isCreator || isLeadRole)
     ? subtasksList
     : subtasksList.filter((s) => {
       const member = (s.assignedMember || s.assigned_to_user || '').trim().toLowerCase();
@@ -507,7 +508,7 @@ export default function TaskDetailDrawer() {
                         )}
                       </p>
                       <p className="text-[11px] text-teal-800">
-                        Assigned team members should upload requested preparation documents into this folder under Documents.
+                        Assigned team members should upload requested documents into this folder under Documents.
                       </p>
 
                     </div>

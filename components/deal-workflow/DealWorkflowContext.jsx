@@ -361,7 +361,8 @@ export const readSessionUser = () => {
         roleLabel: getRoleLabel(roleStr),
         side,
         company: s.company_name || s.companyName || (side === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
-        group: s.group || s.role || 'General',
+        group: s.group || (Array.isArray(s.groups) && s.groups[0]) || s.role || 'General',
+        groups: Array.isArray(s.groups) ? s.groups : (s.group ? [s.group] : []),
         workspaceId: s.active_workspace_id || s.workspace_id || null,
         avatar: (s.name || s.email || 'U')[0].toUpperCase(),
         color: 'from-blue-600 to-indigo-700',
@@ -1087,16 +1088,124 @@ export function DealWorkflowProvider({ children }) {
   useEffect(() => {
     if (sessionUser?.name && groupMembersMap && Object.keys(groupMembersMap).length > 0) {
       const sName = sessionUser.name.trim().toLowerCase();
+      const sEmail = (sessionUser.email || '').trim().toLowerCase();
+      const sId = (sessionUser.id || '').trim().toLowerCase();
+
+      const matchedGroups = [];
       for (const [gName, members] of Object.entries(groupMembersMap)) {
-        if (Array.isArray(members) && members.some((m) => (typeof m === 'string' ? m : m.name || '').trim().toLowerCase() === sName)) {
-          if (sessionUser.group !== gName) {
-            setSessionUser((prev) => (prev ? { ...prev, group: gName } : prev));
-          }
-          break;
+        if (Array.isArray(members) && members.some((m) => {
+          const mStr = (typeof m === 'string' ? m : m?.name || '').trim().toLowerCase();
+          return mStr && (mStr === sName || (sEmail && mStr === sEmail) || (sId !== 'session_user' && mStr === sId));
+        })) {
+          matchedGroups.push(gName);
         }
       }
+
+      if (matchedGroups.length > 0) {
+        setSessionUser((prev) => {
+          if (!prev) return prev;
+          const existingGroups = Array.isArray(prev.groups) ? prev.groups : (prev.group ? [prev.group] : []);
+          const allGroups = Array.from(new Set([...existingGroups, ...matchedGroups]));
+          const currentGroupValid = prev.group && allGroups.includes(prev.group);
+          const nextGroup = currentGroupValid ? prev.group : allGroups[0];
+          if (prev.group === nextGroup && (prev.groups || []).length === allGroups.length) {
+            return prev;
+          }
+          return {
+            ...prev,
+            group: nextGroup,
+            groups: allGroups,
+          };
+        });
+      }
     }
-  }, [groupMembersMap, sessionUser?.name]);
+  }, [groupMembersMap, sessionUser?.name, sessionUser?.email, sessionUser?.id]);
+
+  // ============================================================================
+  // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
+  // ============================================================================
+  const getGroupsForDepartment = (deptName, visibility) => {
+    const userSide = currentUser?.side || 'seller';
+    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
+
+    let source = workflowGroups;
+    if (visibility === 'EXTERNAL') {
+      source = externalGroups.filter((g) => g.side === oppositeSide || !g.side);
+    } else if (visibility === 'INTERNAL') {
+      source = workflowGroups.filter((g) => g.side === userSide || !g.side);
+    } else {
+      source = [...workflowGroups, ...externalGroups];
+    }
+
+    if (!deptName || deptName === 'ALL') {
+      return Array.from(new Set(source.map((g) => g.name)));
+    }
+    const matched = source
+      .filter((g) => (g.department || '').trim().toLowerCase() === deptName.trim().toLowerCase())
+      .map((g) => g.name);
+    return Array.from(new Set(matched));
+  };
+
+  const getMembersForGroup = (groupName) => {
+    // Ensure groupName is a non-empty string before using string methods
+    const resolvedGroupName = typeof groupName === 'string'
+      ? groupName
+      : (typeof groupName === 'object' && groupName?.name ? groupName.name : (Array.isArray(groupName) ? groupName[0] : null));
+    if (!resolvedGroupName || typeof resolvedGroupName !== 'string' || !resolvedGroupName.trim()) {
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
+    }
+    const groupName_ = resolvedGroupName;
+    const membersSet = new Set();
+
+    if (groupMembersMap[groupName_] && Array.isArray(groupMembersMap[groupName_])) {
+      groupMembersMap[groupName_].forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    }
+
+    const found = workflowGroups.find((g) => g.name === groupName_ || g.id === groupName_);
+    if (found && Array.isArray(found.members)) {
+      found.members.forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    }
+
+    const foundExternal = externalGroups.find((g) => g.name === groupName_ || g.id === groupName_);
+    if (foundExternal && Array.isArray(foundExternal.members)) {
+      foundExternal.members.forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    }
+
+    // Match demo users whose group name matches
+    Object.values(DEMO_USERS).forEach((u) => {
+      if (u.group && typeof u.group === 'string' && u.group.trim().toLowerCase() === groupName_.trim().toLowerCase()) {
+        if (u.name) membersSet.add(u.name);
+      }
+    });
+
+    return Array.from(membersSet);
+  };
+
+  const getMembersForDepartment = (deptName) => {
+    if (!deptName || deptName === 'ALL') {
+      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
+      return Array.from(new Set(raw.filter(Boolean)));
+    }
+    const groupsInDept = getGroupsForDepartment(deptName);
+    const membersSet = new Set();
+    groupsInDept.forEach((g) => {
+      getMembersForGroup(g).forEach((m) => {
+        const name = typeof m === 'string' ? m : m?.name;
+        if (name) membersSet.add(name);
+      });
+    });
+    return Array.from(membersSet);
+  };
 
   // ============================================================================
   // TASK CREATOR & ASSIGNEE RECOGNITION HELPERS
@@ -1138,6 +1247,10 @@ export function DealWorkflowProvider({ children }) {
     const userEmail = (user.email || '').trim().toLowerCase();
     const userId = (user.id || '').trim().toLowerCase();
     const userGroup = (user.group || '').trim().toLowerCase();
+    const userGroupsList = Array.isArray(user.groups)
+      ? user.groups.map((g) => (typeof g === 'string' ? g : g?.name || '').trim().toLowerCase())
+      : (userGroup ? [userGroup] : []);
+    const userNormRole = normalizeRole(user.role);
 
     const assignedToUser = (task.assigned_to_user || '').trim().toLowerCase();
     if (assignedToUser && (assignedToUser === userName || assignedToUser === userEmail || (userId !== 'session_user' && assignedToUser === userId))) {
@@ -1152,8 +1265,47 @@ export function DealWorkflowProvider({ children }) {
     }
 
     const assignedToGroup = (task.assigned_to_group || '').trim().toLowerCase();
-    if (userGroup && assignedToGroup && userGroup === assignedToGroup) {
-      return true;
+    if (assignedToGroup) {
+      if (userGroup && userGroup === assignedToGroup) {
+        return true;
+      }
+      if (userGroupsList.includes(assignedToGroup)) {
+        return true;
+      }
+
+      const groupMembers = getMembersForGroup(task.assigned_to_group);
+      if (Array.isArray(groupMembers) && groupMembers.some((m) => {
+        const mStr = (typeof m === 'string' ? m : m?.name || '').trim().toLowerCase();
+        return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
+      })) {
+        return true;
+      }
+
+      if (groupMembersMap && (groupMembersMap[task.assigned_to_group] || groupMembersMap[task.assignedToGroup])) {
+        const gMembers = groupMembersMap[task.assigned_to_group] || groupMembersMap[task.assignedToGroup] || [];
+        if (Array.isArray(gMembers) && gMembers.some((m) => {
+          const mStr = (typeof m === 'string' ? m : m?.name || '').trim().toLowerCase();
+          return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
+        })) {
+          return true;
+        }
+      }
+
+      // Role-based delegation check for unclaimed tasks:
+      // When Admin assigns a main task to a Sub Admin group / role on the same side without a specific individual assignee:
+      // Any Sub Admin on that side belongs to the assignee tier and can view/claim this task!
+      if (!assignedToUser) {
+        const taskTargetSide = (task.target_side || task.targetSide || task.creator_side || task.creatorSide || 'seller').toLowerCase();
+        const userSide = (user.side || 'seller').toLowerCase();
+        const sidesMatch = userSide === taskTargetSide || (task.visibility === 'INTERNAL' && userSide === (task.creator_side || task.creatorSide || 'seller').toLowerCase());
+
+        if (sidesMatch) {
+          const assigneeRole = getTaskAssigneeRole(task);
+          if (userNormRole === assigneeRole) {
+            return true;
+          }
+        }
+      }
     }
 
     return false;
@@ -1212,8 +1364,19 @@ export function DealWorkflowProvider({ children }) {
       if (assignedGroup.includes('lead')) return 'guest_lead';
       if (assignedGroup.includes('sub')) return 'sub_admin';
       if (assignedGroup.includes('admin')) return 'admin';
-      return (task.target_side === 'buyer' || task.creator_side === 'buyer' || task.targetSide === 'buyer' || task.creatorSide === 'buyer') ? 'external_user' : 'internal_user';
     }
+
+    // Creator role delegation fallback based on ROLE_HIERARCHY:
+    // Super Admin assigns to Admin
+    // Admin assigns to Sub Admin
+    // Guest Admin assigns to Advisor
+    // Advisor assigns to Guest Lead
+    const cRole = getTaskCreatorRole(task);
+    if (cRole === 'super_admin') return 'admin';
+    if (cRole === 'admin') return 'sub_admin';
+    if (cRole === 'guest_admin') return 'advisor';
+    if (cRole === 'advisor') return 'guest_lead';
+
     return (task.target_side === 'buyer' || task.creator_side === 'buyer' || task.targetSide === 'buyer' || task.creatorSide === 'buyer') ? 'external_user' : 'internal_user';
   };
 
@@ -1423,92 +1586,6 @@ export function DealWorkflowProvider({ children }) {
     return false;
   };
 
-  // ============================================================================
-  // DEPARTMENT -> GROUP & GROUP -> MEMBERS CASCADE HELPERS
-  // ============================================================================
-  const getGroupsForDepartment = (deptName, visibility) => {
-    const userSide = currentUser?.side || 'seller';
-    const oppositeSide = userSide === 'buyer' ? 'seller' : 'buyer';
-
-    let source = workflowGroups;
-    if (visibility === 'EXTERNAL') {
-      source = externalGroups.filter((g) => g.side === oppositeSide || !g.side);
-    } else if (visibility === 'INTERNAL') {
-      source = workflowGroups.filter((g) => g.side === userSide || !g.side);
-    } else {
-      source = [...workflowGroups, ...externalGroups];
-    }
-
-    if (!deptName || deptName === 'ALL') {
-      return Array.from(new Set(source.map((g) => g.name)));
-    }
-    const matched = source
-      .filter((g) => (g.department || '').trim().toLowerCase() === deptName.trim().toLowerCase())
-      .map((g) => g.name);
-    return Array.from(new Set(matched));
-  };
-
-  const getMembersForGroup = (groupName) => {
-    // Ensure groupName is a non-empty string before using string methods
-    const resolvedGroupName = typeof groupName === 'string'
-      ? groupName
-      : (typeof groupName === 'object' && groupName?.name ? groupName.name : (Array.isArray(groupName) ? groupName[0] : null));
-    if (!resolvedGroupName || typeof resolvedGroupName !== 'string' || !resolvedGroupName.trim()) {
-      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
-      return Array.from(new Set(raw.filter(Boolean)));
-    }
-    const groupName_ = resolvedGroupName;
-    const membersSet = new Set();
-
-    if (groupMembersMap[groupName_] && Array.isArray(groupMembersMap[groupName_])) {
-      groupMembersMap[groupName_].forEach((m) => {
-        const name = typeof m === 'string' ? m : m?.name;
-        if (name) membersSet.add(name);
-      });
-    }
-
-    const found = workflowGroups.find((g) => g.name === groupName_ || g.id === groupName_);
-    if (found && Array.isArray(found.members)) {
-      found.members.forEach((m) => {
-        const name = typeof m === 'string' ? m : m?.name;
-        if (name) membersSet.add(name);
-      });
-    }
-
-    const foundExternal = externalGroups.find((g) => g.name === groupName_ || g.id === groupName_);
-    if (foundExternal && Array.isArray(foundExternal.members)) {
-      foundExternal.members.forEach((m) => {
-        const name = typeof m === 'string' ? m : m?.name;
-        if (name) membersSet.add(name);
-      });
-    }
-
-    // Match demo users whose group name matches
-    Object.values(DEMO_USERS).forEach((u) => {
-      if (u.group && typeof u.group === 'string' && u.group.trim().toLowerCase() === groupName_.trim().toLowerCase()) {
-        if (u.name) membersSet.add(u.name);
-      }
-    });
-
-    return Array.from(membersSet);
-  };
-
-  const getMembersForDepartment = (deptName) => {
-    if (!deptName || deptName === 'ALL') {
-      const raw = allUsers.length > 0 ? allUsers.map((u) => (typeof u === 'string' ? u : u.name)) : (currentUser ? [currentUser.name] : []);
-      return Array.from(new Set(raw.filter(Boolean)));
-    }
-    const groupsInDept = getGroupsForDepartment(deptName);
-    const membersSet = new Set();
-    groupsInDept.forEach((g) => {
-      getMembersForGroup(g).forEach((m) => {
-        const name = typeof m === 'string' ? m : m?.name;
-        if (name) membersSet.add(name);
-      });
-    });
-    return Array.from(membersSet);
-  };
-
   // Base tasks permitted for the current user
   const permittedTasks = useMemo(() => {
     return tasks.filter((t) => isTaskVisibleToUser(t, currentUser));
@@ -1626,11 +1703,12 @@ export function DealWorkflowProvider({ children }) {
 
       // Assignee / Member filter
       if (memberFilter === 'MY_TASKS') {
-        const isTaskAssignee = task.assigned_to_user === currentUser.name;
+        const isDirectAssignee = task.assigned_to_user === currentUser.name;
         const isSubtaskAssignee = (task.subtasks || []).some(
           (st) => st.assignedMember === currentUser.name || st.assigned_to_user === currentUser.name
         );
-        if (!isTaskAssignee && !isSubtaskAssignee) return false;
+        const isUnclaimedAssignedTask = !task.assigned_to_user && isAssignedByOthers(task, currentUser);
+        if (!isDirectAssignee && !isSubtaskAssignee && !isUnclaimedAssignedTask) return false;
       } else if (memberFilter !== 'ALL') {
         const isTaskAssignee = task.assigned_to_user === memberFilter;
         const isSubtaskAssignee = (task.subtasks || []).some(
@@ -1745,19 +1823,32 @@ export function DealWorkflowProvider({ children }) {
     }
 
     // If task has no specific assignee assigned yet:
-    // Group members or same-side admin can claim
+    // Group members, matching role assignee, or same-side admin can claim
     if (!assignedToUser) {
       const isTargetSide = user.side === task.target_side || (task.visibility === 'INTERNAL' && user.side === task.creator_side);
+      const userGroupsList = Array.isArray(user.groups)
+        ? user.groups.map((g) => (typeof g === 'string' ? g : g?.name || '').trim().toLowerCase())
+        : (user.group ? [user.group.trim().toLowerCase()] : []);
+      const assignedGroupLower = (task.assigned_to_group || '').trim().toLowerCase();
+
       const isGroupMember =
-        Boolean(user.group && task.assigned_to_group && user.group.trim().toLowerCase() === task.assigned_to_group.trim().toLowerCase()) ||
+        Boolean(user.group && assignedGroupLower && user.group.trim().toLowerCase() === assignedGroupLower) ||
+        Boolean(userGroupsList.includes(assignedGroupLower)) ||
         Boolean(task.assigned_to_group && getMembersForGroup(task.assigned_to_group).some((m) => {
           const mStr = (typeof m === 'string' ? m : m.name || '').trim().toLowerCase();
           return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
+        })) ||
+        Boolean(groupMembersMap && (groupMembersMap[task.assigned_to_group] || groupMembersMap[task.assignedToGroup]) && (groupMembersMap[task.assigned_to_group] || groupMembersMap[task.assignedToGroup]).some((m) => {
+          const mStr = (typeof m === 'string' ? m : m?.name || '').trim().toLowerCase();
+          return mStr && (mStr === userName || mStr === userEmail || (userId !== 'session_user' && mStr === userId));
         }));
+
       const normRole = normalizeRole(user.role);
+      const assigneeRole = getTaskAssigneeRole(task);
+      const isMatchingRoleAssignee = normRole === assigneeRole;
       const isAdmin = normRole === 'admin' || normRole === 'super_admin' || normRole === 'advisor' || normRole === 'guest_admin';
 
-      return Boolean(isGroupMember || (isTargetSide && isAdmin));
+      return Boolean(isGroupMember || (isTargetSide && (isMatchingRoleAssignee || isAdmin)));
     }
 
     return false;

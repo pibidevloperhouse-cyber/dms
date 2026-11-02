@@ -232,10 +232,13 @@ export async function POST(req) {
     const resolvedAssignedGroup = assigned_to_group || (resolvedTargetSide === 'seller' ? 'Seller Finance Team' : (resolvedCreatorSide === 'buyer' ? 'Buyer Due Diligence Team' : 'Buyer Legal Team'));
     const resolvedCreatedBy = created_by || (resolvedCreatorSide === 'buyer' ? 'Advisor' : 'Admin');
 
-    const resolvedFolderId = isPrep ? (folder_id || assigned_folder_id || null) : null;
-    const resolvedFolderName = isPrep ? (folder_name || assigned_folder_name || assigned_folder || null) : null;
-    const resolvedSubfolderId = isPrep ? (subfolder_id || assigned_subfolder_id || null) : null;
-    const resolvedSubfolderName = isPrep ? (subfolder_name || assigned_subfolder_name || assigned_subfolder || null) : null;
+    const isBuyerDd = (resolvedCreatorSide === 'buyer') && (deal_stage || '').trim().toLowerCase().includes('due diligence');
+    const shouldSaveFolder = isPrep || isBuyerDd || Boolean(folder_id || assigned_folder_id);
+
+    const resolvedFolderId = shouldSaveFolder ? (folder_id || assigned_folder_id || null) : null;
+    const resolvedFolderName = shouldSaveFolder ? (folder_name || assigned_folder_name || assigned_folder || null) : null;
+    const resolvedSubfolderId = shouldSaveFolder ? (subfolder_id || assigned_subfolder_id || null) : null;
+    const resolvedSubfolderName = shouldSaveFolder ? (subfolder_name || assigned_subfolder_name || assigned_subfolder || null) : null;
 
     const existingTasks = await db.select({ taskId: dealTasks.taskId }).from(dealTasks);
     let maxNum = 1000;
