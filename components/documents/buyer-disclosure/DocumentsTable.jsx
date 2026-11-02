@@ -349,7 +349,7 @@ export default function DocumentsTable({
                     throw new Error(uploadData.error || `Upload failed for ${file.name}`);
                 }
 
-                const doc = uploadData.document;
+                const docId = uploadData.document?.id || uploadData.id || uploadData.document_id || null;
 
                 // Link to buyer disclosure stage & parent folder
                 await fetch('/api/documents/buyer-disclosure', {
@@ -360,7 +360,7 @@ export default function DocumentsTable({
                         stageId: activeStage.id,
                         parentId: currentFolder?.id || null,
                         document: {
-                            id: doc.id,
+                            id: docId,
                             name: file.name,
                             size: file.size,
                             type: (file.name.split('.').pop() || 'file').toLowerCase()
@@ -650,8 +650,8 @@ export default function DocumentsTable({
                         type="button"
                         onClick={() => handleNavigateBreadcrumb(-1)}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${folderBreadcrumbs.length === 0
-                                ? 'font-bold text-slate-900 bg-slate-100'
-                                : 'text-slate-600 hover:text-[#0e7490] hover:bg-slate-50 font-bold'
+                            ? 'font-bold text-slate-900 bg-slate-100'
+                            : 'text-slate-600 hover:text-[#0e7490] hover:bg-slate-50 font-bold'
                             }`}
                         title="Go to Stage Root"
                     >
@@ -673,8 +673,8 @@ export default function DocumentsTable({
                                     type="button"
                                     onClick={() => handleNavigateBreadcrumb(idx)}
                                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${isLast
-                                            ? 'font-bold text-slate-900 bg-slate-100'
-                                            : 'text-slate-600 hover:text-[#0e7490] hover:bg-slate-50'
+                                        ? 'font-bold text-slate-900 bg-slate-100'
+                                        : 'text-slate-600 hover:text-[#0e7490] hover:bg-slate-50'
                                         }`}
                                     title={`Go to ${crumb.name}`}
                                 >
@@ -1009,11 +1009,10 @@ export default function DocumentsTable({
                             <button
                                 type="button"
                                 onClick={() => setTargetMoveFolderId(null)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${
-                                    targetMoveFolderId === null
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${targetMoveFolderId === null
                                         ? 'bg-[#0e7490] text-white shadow-2xs'
                                         : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                    }`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -1027,11 +1026,10 @@ export default function DocumentsTable({
                                     key={folder.id}
                                     type="button"
                                     onClick={() => setTargetMoveFolderId(folder.id)}
-                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${
-                                        targetMoveFolderId === folder.id
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] font-bold transition-all cursor-pointer ${targetMoveFolderId === folder.id
                                             ? 'bg-[#0e7490] text-white shadow-2xs'
                                             : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                    }`}
+                                        }`}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#fcd34d">
                                         <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />

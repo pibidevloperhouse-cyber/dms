@@ -129,7 +129,7 @@ export default function RedactionDocumentsPage() {
           let { data: stages } = await stageQuery;
 
           // Fallback check by compId if no stages found by workspaceId
-          if ((!stages || stages.length === 0) && compId) {
+          if ((!stages || stages.length === 0) && !wsId && compId) {
             const { data: compStages } = await supabase
               .from('buyer_disclosure_stages')
               .select('id, name, stage_number')

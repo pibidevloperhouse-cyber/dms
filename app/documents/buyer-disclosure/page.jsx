@@ -37,6 +37,9 @@ export default function BuyerDisclosurePage() {
         }
         s = s || {};
 
+        const wsId = s?.active_workspace_id || s?.workspace_id || 'default';
+        const cacheKey = `vdr_buyer_disclosure_stages_${wsId}`;
+
         try {
             setLoading(true);
             const res = await fetch('/api/documents/buyer-disclosure', {
@@ -63,12 +66,12 @@ export default function BuyerDisclosurePage() {
                     }
                     return uniqueStages[0].id;
                 });
-                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(uniqueStages));
+                localStorage.setItem(cacheKey, JSON.stringify(uniqueStages));
             }
         } catch (err) {
             console.error('Failed to load disclosure stages:', err);
             try {
-                const cached = localStorage.getItem('vdr_buyer_disclosure_stages');
+                const cached = localStorage.getItem(cacheKey);
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     setStages(parsed);
@@ -107,7 +110,9 @@ export default function BuyerDisclosurePage() {
             const curRaw = localStorage.getItem('vdr_session');
             if (curRaw) {
                 try {
-                    loadStages(JSON.parse(curRaw));
+                    const parsed = JSON.parse(curRaw);
+                    setSession(parsed);
+                    loadStages(parsed);
                 } catch (e) {
                     loadStages({});
                 }
@@ -161,7 +166,8 @@ export default function BuyerDisclosurePage() {
             const data = await res.json();
             if (data.success && data.stages) {
                 setStages(data.stages);
-                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(data.stages));
+                const wsId = currentSession?.active_workspace_id || currentSession?.workspace_id || 'default';
+                localStorage.setItem(`vdr_buyer_disclosure_stages_${wsId}`, JSON.stringify(data.stages));
             }
 
             const targetStage = stages.find(s => s.id === stageId || s.stageNumber === stageId) || activeStage;

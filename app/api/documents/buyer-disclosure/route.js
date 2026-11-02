@@ -9,6 +9,14 @@ const supabase = createClient(
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function formatBytes(bytes) {
+    if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '--';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 const DEFAULT_STAGES = [
     {
         stage_number: 1,
@@ -53,16 +61,99 @@ async function getValidCompanyId(companyId) {
     }
 }
 
-// Seed default stages into database if not yet initialized for this company
+// Seed default stages into database if not yet initialized for this workspace
 async function ensureStagesInDB(companyId, workspaceId) {
     const validCompanyId = await getValidCompanyId(companyId);
+    const validWorkspaceId = workspaceId && UUID_REGEX.test(workspaceId.toString()) ? workspaceId.toString() : null;
 
-    // 1. If validCompanyId is present, check for existing stages for this company
+    // 1. If validWorkspaceId is present, check specifically for stages belonging to THIS workspace
+    if (validWorkspaceId) {
+        // If companyId is known, try finding stages for this workspace & company first
+        if (validCompanyId) {
+            const { data: wsCompStages } = await supabase
+                .from('buyer_disclosure_stages')
+                .select('*')
+                .eq('workspace_id', validWorkspaceId)
+                .eq('company_id', validCompanyId)
+                .order('created_at', { ascending: true });
+
+            if (wsCompStages && wsCompStages.length > 0) {
+                const uniqueStages = [];
+                const seenStageNums = new Set();
+                for (const s of wsCompStages) {
+                    const num = s.stage_number ?? s.name;
+                    if (!seenStageNums.has(num)) {
+                        seenStageNums.add(num);
+                        uniqueStages.push(s);
+                    }
+                }
+                return { stages: uniqueStages, validCompanyId };
+            }
+        }
+
+        // Check if any stages exist for this workspace (e.g. for buyer where company_id differs)
+        const { data: wsStages } = await supabase
+            .from('buyer_disclosure_stages')
+            .select('*')
+            .eq('workspace_id', validWorkspaceId)
+            .order('created_at', { ascending: true });
+
+        if (wsStages && wsStages.length > 0) {
+            const uniqueStages = [];
+            const seenStageNums = new Set();
+            for (const s of wsStages) {
+                const num = s.stage_number ?? s.name;
+                if (!seenStageNums.has(num)) {
+                    seenStageNums.add(num);
+                    uniqueStages.push(s);
+                }
+            }
+            return { stages: uniqueStages, validCompanyId: wsStages[0].company_id || validCompanyId };
+        }
+
+        // If no stages found for this workspace, seed default stages specifically FOR THIS WORKSPACE
+        const createdStages = [];
+        for (const def of DEFAULT_STAGES) {
+            const { data: newStage, error: stageErr } = await supabase
+                .from('buyer_disclosure_stages')
+                .insert({
+                    company_id: validCompanyId,
+                    workspace_id: validWorkspaceId,
+                    stage_number: def.stage_number,
+                    name: def.name,
+                    buyer_access: def.buyer_access,
+                    is_locked: def.is_locked
+                })
+                .select()
+                .single();
+
+            if (!stageErr && newStage) {
+                createdStages.push(newStage);
+                for (const it of def.items) {
+                    await supabase.from('buyer_disclosure_items').insert({
+                        stage_id: newStage.id,
+                        company_id: validCompanyId,
+                        name: it.name,
+                        is_folder: it.is_folder,
+                        type: it.type,
+                        version: it.version,
+                        size: it.size,
+                        is_redacted: false
+                    });
+                }
+            }
+        }
+
+        return { stages: createdStages, validCompanyId };
+    }
+
+    // 2. If NO workspaceId provided, fallback to company-level stages without workspace_id
     if (validCompanyId) {
         const { data: existingStages } = await supabase
             .from('buyer_disclosure_stages')
             .select('*')
             .eq('company_id', validCompanyId)
+            .is('workspace_id', null)
             .order('stage_number', { ascending: true });
 
         if (existingStages && existingStages.length > 0) {
@@ -77,37 +168,16 @@ async function ensureStagesInDB(companyId, workspaceId) {
             }
             return { stages: uniqueStages, validCompanyId };
         }
-    } else {
-        // If no companyId in session, check if any stages already exist in DB
-        const { data: anyStages } = await supabase
-            .from('buyer_disclosure_stages')
-            .select('*')
-            .order('stage_number', { ascending: true });
-
-        if (anyStages && anyStages.length > 0) {
-            const primaryCompanyId = anyStages[0].company_id;
-            const filtered = anyStages.filter(s => s.company_id === primaryCompanyId);
-            const uniqueStages = [];
-            const seenStageNums = new Set();
-            for (const s of filtered) {
-                const num = s.stage_number ?? s.name;
-                if (!seenStageNums.has(num)) {
-                    seenStageNums.add(num);
-                    uniqueStages.push(s);
-                }
-            }
-            return { stages: uniqueStages, validCompanyId: primaryCompanyId };
-        }
     }
 
-    // 2. If DB is completely empty, seed default stages
+    // 3. Fallback when neither workspace nor company stages exist
     const createdStages = [];
     for (const def of DEFAULT_STAGES) {
         const { data: newStage, error: stageErr } = await supabase
             .from('buyer_disclosure_stages')
             .insert({
                 company_id: validCompanyId,
-                workspace_id: workspaceId || null,
+                workspace_id: null,
                 stage_number: def.stage_number,
                 name: def.name,
                 buyer_access: def.buyer_access,
@@ -168,8 +238,8 @@ async function getFullStages(companyId, workspaceId) {
     let folders = [];
     let docs = [];
     try {
-        let fQuery = supabase.from('folders').select('*');
-        let dQuery = supabase.from('documents').select('*');
+        let fQuery = supabase.from('folders').select('*').neq('is_deleted', true);
+        let dQuery = supabase.from('documents').select('*').neq('is_deleted', true);
         if (workspaceId) {
             fQuery = fQuery.eq('workspace_id', workspaceId);
             dQuery = dQuery.eq('workspace_id', workspaceId);
@@ -183,14 +253,6 @@ async function getFullStages(companyId, workspaceId) {
     } catch (e) {
         console.error('Error fetching folders/docs for buyer disclosure:', e);
     }
-
-    const formatBytes = (bytes) => {
-        if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '--';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-        return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    };
 
     // Recursive helper to get real contents of a folder
     const getFolderChildren = (folderId) => {
@@ -346,8 +408,8 @@ export async function POST(req) {
         const body = await req.json().catch(() => ({}));
         const { action = 'get_stages', session } = body;
 
-        const companyId = session?.company_id || null;
-        const workspaceId = session?.workspace_id || session?.active_workspace_id || null;
+        const companyId = session?.company_id || body?.company_id || body?.companyId || null;
+        const workspaceId = session?.active_workspace_id || session?.workspace_id || body?.workspace_id || body?.workspaceId || body?.active_workspace_id || null;
 
         switch (action) {
             case 'get_stages': {

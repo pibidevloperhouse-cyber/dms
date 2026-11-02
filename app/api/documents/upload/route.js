@@ -201,7 +201,7 @@ export async function POST(req) {
             }
         }
 
-        return NextResponse.json({ success: true, id: docData.id });
+        return NextResponse.json({ success: true, id: docData.id, document: docData });
 
     } catch (e) {
         console.error("Upload API Error:", e);

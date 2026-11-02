@@ -395,7 +395,8 @@ function UnifiedWorkspace() {
             }
 
             if (data.stages) {
-                localStorage.setItem('vdr_buyer_disclosure_stages', JSON.stringify(data.stages));
+                const wsId = currentSession?.active_workspace_id || currentSession?.workspace_id || 'default';
+                localStorage.setItem(`vdr_buyer_disclosure_stages_${wsId}`, JSON.stringify(data.stages));
                 window.dispatchEvent(new Event('storage'));
             }
 

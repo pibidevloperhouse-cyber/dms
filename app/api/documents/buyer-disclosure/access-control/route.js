@@ -25,8 +25,8 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
         }
 
-        const companyId = session.company_id;
-        const workspaceId = session.active_workspace_id || session.workspace_id;
+        const companyId = session?.company_id || body?.company_id || null;
+        const workspaceId = session?.active_workspace_id || session?.workspace_id || body?.workspace_id || body?.workspaceId || null;
 
         // ── 1. GET ALL DATA (STAGES, FILES, GUEST ADMINS, PERMISSIONS) ──
         if (action === 'get_data') {
@@ -44,8 +44,8 @@ export async function POST(req) {
 
             let { data: stagesData } = await stageQuery;
 
-            // Fallback: check by companyId if no stages found by workspaceId
-            if ((!stagesData || stagesData.length === 0) && companyId) {
+            // Fallback: check by companyId ONLY if workspaceId is not provided
+            if ((!stagesData || stagesData.length === 0) && !workspaceId && companyId) {
                 const { data: compStages } = await supabase
                     .from('buyer_disclosure_stages')
                     .select('*')
