@@ -53,6 +53,11 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
   const [isCheckingAccess, setIsCheckingAccess] = useState(false);
   const [liveAccessResult, setLiveAccessResult] = useState(null);
 
+  const taskSide = task?.creator_side || task?.creatorSide || userSide;
+  const isPrep = normalizeStage(dealStage) === 'Preparation';
+  const isBuyerDueDiligence = (currentUser?.side === 'buyer' || userSide === 'buyer' || taskSide === 'buyer') && normalizeStage(dealStage) === 'Due Diligence';
+  const shouldAssignFolder = isPrep || isBuyerDueDiligence;
+
   // Subtask creation state
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
@@ -312,10 +317,10 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
 
   // Trigger real-time access verification whenever folder, subfolder, or assigned group changes
   useEffect(() => {
-    if (isOpen && normalizeStage(dealStage) === 'Preparation' && assignedFolderId && selectedGroupObj?.id) {
+    if (isOpen && shouldAssignFolder && assignedFolderId && selectedGroupObj?.id) {
       recheckAccess();
     }
-  }, [dealStage, assignedFolderId, assignedSubfolderId, selectedGroupObj?.id, isOpen, recheckAccess]);
+  }, [dealStage, assignedFolderId, assignedSubfolderId, selectedGroupObj?.id, isOpen, recheckAccess, shouldAssignFolder]);
 
   // Window focus listener: auto re-check if user was in Access Control granting access
   useEffect(() => {
@@ -330,7 +335,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
 
   // Live access status determination
   const folderAccessStatus = useMemo(() => {
-    if (normalizeStage(dealStage) !== 'Preparation' || !assignedFolderId || !selectedGroupObj) {
+    if (!shouldAssignFolder || !assignedFolderId || !selectedGroupObj) {
       return null;
     }
 
@@ -357,7 +362,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
       groupId: targetGroupId,
       accessUrl: `/documents/access?group=${encodeURIComponent(targetGroupId)}&returnTo=/deal-workflow`,
     };
-  }, [dealStage, assignedFolderId, assignedSubfolderId, assignedFolderName, selectedGroupObj, selectedMainFolder, folderPermissions, liveAccessResult]);
+  }, [dealStage, assignedFolderId, assignedSubfolderId, assignedFolderName, selectedGroupObj, selectedMainFolder, folderPermissions, liveAccessResult, shouldAssignFolder]);
 
   // Subordinate members available for assignment strictly within assignedGroup
   const assignableMembers = useMemo(() => {
@@ -449,7 +454,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     const isPrep = normalizeStage(dealStage) === 'Preparation';
 
     // Access Validation Guard: In preparation stage, assigned group must have access to assigned folder
-    if (isPrep && assignedFolderId && folderAccessStatus && !folderAccessStatus.hasAccess) {
+    if (shouldAssignFolder && assignedFolderId && folderAccessStatus && !folderAccessStatus.hasAccess) {
       alert(`"${selectedGroupObj?.name || 'Assigned Group'}" does not have access to folder "${assignedFolderName}". Please grant access in the Access section before saving.`);
       return;
     }
@@ -476,12 +481,12 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
         deal_stage: dealStage,
         due_date: dueDate || null,
         subtasks,
-        folder_id: isPrep ? (assignedFolderId || null) : null,
-        folder_name: isPrep ? (assignedFolderName || null) : null,
-        subfolder_id: isPrep ? (assignedSubfolderId || null) : null,
-        subfolder_name: isPrep ? (assignedSubfolderName || null) : null,
-        assigned_folder: isPrep ? (assignedFolderName || null) : null,
-        assigned_subfolder: isPrep ? (assignedSubfolderName || null) : null,
+        folder_id: shouldAssignFolder ? (assignedFolderId || null) : null,
+        folder_name: shouldAssignFolder ? (assignedFolderName || null) : null,
+        subfolder_id: shouldAssignFolder ? (assignedSubfolderId || null) : null,
+        subfolder_name: shouldAssignFolder ? (assignedSubfolderName || null) : null,
+        assigned_folder: shouldAssignFolder ? (assignedFolderName || null) : null,
+        assigned_subfolder: shouldAssignFolder ? (assignedSubfolderName || null) : null,
       });
       onClose();
     } finally {
@@ -681,8 +686,8 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
               </div>
             </div>
 
-            {/* Preparation Stage Folder Assignment: Assign folder & Assign subfolder */}
-            {normalizeStage(dealStage) === 'Preparation' && (
+            {/* Preparation & Buyer Due Diligence Stage Folder Assignment: Assign folder & Assign subfolder */}
+            {shouldAssignFolder && (
               <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="grid grid-cols-2 gap-3.5">
                   {/* Assign folder */}
@@ -769,7 +774,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                             </span>
                           </div>
                           <p className="text-slate-600 text-[11px] mt-1">
-                            This group can view and upload documents into this folder during the Preparation stage. Task can be assigned safely.
+                            This group can view and upload documents into this folder during the {isPrep ? 'Preparation' : 'Due Diligence'} stage. Task can be assigned safely.
                           </p>
                         </div>
                       </div>
@@ -1000,13 +1005,13 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
                 type="submit"
                 disabled={
                   isSubmitting ||
-                  (normalizeStage(dealStage) === 'Preparation' &&
+                  (shouldAssignFolder &&
                     Boolean(assignedFolderId) &&
                     folderAccessStatus &&
                     !folderAccessStatus.hasAccess)
                 }
                 title={
-                  normalizeStage(dealStage) === 'Preparation' &&
+                  shouldAssignFolder &&
                     Boolean(assignedFolderId) &&
                     folderAccessStatus &&
                     !folderAccessStatus.hasAccess
