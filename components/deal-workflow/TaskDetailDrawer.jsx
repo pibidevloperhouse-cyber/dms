@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
+import { useDealWorkflow, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import {
   FileText,
   Paperclip,
@@ -15,6 +15,8 @@ import {
   Lock,
   Globe,
   ShieldCheck,
+  ShieldAlert,
+  Sparkles,
   FileCheck2,
   AlertTriangle,
   Eye,
@@ -55,6 +57,7 @@ export default function TaskDetailDrawer() {
     isSubAdminToInternalPrepTask,
     setSigningModalTask,
     setCertificateModalTask,
+    setDueDiligenceReviewTask,
   } = useDealWorkflow();
 
   const [commentText, setCommentText] = useState('');
@@ -699,6 +702,13 @@ export default function TaskDetailDrawer() {
                                   ))}
                                 </div>
                               )}
+                              {(st.risk_description || st.riskDescription || st.risk_factor || st.riskFactor) && (
+                                <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                  <ShieldAlert className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span className="font-bold uppercase">[{st.risk_level || st.riskLevel || 'Risk'}]:</span>
+                                  <span className="truncate max-w-[280px]">{st.risk_description || st.riskDescription || st.risk_factor || st.riskFactor}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -907,6 +917,115 @@ export default function TaskDetailDrawer() {
               </div>
             )}
 
+            {/* Due Diligence Risk Factor Assessment Callout */}
+            {(selectedTask.problem_description || selectedTask.risk_description || selectedTask.document_reference) && (
+              <div
+                className={`p-4 rounded-xl border text-xs shadow-2xs space-y-2.5 ${
+                  (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'critical'
+                    ? 'bg-rose-50/80 border-rose-200 text-rose-950'
+                    : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'high'
+                      ? 'bg-orange-50/80 border-orange-200 text-orange-950'
+                      : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'low'
+                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                        : 'bg-amber-50/80 border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert
+                      className={`w-4 h-4 ${
+                        (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'critical'
+                          ? 'text-rose-600'
+                          : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'high'
+                            ? 'text-orange-600'
+                            : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'low'
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                      }`}
+                    />
+                    <h5 className="font-bold text-xs uppercase tracking-wide">
+                      Due Diligence Finding
+                    </h5>
+                    {selectedTask.category && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/90 border border-slate-200 text-teal-800">
+                        {selectedTask.category}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                      (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'critical'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'high'
+                          ? 'bg-orange-100 text-orange-800 border-orange-300'
+                          : (selectedTask.severity || selectedTask.risk_level || '').toLowerCase() === 'low'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}
+                  >
+                    {selectedTask.severity || selectedTask.risk_level || 'Medium'} Severity
+                  </span>
+                </div>
+
+                {selectedTask.category && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-700 block mb-1">
+                      Category (Task Department):
+                    </span>
+                    <div className="p-2 rounded-lg bg-white/90 border border-slate-200/80 text-xs text-slate-800 font-semibold inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-teal-600" />
+                      <span>{selectedTask.category}</span>
+                    </div>
+                  </div>
+                )}
+
+                {(selectedTask.problem_description || selectedTask.risk_description) && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-700 block mb-1">
+                      Problem Description:
+                    </span>
+                    <div className="p-2.5 rounded-lg bg-white/90 border border-slate-200/80 text-xs text-slate-800 leading-relaxed font-normal">
+                      {selectedTask.problem_description || selectedTask.risk_description}
+                    </div>
+                  </div>
+                )}
+
+                {selectedTask.document_reference && (
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white/80 p-2 rounded-lg border border-slate-200/80">
+                    <FileText className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+                    <span className="text-slate-500">Document Reference:</span>
+                    <strong className="text-slate-900 font-mono text-[11px]">{selectedTask.document_reference}</strong>
+                  </div>
+                )}
+
+                {Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-700 block mb-1">
+                      Attached Discrepant Documents ({selectedTask.attachments.length}):
+                    </span>
+                    <div className="space-y-1">
+                      {selectedTask.attachments.map((file, idx) => (
+                        <div
+                          key={file.id || idx}
+                          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/90 border border-slate-200 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Paperclip className="w-3.5 h-3.5 text-[#006666] shrink-0" />
+                            <span className="font-semibold text-slate-900 truncate">
+                              {file.name || file}
+                            </span>
+                            {file.size && (
+                              <span className="text-[10px] text-slate-400 font-mono">({file.size})</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Task details Section */}
             <div>
               <h4 className="text-sm font-bold text-slate-900 mb-1.5">
@@ -1089,6 +1208,10 @@ export default function TaskDetailDrawer() {
                   onClick={() => {
                     if (isSubAdminToInternalPrep && (!selectedTask.attachments || selectedTask.attachments.length === 0)) {
                       alert(`Please attach your deliverable files for ${leadRoleName} review before submitting.`);
+                      return;
+                    }
+                    if (normalizeStage(selectedTask.deal_stage || selectedTask.dealStage) === 'Due Diligence') {
+                      setDueDiligenceReviewTask(selectedTask);
                       return;
                     }
                     submitForReview(selectedTask.task_id);

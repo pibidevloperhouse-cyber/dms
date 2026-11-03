@@ -87,19 +87,74 @@ export async function PATCH(req, { params }) {
           }, { status: 400 });
         }
         const userName = user.name || 'Assignee';
+        const category = payload.category || task.category || task.department || task.workstream || 'Financial';
+        const severity = payload.severity || payload.risk_level || payload.riskLevel || null;
+        const problemDesc = payload.problemDescription || payload.problem_description || payload.risk_description || payload.riskDescription || null;
+        const docRef = payload.documentReference || payload.document_reference || null;
+        const incomingFiles = Array.isArray(payload.files) ? payload.files : [];
+
+        let currentAttachments = Array.isArray(task.attachments) ? [...task.attachments] : [];
+        if (incomingFiles.length > 0) {
+          incomingFiles.forEach((f) => {
+            if (!currentAttachments.some((existing) => (existing.name || existing) === (f.name || f))) {
+              currentAttachments.push(f);
+            }
+          });
+        }
+
+        const auditEntry = {
+          action: problemDesc || severity ? `Submitted for Review (Due Diligence Risk Finding: ${category})` : 'Submitted for Review',
+          performed_by: userName,
+          role: user.role || 'Member',
+          timestamp: formattedDate,
+          ip: ipAddress,
+        };
+
+        if (category) {
+          auditEntry.category = category;
+        }
+        if (severity) {
+          auditEntry.severity = severity;
+          auditEntry.risk_level = severity;
+        }
+        if (problemDesc) {
+          auditEntry.problem_description = problemDesc;
+          auditEntry.risk_description = problemDesc;
+        }
+        if (docRef) {
+          auditEntry.document_reference = docRef;
+        }
+        if (incomingFiles.length > 0) {
+          auditEntry.evidence_files = incomingFiles.map((f) => f.name || f);
+        }
+        if (problemDesc || severity) {
+          auditEntry.details = `[${category} | ${severity || 'Medium'}] ${problemDesc || 'Due Diligence Finding'}${docRef ? ` (Doc Ref: ${docRef})` : ''}${incomingFiles.length > 0 ? ` · ${incomingFiles.length} Evidence File(s) Attached` : ''}`;
+        }
+
+        const newAudit = [...currentAudit, auditEntry];
+        const newComments = [...currentComments];
+
+        if (problemDesc) {
+          newComments.push({
+            id: `comm_${Date.now()}`,
+            author: userName,
+            company: user.company || (user.side === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+            scope: 'INTERNAL',
+            text: `🚩 Due Diligence Review [${category} · ${severity || 'Medium'}]: ${problemDesc}${docRef ? ` · Document Ref: ${docRef}` : ''}${incomingFiles.length > 0 ? ` [${incomingFiles.map((f) => f.name || f).join(', ')}]` : ''}`,
+            timestamp: formattedDate,
+          });
+        }
+
         updatedFields = {
           ...updatedFields,
           status: 'REVIEW',
-          auditTrail: [
-            ...currentAudit,
-            {
-              action: 'Submitted for Review',
-              performed_by: userName,
-              role: user.role || 'Member',
-              timestamp: formattedDate,
-              ip: ipAddress,
-            },
-          ],
+          auditTrail: newAudit,
+          comments: newComments,
+          category,
+          severity,
+          problemDescription: problemDesc,
+          documentReference: docRef,
+          attachments: currentAttachments,
         };
         break;
       }
@@ -445,16 +500,27 @@ export async function PATCH(req, { params }) {
 
         let nextStatus = task.status;
         const auditEntries = [...currentAudit];
+        const isDdStage = (task.dealStage || '').trim().toLowerCase().includes('due diligence');
 
         if (allCompleted && task.status === 'IN_PROGRESS') {
-          nextStatus = 'REVIEW';
-          auditEntries.push({
-            action: 'All Subtasks Completed — Main Task Advanced to Review',
-            performed_by: user.name || 'Assignees',
-            role: user.role || 'Member',
-            timestamp: formattedDate,
-            ip: ipAddress,
-          });
+          if (!isDdStage) {
+            nextStatus = 'REVIEW';
+            auditEntries.push({
+              action: 'All Subtasks Completed — Main Task Advanced to Review',
+              performed_by: user.name || 'Assignees',
+              role: user.role || 'Member',
+              timestamp: formattedDate,
+              ip: ipAddress,
+            });
+          } else {
+            auditEntries.push({
+              action: 'All Due Diligence Subtasks Completed — Ready for Review Submission',
+              performed_by: user.name || 'Assignees',
+              role: user.role || 'Member',
+              timestamp: formattedDate,
+              ip: ipAddress,
+            });
+          }
         } else if (hasIncomplete && task.status === 'REVIEW') {
           nextStatus = 'IN_PROGRESS';
           auditEntries.push({

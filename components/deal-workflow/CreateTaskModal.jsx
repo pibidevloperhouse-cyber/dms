@@ -559,6 +559,7 @@ const handleSubmit = async (e) => {
       creator_company: currentUser?.company || 'ABC Textiles',
       department: department || 'General',
       workstream: department || 'General',
+      category: department || 'Finance',
       assigned_to_group: assignedGroup || '',
       assigned_to_user: finalAssignee,
       priority,
@@ -753,7 +754,7 @@ return (
             {/* Department Field (Replaces Workstream) */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {visibility === 'EXTERNAL' ? `${oppositeLabel} Department *` : 'Department *'}
+                {visibility === 'EXTERNAL' ? `${oppositeLabel} Category / Department *` : 'Category / Department *'}
               </label>
               <div className="relative">
                 <select

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
+import { useDealWorkflow, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import {
   Lock,
   Globe,
@@ -13,6 +13,7 @@ import {
   Clock,
   ArrowRight,
   ShieldCheck,
+  ShieldAlert,
   Building2,
   FileCheck2,
   AlertCircle,
@@ -40,6 +41,7 @@ const TaskCard = React.memo(
     isSubAdminToInternalPrepTask,
     setSigningModalTask,
     setCertificateModalTask,
+    setDueDiligenceReviewTask,
   } = useDealWorkflow();
 
   const isInternal = task.visibility === 'INTERNAL';
@@ -257,6 +259,63 @@ const TaskCard = React.memo(
           </div>
         )}
 
+        {/* Due Diligence Risk Factor Pill */}
+        {(task.problem_description || task.risk_description || task.document_reference) && (
+          <div
+            className={`p-2 rounded-lg border text-[11px] mb-3 transition-all ${
+              (task.severity || task.risk_level || '').toLowerCase() === 'critical'
+                ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                : (task.severity || task.risk_level || '').toLowerCase() === 'high'
+                  ? 'bg-orange-50/90 border-orange-200 text-orange-900'
+                  : (task.severity || task.risk_level || '').toLowerCase() === 'low'
+                    ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50/90 border-amber-200 text-amber-900'
+            }`}
+          >
+            <div className="flex items-center justify-between font-bold mb-1">
+              <span className="flex items-center gap-1.5 truncate">
+                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Finding</span>
+                {task.category && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/80 text-teal-800 border border-teal-200">
+                    {task.category}
+                  </span>
+                )}
+              </span>
+              <span
+                className={`text-[10px] font-bold uppercase px-1.5 py-0.2 rounded border shrink-0 ${
+                  (task.severity || task.risk_level || '').toLowerCase() === 'critical'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : (task.severity || task.risk_level || '').toLowerCase() === 'high'
+                      ? 'bg-orange-100 text-orange-800 border-orange-300'
+                      : (task.severity || task.risk_level || '').toLowerCase() === 'low'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                }`}
+              >
+                {task.severity || task.risk_level || 'Medium'}
+              </span>
+            </div>
+            {(task.problem_description || task.risk_description) && (
+              <div className="text-[11px] leading-tight line-clamp-2 opacity-95 mb-1 font-medium">
+                {task.problem_description || task.risk_description}
+              </div>
+            )}
+            {task.document_reference && (
+              <div className="text-[10px] flex items-center gap-1 font-mono text-slate-700 bg-white/70 px-1.5 py-0.5 rounded border border-slate-200/80">
+                <FileText className="w-3 h-3 text-slate-500 shrink-0" />
+                <span className="truncate">Ref: {task.document_reference}</span>
+              </div>
+            )}
+            {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+              <div className="text-[10px] flex items-center gap-1 text-teal-800 bg-white/70 px-1.5 py-0.5 rounded border border-teal-200/80 mt-1">
+                <Paperclip className="w-3 h-3 text-[#006666] shrink-0" />
+                <span className="truncate">{task.attachments.length} Document(s) Attached</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Audit Mode Information Pill (When Audit Mode is ON) */}
         {isAuditModeActive && (
           <div className="mb-3 p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-[11px] text-amber-900 space-y-1 animate-in fade-in duration-200">
@@ -361,6 +420,10 @@ const TaskCard = React.memo(
                   if (isSubAdminToInternalPrepTask?.(task) && (!task.attachments || task.attachments.length === 0)) {
                     if (onOpenDetails) onOpenDetails(task);
                     else onCardClick?.(task);
+                    return;
+                  }
+                  if (normalizeStage(task.deal_stage || task.dealStage) === 'Due Diligence') {
+                    setDueDiligenceReviewTask(task);
                     return;
                   }
                   submitForReview(task.task_id);

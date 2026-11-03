@@ -226,6 +226,7 @@ export async function POST(req) {
     const effectiveVisibility = isPrep ? 'INTERNAL' : (visibility || 'INTERNAL');
 
     const resolvedDept = department || workstream || 'General';
+    const resolvedCategory = payload.category || department || workstream || resolvedDept || 'Financial';
     const resolvedCreatorSide = creator_side || 'seller';
     const resolvedTargetSide = target_side || (effectiveVisibility === 'EXTERNAL' ? (resolvedCreatorSide === 'seller' ? 'buyer' : 'seller') : resolvedCreatorSide);
     const resolvedTargetCompany = target_company || (resolvedCreatorSide === 'seller' ? (effectiveVisibility === 'EXTERNAL' ? 'XYZ Capital' : 'ABC Textiles') : (effectiveVisibility === 'EXTERNAL' ? 'ABC Textiles' : 'XYZ Capital'));
@@ -286,6 +287,7 @@ export async function POST(req) {
         priority,
         department: resolvedDept,
         workstream: resolvedDept,
+        category: resolvedCategory,
         dealStage: deal_stage,
         dueDate: due_date || null,
         visibility: effectiveVisibility,

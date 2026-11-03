@@ -398,6 +398,7 @@ export function DealWorkflowProvider({ children }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [signingModalTask, setSigningModalTask] = useState(null);
+  const [dueDiligenceReviewTask, setDueDiligenceReviewTask] = useState(null);
   const [certificateModalTask, setCertificateModalTask] = useState(null);
 
   // Filters state
@@ -2083,28 +2084,93 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Action: Submit for Review
-  const submitForReview = async (taskId) => {
+  const submitForReview = async (taskId, riskData = null) => {
     inFlightTasksRef.current.add(taskId);
     const now = new Date();
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
 
+    const category = riskData?.category || null;
+    const severity = riskData?.severity || riskData?.riskLevel || riskData?.risk_level || null;
+    const problemDesc = riskData?.problemDescription || riskData?.problem_description || riskData?.riskDescription || riskData?.risk_description || null;
+    const docRef = riskData?.documentReference || riskData?.document_reference || null;
+
+    const incomingFiles = Array.isArray(riskData?.files)
+      ? riskData.files
+      : Array.isArray(riskData?.attachments)
+        ? riskData.attachments
+        : [];
+
+    const formattedFiles = incomingFiles.map((f, i) => {
+      const isBlob = typeof window !== 'undefined' && f instanceof Blob;
+      return {
+        id: f.id || `att_risk_${Date.now()}_${i}`,
+        name: f.name || `Discrepancy_Doc_${i + 1}.pdf`,
+        size: typeof f.size === 'number'
+          ? (f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`)
+          : (f.size || '1.0 MB'),
+        type: f.type || 'application/pdf',
+        dataUrl: f.dataUrl || null,
+        blobUrl: isBlob ? URL.createObjectURL(f) : (f.blobUrl || null),
+        url: f.url || `/api/deal-tasks/view-attachment?taskId=${taskId}&fileName=${encodeURIComponent(f.name || 'document')}`,
+        uploadedBy: currentUser.name,
+        uploadedAt: formattedDate,
+      };
+    });
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
+
+        const resolvedCategory = category || t.category || t.department || t.workstream || 'Financial';
+        const currentAtts = Array.isArray(t.attachments) ? t.attachments : [];
+        const updatedAtts = [...currentAtts];
+        formattedFiles.forEach((f) => {
+          if (!updatedAtts.some((existing) => (existing.name || existing) === f.name)) {
+            updatedAtts.push(f);
+          }
+        });
+
+        const newAuditEntry = {
+          action: problemDesc || severity ? `Submitted for Review (Due Diligence Risk Finding: ${resolvedCategory})` : 'Submitted for Review',
+          performed_by: currentUser.name,
+          role: currentUser.role,
+          timestamp: formattedDate,
+          ip,
+          category: resolvedCategory,
+          ...(severity ? { severity, risk_level: severity } : {}),
+          ...(problemDesc ? { problem_description: problemDesc, risk_description: problemDesc, details: `[${resolvedCategory} | ${severity || 'Medium'}] ${problemDesc}${docRef ? ` (Ref: ${docRef})` : ''}${formattedFiles.length > 0 ? ` · ${formattedFiles.length} file(s) attached` : ''}` } : {}),
+          ...(docRef ? { document_reference: docRef } : {}),
+          ...(formattedFiles.length > 0 ? { evidence_files: formattedFiles.map((x) => x.name) } : {}),
+        };
+
+        const newComments = Array.isArray(t.comments) ? [...t.comments] : [];
+        if (problemDesc) {
+          newComments.push({
+            id: `comm_${Date.now()}`,
+            author: currentUser.name,
+            company: currentUser.company || (currentUser.side === 'buyer' ? 'XYZ Capital' : 'ABC Textiles'),
+            scope: 'INTERNAL',
+            text: `🚩 Due Diligence Review [${resolvedCategory} · ${severity || 'Medium'}]: ${problemDesc}${docRef ? ` · Document Ref: ${docRef}` : ''}${formattedFiles.length > 0 ? ` [${formattedFiles.map((x) => x.name).join(', ')}]` : ''}`,
+            timestamp: formattedDate,
+          });
+        }
+
         return {
           ...t,
           status: 'REVIEW',
           updated_at: formattedDate,
+          category: resolvedCategory,
+          severity: severity || t.severity,
+          problem_description: problemDesc || t.problem_description,
+          document_reference: docRef || t.document_reference,
+          risk_level: severity || t.risk_level,
+          risk_description: problemDesc || t.risk_description,
+          attachments: updatedAtts,
+          comments: newComments,
           audit_trail: [
             ...(t.audit_trail || []),
-            {
-              action: 'Submitted for Review',
-              performed_by: currentUser.name,
-              role: currentUser.role,
-              timestamp: formattedDate,
-              ip,
-            },
+            newAuditEntry,
           ],
         };
       })
@@ -2117,6 +2183,13 @@ export function DealWorkflowProvider({ children }) {
           action: 'submit_review',
           user: { name: currentUser.name, role: currentUser.role, side: currentUser.side, company: currentUser.company },
           ipAddress: ip,
+          category,
+          severity,
+          problemDescription: problemDesc,
+          documentReference: docRef,
+          risk_level: severity,
+          risk_description: problemDesc,
+          files: formattedFiles,
         }),
       });
       const data = await res.json();
@@ -2124,14 +2197,25 @@ export function DealWorkflowProvider({ children }) {
         setTasks((prev) =>
           prev.map((t) => {
             if (t.task_id !== taskId) return t;
-            if (t.status === data.task.status && t.assigned_to_user === data.task.assigned_to_user) {
-              return t;
-            }
-            return data.task;
+            return {
+              ...data.task,
+              severity: severity || data.task.severity,
+              problem_description: problemDesc || data.task.problem_description,
+              document_reference: docRef || data.task.document_reference,
+              risk_level: severity || data.task.risk_level,
+              risk_description: problemDesc || data.task.risk_description,
+            };
           })
         );
         if (selectedTask?.task_id === taskId) {
-          setSelectedTask(data.task);
+          setSelectedTask((prev) => ({
+            ...data.task,
+            severity: severity || data.task.severity,
+            problem_description: problemDesc || data.task.problem_description,
+            document_reference: docRef || data.task.document_reference,
+            risk_level: severity || data.task.risk_level,
+            risk_description: problemDesc || data.task.risk_description,
+          }));
         }
       }
     } catch (e) {
@@ -2789,9 +2873,12 @@ export function DealWorkflowProvider({ children }) {
         const allCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every((st) => st.status === 'DONE');
         const hasIncomplete = updatedSubtasks.some((st) => st.status !== 'DONE');
 
+        const isDdStage = normalizeStage(t.deal_stage) === 'Due Diligence';
         let nextStatus = t.status;
         if (allCompleted && t.status === 'IN_PROGRESS') {
-          nextStatus = 'REVIEW';
+          if (!isDdStage) {
+            nextStatus = 'REVIEW';
+          }
         } else if (hasIncomplete && t.status === 'REVIEW') {
           nextStatus = 'IN_PROGRESS';
         }
@@ -2822,9 +2909,12 @@ export function DealWorkflowProvider({ children }) {
         const allCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every((st) => st.status === 'DONE');
         const hasIncomplete = updatedSubtasks.some((st) => st.status !== 'DONE');
 
+        const isDdStage = normalizeStage(prev.deal_stage) === 'Due Diligence';
         let nextStatus = prev.status;
         if (allCompleted && prev.status === 'IN_PROGRESS') {
-          nextStatus = 'REVIEW';
+          if (!isDdStage) {
+            nextStatus = 'REVIEW';
+          }
         } else if (hasIncomplete && prev.status === 'REVIEW') {
           nextStatus = 'IN_PROGRESS';
         }
@@ -3011,6 +3101,8 @@ export function DealWorkflowProvider({ children }) {
         setIsCreateModalOpen,
         signingModalTask,
         setSigningModalTask,
+        dueDiligenceReviewTask,
+        setDueDiligenceReviewTask,
         certificateModalTask,
         setCertificateModalTask,
         // Helpers
