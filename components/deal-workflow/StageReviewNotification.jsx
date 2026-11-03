@@ -11,6 +11,10 @@ import {
   RotateCcw,
   ShieldCheck,
   Check,
+  Award,
+  PenTool,
+  Sparkles,
+  Send,
 } from 'lucide-react';
 import { useDealWorkflow, normalizeRole, getNextStage } from './DealWorkflowContext';
 import StageQueryModal from './StageQueryModal';
@@ -27,15 +31,23 @@ export default function StageReviewNotification({ inDropdown = false }) {
     normalizeStage,
     stageAdvanceRequest,
     requestSuperAdminStageAdvance,
+    dueDiligenceCertificate,
+    dealInfo,
+    sendDDCertificateToSeller,
+    setIsDDCertificateModalOpen,
   } = useDealWorkflow();
 
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [isTransmitting, setIsTransmitting] = useState(false);
 
   const normRole = normalizeRole(currentUser?.role);
   const isSuperAdmin = normRole === 'super_admin' || normRole === 'guest_admin';
   const isAdmin = normRole === 'admin' || normRole === 'advisor';
+  const isDueDiligence = normalizeStage(activeDealStage) === 'Due Diligence';
+  const isBuyerSide = currentUser?.side === 'buyer' || ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normRole);
+  const isSellerSide = currentUser?.side === 'seller' || ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(normRole);
 
   // Get active stage details from stageTrackerInfo
   const activeStageObj = stageTrackerInfo?.stages?.find(
@@ -188,8 +200,280 @@ export default function StageReviewNotification({ inDropdown = false }) {
     );
   }
 
+  // Case 1.5: Buyer has submitted Due Diligence Completion Certificate to Seller
+  if (isSellerSide && dueDiligenceCertificate?.status === 'SUBMITTED_TO_SELLER') {
+    const certNumber = `DDC-${(dealInfo?.dealNumber || '5E18A').replace('D-', '')}`;
+    const advisorSigner = dueDiligenceCertificate?.advisorSignature?.signer || 'Rohit Verma';
+    const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || 'Arjun Mehta';
+
+    return (
+      <>
+        <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+          <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Award className="w-5 h-5 text-[#006666] shrink-0" />
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                  <span>Due Diligence Certificate Received from Buyer!</span>
+                  <span className="text-[10px] bg-teal-100 text-[#006666] px-2 py-0.2 rounded-full font-semibold">
+                    Buyer 100% Done
+                  </span>
+                  <span className="text-[10px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono">
+                    No. {certNumber}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Buyer ({dealInfo?.buyerCompany || "Test User's Firm"}) completed diligence on <strong>{dealInfo?.dealName || 'Test User Deal'}</strong>. Lead Advisor ({advisorSigner}) &amp; Guest Admin ({guestAdminSigner}) have certified results. Review and sign to enable Binding Terms.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsDDCertificateModalOpen(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <PenTool className="w-3.5 h-3.5 text-teal-200" />
+                <span>Review & Sign Certificate</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <StageQueryModal
+          isOpen={isQueryModalOpen}
+          onClose={() => setIsQueryModalOpen(false)}
+          stageName={activeDealStage}
+        />
+      </>
+    );
+  }
+
   // Case 2: All tasks in the active stage are completed
   if (isStageAllDone) {
+    // -------------------------------------------------------------------------
+    // Case 2A: Due Diligence stage on Buyer Side - Executive Certificate Flow
+    // -------------------------------------------------------------------------
+    if (isDueDiligence && isBuyerSide) {
+      const certStatus = dueDiligenceCertificate?.status || 'NOT_GENERATED';
+      const isCertPending = certStatus === 'PENDING_GUEST_ADMIN_SIGNATURE';
+      const isSubmittedToSeller = certStatus === 'SUBMITTED_TO_SELLER';
+      const isCertSigned = certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller;
+      const certNumber = `DDC-${(dealInfo?.dealNumber || '5E18A').replace('D-', '')}`;
+      const advisorSigner = dueDiligenceCertificate?.advisorSignature?.signer || 'Rohit Verma';
+      const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || 'Arjun Mehta';
+      const sellerSuperAdminSigner = dueDiligenceCertificate?.superAdminSignature?.signer || 'Ravi Shankar';
+
+      return (
+        <>
+          <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+            {normRole === 'advisor' ? (
+              /* ============================================================= */
+              /* BUYER ADVISOR: GENERATE CERTIFICATE OR VIEW SENT/SIGNED       */
+              /* ============================================================= */
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Award className="w-5 h-5 text-[#006666] shrink-0" />
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                      <span>All Due Diligence Tasks Completed!</span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                        100% Done
+                      </span>
+                      {certStatus === 'SIGNED_AND_COMPLETED' ? (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                          Signed &amp; Accepted by Seller
+                        </span>
+                      ) : isSubmittedToSeller ? (
+                        <span className="text-[10px] bg-teal-100 text-[#006666] px-2 py-0.2 rounded-full font-semibold">
+                          Transmitted to Seller
+                        </span>
+                      ) : isCertPending ? (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.2 rounded-full font-semibold">
+                          Submitted to Guest Admin
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {certStatus === 'SIGNED_AND_COMPLETED'
+                        ? `Seller Super Admin (${sellerSuperAdminSigner}) has accepted Certificate No. ${certNumber}. Binding Terms is unlocked.`
+                        : isSubmittedToSeller
+                        ? `Guest Admin (${guestAdminSigner}) has endorsed Certificate No. ${certNumber} and transmitted it to Seller Super Admin (${sellerSuperAdminSigner}).`
+                        : isCertPending
+                        ? `Certificate No. ${certNumber} has been submitted to Guest Admin (${guestAdminSigner}) for executive sign-off.`
+                        : 'All buyer diligence tasks are 100% complete. Please digitally sign the Completion Certificate to submit to Guest Admin.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!isCertPending && !isCertSigned ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsDDCertificateModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Award className="w-3.5 h-3.5 text-teal-200" />
+                      <span>Generate Certificate</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsDDCertificateModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Award className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>View Certificate</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : normRole === 'guest_admin' ? (
+              /* ============================================================= */
+              /* GUEST ADMIN: REVIEW & SIGN CERTIFICATE / TRANSMIT TO SELLER   */
+              /* ============================================================= */
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {certStatus === 'SIGNED_AND_COMPLETED' ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : isSubmittedToSeller ? (
+                    <Send className="w-5 h-5 text-teal-600 shrink-0" />
+                  ) : isCertPending ? (
+                    <PenTool className="w-5 h-5 text-amber-600 shrink-0" />
+                  ) : (
+                    <Award className="w-5 h-5 text-teal-600 shrink-0" />
+                  )}
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                      <span>
+                        {certStatus === 'SIGNED_AND_COMPLETED'
+                          ? 'Certificate Accepted by Seller'
+                          : isSubmittedToSeller
+                          ? 'Certificate Transmitted to Seller Super Admin'
+                          : isCertPending
+                          ? 'Due Diligence Certificate Awaiting Your Signature'
+                          : 'All Due Diligence Tasks Completed!'}
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                        100% Done
+                      </span>
+                      {certStatus === 'SIGNED_AND_COMPLETED' ? (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                          Completed &amp; Unlocked
+                        </span>
+                      ) : isSubmittedToSeller ? (
+                        <span className="text-[10px] bg-teal-100 text-[#006666] px-2 py-0.2 rounded-full font-semibold">
+                          Transmitted to Seller
+                        </span>
+                      ) : isCertPending ? (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.2 rounded-full font-semibold">
+                          Signature Required
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {certStatus === 'SIGNED_AND_COMPLETED'
+                        ? `Seller Super Admin (${sellerSuperAdminSigner}) has verified Certificate No. ${certNumber}. Binding Terms is unlocked.`
+                        : isSubmittedToSeller
+                        ? `Certificate No. ${certNumber} has been transmitted to Seller (${dealInfo?.sellerCompany || 'Vishwa Tech'}). Awaiting Seller Super Admin (${sellerSuperAdminSigner}) acceptance.`
+                        : isCertPending
+                        ? `Lead Advisor ${advisorSigner} has reviewed all tasks and submitted Certificate No. ${certNumber} for your digital signature.`
+                        : `All buyer diligence tasks are 100% complete. Awaiting Lead Advisor ${advisorSigner} to certify first.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {isCertPending && (
+                    <button
+                      type="button"
+                      onClick={() => setIsDDCertificateModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <PenTool className="w-3.5 h-3.5 text-teal-200" />
+                      <span>Review &amp; Sign Certificate</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {(isSubmittedToSeller || certStatus === 'SIGNED_AND_COMPLETED') && (
+                    <button
+                      type="button"
+                      onClick={() => setIsDDCertificateModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Award className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>View Certificate</span>
+                    </button>
+                  )}
+
+                  {!isCertPending && !isCertSigned && (
+                    <button
+                      type="button"
+                      onClick={() => setIsDDCertificateModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Award className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>Preview Certificate</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* ============================================================= */
+              /* OTHER BUYER ROLES VIEW (GUEST LEAD / EXTERNAL USER)           */
+              /* ============================================================= */
+              <div className="bg-slate-100 border border-slate-300 rounded-xl p-3.5 sm:p-4 text-slate-800 shadow-2xs flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <span>All Due Diligence Tasks Completed!</span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
+                        100% Done
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {certStatus === 'SIGNED_AND_COMPLETED'
+                        ? `Due Diligence Certificate No. ${certNumber} has been accepted by Seller. Stage unlocked.`
+                        : isSubmittedToSeller
+                        ? `Due Diligence Certificate No. ${certNumber} has been transmitted to Seller.`
+                        : isCertPending
+                        ? `Due Diligence Certificate is currently awaiting Guest Admin (${guestAdminSigner}) signature.`
+                        : `Lead Advisor ${advisorSigner} is preparing the official Completion Certificate.`}
+                    </p>
+                  </div>
+                </div>
+
+                {(isCertPending || isCertSigned) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDDCertificateModalOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Award className="w-3.5 h-3.5 text-teal-600" />
+                    <span>View Certificate</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <StageQueryModal
+            isOpen={isQueryModalOpen}
+            onClose={() => setIsQueryModalOpen(false)}
+            stageName={activeDealStage}
+          />
+        </>
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Case 2B: Standard Stage Completion (Seller Side or Non-Diligence stages)
+    // -------------------------------------------------------------------------
     // Only show to Super Admin if Admin has sent the advance request
     if (isSuperAdmin && !isPendingRequest) {
       return null;

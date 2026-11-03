@@ -63,6 +63,7 @@ export default function TaskBoardView() {
     dismissStageNotification,
     activeDealStage,
     stageQuery,
+    dueDiligenceCertificate,
   } = useDealWorkflow();
 
   // Task-Based Communication Overlay Drawer state
@@ -235,8 +236,13 @@ export default function TaskBoardView() {
     stageQuery.status === 'PENDING_RESOLUTION' &&
     normalizeStage(stageQuery.stage) === normalizeStage(activeDealStage)
   );
+  const hasSellerCertificateNotification = Boolean(
+    (currentUser?.side === 'seller' || currentUser?.role === 'super_admin' || currentUser?.role === 'admin') &&
+    dueDiligenceCertificate &&
+    dueDiligenceCertificate.status === 'SUBMITTED_TO_SELLER'
+  );
   let notificationCount = 0;
-  if (isStageAllDone || hasActiveQuery) notificationCount += 1;
+  if (isStageAllDone || hasActiveQuery || hasSellerCertificateNotification) notificationCount += 1;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-2">
@@ -332,6 +338,11 @@ export default function TaskBoardView() {
           </button> */}
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* STAGE NOTIFICATION & REVIEW BANNER */}
+      {/* ========================================================================= */}
+      <StageReviewNotification inDropdown={false} />
 
       {/* ========================================================================= */}
       {/* DEAL STAGE TRACKER */}

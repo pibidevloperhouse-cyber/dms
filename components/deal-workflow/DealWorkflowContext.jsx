@@ -424,6 +424,15 @@ export function DealWorkflowProvider({ children }) {
   const [stageNotification, setStageNotification] = useState(null);
   const [stageQuery, setStageQuery] = useState(null);
   const [stageAdvanceRequest, setStageAdvanceRequest] = useState(null);
+  const [dueDiligenceCertificate, setDueDiligenceCertificate] = useState(null);
+  const [dealInfo, setDealInfo] = useState({
+    dealName: 'Test User Deal',
+    dealNumber: 'D-5E18A',
+    sellerCompany: 'Vishwa Tech',
+    buyerCompany: "Test User's Firm",
+    period: '02 Sep to 30 Oct 2026',
+  });
+  const [isDDCertificateModalOpen, setIsDDCertificateModalOpen] = useState(false);
 
   // Load saved stage on client mount after hydration
   useEffect(() => {
@@ -448,6 +457,10 @@ export function DealWorkflowProvider({ children }) {
       const savedReq = localStorage.getItem('dms_stage_advance_request');
       if (savedReq) {
         setStageAdvanceRequest(JSON.parse(savedReq));
+      }
+      const savedCert = localStorage.getItem('dms_due_diligence_certificate');
+      if (savedCert) {
+        setDueDiligenceCertificate(JSON.parse(savedCert));
       }
     } catch (e) { }
   }, []);
@@ -480,6 +493,14 @@ export function DealWorkflowProvider({ children }) {
 
         if (data.stageAdvanceRequest !== undefined) {
           setStageAdvanceRequest((prev) => (JSON.stringify(prev) === JSON.stringify(data.stageAdvanceRequest) ? prev : data.stageAdvanceRequest));
+        }
+
+        if (data.dueDiligenceCertificate !== undefined) {
+          setDueDiligenceCertificate((prev) => (JSON.stringify(prev) === JSON.stringify(data.dueDiligenceCertificate) ? prev : data.dueDiligenceCertificate));
+        }
+
+        if (data.dealMeta) {
+          setDealInfo(data.dealMeta);
         }
 
         if (data.notificationPayload) {
@@ -713,6 +734,395 @@ export function DealWorkflowProvider({ children }) {
     await clearStageAdvanceRequest();
     await activateStage(nextStageName);
   };
+
+  // Action: Lead Advisor digitally signs and submits Due Diligence Certificate to Guest Admin
+  const signDDCertificateAsAdvisor = async (param = {}) => {
+    const opts = typeof param === 'string' ? { signerName: param } : (param || {});
+    const signerName = opts.signerName || currentUser?.name || 'Rohit Verma';
+    const signatureDataUrl = opts.signatureDataUrl || null;
+    const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
+    const signatureText = opts.signatureText || signerName;
+
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+
+    const updatedCert = {
+      ...(dueDiligenceCertificate || {}),
+      status: 'PENDING_GUEST_ADMIN_SIGNATURE',
+      submittedToGuestAdminAt: formattedDate,
+      submittedBy: signerName,
+      submittedByRole: currentUser?.role || 'advisor',
+      advisorSignature: {
+        signer: signerName,
+        role: 'Lead Advisor, Buyer Advisory',
+        timestamp: formattedDate,
+        signatureDataUrl,
+        signatureType,
+        signatureText,
+      },
+    };
+    setDueDiligenceCertificate(updatedCert);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dms_due_diligence_certificate', JSON.stringify(updatedCert));
+        window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: updatedCert,
+        }),
+      });
+    } catch (e) {
+      console.error('Error signing certificate as advisor on server:', e);
+    }
+    return updatedCert;
+  };
+
+  // Action: Seller Super Admin digitally signs and accepts Certificate, unlocking Binding Terms
+  const signDDCertificateAsSuperAdmin = async (param = {}) => {
+    const opts = typeof param === 'string' ? { signerName: param } : (param || {});
+    const signerName = opts.signerName || currentUser?.name || 'Ravi Shankar';
+    const signatureDataUrl = opts.signatureDataUrl || null;
+    const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
+    const signatureText = opts.signatureText || signerName;
+
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+    const randomHash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+    const updatedCert = {
+      ...(dueDiligenceCertificate || {}),
+      status: 'SIGNED_AND_COMPLETED',
+      acceptedAt: formattedDate,
+      acceptedBy: signerName,
+      superAdminSignature: {
+        signer: signerName,
+        role: 'Super Admin, Seller Executive',
+        timestamp: formattedDate,
+        signatureDataUrl,
+        signatureType,
+        signatureText,
+        hash: `9f3a${randomHash.slice(4, 60)}c71e`,
+      },
+    };
+    setDueDiligenceCertificate(updatedCert);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dms_due_diligence_certificate', JSON.stringify(updatedCert));
+        window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: updatedCert,
+        }),
+      });
+    } catch (e) {
+      console.error('Error signing certificate as super admin on server:', e);
+    }
+
+    try {
+      await approveStageAndAdvance('Negotiation');
+    } catch (e) {
+      console.error('Error advancing stage upon super admin certificate sign:', e);
+    }
+
+    return updatedCert;
+  };
+
+  // Action: Guest Admin signs the Due Diligence Certificate and transmits to Seller
+  const signDDCertificateAsGuestAdmin = async (param = {}) => {
+    const opts = typeof param === 'string' ? { signerName: param } : (param || {});
+    const signerName = opts.signerName || currentUser?.name || 'Arjun Mehta';
+    const signatureDataUrl = opts.signatureDataUrl || null;
+    const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
+    const signatureText = opts.signatureText || signerName;
+
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+    const randomHash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+    const updatedCert = {
+      ...(dueDiligenceCertificate || {}),
+      status: 'SUBMITTED_TO_SELLER',
+      signedByGuestAdminAt: formattedDate,
+      submittedToSellerAt: formattedDate,
+      guestAdminSignature: {
+        signer: signerName,
+        role: 'Guest Admin, Buyer Executive',
+        timestamp: formattedDate,
+        hash: `9f3a${randomHash.slice(4, 60)}c71e`,
+        ip: currentUser?.side === 'seller' ? '192.168.1.45' : '198.51.100.42',
+        signatureDataUrl,
+        signatureType,
+        signatureText,
+      },
+    };
+    setDueDiligenceCertificate(updatedCert);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dms_due_diligence_certificate', JSON.stringify(updatedCert));
+        window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: updatedCert,
+        }),
+      });
+    } catch (e) {
+      console.error('Error signing certificate as guest admin on server:', e);
+    }
+    return updatedCert;
+  };
+
+  // Action: Advisor submits Due Diligence Certificate to Guest Admin for signature
+  const sendDDCertificateToGuestAdmin = async (certPayload = {}) => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+
+    const updatedCert = {
+      ...(dueDiligenceCertificate || {}),
+      ...certPayload,
+      status: 'PENDING_GUEST_ADMIN_SIGNATURE',
+      sentBy: currentUser?.name || 'Rohit Verma',
+      sentByRole: currentUser?.role || 'advisor',
+      sentAt: new Date().toISOString(),
+      advisorSignature: {
+        signer: certPayload?.advisorSignature?.signer || currentUser?.name || 'Rohit Verma',
+        role: 'Lead Advisor, Buyer Advisory',
+        timestamp: formattedDate,
+        signatureDataUrl: certPayload?.advisorSignature?.signatureDataUrl || null,
+        signatureType: certPayload?.advisorSignature?.signatureType || 'cursive',
+        signatureText: certPayload?.advisorSignature?.signatureText || 'Rohit Verma',
+      },
+    };
+    setDueDiligenceCertificate(updatedCert);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dms_due_diligence_certificate', JSON.stringify(updatedCert));
+        window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: updatedCert,
+        }),
+      });
+    } catch (e) {
+      console.error('Error sending certificate to guest admin on server:', e);
+    }
+    return updatedCert;
+  };
+
+  // Action: Guest Admin transmits the signed Due Diligence Certificate to the Seller side
+  const sendDDCertificateToSeller = async () => {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+
+    const updatedCert = {
+      ...(dueDiligenceCertificate || {}),
+      status: 'SUBMITTED_TO_SELLER',
+      submittedToSellerAt: formattedDate,
+      submittedBy: currentUser?.name || 'Arjun Mehta',
+      submittedByRole: currentUser?.role || 'guest_admin',
+    };
+    setDueDiligenceCertificate(updatedCert);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('dms_due_diligence_certificate', JSON.stringify(updatedCert));
+        window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: updatedCert,
+        }),
+      });
+    } catch (e) {
+      console.error('Error sending certificate to seller on server:', e);
+    }
+    return updatedCert;
+  };
+
+  // Reset or regenerate Certificate
+  const resetDDCertificate = async () => {
+    setDueDiligenceCertificate(null);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('dms_due_diligence_certificate');
+      } catch (e) { }
+    }
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dueDiligenceCertificate: null,
+        }),
+      });
+    } catch (e) { }
+  };
+
+  const ddCertificateMetrics = useMemo(() => {
+    const ddTasks = (tasks || []).filter(
+      (t) => normalizeStage(t.deal_stage || t.dealStage) === 'Due Diligence'
+    );
+    const totalTasks = ddTasks.length;
+    const completedTasks = ddTasks.filter((t) => t.status === 'DONE').length;
+
+    // Dynamic real folders coverage
+    const foldersCoverage = (Array.isArray(dealFolders) && dealFolders.length > 0)
+      ? dealFolders.map((f, idx) => {
+          // Look for tasks associated with this folder to detect assigned lead
+          const folderTasks = (tasks || []).filter(
+            (t) =>
+              (t.folderId && t.folderId === f.id) ||
+              (t.folder_id && t.folder_id === f.id) ||
+              (t.folderName && f.name && t.folderName.trim().toLowerCase() === f.name.trim().toLowerCase()) ||
+              (t.folder_name && f.name && t.folder_name.trim().toLowerCase() === f.name.trim().toLowerCase())
+          );
+
+          // Priority 1: Due Diligence task assignee
+          const ddTask = folderTasks.find(
+            (t) => normalizeStage(t.deal_stage || t.dealStage) === 'Due Diligence' && (t.assignedToUser || t.assigned_to_user || t.assignedToGroup || t.assigned_to_group)
+          );
+          // Priority 2: Any task assignee for this folder
+          const anyTask = folderTasks.find(
+            (t) => t.assignedToUser || t.assigned_to_user || t.assignedToGroup || t.assigned_to_group
+          );
+
+          let leadName = null;
+          if (ddTask) {
+            leadName = ddTask.assignedToUser || ddTask.assigned_to_user || ddTask.assignedToGroup || ddTask.assigned_to_group;
+          } else if (anyTask) {
+            leadName = anyTask.assignedToUser || anyTask.assigned_to_user || anyTask.assignedToGroup || anyTask.assigned_to_group;
+          }
+
+          if (!leadName) {
+            const fallbackLeads = ['R. Mehta', 'S. Iyer', 'A. Khan', 'P. Nair', 'V. Rao'];
+            leadName = fallbackLeads[idx % fallbackLeads.length];
+          }
+
+          const count = Number(f.docCount ?? 0);
+
+          return {
+            id: f.id,
+            name: f.name,
+            lead: leadName,
+            docs: count,
+            total: count,
+          };
+        })
+      : [
+          { id: 'fin', name: 'Financial', lead: 'R. Mehta', docs: 64, total: 64 },
+          { id: 'leg', name: 'Legal', lead: 'S. Iyer', docs: 48, total: 48 },
+          { id: 'tax', name: 'Tax', lead: 'A. Khan', docs: 31, total: 31 },
+          { id: 'hr', name: 'HR and operations', lead: 'P. Nair', docs: 27, total: 27 },
+        ];
+
+    const getCategoryCount = (keyword) => {
+      const match = ddTasks.filter(
+        (t) =>
+          (t.category || t.department || t.workstream || '')
+            .toLowerCase()
+            .includes(keyword.toLowerCase())
+      );
+      return {
+        done: match.filter((t) => t.status === 'DONE').length,
+        total: match.length,
+      };
+    };
+
+    const fin = getCategoryCount('finan');
+    const leg = getCategoryCount('legal');
+    const tax = getCategoryCount('tax');
+    const hr = getCategoryCount('operat') || getCategoryCount('hr');
+
+    let criticalCount = 0;
+    let highCount = 0;
+    let mediumCount = 0;
+    let lowCount = 0;
+    const findingsItems = [];
+
+    ddTasks.forEach((t) => {
+      const rawSev = (
+        t.severity ||
+        t.risk_level ||
+        t.riskLevel ||
+        (Array.isArray(t.audit_trail) ? t.audit_trail.slice().reverse().find((a) => a.severity)?.severity : null) ||
+        ''
+      ).trim();
+
+      const sev = rawSev.toLowerCase();
+      let matchedSeverity = null;
+      if (sev === 'critical') {
+        criticalCount++;
+        matchedSeverity = 'Critical';
+      } else if (sev === 'high') {
+        highCount++;
+        matchedSeverity = 'High';
+      } else if (sev === 'medium') {
+        mediumCount++;
+        matchedSeverity = 'Medium';
+      } else if (sev === 'low') {
+        lowCount++;
+        matchedSeverity = 'Low';
+      }
+
+      if (matchedSeverity) {
+        findingsItems.push({
+          taskId: t.task_id || t.id,
+          title: t.title,
+          category: t.category || t.department || t.workstream || 'General',
+          severity: matchedSeverity,
+          problemDescription: t.problem_description || t.problemDescription || t.risk_description || '',
+          documentReference: t.document_reference || t.documentReference || '',
+          completedBy: t.completed_by || t.assignedToUser || t.assigned_to_user || '',
+          completedAt: t.completed_at || '',
+          status: t.status,
+        });
+      }
+    });
+
+    const totalFindings = criticalCount + highCount + mediumCount + lowCount;
+
+    return {
+      totalTasks,
+      completedTasks,
+      isAllCompleted: totalTasks > 0 && completedTasks === totalTasks,
+      foldersCoverage,
+      financial: foldersCoverage[0] ? { lead: foldersCoverage[0].lead, done: foldersCoverage[0].docs, total: foldersCoverage[0].total } : { lead: 'R. Mehta', done: fin.done > 0 ? fin.done : 64, total: fin.total > 0 ? fin.total : 64 },
+      legal: foldersCoverage[1] ? { lead: foldersCoverage[1].lead, done: foldersCoverage[1].docs, total: foldersCoverage[1].total } : { lead: 'S. Iyer', done: leg.done > 0 ? leg.done : 48, total: leg.total > 0 ? leg.total : 48 },
+      tax: foldersCoverage[2] ? { lead: foldersCoverage[2].lead, done: foldersCoverage[2].docs, total: foldersCoverage[2].total } : { lead: 'A. Khan', done: tax.done > 0 ? tax.done : 31, total: tax.total > 0 ? tax.total : 31 },
+      operations: foldersCoverage[3] ? { lead: foldersCoverage[3].lead, done: foldersCoverage[3].docs, total: foldersCoverage[3].total } : { lead: 'P. Nair', done: hr.done > 0 ? hr.done : 27, total: hr.total > 0 ? hr.total : 27 },
+      findings: {
+        critical: criticalCount,
+        high: highCount,
+        medium: mediumCount,
+        low: lowCount,
+        total: totalFindings,
+        items: findingsItems,
+      },
+      conclusion: criticalCount > 0 ? 'Clear with material conditions' : (highCount > 0 || mediumCount > 0 ? 'Clear with conditions' : 'Clear to proceed'),
+    };
+  }, [tasks, dealFolders]);
 
   const dismissStageNotification = () => {
     if (stageNotification?.id && typeof window !== 'undefined') {
@@ -992,10 +1402,11 @@ export function DealWorkflowProvider({ children }) {
     fetchActiveStage();
     fetchDealFolders();
 
-    // Poll active stage and tasks every 3 seconds for seamless cross-user/session synchronization
+    // Poll active stage, tasks, and deal folders every 3 seconds for seamless cross-user/session synchronization
     const syncInterval = setInterval(() => {
       fetchActiveStage();
       fetchTasks(false);
+      fetchDealFolders();
     }, 3000);
 
     // Listen to storage and focus events so when another user logs in, state updates immediately
@@ -3144,6 +3555,18 @@ export function DealWorkflowProvider({ children }) {
         stageAdvanceRequest,
         requestSuperAdminStageAdvance,
         clearStageAdvanceRequest,
+        dealInfo,
+        dueDiligenceCertificate,
+        setDueDiligenceCertificate,
+        isDDCertificateModalOpen,
+        setIsDDCertificateModalOpen,
+        signDDCertificateAsAdvisor,
+        signDDCertificateAsSuperAdmin,
+        sendDDCertificateToGuestAdmin,
+        signDDCertificateAsGuestAdmin,
+        sendDDCertificateToSeller,
+        resetDDCertificate,
+        ddCertificateMetrics,
         // Actions
         activeDealStage,
         setActiveDealStage,
