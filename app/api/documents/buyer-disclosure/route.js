@@ -68,35 +68,12 @@ async function ensureStagesInDB(companyId, workspaceId) {
 
     // 1. If validWorkspaceId is present, check specifically for stages belonging to THIS workspace
     if (validWorkspaceId) {
-        // If companyId is known, try finding stages for this workspace & company first
-        if (validCompanyId) {
-            const { data: wsCompStages } = await supabase
-                .from('buyer_disclosure_stages')
-                .select('*')
-                .eq('workspace_id', validWorkspaceId)
-                .eq('company_id', validCompanyId)
-                .order('created_at', { ascending: true });
-
-            if (wsCompStages && wsCompStages.length > 0) {
-                const uniqueStages = [];
-                const seenStageNums = new Set();
-                for (const s of wsCompStages) {
-                    const num = s.stage_number ?? s.name;
-                    if (!seenStageNums.has(num)) {
-                        seenStageNums.add(num);
-                        uniqueStages.push(s);
-                    }
-                }
-                return { stages: uniqueStages, validCompanyId };
-            }
-        }
-
-        // Check if any stages exist for this workspace (e.g. for buyer where company_id differs)
+        // Check if any stages already exist for this workspace (regardless of user company)
         const { data: wsStages } = await supabase
             .from('buyer_disclosure_stages')
             .select('*')
             .eq('workspace_id', validWorkspaceId)
-            .order('created_at', { ascending: true });
+            .order('stage_number', { ascending: true });
 
         if (wsStages && wsStages.length > 0) {
             const uniqueStages = [];
@@ -447,6 +424,18 @@ export async function POST(req) {
                             updated_at: new Date().toISOString()
                         })
                         .eq('id', matchedStage.id);
+
+                    if (workspaceId && matchedStage.stage_number) {
+                        await supabase
+                            .from('buyer_disclosure_stages')
+                            .update({
+                                buyer_access: isGrant ? 'can_view' : 'hidden',
+                                is_locked: !isGrant,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('workspace_id', workspaceId)
+                            .eq('stage_number', matchedStage.stage_number);
+                    }
                 }
 
                 const fullStages = await getFullStages(companyId, workspaceId);

@@ -223,6 +223,30 @@ export async function POST(req) {
                             });
                         }
 
+                        // Cascade UP: ancestor folders for granted docs
+                        (docsData || []).forEach(doc => {
+                            if (grantedDocIds.has(doc.id) && doc.folder_id) {
+                                let currFolId = doc.folder_id;
+                                while (currFolId) {
+                                    grantedFolderIds.add(currFolId);
+                                    const parent = (foldersData || []).find(f => f.id === currFolId);
+                                    currFolId = parent?.parent_folder_id || null;
+                                }
+                            }
+                        });
+
+                        // Cascade UP: ancestor folders for granted folders
+                        let folAncestorsAdded = true;
+                        while (folAncestorsAdded) {
+                            folAncestorsAdded = false;
+                            (foldersData || []).forEach(f => {
+                                if (grantedFolderIds.has(f.id) && f.parent_folder_id && !grantedFolderIds.has(f.parent_folder_id)) {
+                                    grantedFolderIds.add(f.parent_folder_id);
+                                    folAncestorsAdded = true;
+                                }
+                            });
+                        }
+
                         // Grant view & download access to all matching folders
                         grantedFolderIds.forEach(fId => {
                             const key = `fol_${fId}`;

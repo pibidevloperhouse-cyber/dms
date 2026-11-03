@@ -46,6 +46,7 @@ function LayoutContent({ children }) {
     const isSellerAdmin = !isBuyerSide && ['super_admin', 'admin'].includes(session?.role);
     const roleNorm = (session?.role || '').toLowerCase().replace(/[\s-_]+/g, '');
     const hasAccessControlAccess = session ? (
+        isBuyerSide ||
         hasPermission(session.role, 'manage_access') ||
         ['superadmin', 'admin', 'subadmin', 'internaluser'].includes(roleNorm) ||
         ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(session.role)

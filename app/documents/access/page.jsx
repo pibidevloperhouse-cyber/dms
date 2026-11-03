@@ -56,7 +56,8 @@ function AccessPageContent() {
         const s = JSON.parse(raw);
         const returnTo = searchParams.get('returnTo');
         const roleNorm = (s.role || '').toLowerCase().replace(/[\s-_]+/g, '');
-        const isAllowed = hasPermission(s.role, 'manage_access') || ['superadmin', 'admin', 'subadmin', 'internaluser', 'user'].includes(roleNorm) || ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(s.role) || Boolean(returnTo);
+        const isBuyerSide = s.dms_role === 'buyer' || ['buyer', 'guest_admin', 'guest_lead', 'advisor', 'external_user'].includes(s.role);
+        const isAllowed = isBuyerSide || hasPermission(s.role, 'manage_access') || ['superadmin', 'admin', 'subadmin', 'internaluser', 'user', 'guestadmin', 'advisor', 'buyer', 'guestlead', 'externaluser'].includes(roleNorm) || ['super_admin', 'admin', 'sub_admin', 'internal_user', 'guest_admin', 'advisor', 'buyer', 'guest_lead', 'external_user'].includes(s.role) || Boolean(returnTo);
         if (!isAllowed) {
             router.replace('/documents');
             return;

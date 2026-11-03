@@ -12,43 +12,45 @@ export async function POST(req) {
         const userId = session.id;
         const companyId = session.company_id;
         const dmsRole = session.dms_role || '';
-        const isBuyer = dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'buyer'].includes(userRole);
+        const isBuyer = dmsRole === 'buyer' || ['guest_admin', 'guest_lead', 'buyer', 'advisor', 'external_user'].includes(userRole);
 
         let groupQuery = supabase
             .from('groups')
             .select('*')
-            .eq('company_id', companyId)
             .order('created_at', { ascending: false });
 
         if (session.active_workspace_id) {
             groupQuery = groupQuery.eq('workspace_id', session.active_workspace_id);
         } else {
-            groupQuery = groupQuery.is('workspace_id', null);
+            groupQuery = groupQuery.eq('company_id', companyId).is('workspace_id', null);
         }
 
         let folderQuery = supabase
             .from('folders')
             .select('*')
-            .eq('company_id', companyId)
             .eq('is_deleted', false);
 
         if (session.active_workspace_id) {
             folderQuery = folderQuery.eq('workspace_id', session.active_workspace_id);
         } else {
-            folderQuery = folderQuery.is('workspace_id', null);
+            folderQuery = folderQuery.eq('company_id', companyId).is('workspace_id', null);
         }
 
         let docQuery = supabase
             .from('documents')
             .select('id, name, folder_id, index, uploaded_by, creator_revoked')
-            .eq('company_id', companyId)
             .eq('is_deleted', false)
             .order('created_at', { ascending: true });
 
         if (session.active_workspace_id) {
             docQuery = docQuery.eq('workspace_id', session.active_workspace_id);
         } else {
-            docQuery = docQuery.is('workspace_id', null);
+            docQuery = docQuery.eq('company_id', companyId).is('workspace_id', null);
+        }
+
+        let permQuery = supabase.from('permissions').select('id, document_id, folder_id, scope, group_id, can_view, can_edit, can_upload, can_download_secure, can_download_original, can_delete, can_redact, can_view_seller_groups');
+        if (!session.active_workspace_id) {
+            permQuery = permQuery.eq('company_id', companyId);
         }
 
         const [
@@ -58,7 +60,7 @@ export async function POST(req) {
             groupQuery,
             folderQuery,
             docQuery,
-            supabase.from('permissions').select('id, document_id, folder_id, scope, group_id, can_view, can_edit, can_upload, can_download_secure, can_download_original, can_delete, can_redact, can_view_seller_groups').eq('company_id', companyId),
+            permQuery,
             supabase.from('user_groups').select('user_id, group_id'),
             supabase.from('users').select('id, name, email')
         ]);
@@ -91,7 +93,7 @@ export async function POST(req) {
         if (isBuyer) {
             if (userRole !== 'super_admin' && !localCanViewSellerGroups) {
                 const myGroupIds = new Set((userGroups || []).filter(ug => ug.user_id === userId).map(ug => ug.group_id));
-                filteredGroups = filteredGroups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user'].includes(g.role));
+                filteredGroups = filteredGroups.filter(g => myGroupIds.has(g.id) || g.created_by === userId || ['guest_admin', 'guest_lead', 'external_user', 'buyer', 'advisor'].includes(g.role));
             }
         } else {
             filteredGroups = filteredGroups.filter(g => {
@@ -138,21 +140,165 @@ export async function POST(req) {
             });
         }
 
+        // ── 🛡️ BUYER DISCLOSURE STAGE FILTER FOR BUYER SIDE USERS ──
+        let grantedFolderIds = new Set();
+        let grantedDocIds = new Set();
+        let standaloneFolders = [];
+        let standaloneDocs = [];
+
+        if (isBuyer) {
+            try {
+                let stageQuery = supabase
+                    .from('buyer_disclosure_stages')
+                    .select('id, name, stage_number, buyer_access, is_locked, company_id, updated_at')
+                    .order('updated_at', { ascending: false });
+
+                if (session.active_workspace_id) {
+                    stageQuery = stageQuery.eq('workspace_id', session.active_workspace_id);
+                } else if (session.company_id) {
+                    stageQuery = stageQuery.eq('company_id', session.company_id);
+                }
+
+                const { data: allStages } = await stageQuery;
+
+                // Deduplicate canonical stages per stage_number
+                const canonicalStages = [];
+                const seenStageNums = new Set();
+                for (const s of (allStages || [])) {
+                    const num = s.stage_number ?? s.name;
+                    if (!seenStageNums.has(num)) {
+                        seenStageNums.add(num);
+                        canonicalStages.push(s);
+                    }
+                }
+
+                const grantedStages = canonicalStages.filter(s => s.buyer_access === 'can_view' && !s.is_locked);
+
+                if (grantedStages && grantedStages.length > 0) {
+                    const grantedStageNums = new Set(grantedStages.map(s => s.stage_number));
+                    const allGrantedStageIds = (allStages || [])
+                        .filter(s => grantedStageNums.has(s.stage_number))
+                        .map(s => s.id);
+
+                    const { data: items } = await supabase
+                        .from('buyer_disclosure_items')
+                        .select('*')
+                        .in('stage_id', allGrantedStageIds);
+
+                    if (items && items.length > 0) {
+                        items.forEach(item => {
+                            if (item.is_folder) {
+                                if (item.original_folder_id) grantedFolderIds.add(item.original_folder_id);
+                                const matchFol = (foldersData || []).find(f =>
+                                    f.id === item.original_folder_id ||
+                                    (f.name && item.name && f.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+                                );
+                                if (matchFol) {
+                                    grantedFolderIds.add(matchFol.id);
+                                } else {
+                                    standaloneFolders.push({
+                                        id: item.id,
+                                        parent_folder_id: item.parent_id || null,
+                                        name: item.name,
+                                        index_number: 1,
+                                        _type: 'folder'
+                                    });
+                                }
+                            } else {
+                                if (item.original_document_id) grantedDocIds.add(item.original_document_id);
+                                const matchDoc = (docsData || []).find(d =>
+                                    d.id === item.original_document_id ||
+                                    (d.name && item.name && d.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+                                );
+                                if (matchDoc) {
+                                    grantedDocIds.add(matchDoc.id);
+                                } else {
+                                    standaloneDocs.push({
+                                        id: item.id,
+                                        folder_id: item.parent_id || null,
+                                        name: item.name,
+                                        index: '99',
+                                        _type: 'doc'
+                                    });
+                                }
+                            }
+                        });
+
+                        // Cascade down: subfolders
+                        let added = true;
+                        while (added) {
+                            added = false;
+                            (foldersData || []).forEach(f => {
+                                if (f.parent_folder_id && grantedFolderIds.has(f.parent_folder_id) && !grantedFolderIds.has(f.id)) {
+                                    grantedFolderIds.add(f.id);
+                                    added = true;
+                                }
+                            });
+                        }
+
+                        // Cascade down: docs
+                        (docsData || []).forEach(doc => {
+                            if (doc.folder_id && grantedFolderIds.has(doc.folder_id)) {
+                                grantedDocIds.add(doc.id);
+                            }
+                        });
+
+                        // Cascade UP: ancestor folders
+                        (docsData || []).forEach(doc => {
+                            if (grantedDocIds.has(doc.id) && doc.folder_id) {
+                                let currFolId = doc.folder_id;
+                                while (currFolId) {
+                                    grantedFolderIds.add(currFolId);
+                                    const parent = (foldersData || []).find(f => f.id === currFolId);
+                                    currFolId = parent?.parent_folder_id || null;
+                                }
+                            }
+                        });
+
+                        let folAncestorsAdded = true;
+                        while (folAncestorsAdded) {
+                            folAncestorsAdded = false;
+                            (foldersData || []).forEach(f => {
+                                if (grantedFolderIds.has(f.id) && f.parent_folder_id && !grantedFolderIds.has(f.parent_folder_id)) {
+                                    grantedFolderIds.add(f.parent_folder_id);
+                                    folAncestorsAdded = true;
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error filtering access list by disclosure stages:', e);
+            }
+        }
+
         const isFullAccess = ['super_admin', 'admin', 'sub_admin'].includes(session.role);
 
-        const allowedFolders = (foldersData || []).filter(f => {
-            if (isFullAccess) return true;
-            if (f.created_by === session.id && f.creator_revoked !== true) return true;
-            return myPerms[`fol_${f.id}`]?.can_view === true;
-        });
+        const allowedFolders = [
+            ...(foldersData || []).filter(f => {
+                if (isBuyer) {
+                    return grantedFolderIds.has(f.id);
+                }
+                if (isFullAccess) return true;
+                if (f.created_by === session.id && f.creator_revoked !== true) return true;
+                return myPerms[`fol_${f.id}`]?.can_view === true;
+            }),
+            ...standaloneFolders
+        ];
 
-        const allowedDocs = (docsData || []).filter(doc => {
-            if (isFullAccess) return true;
-            if (doc.uploaded_by === session.id && doc.creator_revoked !== true) return true;
-            if (myPerms[`doc_${doc.id}`]?.can_view === true) return true;
-            if (doc.folder_id && myPerms[`fol_${doc.folder_id}`]?.can_view === true) return true;
-            return false;
-        }).map((doc, idx) => ({ ...doc, displayIndex: (idx + 1).toString() }));
+        const allowedDocs = [
+            ...(docsData || []).filter(doc => {
+                if (isBuyer) {
+                    return grantedDocIds.has(doc.id);
+                }
+                if (isFullAccess) return true;
+                if (doc.uploaded_by === session.id && doc.creator_revoked !== true) return true;
+                if (myPerms[`doc_${doc.id}`]?.can_view === true) return true;
+                if (doc.folder_id && myPerms[`fol_${doc.folder_id}`]?.can_view === true) return true;
+                return false;
+            }),
+            ...standaloneDocs
+        ].map((doc, idx) => ({ ...doc, displayIndex: (idx + 1).toString() }));
 
         const membersMap = {};
         if (userGroups && usersData) {
