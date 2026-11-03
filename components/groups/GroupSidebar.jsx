@@ -1172,10 +1172,7 @@ export default function GroupsSidebar({ isOpen = true }) {
                                         ) : (
                                             <>
                                                 {newGroupType === 'individual' ? (
-                                                    <>
-                                                        <option value="super_admin">Super Admin</option>
-                                                        <option value="admin">Admin</option>
-                                                    </>
+                                                    <option value="admin">Admin</option>
                                                 ) : (
                                                     <>
                                                         <option value="sub_admin">Sub Admin</option>
