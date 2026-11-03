@@ -859,6 +859,12 @@ export const dealTasks = pgTable('deal_tasks', {
   comments: jsonb('comments').default('[]'),
   digitalSignature: jsonb('digital_signature'),
 
+  // Due Diligence Finding fields
+  category: text('category'),
+  severity: text('severity'),
+  problemDescription: text('problem_description'),
+  documentReference: text('document_reference'),
+
   completedAt: text('completed_at'),
   completedBy: text('completed_by'),
   workspaceId: uuid('workspace_id'),

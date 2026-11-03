@@ -4,6 +4,7 @@ import CreateTaskModal from '@/components/deal-workflow/CreateTaskModal';
 import TaskDetailDrawer from '@/components/deal-workflow/TaskDetailDrawer';
 import DocumentSignModal from '@/components/deal-workflow/DocumentSignModal';
 import AuditCertificateModal from '@/components/deal-workflow/AuditCertificateModal';
+import DueDiligenceRiskModal from '@/components/deal-workflow/DueDiligenceRiskModal';
 
 export const metadata = {
   title: 'Deal Tasks & Workflow — Project Titan M&A Deal Room',
@@ -30,6 +31,7 @@ export default function DealWorkflowLayout({ children }) {
       <TaskDetailDrawer />
       <DocumentSignModal />
       <AuditCertificateModal />
+      <DueDiligenceRiskModal />
     </DealWorkflowProvider>
   );
 }
