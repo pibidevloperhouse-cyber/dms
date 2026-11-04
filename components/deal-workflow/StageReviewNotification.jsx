@@ -15,6 +15,7 @@ import {
   PenTool,
   Sparkles,
   Send,
+  FileText,
 } from 'lucide-react';
 import { useDealWorkflow, normalizeRole, getNextStage } from './DealWorkflowContext';
 import StageQueryModal from './StageQueryModal';
@@ -202,9 +203,11 @@ export default function StageReviewNotification({ inDropdown = false }) {
 
   // Case 1.5: Buyer has submitted Due Diligence Completion Certificate to Seller
   if (isSellerSide && dueDiligenceCertificate?.status === 'SUBMITTED_TO_SELLER') {
-    const certNumber = `DDC-${(dealInfo?.dealNumber || '5E18A').replace('D-', '')}`;
-    const advisorSigner = dueDiligenceCertificate?.advisorSignature?.signer || 'Rohit Verma';
-    const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || 'Arjun Mehta';
+    const certNumber = `DDC-${(dealInfo?.dealNumber || 'F4FD2').replace('D-', '')}`;
+    const advisorSigner = (dueDiligenceCertificate?.advisorSignature?.signer && dueDiligenceCertificate?.advisorSignature?.signer !== 'Ravi Shankar')
+      ? dueDiligenceCertificate.advisorSignature.signer
+      : (dealInfo?.leadAdvisorName || 'Vijay');
+    const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || dealInfo?.guestAdminName || 'Naga raj';
 
     return (
       <>
@@ -223,7 +226,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Buyer ({dealInfo?.buyerCompany || "Test User's Firm"}) completed diligence on <strong>{dealInfo?.dealName || 'Test User Deal'}</strong>. Lead Advisor ({advisorSigner}) &amp; Guest Admin ({guestAdminSigner}) have certified results. Review and sign to enable Binding Terms.
+                  Buyer ({dealInfo?.buyerCompany || "Naga Tech"}) completed diligence on <strong>{dealInfo?.dealName || 'Naga raj Deal'}</strong>. Lead Advisor ({advisorSigner}) &amp; Guest Admin ({guestAdminSigner}) have certified results and transmitted the certificate to Seller.
                 </p>
               </div>
             </div>
@@ -234,8 +237,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                 onClick={() => setIsDDCertificateModalOpen(true)}
                 className="px-3.5 py-1.5 rounded-lg bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <PenTool className="w-3.5 h-3.5 text-teal-200" />
-                <span>Review & Sign Certificate</span>
+                <FileText className="w-3.5 h-3.5 text-teal-200" />
+                <span>View Certificate</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -261,10 +264,12 @@ export default function StageReviewNotification({ inDropdown = false }) {
       const isCertPending = certStatus === 'PENDING_GUEST_ADMIN_SIGNATURE';
       const isSubmittedToSeller = certStatus === 'SUBMITTED_TO_SELLER';
       const isCertSigned = certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller;
-      const certNumber = `DDC-${(dealInfo?.dealNumber || '5E18A').replace('D-', '')}`;
-      const advisorSigner = dueDiligenceCertificate?.advisorSignature?.signer || 'Rohit Verma';
-      const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || 'Arjun Mehta';
-      const sellerSuperAdminSigner = dueDiligenceCertificate?.superAdminSignature?.signer || 'Ravi Shankar';
+      const certNumber = `DDC-${(dealInfo?.dealNumber || 'F4FD2').replace('D-', '')}`;
+      const advisorSigner = (dueDiligenceCertificate?.advisorSignature?.signer && dueDiligenceCertificate?.advisorSignature?.signer !== 'Ravi Shankar')
+        ? dueDiligenceCertificate.advisorSignature.signer
+        : (dealInfo?.leadAdvisorName || 'Vijay');
+      const guestAdminSigner = dueDiligenceCertificate?.guestAdminSignature?.signer || dealInfo?.guestAdminName || 'Naga raj';
+      const sellerSuperAdminSigner = dueDiligenceCertificate?.superAdminSignature?.signer || dealInfo?.sellerSuperAdminName || 'Vishwa Raj';
 
       return (
         <>
@@ -297,9 +302,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       ) : null}
                     </div>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      {certStatus === 'SIGNED_AND_COMPLETED'
-                        ? `Seller Super Admin (${sellerSuperAdminSigner}) has accepted Certificate No. ${certNumber}. Binding Terms is unlocked.`
-                        : isSubmittedToSeller
+                      {certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller
                         ? `Guest Admin (${guestAdminSigner}) has endorsed Certificate No. ${certNumber} and transmitted it to Seller Super Admin (${sellerSuperAdminSigner}).`
                         : isCertPending
                         ? `Certificate No. ${certNumber} has been submitted to Guest Admin (${guestAdminSigner}) for executive sign-off.`
@@ -375,10 +378,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       ) : null}
                     </div>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      {certStatus === 'SIGNED_AND_COMPLETED'
-                        ? `Seller Super Admin (${sellerSuperAdminSigner}) has verified Certificate No. ${certNumber}. Binding Terms is unlocked.`
-                        : isSubmittedToSeller
-                        ? `Certificate No. ${certNumber} has been transmitted to Seller (${dealInfo?.sellerCompany || 'Vishwa Tech'}). Awaiting Seller Super Admin (${sellerSuperAdminSigner}) acceptance.`
+                      {certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller
+                        ? `Certificate No. ${certNumber} has been officially endorsed and transmitted to Seller (${dealInfo?.sellerCompany || 'Vishwa Tech'}).`
                         : isCertPending
                         ? `Lead Advisor ${advisorSigner} has reviewed all tasks and submitted Certificate No. ${certNumber} for your digital signature.`
                         : `All buyer diligence tasks are 100% complete. Awaiting Lead Advisor ${advisorSigner} to certify first.`}

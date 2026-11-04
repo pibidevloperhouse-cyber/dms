@@ -530,6 +530,7 @@ export default function TaskBoardView() {
                 {/* 5. Visibility Filter */}
                 <div className="relative">
                   <select
+                    suppressHydrationWarning
                     value={selectedVisibility}
                     onChange={(e) => setSelectedVisibility(e.target.value)}
                     className="appearance-none bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium rounded-xl pl-3 pr-7 py-2 focus:outline-none focus:border-[#006666] transition-all cursor-pointer shadow-2xs"

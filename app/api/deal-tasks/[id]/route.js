@@ -87,7 +87,7 @@ export async function PATCH(req, { params }) {
           }, { status: 400 });
         }
         const userName = user.name || 'Assignee';
-        const category = payload.category || task.category || task.department || task.workstream || 'Financial';
+        const category = payload.category || task.folderName || task.folder_name || task.assigned_folder || task.category || 'General';
         const severity = payload.severity || payload.risk_level || payload.riskLevel || null;
         const problemDesc = payload.problemDescription || payload.problem_description || payload.risk_description || payload.riskDescription || null;
         const docRef = payload.documentReference || payload.document_reference || null;

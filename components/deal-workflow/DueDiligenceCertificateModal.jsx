@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
+import { useDealWorkflow, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import {
   X,
   Check,
@@ -22,9 +22,9 @@ export default function DueDiligenceCertificateModal() {
     setIsDDCertificateModalOpen,
     dueDiligenceCertificate,
     dealInfo,
+    tasks,
     signDDCertificateAsAdvisor,
     signDDCertificateAsGuestAdmin,
-    signDDCertificateAsSuperAdmin,
     currentUser,
     ddCertificateMetrics,
   } = useDealWorkflow();
@@ -37,55 +37,78 @@ export default function DueDiligenceCertificateModal() {
   const isGuestAdmin = normRole === 'guest_admin';
   const isSellerSuperAdmin = normRole === 'super_admin' || currentUser?.side === 'seller';
 
-  // 3-way signatories state
-  const advisorSig = dueDiligenceCertificate?.advisorSignature;
-  const guestAdminSig = dueDiligenceCertificate?.guestAdminSignature;
-  const superAdminSig = dueDiligenceCertificate?.superAdminSignature;
+  // Dynamic real deal metadata
+  const dealName = dealInfo?.dealName || 'Naga raj Deal';
+  const dealNumber = dealInfo?.dealNumber || 'D-F4FD2';
+  const buyerCompany = dealInfo?.buyerCompany || 'Naga Tech';
+  const sellerCompany = dealInfo?.sellerCompany || 'Vishwa Tech';
+  const periodText = dealInfo?.period || '02 Sep to 30 Oct 2026';
+
+  const defaultLeadAdvisorName = dealInfo?.leadAdvisorName || 'Vijay';
+  const defaultGuestAdminName = dealInfo?.guestAdminName || 'Naga raj';
+  const defaultSuperAdminName = dealInfo?.sellerSuperAdminName || 'Vishwa Raj';
+
+  // Fingerprint of current Due Diligence tasks
+  const ddTasks = (tasks || []).filter(
+    (t) => normalizeStage(t.deal_stage || t.dealStage) === 'Due Diligence'
+  );
+  const currentFingerprint = ddTasks.map((t) => t.task_id || t.id).sort().join('|');
+
+  // Verify certificate is tied to the current batch of tasks
+  const isCertMatchingCurrentTasks =
+    Boolean(dueDiligenceCertificate?.certifiedTaskIdsKey) &&
+    dueDiligenceCertificate.certifiedTaskIdsKey === currentFingerprint;
+
+  const isAllTasksCompleted = ddTasks.length > 0 && ddTasks.every((t) => t.status === 'DONE');
+
+  // Signatures are ONLY valid if all current DD tasks are completed and match this exact task fingerprint
+  const advisorSig = isCertMatchingCurrentTasks ? dueDiligenceCertificate?.advisorSignature : null;
+  const guestAdminSig = isCertMatchingCurrentTasks ? dueDiligenceCertificate?.guestAdminSignature : null;
 
   const hasAdvisorSigned = Boolean(advisorSig?.signatureDataUrl || advisorSig?.signatureText);
   const hasGuestAdminSigned = Boolean(guestAdminSig?.signatureDataUrl || guestAdminSig?.signatureText);
-  const hasSuperAdminSigned = Boolean(superAdminSig?.signatureDataUrl || superAdminSig?.signatureText);
 
-  const isFullyCompleted = hasAdvisorSigned && hasGuestAdminSigned && hasSuperAdminSigned;
-  const isSubmittedToSeller = dueDiligenceCertificate?.status === 'SUBMITTED_TO_SELLER' || (hasAdvisorSigned && hasGuestAdminSigned);
-  const isPendingGuestAdmin = dueDiligenceCertificate?.status === 'PENDING_GUEST_ADMIN_SIGNATURE' || (hasAdvisorSigned && !hasGuestAdminSigned);
+  // Fully certified once Buyer Advisor and Buyer Guest Admin have signed!
+  // Seller Super Admin does NOT sign.
+  const isFullyCompleted = hasAdvisorSigned && hasGuestAdminSigned;
+  const isSubmittedToSeller = (dueDiligenceCertificate?.status === 'SUBMITTED_TO_SELLER' && isCertMatchingCurrentTasks) || isFullyCompleted;
+  const isPendingGuestAdmin = hasAdvisorSigned && !hasGuestAdminSigned;
 
-  const advisorName = advisorSig?.signer || (isAdvisor ? (currentUser?.name || 'Rohit Verma') : 'Rohit Verma');
-  const guestAdminName = guestAdminSig?.signer || (isGuestAdmin ? (currentUser?.name || 'Arjun Mehta') : 'Arjun Mehta');
-  const superAdminName = superAdminSig?.signer || (isSellerSuperAdmin ? (currentUser?.name || 'Ravi Shankar') : 'Ravi Shankar');
+  // Signatory names - always ensure accurate real names for the distinct roles
+  const advisorName = (advisorSig?.signer && advisorSig.signer !== 'Ravi Shankar')
+    ? advisorSig.signer
+    : (isAdvisor ? (currentUser?.name || defaultLeadAdvisorName) : defaultLeadAdvisorName);
+
+  const guestAdminName = guestAdminSig?.signer
+    ? guestAdminSig.signer
+    : (isGuestAdmin ? (currentUser?.name || defaultGuestAdminName) : defaultGuestAdminName);
+
+  const superAdminName = defaultSuperAdminName;
 
   // Can current user sign?
-  // 1. Advisor can sign if not yet signed
-  const canAdvisorSign = isAdvisor && !hasAdvisorSigned;
+  // 1. Advisor can sign if not yet signed and all DD tasks are completed
+  const canAdvisorSign = isAdvisor && !hasAdvisorSigned && isAllTasksCompleted;
   // 2. Guest Admin can sign ONLY after Advisor has signed, and if Guest Admin hasn't signed yet
-  const canGuestAdminSign = isGuestAdmin && hasAdvisorSigned && !hasGuestAdminSigned;
-  // 3. Super Admin can sign ONLY after Guest Admin has signed & transmitted to seller, and if Super Admin hasn't signed yet
-  const canSuperAdminSign = isSellerSuperAdmin && hasGuestAdminSigned && !hasSuperAdminSigned;
+  const canGuestAdminSign = isGuestAdmin && hasAdvisorSigned && !hasGuestAdminSigned && isAllTasksCompleted;
+  // 3. Super Admin does NOT sign
+  const canSuperAdminSign = false;
 
-  const canCurrentSign = canAdvisorSign || canGuestAdminSign || canSuperAdminSign;
+  const canCurrentSign = canAdvisorSign || canGuestAdminSign;
 
   const activeSignerDefault = canAdvisorSign
     ? advisorName
     : canGuestAdminSign
     ? guestAdminName
-    : canSuperAdminSign
-    ? superAdminName
-    : (currentUser?.name || 'Rohit Verma');
+    : (isAdvisor ? advisorName : guestAdminName);
 
   // Interactive Signature Pad State
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [sigMode, setSigMode] = useState('draw'); // 'draw' | 'type'
-  const [typedName, setTypedName] = useState(activeSignerDefault);
+  const [customTypedName, setCustomTypedName] = useState('');
+  const typedName = customTypedName || activeSignerDefault;
   const [selectedStyle, setSelectedStyle] = useState('script'); // 'script' | 'formal' | 'hand'
-
-  // Dynamic real deal metadata
-  const dealName = dealInfo?.dealName || 'Test User Deal';
-  const dealNumber = dealInfo?.dealNumber || 'D-5E18A';
-  const buyerCompany = dealInfo?.buyerCompany || "Test User's Firm";
-  const sellerCompany = dealInfo?.sellerCompany || 'Vishwa Tech';
-  const periodText = dealInfo?.period || '02 Sep to 30 Oct 2026';
 
   // Canvas Drawing Handlers
   const getCanvasCoords = (e) => {
@@ -157,8 +180,8 @@ export default function DueDiligenceCertificateModal() {
 
   const metrics = ddCertificateMetrics || {
     foldersCoverage: [
-      { id: 'jvm', name: 'JVM', lead: 'R. Mehta', docs: 2, total: 2 },
-      { id: 'anu', name: 'anu', lead: 'Radhi', docs: 2, total: 2 },
+      { id: 'jvm', name: 'JVM', docs: 2, total: 2 },
+      { id: 'anu', name: 'anu', docs: 2, total: 2 },
     ],
     findings: { critical: 0, high: 0, medium: 2, low: 0, total: 2, items: [] },
     conclusion: 'Clear with conditions',
@@ -167,8 +190,8 @@ export default function DueDiligenceCertificateModal() {
   const coverageList = Array.isArray(metrics.foldersCoverage) && metrics.foldersCoverage.length > 0
     ? metrics.foldersCoverage
     : [
-        { id: 'jvm', name: 'JVM', lead: 'R. Mehta', docs: 2, total: 2 },
-        { id: 'anu', name: 'anu', lead: 'Radhi', docs: 2, total: 2 },
+        { id: 'jvm', name: 'JVM', docs: 2, total: 2 },
+        { id: 'anu', name: 'anu', docs: 2, total: 2 },
       ];
 
   const currentEffectiveName = typedName?.trim() || activeSignerDefault;
@@ -239,38 +262,6 @@ export default function DueDiligenceCertificateModal() {
     }
   };
 
-  // Action 3: Seller Super Admin signs and unlocks Binding Terms
-  const handleSuperAdminSign = async () => {
-    setIsSigning(true);
-    setFeedbackMsg('');
-
-    let signatureDataUrl = null;
-    let signatureType = 'typed';
-    const signer = currentEffectiveName || superAdminName;
-    let signatureText = signer;
-
-    if (sigMode === 'draw' && hasDrawn && canvasRef.current) {
-      signatureDataUrl = canvasRef.current.toDataURL('image/png');
-      signatureType = 'drawn';
-    } else {
-      signatureType = selectedStyle;
-    }
-
-    try {
-      await signDDCertificateAsSuperAdmin({
-        signerName: signer,
-        signatureDataUrl,
-        signatureType,
-        signatureText,
-      });
-      setFeedbackMsg('Certificate digitally signed and accepted by Seller Super Admin! Next stage (Binding Terms) is now unlocked.');
-    } catch (e) {
-      console.error(e);
-      setFeedbackMsg('Failed to sign certificate. Please try again.');
-    } finally {
-      setIsSigning(false);
-    }
-  };
 
   const handlePrint = () => {
     if (typeof window !== 'undefined') {
@@ -401,7 +392,7 @@ export default function DueDiligenceCertificateModal() {
                       {folder.name}
                     </span>
                     <span className="text-[11px] text-slate-500 truncate block">
-                      {folder.lead} · {folder.docs} / {folder.total || folder.docs} docs
+                      {folder.docs} / {folder.total || folder.docs} docs
                     </span>
                   </div>
                 </div>
@@ -648,40 +639,34 @@ export default function DueDiligenceCertificateModal() {
                 )}
               </div>
 
-              {/* Signatory 3: Seller Super Admin (Ravi Shankar) */}
+              {/* Column 3: Seller Delivery Notice (Vishwa Raj - Super Admin, Vishwa Tech) */}
               <div className="border-t-2 border-slate-300 pt-3 relative">
-                {hasSuperAdminSigned ? (
+                {isSubmittedToSeller ? (
                   <>
                     <div className="h-10 flex items-center justify-center">
-                      {superAdminSig?.signatureDataUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={superAdminSig.signatureDataUrl}
-                          alt="Super Admin Signature"
-                          className="h-10 max-w-[160px] object-contain mx-auto"
-                        />
-                      ) : (
-                        <span className="font-serif italic text-lg text-[#006666] tracking-wide select-none">
-                          {superAdminSig?.signatureText || superAdminSig?.signer || 'Ravi Shankar'}
-                        </span>
-                      )}
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-300 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Transmitted to Seller</span>
+                      </span>
                     </div>
                     <div className="text-xs font-bold text-slate-900 mt-1 flex items-center justify-center gap-1">
-                      <span>{superAdminSig?.signer || 'Ravi Shankar'}</span>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" />
+                      <span>{superAdminName}</span>
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      {superAdminSig?.role || `Super Admin, ${sellerCompany}`}
+                      Super Admin, {sellerCompany}
                     </div>
                     <div className="text-[10px] font-mono text-emerald-700 font-medium mt-1">
-                      Accepted & Sealed · {superAdminSig?.timestamp || '03 Nov 2026, 11:20 IST'}
+                      Delivered · {dueDiligenceCertificate?.submittedToSellerAt || guestAdminSig?.timestamp || 'Transmitted via VDR'}
+                    </div>
+                    <div className="text-[9px] text-slate-400 mt-0.5">
+                      Notice Recipient on Final Execution
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="h-10 flex items-center justify-center">
-                      <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full">
-                        {hasGuestAdminSigned ? 'Awaiting Super Admin Signature' : 'Draft Signatory'}
+                      <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 border border-slate-300 px-2.5 py-0.5 rounded-full">
+                        Pending Transmittal
                       </span>
                     </div>
                     <div className="text-xs font-bold text-slate-900 mt-1">
@@ -691,7 +676,10 @@ export default function DueDiligenceCertificateModal() {
                       Super Admin, {sellerCompany}
                     </div>
                     <div className="text-[10px] font-mono text-slate-400 mt-1">
-                      Pending Digital Execution
+                      Awaiting Buyer Certification
+                    </div>
+                    <div className="text-[9px] text-slate-400 mt-0.5">
+                      Notice Recipient on Final Execution
                     </div>
                   </>
                 )}
@@ -706,7 +694,7 @@ export default function DueDiligenceCertificateModal() {
               Generated by the DMS from VDR access logs and the risk register. An internal completion record, not a legal opinion or audit attestation.
             </p>
             <p className="font-mono text-slate-500">
-              Document hash {superAdminSig?.hash || guestAdminSig?.hash || '9f3a8b24e65012e84c979d31f0814bb657c9284ea0bc129486c71e'} · Audit trail available under the deal&apos;s Control and Audit tab.
+              Document hash {guestAdminSig?.hash || '9f3a8b24e65012e84c979d31f0814bb657c9284ea0bc129486c71e'} · Audit trail available under the deal&apos;s Control and Audit tab.
             </p>
           </div>
         </div>
@@ -722,9 +710,7 @@ export default function DueDiligenceCertificateModal() {
                 <span className="text-xs font-bold text-slate-900">
                   {canAdvisorSign
                     ? `Execute Lead Advisor Digital Signature (${advisorName})`
-                    : canGuestAdminSign
-                    ? `Execute Buyer Guest Admin Digital Signature (${guestAdminName})`
-                    : `Execute Seller Super Admin Digital Signature (${superAdminName})`}
+                    : `Execute Buyer Guest Admin Digital Signature (${guestAdminName})`}
                 </span>
               </div>
 
@@ -780,7 +766,7 @@ export default function DueDiligenceCertificateModal() {
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className="text-[11px] text-slate-500">
-                    Signing as <strong>{canAdvisorSign ? advisorName : canGuestAdminSign ? guestAdminName : superAdminName}</strong> ({canAdvisorSign ? 'Lead Advisor' : canGuestAdminSign ? 'Guest Admin' : 'Seller Super Admin'})
+                    Signing as <strong>{canAdvisorSign ? advisorName : guestAdminName}</strong> ({canAdvisorSign ? 'Lead Advisor' : 'Guest Admin'})
                   </span>
                   <button
                     type="button"
@@ -846,7 +832,7 @@ export default function DueDiligenceCertificateModal() {
                   <input
                     type="text"
                     value={typedName}
-                    onChange={(e) => setTypedName(e.target.value)}
+                    onChange={(e) => setCustomTypedName(e.target.value)}
                     placeholder="Type your full legal name"
                     className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006666]"
                   />
@@ -866,7 +852,7 @@ export default function DueDiligenceCertificateModal() {
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
               <span>
-                Due Diligence Completion Certificate is fully signed by <strong>{advisorName}</strong> (Lead Advisor), <strong>{guestAdminName}</strong> (Guest Admin), and <strong>{superAdminName}</strong> (Seller Super Admin). Binding Terms stage is unlocked.
+                Due Diligence Completion Certificate is officially certified by <strong>{advisorName}</strong> (Lead Advisor) and <strong>{guestAdminName}</strong> (Guest Admin), and transmitted to Seller Super Admin (<strong>{superAdminName}</strong>).
               </span>
             </div>
             <button
@@ -904,17 +890,19 @@ export default function DueDiligenceCertificateModal() {
             {canGuestAdminSign && (
               <span>Lead Advisor has certified due diligence. Sign as Guest Admin to transmit certificate to Seller Super Admin ({superAdminName}).</span>
             )}
-            {isGuestAdmin && hasGuestAdminSigned && !hasSuperAdminSigned && (
+            {isGuestAdmin && hasGuestAdminSigned && (
               <span className="text-teal-700 font-semibold">
                 ✓ Certificate signed and transmitted to Seller Super Admin ({superAdminName}).
               </span>
             )}
-            {canSuperAdminSign && (
-              <span>Buyer has completed diligence and submitted certificate. Sign as Seller Super Admin to accept and enable Binding Terms.</span>
-            )}
-            {isFullyCompleted && (
+            {isSellerSuperAdmin && isSubmittedToSeller && (
               <span className="text-emerald-700 font-semibold">
-                ✓ Certificate fully executed by all parties. Next stage (Binding Terms) is enabled.
+                ✓ Due Diligence Certificate received from Buyer ({buyerCompany}). Certified by {advisorName} &amp; {guestAdminName}.
+              </span>
+            )}
+            {isFullyCompleted && !isSellerSuperAdmin && (
+              <span className="text-emerald-700 font-semibold">
+                ✓ Certificate fully executed by Buyer Advisor &amp; Guest Admin and transmitted to Seller.
               </span>
             )}
           </div>
@@ -944,20 +932,6 @@ export default function DueDiligenceCertificateModal() {
               >
                 <PenTool className="w-3.5 h-3.5" />
                 <span>{isSigning ? 'Signing & Transmitting...' : 'Sign & Transmit Certificate to Seller'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {/* Step 3: Seller Super Admin signs and unlocks next stage */}
-            {canSuperAdminSign && (
-              <button
-                type="button"
-                onClick={handleSuperAdminSign}
-                disabled={isSigning}
-                className="px-4 py-2 rounded-xl bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                <span>{isSigning ? 'Signing & Enabling...' : 'Sign & Enable Binding Terms'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

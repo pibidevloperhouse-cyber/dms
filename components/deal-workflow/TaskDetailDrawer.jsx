@@ -946,9 +946,9 @@ export default function TaskDetailDrawer() {
                     <h5 className="font-bold text-xs uppercase tracking-wide">
                       Due Diligence Finding
                     </h5>
-                    {selectedTask.category && (
+                    {(selectedTask.folder_name || selectedTask.assigned_folder || selectedTask.folderName || selectedTask.category) && (
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/90 border border-slate-200 text-teal-800">
-                        {selectedTask.category}
+                        {selectedTask.folder_name || selectedTask.assigned_folder || selectedTask.folderName || selectedTask.category}
                       </span>
                     )}
                   </div>
@@ -967,14 +967,14 @@ export default function TaskDetailDrawer() {
                   </span>
                 </div>
 
-                {selectedTask.category && (
+                {(selectedTask.folder_name || selectedTask.assigned_folder || selectedTask.folderName || selectedTask.category) && (
                   <div>
                     <span className="text-[11px] font-semibold text-slate-700 block mb-1">
-                      Category (Task Department):
+                      Main Folder:
                     </span>
                     <div className="p-2 rounded-lg bg-white/90 border border-slate-200/80 text-xs text-slate-800 font-semibold inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-teal-600" />
-                      <span>{selectedTask.category}</span>
+                      <Folder className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                      <span>{selectedTask.folder_name || selectedTask.assigned_folder || selectedTask.folderName || selectedTask.category}</span>
                     </div>
                   </div>
                 )}

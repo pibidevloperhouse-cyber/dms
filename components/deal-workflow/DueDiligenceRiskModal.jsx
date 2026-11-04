@@ -12,6 +12,7 @@ import {
   Trash2,
   FileSpreadsheet,
   Tag,
+  Folder,
 } from 'lucide-react';
 
 const SEVERITY_LEVELS = [
@@ -45,7 +46,12 @@ function DueDiligenceRiskModalContent({ task, onClose, submitForReview }) {
   const fileInputRef = useRef(null);
 
   const initialCategory =
-    task.category || task.department || task.workstream || 'Financial';
+    task.folder_name ||
+    task.assigned_folder ||
+    task.folderName ||
+    task.assignedFolderName ||
+    task.category ||
+    'General';
 
   const [category] = useState(initialCategory);
   const [severity, setSeverity] = useState(task.severity || task.risk_level || 'Medium');
@@ -180,11 +186,11 @@ function DueDiligenceRiskModalContent({ task, onClose, submitForReview }) {
 
         {/* Clean, Spacious Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          {/* Row 1: Category Strip (Clean & Uncrowded) */}
+          {/* Row 1: Main Folder Strip (Clean & Uncrowded) */}
           <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200">
             <div className="flex items-center gap-2 text-slate-600 font-medium">
-              <Tag className="w-3.5 h-3.5 text-teal-600" />
-              <span>Category</span>
+              <Folder className="w-3.5 h-3.5 text-teal-600" />
+              <span>Main Folder</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-md bg-teal-100 text-[#006666] text-xs font-bold uppercase tracking-wider border border-teal-200">

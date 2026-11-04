@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 // ============================================================================
@@ -408,13 +408,7 @@ export function DealWorkflowProvider({ children }) {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedPriority, setSelectedPriority] = useState('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState('ALL');
-  const [selectedDealStage, setSelectedDealStage] = useState(() => {
-    const active = readSessionUser();
-    if (active?.side === 'buyer') {
-      return 'Due Diligence';
-    }
-    return 'Preparation';
-  });
+  const [selectedDealStage, setSelectedDealStage] = useState('Preparation');
 
   // ============================================================================
   // ACTIVE DEAL STAGE: Exclusively activated by Super Admin
@@ -426,10 +420,13 @@ export function DealWorkflowProvider({ children }) {
   const [stageAdvanceRequest, setStageAdvanceRequest] = useState(null);
   const [dueDiligenceCertificate, setDueDiligenceCertificate] = useState(null);
   const [dealInfo, setDealInfo] = useState({
-    dealName: 'Test User Deal',
-    dealNumber: 'D-5E18A',
+    dealName: 'Naga raj Deal',
+    dealNumber: 'D-F4FD2',
     sellerCompany: 'Vishwa Tech',
-    buyerCompany: "Test User's Firm",
+    buyerCompany: 'Naga Tech',
+    leadAdvisorName: 'Vijay',
+    guestAdminName: 'Naga raj',
+    sellerSuperAdminName: 'Vishwa Raj',
     period: '02 Sep to 30 Oct 2026',
   });
   const [isDDCertificateModalOpen, setIsDDCertificateModalOpen] = useState(false);
@@ -735,19 +732,33 @@ export function DealWorkflowProvider({ children }) {
     await activateStage(nextStageName);
   };
 
+  // Helper to compute fingerprint of current Due Diligence tasks
+  const getDDTasksFingerprint = useCallback((taskList) => {
+    const ddTasks = (taskList || []).filter(
+      (t) => normalizeStage(t.deal_stage || t.dealStage) === 'Due Diligence'
+    );
+    if (ddTasks.length === 0) return '';
+    return ddTasks.map((t) => t.task_id || t.id).sort().join('|');
+  }, []);
+
   // Action: Lead Advisor digitally signs and submits Due Diligence Certificate to Guest Admin
   const signDDCertificateAsAdvisor = async (param = {}) => {
     const opts = typeof param === 'string' ? { signerName: param } : (param || {});
-    const signerName = opts.signerName || currentUser?.name || 'Rohit Verma';
+    const normRole = normalizeRole(currentUser?.role);
+    const isAdvisor = normRole === 'advisor';
+    const defaultAdvisorName = dealInfo?.leadAdvisorName || 'Vijay';
+    const signerName = opts.signerName || (isAdvisor ? (currentUser?.name || defaultAdvisorName) : defaultAdvisorName);
     const signatureDataUrl = opts.signatureDataUrl || null;
     const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
     const signatureText = opts.signatureText || signerName;
 
     const now = new Date();
     const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+    const ddFingerprint = getDDTasksFingerprint(tasks);
 
     const updatedCert = {
       ...(dueDiligenceCertificate || {}),
+      certifiedTaskIdsKey: ddFingerprint,
       status: 'PENDING_GUEST_ADMIN_SIGNATURE',
       submittedToGuestAdminAt: formattedDate,
       submittedBy: signerName,
@@ -760,6 +771,8 @@ export function DealWorkflowProvider({ children }) {
         signatureType,
         signatureText,
       },
+      guestAdminSignature: null,
+      superAdminSignature: null,
     };
     setDueDiligenceCertificate(updatedCert);
     if (typeof window !== 'undefined') {
@@ -785,7 +798,10 @@ export function DealWorkflowProvider({ children }) {
   // Action: Seller Super Admin digitally signs and accepts Certificate, unlocking Binding Terms
   const signDDCertificateAsSuperAdmin = async (param = {}) => {
     const opts = typeof param === 'string' ? { signerName: param } : (param || {});
-    const signerName = opts.signerName || currentUser?.name || 'Ravi Shankar';
+    const normRole = normalizeRole(currentUser?.role);
+    const isSellerSuperAdmin = normRole === 'super_admin' || currentUser?.side === 'seller';
+    const defaultSuperAdminName = dealInfo?.sellerSuperAdminName || 'Vishwa Raj';
+    const signerName = opts.signerName || (isSellerSuperAdmin ? (currentUser?.name || defaultSuperAdminName) : defaultSuperAdminName);
     const signatureDataUrl = opts.signatureDataUrl || null;
     const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
     const signatureText = opts.signatureText || signerName;
@@ -801,7 +817,7 @@ export function DealWorkflowProvider({ children }) {
       acceptedBy: signerName,
       superAdminSignature: {
         signer: signerName,
-        role: 'Super Admin, Seller Executive',
+        role: `Super Admin, ${dealInfo?.sellerCompany || 'Vishwa Tech'}`,
         timestamp: formattedDate,
         signatureDataUrl,
         signatureType,
@@ -840,7 +856,10 @@ export function DealWorkflowProvider({ children }) {
   // Action: Guest Admin signs the Due Diligence Certificate and transmits to Seller
   const signDDCertificateAsGuestAdmin = async (param = {}) => {
     const opts = typeof param === 'string' ? { signerName: param } : (param || {});
-    const signerName = opts.signerName || currentUser?.name || 'Arjun Mehta';
+    const normRole = normalizeRole(currentUser?.role);
+    const isGuestAdmin = normRole === 'guest_admin';
+    const defaultGuestAdminName = dealInfo?.guestAdminName || 'Naga raj';
+    const signerName = opts.signerName || (isGuestAdmin ? (currentUser?.name || defaultGuestAdminName) : defaultGuestAdminName);
     const signatureDataUrl = opts.signatureDataUrl || null;
     const signatureType = opts.signatureType || (signatureDataUrl ? 'drawn' : 'typed');
     const signatureText = opts.signatureText || signerName;
@@ -848,9 +867,11 @@ export function DealWorkflowProvider({ children }) {
     const now = new Date();
     const formattedDate = `${now.getDate().toString().padStart(2, '0')} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
     const randomHash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const ddFingerprint = getDDTasksFingerprint(tasks);
 
     const updatedCert = {
       ...(dueDiligenceCertificate || {}),
+      certifiedTaskIdsKey: ddFingerprint,
       status: 'SUBMITTED_TO_SELLER',
       signedByGuestAdminAt: formattedDate,
       submittedToSellerAt: formattedDate,
@@ -864,6 +885,7 @@ export function DealWorkflowProvider({ children }) {
         signatureType,
         signatureText,
       },
+      superAdminSignature: null,
     };
     setDueDiligenceCertificate(updatedCert);
     if (typeof window !== 'undefined') {
@@ -962,7 +984,7 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Reset or regenerate Certificate
-  const resetDDCertificate = async () => {
+  const resetDDCertificate = useCallback(async () => {
     setDueDiligenceCertificate(null);
     if (typeof window !== 'undefined') {
       try {
@@ -978,7 +1000,7 @@ export function DealWorkflowProvider({ children }) {
         }),
       });
     } catch (e) { }
-  };
+  }, []);
 
   const ddCertificateMetrics = useMemo(() => {
     const ddTasks = (tasks || []).filter(
@@ -989,52 +1011,20 @@ export function DealWorkflowProvider({ children }) {
 
     // Dynamic real folders coverage
     const foldersCoverage = (Array.isArray(dealFolders) && dealFolders.length > 0)
-      ? dealFolders.map((f, idx) => {
-          // Look for tasks associated with this folder to detect assigned lead
-          const folderTasks = (tasks || []).filter(
-            (t) =>
-              (t.folderId && t.folderId === f.id) ||
-              (t.folder_id && t.folder_id === f.id) ||
-              (t.folderName && f.name && t.folderName.trim().toLowerCase() === f.name.trim().toLowerCase()) ||
-              (t.folder_name && f.name && t.folder_name.trim().toLowerCase() === f.name.trim().toLowerCase())
-          );
-
-          // Priority 1: Due Diligence task assignee
-          const ddTask = folderTasks.find(
-            (t) => normalizeStage(t.deal_stage || t.dealStage) === 'Due Diligence' && (t.assignedToUser || t.assigned_to_user || t.assignedToGroup || t.assigned_to_group)
-          );
-          // Priority 2: Any task assignee for this folder
-          const anyTask = folderTasks.find(
-            (t) => t.assignedToUser || t.assigned_to_user || t.assignedToGroup || t.assigned_to_group
-          );
-
-          let leadName = null;
-          if (ddTask) {
-            leadName = ddTask.assignedToUser || ddTask.assigned_to_user || ddTask.assignedToGroup || ddTask.assigned_to_group;
-          } else if (anyTask) {
-            leadName = anyTask.assignedToUser || anyTask.assigned_to_user || anyTask.assignedToGroup || anyTask.assigned_to_group;
-          }
-
-          if (!leadName) {
-            const fallbackLeads = ['R. Mehta', 'S. Iyer', 'A. Khan', 'P. Nair', 'V. Rao'];
-            leadName = fallbackLeads[idx % fallbackLeads.length];
-          }
-
+      ? dealFolders.map((f) => {
           const count = Number(f.docCount ?? 0);
-
           return {
             id: f.id,
             name: f.name,
-            lead: leadName,
             docs: count,
             total: count,
           };
         })
       : [
-          { id: 'fin', name: 'Financial', lead: 'R. Mehta', docs: 64, total: 64 },
-          { id: 'leg', name: 'Legal', lead: 'S. Iyer', docs: 48, total: 48 },
-          { id: 'tax', name: 'Tax', lead: 'A. Khan', docs: 31, total: 31 },
-          { id: 'hr', name: 'HR and operations', lead: 'P. Nair', docs: 27, total: 27 },
+          { id: 'fin', name: 'Financial', docs: 64, total: 64 },
+          { id: 'leg', name: 'Legal', docs: 48, total: 48 },
+          { id: 'tax', name: 'Tax', docs: 31, total: 31 },
+          { id: 'hr', name: 'HR and operations', docs: 27, total: 27 },
         ];
 
     const getCategoryCount = (keyword) => {
@@ -1090,7 +1080,7 @@ export function DealWorkflowProvider({ children }) {
         findingsItems.push({
           taskId: t.task_id || t.id,
           title: t.title,
-          category: t.category || t.department || t.workstream || 'General',
+          category: t.folder_name || t.assigned_folder || t.folderName || t.assignedFolderName || t.category || 'General',
           severity: matchedSeverity,
           problemDescription: t.problem_description || t.problemDescription || t.risk_description || '',
           documentReference: t.document_reference || t.documentReference || '',
@@ -2501,7 +2491,8 @@ export function DealWorkflowProvider({ children }) {
     const formattedDate = `${now.getDate()}-${now.toLocaleString('default', { month: 'short' })}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     const ip = currentUser.side === 'seller' ? '192.168.1.45' : '198.51.100.42';
 
-    const category = riskData?.category || null;
+    const targetTask = tasks.find((t) => t.task_id === taskId || t.id === taskId);
+    const category = riskData?.category || targetTask?.folder_name || targetTask?.assigned_folder || targetTask?.folderName || targetTask?.category || null;
     const severity = riskData?.severity || riskData?.riskLevel || riskData?.risk_level || null;
     const problemDesc = riskData?.problemDescription || riskData?.problem_description || riskData?.riskDescription || riskData?.risk_description || null;
     const docRef = riskData?.documentReference || riskData?.document_reference || null;
@@ -2533,7 +2524,7 @@ export function DealWorkflowProvider({ children }) {
       prev.map((t) => {
         if (t.task_id !== taskId) return t;
 
-        const resolvedCategory = category || t.category || t.department || t.workstream || 'Financial';
+        const resolvedCategory = category || t.folder_name || t.assigned_folder || t.folderName || t.assignedFolderName || t.category || 'General';
         const currentAtts = Array.isArray(t.attachments) ? t.attachments : [];
         const updatedAtts = [...currentAtts];
         formattedFiles.forEach((f) => {
@@ -3114,7 +3105,11 @@ export function DealWorkflowProvider({ children }) {
   const createTask = async (formData) => {
     try {
       const rawSession = typeof window !== 'undefined' ? localStorage.getItem('vdr_session') : null;
-      const workspaceId = formData.workspaceId || currentUser?.workspaceId || session?.active_workspace_id || session?.workspace_id || null;
+      let parsedSession = null;
+      try {
+        if (rawSession) parsedSession = JSON.parse(rawSession);
+      } catch (e) { }
+      const workspaceId = formData.workspaceId || currentUser?.workspaceId || parsedSession?.active_workspace_id || parsedSession?.workspace_id || null;
 
       const resolvedDept = formData.department || formData.workstream || 'General';
       const taskStage = formData.deal_stage || 'Preparation';
@@ -3154,6 +3149,8 @@ export function DealWorkflowProvider({ children }) {
       if (data.success && data.task) {
         setTasks((prev) => [data.task, ...prev.filter((t) => t.task_id !== data.task.task_id)]);
         setIsCreateModalOpen(false);
+        // Reset any existing Due Diligence Certificate signatures so that new tasks require fresh sign-off!
+        resetDDCertificate().catch(() => {});
         // Refresh tasks from DB in background to ensure all counters and relations are synced without flashing loading
         fetchTasks(false);
         return data.task;

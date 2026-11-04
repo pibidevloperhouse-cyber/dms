@@ -276,9 +276,9 @@ const TaskCard = React.memo(
               <span className="flex items-center gap-1.5 truncate">
                 <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">Finding</span>
-                {task.category && (
+                {(task.folder_name || task.assigned_folder || task.folderName || task.category) && (
                   <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/80 text-teal-800 border border-teal-200">
-                    {task.category}
+                    {task.folder_name || task.assigned_folder || task.folderName || task.category}
                   </span>
                 )}
               </span>

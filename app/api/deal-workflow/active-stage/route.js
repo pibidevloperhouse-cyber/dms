@@ -65,44 +65,78 @@ loadStateFromFile();
 
 async function getDealMetadata() {
   let dealMeta = {
-    dealName: 'Test User Deal',
-    dealNumber: 'D-5E18A',
+    dealName: 'Naga raj Deal',
+    dealNumber: 'D-F4FD2',
     sellerCompany: 'Vishwa Tech',
-    buyerCompany: "Test User's Firm",
+    buyerCompany: 'Naga Tech',
+    leadAdvisorName: 'Vijay',
+    guestAdminName: 'Naga raj',
+    sellerSuperAdminName: 'Vishwa Raj',
     period: '02 Sep to 30 Oct 2026',
   };
 
   try {
-    const deals = await db.select().from(dmsDeals).limit(1);
+    const deals = await db.select().from(dmsDeals);
+    const allUsers = await db.select().from(users);
+    const allComps = await db.select().from(companies);
+
     if (deals.length > 0) {
-      const deal = deals[0];
+      const deal = deals.find(d => (d.dealName || '').toLowerCase().includes('naga'))
+        || deals.find(d => d.featureTasks)
+        || deals[0];
+
       if (deal.currentStage) {
         serverActiveStage = deal.currentStage;
       }
+
       let sellerName = 'Vishwa Tech';
-      let buyerName = "Test User's Firm";
+      let buyerName = 'Naga Tech';
+      let sellerSuperAdminName = 'Vishwa Raj';
+      let guestAdminName = 'Naga raj';
+      let leadAdvisorName = 'Vijay';
 
       if (deal.projectId) {
         const projs = await db.select().from(dmsProjects).where(eq(dmsProjects.id, deal.projectId));
         if (projs[0]?.companyId) {
-          const seller = await db.select().from(companies).where(eq(companies.id, projs[0].companyId));
-          if (seller[0]?.name) sellerName = seller[0].name;
+          const seller = allComps.find(c => c.id === projs[0].companyId);
+          if (seller?.name) sellerName = seller.name;
+
+          const sAdmin = allUsers.find(u => u.companyId === projs[0].companyId && (u.role || '').toLowerCase() === 'super_admin' && (u.name || '').toLowerCase().includes('vishwa'))
+            || allUsers.find(u => u.companyId === projs[0].companyId && (u.role || '').toLowerCase() === 'super_admin');
+          if (sAdmin?.name) sellerSuperAdminName = sAdmin.name;
         }
       }
 
       if (deal.buyerId) {
-        const buyers = await db.select().from(users).where(eq(users.id, deal.buyerId));
-        if (buyers[0]?.companyId) {
-          const buyerComp = await db.select().from(companies).where(eq(companies.id, buyers[0].companyId));
-          if (buyerComp[0]?.name) buyerName = buyerComp[0].name;
+        const buyer = allUsers.find(u => u.id === deal.buyerId);
+        if (buyer) {
+          if (buyer.role === 'guest_admin') guestAdminName = buyer.name;
+          if (buyer.companyId) {
+            const bComp = allComps.find(c => c.id === buyer.companyId);
+            if (bComp?.name) buyerName = bComp.name;
+
+            const gAdmin = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'guest_admin');
+            if (gAdmin?.name) guestAdminName = gAdmin.name;
+
+            const adv = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'advisor');
+            if (adv?.name) leadAdvisorName = adv.name;
+          }
         }
       }
 
+      if (!leadAdvisorName) {
+        const adv = allUsers.find(u => (u.role || '').toLowerCase() === 'advisor');
+        if (adv?.name) leadAdvisorName = adv.name;
+      }
+
       dealMeta = {
-        dealName: deal.dealName || 'Test User Deal',
+        dealName: deal.dealName || 'Naga raj Deal',
         dealNumber: `D-${deal.id.slice(0, 5).toUpperCase()}`,
         sellerCompany: sellerName,
         buyerCompany: buyerName,
+        leadAdvisorName: leadAdvisorName || 'Vijay',
+        guestAdminName: guestAdminName || 'Naga raj',
+        sellerSuperAdminName: sellerSuperAdminName || 'Vishwa Raj',
         period: '02 Sep to 30 Oct 2026',
       };
     }
