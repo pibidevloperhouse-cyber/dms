@@ -24,13 +24,13 @@ import {
   Briefcase,
   ListTodo,
   CheckSquare,
+  MessageSquare,
 } from "lucide-react";
 import { useControlsAudit } from "@/components/controls-audit/ControlsAuditContext";
 import {
   PageHeader,
   StatusBadge,
   AuditEventRow,
-  DetailDrawer,
   EmptyState,
 } from "@/components/controls-audit/shared";
 import { formatAuditDate } from "@/components/controls-audit/shared/AuditEventRow";
@@ -72,8 +72,6 @@ export default function AuditTrailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Selected event for detail drawer (READ ONLY)
-  const [selectedAuditLog, setSelectedAuditLog] = useState(null);
 
   // Extract unique modules & actions from dynamic logs with standard platform baselines
   const uniqueModules = useMemo(() => {
@@ -202,6 +200,9 @@ export default function AuditTrailPage() {
           const matchCompany = log.companyName?.toLowerCase().includes(q);
           const matchRole = log.userRole?.toLowerCase().includes(q);
           const matchReason = log.failureReason?.toLowerCase().includes(q);
+          const matchRecipient = log.recipientName?.toLowerCase().includes(q);
+          const matchRecipientEmail = log.recipientEmail?.toLowerCase().includes(q);
+          const matchFlow = log.transmissionFlow?.toLowerCase().includes(q);
           if (
             !matchUser &&
             !matchEmail &&
@@ -210,7 +211,10 @@ export default function AuditTrailPage() {
             !matchDeal &&
             !matchCompany &&
             !matchRole &&
-            !matchReason
+            !matchReason &&
+            !matchRecipient &&
+            !matchRecipientEmail &&
+            !matchFlow
           ) {
             return false;
           }
@@ -289,9 +293,13 @@ export default function AuditTrailPage() {
       "Event ID",
       "Timestamp (IST)",
       "Party Side",
-      "User",
-      "Email",
-      "Role",
+      "Sender User",
+      "Sender Email",
+      "Sender Role",
+      "Recipient User",
+      "Recipient Email",
+      "Recipient Side",
+      "Transmission Flow",
       "Action",
       "Resource / Content",
       "Channel / Group",
@@ -306,9 +314,13 @@ export default function AuditTrailPage() {
       log.id,
       formatAuditDate(log.timestamp).full,
       `"${log.sideLabel || (log.side === 'buyer' ? 'Buyer Side' : 'Seller Side')}"`,
-      `"${log.user}"`,
-      log.userEmail || "",
-      `"${log.userRole || ""}"`,
+      `"${log.senderName || log.user}"`,
+      log.senderEmail || log.userEmail || "",
+      `"${log.senderRole || log.userRole || ""}"`,
+      `"${log.recipientName || "—"}"`,
+      log.recipientEmail || "—",
+      `"${log.recipientSideLabel || "—"}"`,
+      `"${log.transmissionFlow || "—"}"`,
       `"${log.action}"`,
       `"${(log.resource || '').replace(/"/g, '""')}"`,
       `"${(log.channelName || '').replace(/"/g, '""')}"`,
@@ -655,13 +667,13 @@ export default function AuditTrailPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200/80 select-none">
                 <tr>
-                  {/* User Column */}
+                  {/* User / Parties Column */}
                   <th
                     onClick={() => handleSort("user")}
                     className="px-4 py-3.5 cursor-pointer hover:text-slate-800"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>User</span>
+                      <span>{selectedModule === "Communication" ? "Parties (Sender ➔ Recipient)" : "User"}</span>
                       <ArrowUpDown size={12} className="text-slate-400" />
                     </div>
                   </th>
@@ -752,7 +764,6 @@ export default function AuditTrailPage() {
                     event={log}
                     layout="table"
                     moduleView={selectedModule}
-                    onClick={(e) => setSelectedAuditLog(e)}
                   />
                 ))}
               </tbody>
@@ -830,453 +841,7 @@ export default function AuditTrailPage() {
         </div>
       </div>
 
-      {/* ── FORENSIC AUDIT DETAIL DRAWER (READ ONLY) ── */}
-      <DetailDrawer
-        isOpen={!!selectedAuditLog}
-        onClose={() => setSelectedAuditLog(null)}
-        title="Forensic Audit Record"
-        subtitle="Immutable transaction event preserved in compliance ledger"
-        badge={
-          selectedAuditLog && (
-            <StatusBadge status={selectedAuditLog.result} size="sm" />
-          )
-        }
-        footer={
-          <div className="flex items-center justify-between w-full text-xs">
-            <span className="font-mono text-slate-400 text-[11px]">
-              Checksum: {selectedAuditLog?.metadata?.checksum || "sha256:7e88b2a1...verified"}
-            </span>
-            <button
-              onClick={() => setSelectedAuditLog(null)}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors cursor-pointer"
-            >
-              Close Ledger View
-            </button>
-          </div>
-        }
-      >
-        {selectedAuditLog && (
-          <div className="space-y-5 text-xs">
-            {/* Immutability Notice */}
-            <div className="p-3 bg-slate-100 border border-slate-300/80 rounded-xl text-[11px] text-slate-700 flex items-center gap-2">
-              <Lock size={14} className="shrink-0 text-slate-600" />
-              <span>
-                <strong>Read-only audit record:</strong> This event is sealed and timestamped. Modifying or deleting audit records is strictly prohibited by DMS security policy.
-              </span>
-            </div>
-
-            {/* Event Summary */}
-            <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Event Identifier:</span>
-                <span className="font-mono font-bold text-slate-800">{selectedAuditLog.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Action Performed:</span>
-                <span className="font-bold text-slate-900">{selectedAuditLog.action}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">
-                  {selectedAuditLog.module === "Authentication"
-                    ? "Auth Detail / Target:"
-                    : selectedAuditLog.module === "Documents"
-                    ? "Document File:"
-                    : selectedAuditLog.module === "Communication"
-                    ? "Message Content:"
-                    : selectedAuditLog.module === "Tasks & Workflow"
-                    ? "Task (ID & Title):"
-                    : "Target Resource:"}
-                </span>
-                <span className="font-semibold text-slate-800">{selectedAuditLog.resource}</span>
-              </div>
-              {selectedAuditLog.channelName && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">
-                    {selectedAuditLog.module === "Tasks & Workflow" ? "Assigned Group / Workstream:" : "Channel / Group:"}
-                  </span>
-                  <span className="font-semibold text-indigo-700">
-                    {selectedAuditLog.channelName.startsWith("@") || selectedAuditLog.channelName.startsWith("#")
-                      ? selectedAuditLog.channelName
-                      : `#${selectedAuditLog.channelName}`}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Module:</span>
-                <span className="font-medium text-slate-700">{selectedAuditLog.module || "General"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Deal Context:</span>
-                <span className="font-semibold text-slate-800">
-                  {selectedAuditLog.deal || activeDeal.name}
-                  {selectedAuditLog.projectName && ` • ${selectedAuditLog.projectName}`}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-medium">Timestamp (IST):</span>
-                <span suppressHydrationWarning className="font-mono text-slate-600 font-semibold">
-                  {formatAuditDate(selectedAuditLog.timestamp).full}
-                </span>
-              </div>
-              {selectedAuditLog.module !== "Authentication" && selectedAuditLog.durationText && selectedAuditLog.durationText !== "—" && (
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200/70">
-                  <span className="text-slate-500 font-medium flex items-center gap-1.5">
-                    <Clock size={13} className="text-sky-600" />
-                    <span>View Duration:</span>
-                  </span>
-                  <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 text-xs">
-                    {selectedAuditLog.durationText} ({selectedAuditLog.durationFormatted || "00:00"})
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Tasks & Workflow Lifecycle Forensic Insight */}
-            {selectedAuditLog.module === "Tasks & Workflow" && (
-              <div className="p-4 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-slate-50 border border-emerald-200/90 rounded-xl space-y-3.5">
-                <div className="flex items-center justify-between pb-2.5 border-b border-emerald-200/70">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                      <ListTodo size={16} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
-                        Task Lifecycle & Workflow Intelligence
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-sm">
-                        {selectedAuditLog.metadata?.taskId ? `[${selectedAuditLog.metadata.taskId}] ` : ""}{selectedAuditLog.metadata?.taskTitle || selectedAuditLog.resource}
-                      </h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-slate-700 border border-emerald-200 shadow-2xs">
-                      {selectedAuditLog.metadata?.dealStage || "Preparation Stage"}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide border shadow-2xs ${
-                        selectedAuditLog.metadata?.isCompleted || selectedAuditLog.metadata?.status === "DONE"
-                          ? "bg-emerald-600 text-white border-emerald-600"
-                          : "bg-amber-500 text-white border-amber-500"
-                      }`}
-                    >
-                      {selectedAuditLog.metadata?.currentStatus || (selectedAuditLog.metadata?.status === "DONE" ? "Completed" : "Active")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Assignment & Operational Specs Grid */}
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Assigned By (Creator)
-                    </span>
-                    <p className="font-bold text-slate-800 text-xs">
-                      {selectedAuditLog.metadata?.assignedBy || "Deal Admin"}
-                    </p>
-                    <span className="text-[10px] text-slate-500 block truncate">
-                      {selectedAuditLog.metadata?.creatorRole || "Admin"} • {selectedAuditLog.metadata?.creatorCompany || selectedAuditLog.companyName || "Organization"}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Assigned To (Assignee)
-                    </span>
-                    <p className="font-bold text-emerald-900 text-xs truncate">
-                      {selectedAuditLog.metadata?.assignedToUser || "Unassigned"}
-                    </p>
-                    <span className="text-[10px] text-emerald-700 block font-medium truncate">
-                      Group: {selectedAuditLog.metadata?.assignedToGroup ? `@${selectedAuditLog.metadata.assignedToGroup}` : "General"}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Deal Stage & State
-                    </span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="font-semibold text-slate-800 text-xs">
-                        {selectedAuditLog.metadata?.dealStage || "Preparation"} Stage
-                      </span>
-                      <span className="text-slate-300">•</span>
-                      <span className="font-bold text-xs text-slate-700">
-                        {selectedAuditLog.metadata?.currentStatus || "Active"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 bg-white/90 border border-emerald-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Priority & Workstream
-                    </span>
-                    <p className="font-semibold text-slate-800 text-xs mt-0.5 truncate">
-                      {selectedAuditLog.metadata?.priority || "Medium"} • {selectedAuditLog.metadata?.workstream || "General"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Subtasks and Attached Files Indicators */}
-                {(selectedAuditLog.metadata?.subtasksCount > 0 || selectedAuditLog.metadata?.attachmentsCount > 0) && (
-                  <div className="flex items-center gap-3 pt-2 border-t border-emerald-200/60 text-xs flex-wrap">
-                    {selectedAuditLog.metadata?.subtasksCount > 0 && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-[11px]">
-                        <CheckSquare size={12} className="text-emerald-600" />
-                        <span>{selectedAuditLog.metadata.subtasksCount} Subtask(s) Configured</span>
-                      </span>
-                    )}
-                    {selectedAuditLog.metadata?.attachmentsCount > 0 && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-emerald-200 text-sky-800 font-semibold text-[11px]">
-                        <FileCode2 size={12} className="text-sky-600" />
-                        <span>{selectedAuditLog.metadata.attachmentsCount} Attachment File(s)</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Step-by-Step Task Lifecycle Audit Trail Timeline */}
-                {Array.isArray(selectedAuditLog.metadata?.allTaskAuditTrail) && selectedAuditLog.metadata.allTaskAuditTrail.length > 0 && (
-                  <div className="pt-2 border-t border-emerald-200/70">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
-                      Task Audit Trail History ({selectedAuditLog.metadata.allTaskAuditTrail.length} Recorded Steps)
-                    </span>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {selectedAuditLog.metadata.allTaskAuditTrail.map((step, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2 rounded-lg bg-white/90 border border-slate-200/80 flex items-start justify-between gap-2 text-[11px]"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-800 truncate">
-                              {step.action}
-                            </p>
-                            <p className="text-[10px] text-slate-500 truncate">
-                              By: <strong>{step.performed_by}</strong> {step.role ? `(${step.role})` : ""} {step.details ? `— ${step.details}` : ""}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-mono text-[10px] text-slate-500 block">
-                              {step.timestamp}
-                            </span>
-                            {step.ip && (
-                              <span className="font-mono text-[9px] text-slate-400 block">
-                                IP: {step.ip}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Document Redaction & Integrity Forensics Card */}
-            {selectedAuditLog.module === "Documents" && (
-              <div className="p-4 bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-slate-50 border border-purple-200/90 rounded-xl space-y-3.5">
-                <div className="flex items-center justify-between pb-2.5 border-b border-purple-200/70">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                      <ShieldCheck size={16} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800 block">
-                        Document Version & Redaction Forensics
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-sm">
-                        {selectedAuditLog.resource}
-                      </h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide border shadow-2xs ${
-                        selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
-                          ? "bg-purple-600 text-white border-purple-600"
-                          : "bg-slate-200 text-slate-800 border-slate-300"
-                      }`}
-                    >
-                      {selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
-                        ? "Redacted (V2)"
-                        : "Original (V1)"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Specs Grid */}
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Redaction Mask Status
-                    </span>
-                    <p className="font-bold text-slate-800 text-xs">
-                      {selectedAuditLog.isRedacted || selectedAuditLog.metadata?.is_redacted || selectedAuditLog.action?.includes("Redact")
-                        ? "PII & Financial Clauses Masked"
-                        : "Full Original Disclosure"}
-                    </p>
-                    <span className="text-[10px] text-purple-700 block font-medium mt-0.5">
-                      {selectedAuditLog.isRedacted || selectedAuditLog.action?.includes("Redact") ? "V2 Immutable Copy" : "V1 Unaltered Document"}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Deal Stage Governance
-                    </span>
-                    <p className="font-bold text-slate-800 text-xs">
-                      {selectedAuditLog.metadata?.dealStage || "Preparation Stage"}
-                    </p>
-                    <span className="text-[10px] text-slate-500 block font-medium mt-0.5">
-                      Audited Deal Data Room
-                    </span>
-                  </div>
-                </div>
-
-                {selectedAuditLog.redactedPath && (
-                  <div className="p-2.5 bg-white/90 border border-purple-100 rounded-lg text-xs">
-                    <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider mb-0.5">
-                      Redacted Storage Bucket & Path
-                    </span>
-                    <p className="font-mono text-[10px] text-purple-900 break-all">
-                      {selectedAuditLog.redactedPath}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Document View Time Forensic Insight */}
-            {selectedAuditLog.action?.toLowerCase().includes("view") && (
-              <div className="p-3.5 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                    <Clock size={18} />
-                  </div>
-                  <div>
-                    <h5 className="font-bold text-slate-900 text-xs">Document Viewing Duration</h5>
-                    <p className="text-[11px] text-slate-500">
-                      Total tracked reading time recorded by secure heartbeat monitor
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="inline-block px-3 py-1 bg-white border border-sky-200 rounded-lg font-mono font-extrabold text-sm text-sky-800 shadow-xs">
-                    {selectedAuditLog.durationText || "< 5s"}
-                  </span>
-                  <span className="block text-[10px] font-mono text-slate-500 mt-0.5">
-                    Formatted: {selectedAuditLog.durationFormatted || "00:00"}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Failure Reason */}
-            {selectedAuditLog.failureReason && (
-              <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-xl space-y-1">
-                <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">
-                  Authentication Failure Reason
-                </span>
-                <p className="font-semibold text-rose-900 text-xs">{selectedAuditLog.failureReason}</p>
-              </div>
-            )}
-
-            {/* Actor Details */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Actor & Authentication Context
-              </h4>
-              <div className="p-3 border border-slate-200 rounded-xl space-y-1.5 bg-white">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-slate-800 text-sm">{selectedAuditLog.user}</p>
-                  <div className="flex items-center gap-1.5">
-                    {selectedAuditLog.side === "buyer" ? (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
-                        Buyer Side
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
-                        Seller Side
-                      </span>
-                    )}
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
-                      {selectedAuditLog.userRole}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-slate-500 font-mono text-[11px]">{selectedAuditLog.userEmail}</p>
-                {selectedAuditLog.companyName && (
-                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
-                    <span className="text-slate-400">Organization:</span>
-                    <span className="font-semibold text-slate-800">{selectedAuditLog.companyName}</span>
-                  </div>
-                )}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-600 font-mono text-[11px]">
-                  <div>Action: <span className="font-semibold text-slate-800">{selectedAuditLog.action}</span></div>
-                  <div>Outcome: <span className="font-bold">{selectedAuditLog.result}</span></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Governance/Policy Decision */}
-            {selectedAuditLog.permissionDecision && (
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Governance Authorization Decision
-                </h4>
-                <div className="p-3 border border-slate-200 rounded-xl space-y-1 bg-slate-50/50">
-                  <p className="font-semibold text-slate-800">
-                    Rule: {selectedAuditLog.permissionDecision.rule}
-                  </p>
-                  <p className="text-slate-600">
-                    Verdict: <span className="font-bold">{selectedAuditLog.permissionDecision.verdict}</span>
-                  </p>
-                  {selectedAuditLog.permissionDecision.reason && (
-                    <p className="text-rose-600 font-medium text-[11px]">
-                      Reason: {selectedAuditLog.permissionDecision.reason}
-                    </p>
-                  )}
-                  {selectedAuditLog.permissionDecision.watermarkText && (
-                    <p className="text-slate-500 font-mono text-[10px]">
-                      Applied Watermark: {selectedAuditLog.permissionDecision.watermarkText}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Additional Metadata */}
-            {selectedAuditLog.metadata && Object.keys(selectedAuditLog.metadata).length > 0 && (
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Cryptographic & File Metadata
-                </h4>
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px] font-mono">
-                  {Object.entries(selectedAuditLog.metadata).map(([k, v]) => (
-                    <div key={k} className="flex justify-between">
-                      <span className="text-slate-400 capitalize">{k}:</span>
-                      <span className="text-slate-700 font-semibold truncate max-w-[280px]">{String(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Raw JSON Payload (Read-Only) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Code2 size={13} />
-                  <span>Raw Cryptographic Payload (Read Only)</span>
-                </h4>
-                <span className="text-[10px] font-mono text-slate-400">Verifiable Signature</span>
-              </div>
-              <pre className="p-3.5 bg-slate-900 text-slate-200 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
-                {JSON.stringify(selectedAuditLog.jsonPayload || selectedAuditLog, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
-      </DetailDrawer>
+      
     </div>
   );
 }

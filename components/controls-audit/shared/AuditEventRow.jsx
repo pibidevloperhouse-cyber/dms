@@ -21,6 +21,7 @@ import {
   CheckSquare,
   ShieldAlert,
   ShieldCheck,
+  ArrowRight,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
@@ -97,27 +98,53 @@ export default function AuditEventRow({
     return (
       <div
         onClick={() => onClick && onClick(event)}
-        className="group p-3.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/80 hover:border-slate-300 transition-all cursor-pointer flex items-start gap-3"
+        className={`group p-3.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/80 hover:border-slate-300 transition-all flex items-start gap-3 ${onClick ? "cursor-pointer" : ""}`}
       >
         <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
           {getActionIcon(event.action)}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs font-bold text-slate-900 truncate">
-                {event.user}
-              </span>
-              {event.side === "buyer" ? (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
-                  Buyer
+            {event.module === "Communication" && event.recipientName ? (
+              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {event.senderName || event.user}
                 </span>
-              ) : (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
-                  Seller
+                <span className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider shrink-0 ${
+                  (event.senderSide || event.side) === "buyer"
+                    ? "bg-sky-50 text-sky-700 border border-sky-200"
+                    : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                }`}>
+                  {(event.senderSide || event.side) === "buyer" ? "Buyer" : "Seller"}
                 </span>
-              )}
-            </div>
+                <span className="text-slate-400 text-xs font-bold">➔</span>
+                <span className="text-xs font-bold text-slate-800 truncate">
+                  {event.recipientName}
+                </span>
+                <span className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider shrink-0 ${
+                  event.recipientSide === "buyer"
+                    ? "bg-sky-50 text-sky-700 border border-sky-200"
+                    : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                }`}>
+                  {event.recipientSide === "buyer" ? "Buyer" : "Seller"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {event.user}
+                </span>
+                {event.side === "buyer" ? (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                    Buyer
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                    Seller
+                  </span>
+                )}
+              </div>
+            )}
             <StatusBadge status={event.result} size="sm" showIcon={false} />
           </div>
           <p className="text-xs text-slate-600 font-medium truncate mb-1">
@@ -125,6 +152,15 @@ export default function AuditEventRow({
               {event.action}
             </span>{" "}
             — <span className="text-slate-800 font-semibold">{event.resource}</span>
+            {event.module === "Communication" && event.transmissionFlow && (
+              <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${
+                event.isCrossParty
+                  ? "bg-purple-100 text-purple-800 border border-purple-200"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}>
+                {event.transmissionFlow}
+              </span>
+            )}
             {event.module === "Documents" && (
               <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                 event.isRedacted || event.action?.includes("Redact")
@@ -182,49 +218,113 @@ export default function AuditEventRow({
   return (
     <tr
       onClick={() => onClick && onClick(event)}
-      className="border-b border-slate-100 hover:bg-[var(--brand-50)]/40 transition-colors cursor-pointer text-xs font-sans group"
+      className={`border-b border-slate-100 transition-colors text-xs font-sans group ${onClick ? "hover:bg-[var(--brand-50)]/40 cursor-pointer" : "hover:bg-slate-50/50"}`}
     >
-      {/* User */}
+      {/* User / Parties (Sender & Recipient) */}
       <td className="px-4 py-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0 uppercase border border-slate-200">
-            {event.user ? event.user.split(" ").map((n) => n[0]).join("") : "?"}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="font-bold text-slate-900 truncate group-hover:text-[var(--brand)] transition-colors">
-                {event.user}
-              </p>
-              {event.side === "buyer" ? (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
-                  Buyer
-                </span>
-              ) : (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
-                  Seller
-                </span>
-              )}
+        {event.module === "Communication" && event.recipientName ? (
+          <div className="flex flex-col gap-1.5 min-w-[210px]">
+            {/* Sender */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0 uppercase border border-slate-200">
+                {(event.senderName || event.user) ? (event.senderName || event.user).split(" ").map((n) => n[0]).join("") : "?"}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-900 truncate text-xs">
+                    {event.senderName || event.user}
+                  </span>
+                  {(event.senderSide || event.side) === "buyer" ? (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
+                      Buyer
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                      Seller
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono truncate">
+                  {event.senderEmail || event.userEmail || event.userRole}
+                </p>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-400 truncate font-mono">
-              {event.userEmail || event.userRole}
-            </p>
+
+            {/* Recipient */}
+            <div className="flex items-center gap-1.5 pl-2 text-xs">
+              <span className="text-slate-400 font-bold text-[10px] shrink-0">↳ To:</span>
+              <div className="min-w-0 flex items-center gap-1.5 truncate">
+                <span className="font-semibold text-slate-700 truncate text-[11px]">
+                  {event.recipientName}
+                </span>
+                {event.recipientSide === "buyer" ? (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
+                    Buyer
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                    Seller
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0 uppercase border border-slate-200">
+              {event.user ? event.user.split(" ").map((n) => n[0]).join("") : "?"}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className={`font-bold text-slate-900 truncate transition-colors ${onClick ? "group-hover:text-[var(--brand)]" : ""}`}>
+                  {event.user}
+                </p>
+                {event.side === "buyer" ? (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shrink-0">
+                    Buyer
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                    Seller
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 truncate font-mono">
+                {event.userEmail || event.userRole}
+              </p>
+            </div>
+          </div>
+        )}
       </td>
 
       {/* Action */}
       <td className="px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-            event.action?.includes("Redact") || event.isRedacted ? "bg-purple-50 text-purple-600" : "bg-slate-100"
-          }`}>
-            {getActionIcon(event.action)}
-          </span>
-          <span className={`font-semibold whitespace-nowrap ${
-            event.action?.includes("Redact") || event.isRedacted ? "text-purple-900 font-bold" : "text-slate-800"
-          }`}>
-            {event.action}
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+              event.action?.includes("Redact") || event.isRedacted
+                ? "bg-purple-50 text-purple-600"
+                : event.module === "Communication"
+                ? "bg-indigo-50 text-indigo-600"
+                : "bg-slate-100"
+            }`}>
+              {getActionIcon(event.action)}
+            </span>
+            <span className={`font-semibold whitespace-nowrap ${
+              event.action?.includes("Redact") || event.isRedacted ? "text-purple-900 font-bold" : "text-slate-800"
+            }`}>
+              {event.action}
+            </span>
+          </div>
+          {event.module === "Communication" && event.transmissionFlow && (
+            <span className={`inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border self-start ${
+              event.isCrossParty
+                ? "bg-purple-50 text-purple-700 border-purple-200"
+                : "bg-slate-50 text-slate-600 border-slate-200"
+            }`}>
+              {event.transmissionFlow}
+            </span>
+          )}
         </div>
       </td>
 

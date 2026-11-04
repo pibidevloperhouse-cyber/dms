@@ -63,7 +63,12 @@ export default function CreateTaskModal() {
 
   const isPrep = normalizeStage(dealStage) === 'Preparation';
   const isBuyerDueDiligence = (currentUser?.side === 'buyer' || userSide === 'buyer') && normalizeStage(dealStage) === 'Due Diligence';
+  const isDueDiligence = normalizeStage(dealStage) === 'Due Diligence';
   const shouldAssignFolder = isPrep || isBuyerDueDiligence;
+
+  // Due Diligence Risk Factor state
+  const [riskFactor, setRiskFactor] = useState('Medium'); // 'Critical' | 'High' | 'Medium' | 'Low'
+  const [riskDescription, setRiskDescription] = useState('');
 
   // Subtask modal state
   const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false);
@@ -97,6 +102,8 @@ export default function CreateTaskModal() {
           if (draft.assignedMember !== undefined) setAssignedMember(draft.assignedMember);
           if (draft.department !== undefined) setDepartment(draft.department);
           if (draft.assignedGroup !== undefined) setAssignedGroup(draft.assignedGroup);
+          if (draft.riskFactor !== undefined) setRiskFactor(draft.riskFactor);
+          if (draft.riskDescription !== undefined) setRiskDescription(draft.riskDescription);
 
           setIsCreateModalOpen(true);
         }
@@ -479,6 +486,8 @@ const handleClose = () => {
   setLiveAccessResult(null);
   setPriority('High');
   setDealStage(currentUser?.side === 'buyer' ? 'Due Diligence' : 'Preparation');
+  setRiskFactor('Medium');
+  setRiskDescription('');
   setDueDate('');
   setSubtasks([]);
   setSubtaskAttachments([]);
@@ -505,6 +514,8 @@ const handleGrantAccess = (e, targetUrl) => {
     dealStage,
     dueDate,
     subtasks,
+    riskFactor,
+    riskDescription,
   };
   try {
     sessionStorage.setItem('deal_workflow_create_task_draft', JSON.stringify(draft));
@@ -559,7 +570,7 @@ const handleSubmit = async (e) => {
       creator_company: currentUser?.company || 'ABC Textiles',
       department: department || 'General',
       workstream: department || 'General',
-      category: department || 'Finance',
+      category: department || (shouldAssignFolder && assignedFolderName) || 'Financial',
       assigned_to_group: assignedGroup || '',
       assigned_to_user: finalAssignee,
       priority,
@@ -577,6 +588,10 @@ const handleSubmit = async (e) => {
       subfolder_name: shouldAssignFolder ? (assignedSubfolderName || null) : null,
       assigned_folder: shouldAssignFolder ? (assignedFolderName || null) : null,
       assigned_subfolder: shouldAssignFolder ? (assignedSubfolderName || null) : null,
+      severity: isDueDiligence ? riskFactor : null,
+      problemDescription: isDueDiligence ? (riskDescription.trim() || null) : null,
+      risk_level: isDueDiligence ? riskFactor : null,
+      risk_description: isDueDiligence ? (riskDescription.trim() || null) : null,
     });
 
     if (created) {
@@ -944,6 +959,66 @@ return (
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Due Diligence Risk Factor & Finding (Synced with Controls & Audits Risks & Alerts) */}
+          {isDueDiligence && (
+            <div className="bg-gradient-to-br from-amber-50/70 via-white to-rose-50/30 border border-amber-200/90 rounded-xl p-3.5 space-y-3 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-900">
+                    Due Diligence Risk Factor & Finding
+                  </span>
+                </div>
+                <span className="text-[10px] text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full font-semibold border border-amber-300">
+                  Controls & Audits Sync
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Risk Factor (Severity) *
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { level: 'Critical', bg: 'bg-rose-50 border-rose-300 text-rose-800 ring-rose-500' },
+                    { level: 'High', bg: 'bg-orange-50 border-orange-300 text-orange-800 ring-orange-500' },
+                    { level: 'Medium', bg: 'bg-amber-50 border-amber-300 text-amber-800 ring-amber-500' },
+                    { level: 'Low', bg: 'bg-emerald-50 border-emerald-300 text-emerald-800 ring-emerald-500' },
+                  ].map((item) => (
+                    <button
+                      key={item.level}
+                      type="button"
+                      onClick={() => setRiskFactor(item.level)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all text-center cursor-pointer ${
+                        riskFactor === item.level
+                          ? `${item.bg} ring-2 shadow-xs`
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      {item.level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Risk Description about folder or file
+                </label>
+                <textarea
+                  rows={2}
+                  value={riskDescription}
+                  onChange={(e) => setRiskDescription(e.target.value)}
+                  placeholder="Provide risk factor details and description about this folder or file..."
+                  className="w-full px-3 py-1.5 text-xs text-slate-900 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-[#006666] focus:outline-none transition-all resize-y bg-white min-h-[52px]"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  This risk factor will be registered in <span className="font-semibold text-slate-700">Controls & Audits &rarr; Risks & Alerts</span> for diligence governance and closure sign-off.
+                </p>
+              </div>
             </div>
           )}
 

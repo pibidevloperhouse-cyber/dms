@@ -41,6 +41,21 @@ export async function POST(req, context) {
             if (doc.uploaded_by === userId && !doc.creator_revoked) {
                 hasAccess = true;
             } else {
+                try {
+                    await supabase.from('document_edit_logs').insert([{
+                        user_id: userId,
+                        document_id: targetDocumentId,
+                        action_type: 'PERMISSION_DENIED',
+                        metadata: {
+                            attempted_action: 'VIEW',
+                            reason: "Access Denied: Internal user attempted to view file uploaded by another user in preparation stage.",
+                            file_name: doc.name,
+                            workspace_id: doc.workspace_id || null,
+                        }
+                    }]);
+                } catch (e) {
+                    console.warn('Could not log denied view in document_edit_logs:', e.message);
+                }
                 return NextResponse.json({
                     error: "Access Denied: In preparation stage, internal users can only view files they have uploaded."
                 }, { status: 403 });
@@ -74,7 +89,24 @@ export async function POST(req, context) {
             }
         }
 
-        if (!hasAccess) return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+        if (!hasAccess) {
+            try {
+                await supabase.from('document_edit_logs').insert([{
+                    user_id: userId,
+                    document_id: targetDocumentId,
+                    action_type: 'PERMISSION_DENIED',
+                    metadata: {
+                        attempted_action: 'VIEW',
+                        reason: "Access Denied: User does not have granted permission to view this document.",
+                        file_name: doc.name,
+                        workspace_id: doc.workspace_id || null,
+                    }
+                }]);
+            } catch (e) {
+                console.warn('Could not log denied view in document_edit_logs:', e.message);
+            }
+            return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+        }
 
         // 3. Download & Decrypt in Server Memory
         const { data: fileData, error: fileErr } = await supabase.storage.from('vault-files').download(doc.file_path);

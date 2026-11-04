@@ -39,7 +39,6 @@ import {
   PageHeader,
   StatusBadge,
   RiskBadge,
-  DetailDrawer,
   EmptyState,
 } from "@/components/controls-audit/shared";
 import ModalPortal from "@/components/ui/ModalPortal";
@@ -81,12 +80,6 @@ export default function RisksAlertsPage() {
 
   // View toggle: 'table' | 'cards'
   const [viewMode, setViewMode] = useState("table");
-
-  // Selected risk for mitigation drawer
-  const [selectedRisk, setSelectedRisk] = useState(null);
-  const [mitigationStatusDraft, setMitigationStatusDraft] = useState("active");
-  const [mitigationNotesDraft, setMitigationNotesDraft] = useState("");
-  const [isSavingMitigation, setIsSavingMitigation] = useState(false);
 
   // Create Risk Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -174,7 +167,7 @@ export default function RisksAlertsPage() {
     const list = selectedSide === "all" ? risksList : risksList.filter((r) => r.side === selectedSide);
     return {
       total: list.length,
-      high: list.filter((r) => r.severity === "High" && r.status !== "mitigated").length,
+      high: list.filter((r) => (r.severity === "High" || r.severity === "Critical") && r.status !== "mitigated").length,
       blockingStage: list.filter((r) => r.blocksStageAdvancement && r.status !== "mitigated").length,
       mediumLow: list.filter((r) => (r.severity === "Medium" || r.severity === "Low") && r.status !== "mitigated").length,
       policyViolations: list.filter((r) => (r.category === "Policy Violation" || r.category === "Security Alert") && r.status !== "mitigated").length,
@@ -184,85 +177,14 @@ export default function RisksAlertsPage() {
     };
   }, [risksList, selectedSide]);
 
-  // Open mitigation drawer
-  const handleOpenMitigation = (risk) => {
-    setSelectedRisk(risk);
-    setMitigationStatusDraft(risk.status);
-    setMitigationNotesDraft(risk.mitigationPlan || "");
-  };
-
-  // Save mitigation updates & log into audit trail
-  const handleSaveMitigation = async () => {
-    if (!selectedRisk) return;
-    try {
-      setIsSavingMitigation(true);
-
-      // Call API
-      const res = await fetch("/api/control-audits/risks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update_risk",
-          riskId: selectedRisk.id,
-          newStatus: mitigationStatusDraft,
-          mitigationNotes: mitigationNotesDraft.trim(),
-          dealId: dealInfo?.id || selectedDealId,
-        }),
-      });
-
-      // Update local state
-      setRisksList((prev) =>
-        prev.map((item) =>
-          item.id === selectedRisk.id
-            ? {
-                ...item,
-                status: mitigationStatusDraft,
-                mitigationPlan: mitigationNotesDraft.trim() || item.mitigationPlan,
-              }
-            : item
-        )
-      );
-
-      setSelectedRisk((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: mitigationStatusDraft,
-              mitigationPlan: mitigationNotesDraft.trim() || prev.mitigationPlan,
-            }
-          : null
-      );
-
-      // Log into immutable audit trail ledger
-      if (addAuditEvent) {
-        addAuditEvent({
-          action: "Updated Risk Mitigation",
-          resource: `${selectedRisk.title} [Status: ${mitigationStatusDraft}]`,
-          module: "Risks & Alerts",
-          result: mitigationStatusDraft === "mitigated" ? "Success" : "Flagged",
-          metadata: {
-            riskId: selectedRisk.id,
-            side: selectedRisk.side,
-            newStatus: mitigationStatusDraft,
-            notes: mitigationNotesDraft.trim(),
-          },
-          jsonPayload: {
-            risk_id: selectedRisk.id,
-            status: mitigationStatusDraft,
-            side: selectedRisk.side,
-            mitigation_notes: mitigationNotesDraft.trim(),
-          },
-        });
-      }
-
-      showToast(`Risk mitigation updated for "${selectedRisk.title}".`, "success");
-    } catch (err) {
-      console.error("Error saving mitigation:", err);
-      showToast("Failed to save mitigation updates.", "error");
-    } finally {
-      setIsSavingMitigation(false);
-    }
-  };
+  // Dynamically collected categories from live risks
+  const dynamicCategories = useMemo(() => {
+    const set = new Set();
+    risksList.forEach((r) => {
+      if (r.category) set.add(r.category);
+    });
+    return Array.from(set);
+  }, [risksList]);
 
   // Create new risk submit
   const handleCreateRiskSubmit = async (e) => {
@@ -660,7 +582,7 @@ export default function RisksAlertsPage() {
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
               Severity:
             </span>
-            {["all", "High", "Medium", "Low"].map((sev) => (
+            {["all", "Critical", "High", "Medium", "Low"].map((sev) => (
               <button
                 key={sev}
                 onClick={() => setSelectedSeverity(sev)}
@@ -715,12 +637,11 @@ export default function RisksAlertsPage() {
               className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-[var(--brand)] cursor-pointer"
             >
               <option value="all">All Categories</option>
-              <option value="Security Alert">Security Alert</option>
-              <option value="Policy Violation">Policy Violation</option>
-              <option value="Regulatory & Compliance">Regulatory & Compliance</option>
-              <option value="Deal Governance">Deal Governance</option>
-              <option value="High Risk">High Risk</option>
-              <option value="Overdue Milestone">Overdue Milestone</option>
+              {dynamicCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -791,7 +712,7 @@ export default function RisksAlertsPage() {
               </span>
             </div>
             <div className="text-[11px] text-slate-400">
-              Click any row to open the mitigation & audit inspection drawer
+              Verified transaction risks and security audit signals
             </div>
           </div>
 
@@ -815,7 +736,6 @@ export default function RisksAlertsPage() {
                     <th className="px-4 py-3.5">Related Asset</th>
                     <th className="px-3 py-3.5">Owner / Lead</th>
                     <th className="px-3 py-3.5">Status</th>
-                    <th className="px-4 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
@@ -826,8 +746,7 @@ export default function RisksAlertsPage() {
                     return (
                       <tr
                         key={risk.id}
-                        onClick={() => handleOpenMitigation(risk)}
-                        className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                        className="hover:bg-slate-50/70 transition-colors"
                       >
                         {/* Title & Category */}
                         <td className="px-5 py-3.5">
@@ -850,7 +769,7 @@ export default function RisksAlertsPage() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <span className="font-bold text-slate-900 group-hover:text-[var(--brand)] transition-colors">
+                              <span className="font-bold text-slate-900">
                                 {risk.title}
                               </span>
                               <div className="flex items-center gap-1.5 mt-0.5">
@@ -924,19 +843,6 @@ export default function RisksAlertsPage() {
                         <td className="px-3 py-3.5">
                           <StatusBadge status={risk.status} size="sm" />
                         </td>
-
-                        {/* Action */}
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenMitigation(risk);
-                            }}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[var(--brand)] hover:bg-[var(--brand-50)] transition-colors border border-transparent hover:border-[var(--brand)]/20"
-                          >
-                            Mitigate →
-                          </button>
-                        </td>
                       </tr>
                     );
                   })}
@@ -957,9 +863,8 @@ export default function RisksAlertsPage() {
             return (
               <div
                 key={risk.id}
-                onClick={() => handleOpenMitigation(risk)}
-                className={`bg-white border rounded-2xl p-5 shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4 hover:shadow-md ${
-                  isBlocker ? "border-rose-200 hover:border-rose-300" : "border-slate-200/80 hover:border-slate-300"
+                className={`bg-white border rounded-2xl p-5 shadow-xs transition-all flex flex-col justify-between space-y-4 ${
+                  isBlocker ? "border-rose-200" : "border-slate-200/80"
                 }`}
               >
                 <div className="space-y-3">
@@ -1012,18 +917,18 @@ export default function RisksAlertsPage() {
                   </div>
                 </div>
 
-                {/* Footer Owner & Action */}
+                {/* Footer Owner */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px] shrink-0">
                       {risk.ownerAvatar || "US"}
                     </div>
-                    <span className="text-slate-700 font-medium truncate max-w-[120px]">
+                    <span className="text-slate-700 font-medium truncate max-w-[140px]">
                       {risk.owner}
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold text-[var(--brand)] hover:underline">
-                    Mitigate →
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {risk.dueDate || "Active Monitor"}
                   </span>
                 </div>
               </div>
@@ -1031,151 +936,6 @@ export default function RisksAlertsPage() {
           })}
         </div>
       )}
-
-      {/* ── DETAIL & MITIGATION DRAWER ── */}
-      <DetailDrawer
-        isOpen={!!selectedRisk}
-        onClose={() => setSelectedRisk(null)}
-        title="Risk & Security Alert Mitigation"
-        subtitle="Forensic analysis, mitigation planning, and stage blocker clearance"
-        badge={
-          selectedRisk && (
-            <div className="flex items-center gap-1.5">
-              <RiskBadge severity={selectedRisk.severity} size="sm" />
-              <StatusBadge status={mitigationStatusDraft} size="sm" />
-            </div>
-          )
-        }
-      >
-        {selectedRisk && (
-          <div className="space-y-5 text-xs font-sans">
-            {/* Context Box */}
-            <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Party Side:</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    selectedRisk.side === "buyer"
-                      ? "bg-sky-50 text-sky-700 border border-sky-200"
-                      : "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                  }`}
-                >
-                  {selectedRisk.sideLabel || (selectedRisk.side === "buyer" ? "Buyer Side" : "Seller Side")}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Risk Title:</span>
-                <span className="font-bold text-slate-900 text-right max-w-[220px]">
-                  {selectedRisk.title}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Category / Type:</span>
-                <span className="font-semibold text-slate-700">
-                  {selectedRisk.category} • {selectedRisk.type}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Target Resource:</span>
-                <span className="font-mono text-slate-800">{selectedRisk.relatedItem}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Deal Context:</span>
-                <span className="font-semibold text-slate-800">{selectedRisk.deal}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400 font-medium">Stage Progression Impact:</span>
-                {selectedRisk.blocksStageAdvancement ? (
-                  <span className="font-bold text-rose-700 flex items-center gap-1">
-                    <Lock size={11} />
-                    <span>Blocks Stage 3 Bidding</span>
-                  </span>
-                ) : (
-                  <span className="text-slate-600 font-medium">Non-blocking Advisory</span>
-                )}
-              </div>
-            </div>
-
-            {/* Description */}
-            {selectedRisk.description && (
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Audit Signal / Risk Assessment
-                </h4>
-                <div className="p-3 border border-slate-200 rounded-xl bg-white text-slate-700 leading-relaxed">
-                  {selectedRisk.description}
-                </div>
-              </div>
-            )}
-
-            {/* Interactive Status Selector */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Update Governance Status
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: "active", label: "Active / Flagged" },
-                  { value: "in_review", label: "Under Review" },
-                  { value: "escalated", label: "Escalated to Lead" },
-                  { value: "mitigated", label: "Mitigated & Cleared" },
-                ].map((st) => (
-                  <button
-                    key={st.value}
-                    type="button"
-                    onClick={() => setMitigationStatusDraft(st.value)}
-                    className={`p-2.5 rounded-xl border text-left font-semibold text-xs transition-all cursor-pointer ${
-                      mitigationStatusDraft === st.value
-                        ? "border-[var(--brand)] bg-[var(--brand-50)]/50 text-[var(--brand)] ring-1 ring-[var(--brand)]/30"
-                        : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Mitigation Plan & Notes */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Mitigation Strategy & Resolution Notes
-              </h4>
-              <p className="text-[11px] text-slate-400 mb-2">
-                Formal legal and governance notes explaining risk mitigation or clearance terms
-              </p>
-              <textarea
-                rows={4}
-                value={mitigationNotesDraft}
-                onChange={(e) => setMitigationNotesDraft(e.target.value)}
-                placeholder="Detail the mitigation actions taken (e.g. indemnity escrow carveout in section 8.4, secondary regulatory submission, credentials validated)..."
-                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[var(--brand)] text-xs text-slate-800 leading-relaxed"
-              />
-            </div>
-
-            {/* Save Button */}
-            <div className="pt-2">
-              <button
-                onClick={handleSaveMitigation}
-                disabled={isSavingMitigation}
-                className="w-full py-2.5 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white font-bold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isSavingMitigation ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span>Recording Mitigation...</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={14} />
-                    <span>Apply Mitigation & Sign Audit Ledger</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </DetailDrawer>
 
       {/* ── REPORT NEW RISK MODAL ── */}
       {isCreateModalOpen && (

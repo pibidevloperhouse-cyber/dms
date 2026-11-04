@@ -18,9 +18,27 @@ export async function POST(req) {
         const { data: doc, error: docErr } = await supabase.from(tableName).select('*').eq('id', docId).single();
         if (docErr || !doc) throw new Error("Document not found");
 
+        const targetDocumentId = isHistoricalVersion ? doc.document_id : doc.id;
+
         // Preparation Stage Flow Rule:
         // Internal users can ONLY view/download files they have uploaded themselves!
         if (session.role === 'internal_user' && doc.uploaded_by !== session.id) {
+            try {
+                await supabase.from('document_edit_logs').insert([{
+                    user_id: session.id,
+                    document_id: targetDocumentId || docId,
+                    action_type: 'PERMISSION_DENIED',
+                    metadata: {
+                        attempted_action: actionType === 'original' ? 'DOWNLOAD_ORIGINAL' : 'DOWNLOAD_SECURE',
+                        reason: "Access Denied: Internal user attempted to download file uploaded by another user in preparation stage.",
+                        ip_address: req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || '127.0.0.1',
+                        file_name: doc.name,
+                        workspace_id: doc.workspace_id || session.active_workspace_id || null,
+                    }
+                }]);
+            } catch (e) {
+                console.warn('Could not log denied download in document_edit_logs:', e.message);
+            }
             return NextResponse.json({
                 success: false,
                 error: "Access Denied: In preparation stage, internal users can only view or download files they have uploaded."
@@ -119,14 +137,33 @@ export async function POST(req) {
             }
 
             if (perm) {
+                let deniedReason = null;
                 if (actionType === 'original' && !perm.can_download_original) {
-                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to download the original document." }, { status: 403 });
+                    deniedReason = "Access Denied: You do not have permission to download the original document.";
+                } else if (actionType === 'secure' && !perm.can_download_secure) {
+                    deniedReason = "Access Denied: You do not have permission to download this secure document.";
+                } else if (!perm.can_view) {
+                    deniedReason = "Access Denied: You do not have permission to view or download this document.";
                 }
-                if (actionType === 'secure' && !perm.can_download_secure) {
-                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to download this secure document." }, { status: 403 });
-                }
-                if (!perm.can_view) {
-                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to view or download this document." }, { status: 403 });
+
+                if (deniedReason) {
+                    try {
+                        await supabase.from('document_edit_logs').insert([{
+                            user_id: session.id,
+                            document_id: targetDocumentId,
+                            action_type: 'PERMISSION_DENIED',
+                            metadata: {
+                                attempted_action: actionType === 'original' ? 'DOWNLOAD_ORIGINAL' : 'DOWNLOAD_SECURE',
+                                reason: deniedReason,
+                                ip_address: clientIp,
+                                file_name: doc.name,
+                                workspace_id: doc.workspace_id || session.active_workspace_id || null,
+                            }
+                        }]);
+                    } catch (e) {
+                        console.warn('Could not log denied download in document_edit_logs:', e.message);
+                    }
+                    return NextResponse.json({ success: false, error: deniedReason }, { status: 403 });
                 }
             }
         }

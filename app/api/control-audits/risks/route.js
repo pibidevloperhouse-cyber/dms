@@ -3,6 +3,8 @@ import { db } from '@/db';
 import {
   authActivityLogs,
   documentAccessLogs,
+  documentEditLogs,
+  permissions,
   documents,
   users,
   companies,
@@ -12,8 +14,13 @@ import {
   userGroups,
   riskIssues,
   auditLogs,
+  dealTasks,
+  buyerDisclosureStages,
+  buyerDisclosureItems,
 } from '@/db/schema';
 import { eq, desc, or, and, ne, isNull, inArray } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -195,9 +202,109 @@ export async function GET(req) {
       }
     }
 
+    // ── 3B. QUERY DUE DILIGENCE WORKSTREAM FINDINGS FROM `dealTasks` & WORKFLOW ──
+    let rawDealTasks = [];
+    try {
+      rawDealTasks = await db
+        .select()
+        .from(dealTasks)
+        .orderBy(desc(dealTasks.createdAt));
+    } catch (err) {
+      console.warn('Error reading dealTasks table:', err);
+    }
+
+    // Filter tasks for active deal
+    const dealScopedTasks = rawDealTasks.filter((task) => {
+      if (!dealIdParam || dealIdParam === 'all') {
+        if (task.workspaceId === activeDeal.dealId || task.dealId === activeDeal.dealId) return true;
+        if (activeDeal.workspaceId && (task.workspaceId === activeDeal.workspaceId || task.dealId === activeDeal.workspaceId)) return true;
+        if (activeDeal.projectId && (task.dealId === activeDeal.projectId || task.workspaceId === activeDeal.projectId)) return true;
+        const matchDeal = allDeals.find((d) => d.dealId === task.workspaceId || d.dealId === task.dealId);
+        if (matchDeal && matchDeal.projectId && matchDeal.projectId === activeDeal.projectId) return true;
+        return false;
+      }
+      if (task.workspaceId === dealIdParam || task.dealId === dealIdParam) return true;
+      if (activeDeal.workspaceId && (task.workspaceId === activeDeal.workspaceId || task.dealId === activeDeal.workspaceId)) return true;
+      return false;
+    });
+
+    // Fallback: If no tasks matched the strictly scoped deal, include all raw deal tasks so real findings are never missed
+    const effectiveTasks = dealScopedTasks.length > 0 ? dealScopedTasks : rawDealTasks;
+
+    // Check certificate & workflow state from .vdr_active_stage.json
+    let serverDDCertificate = null;
+    let isDDCertSigned = false;
+    let serverActiveStage = 'Due Diligence';
+    try {
+      const stateFilePath = path.join(process.cwd(), '.vdr_active_stage.json');
+      if (fs.existsSync(stateFilePath)) {
+        const stateData = JSON.parse(fs.readFileSync(stateFilePath, 'utf-8'));
+        if (stateData.activeStage) serverActiveStage = stateData.activeStage;
+        serverDDCertificate = stateData.dueDiligenceCertificate;
+        if (
+          serverDDCertificate?.status === 'SIGNED_AND_COMPLETED' ||
+          (serverDDCertificate?.advisorSignature &&
+            serverDDCertificate?.guestAdminSignature &&
+            serverDDCertificate?.superAdminSignature)
+        ) {
+          isDDCertSigned = true;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read .vdr_active_stage.json for risks route:', e);
+    }
+
+    effectiveTasks.forEach((task) => {
+      const isDD =
+        (task.dealStage || '').toLowerCase().includes('due') ||
+        (task.dealStage || '').toLowerCase().includes('diligence');
+      const hasRisk = Boolean(task.severity || task.problemDescription || isDD);
+      if (!hasRisk) return;
+
+      const rawSev = (task.severity || 'Medium').trim();
+      const isCritical = rawSev.toLowerCase() === 'critical';
+      const isHigh = rawSev.toLowerCase() === 'high' || isCritical;
+      const isLow = rawSev.toLowerCase() === 'low';
+      const sev = isCritical ? 'Critical' : isHigh ? 'High' : isLow ? 'Low' : 'Medium';
+      const isDone = (task.status || '').toUpperCase() === 'DONE';
+      const isInReview = (task.status || '').toUpperCase() === 'REVIEW';
+      const riskStatus = isDone ? 'mitigated' : isInReview ? 'in_review' : 'active';
+      const taskSide = (task.targetSide || task.creatorSide || 'buyer').toLowerCase() === 'seller' ? 'seller' : 'buyer';
+      const ownerName = task.assignedToUser || task.createdBy || (taskSide === 'buyer' ? buyerLeadName : sellerLeadName);
+
+      dynamicRisks.push({
+        id: `dd-task-${task.id}`,
+        title: `[${task.taskId}] ${task.title}`,
+        category: task.category || task.folderName || 'Due Diligence Finding',
+        type: 'Due Diligence Risk Finding',
+        severity: sev,
+        owner: ownerName,
+        ownerAvatar: (ownerName || 'DD').slice(0, 2).toUpperCase(),
+        status: riskStatus,
+        dueDate: task.dueDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        detectedAt: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
+        deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+        dealId: activeDeal.dealId,
+        side: taskSide,
+        sideLabel: taskSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
+        relatedItem: task.folderName ? `${task.folderName} · ${task.title}` : task.title,
+        relatedType: 'Due Diligence Task / Folder',
+        description: task.problemDescription
+          ? task.problemDescription
+          : (task.description || `Assigned due diligence review task for ${task.folderName || 'active deal folder'}.`),
+        mitigationPlan: isDone
+          ? 'Diligence risk reviewed and verified in Due Diligence completion certificate.'
+          : isInReview
+            ? 'Task submitted for review; awaiting counterparty resolution and sign-off.'
+            : 'Workstream investigation underway; pending counterparty disclosure clarification.',
+        blocksStageAdvancement: (sev === 'High' || sev === 'Critical') && !isDone,
+      });
+    });
+
     // ── 4. DERIVE REAL DOCUMENT SECURITY & EXPOSURE RISKS FROM `documents` TABLE ──
     const dealWorkspaceIds = [activeDeal.dealId];
     if (activeDeal.workspaceId) dealWorkspaceIds.push(activeDeal.workspaceId);
+    if (activeDeal.projectId) dealWorkspaceIds.push(activeDeal.projectId);
 
     const dealDocuments = await db
       .select({
@@ -212,32 +319,7 @@ export async function GET(req) {
       .where(inArray(documents.workspaceId, dealWorkspaceIds));
 
     dealDocuments.forEach((doc) => {
-      // Risk A: Unredacted sensitive document in active room
-      if (!doc.isRedacted && !doc.isDeleted) {
-        dynamicRisks.push({
-          id: `doc-unredacted-${doc.id}`,
-          title: `Unredacted Confidential Document Exposure (${doc.name})`,
-          category: 'Policy Violation',
-          type: 'Automated Document Scan',
-          severity: 'Medium',
-          owner: sellerLeadName,
-          ownerAvatar: sellerLeadAvatar,
-          status: 'active',
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-          detectedAt: new Date().toISOString(),
-          deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
-          dealId: activeDeal.dealId,
-          side: 'seller',
-          sideLabel: 'Seller Side',
-          relatedItem: doc.name,
-          relatedType: 'Document',
-          description: `Document "${doc.name}" was uploaded to the deal data room without redactions. Confidential data or PII may be exposed to counterparty reviewers.`,
-          mitigationPlan: 'Review document contents and apply required redaction masks or restrict folder permissions.',
-          blocksStageAdvancement: false,
-        });
-      }
-
-      // Risk B: Deleted / Archived Document from deal room
+      // Risk: Deleted / Archived Document from deal room
       if (doc.isDeleted) {
         dynamicRisks.push({
           id: `doc-deleted-${doc.id}`,
@@ -259,6 +341,173 @@ export async function GET(req) {
           description: `Audit alert: Document "${doc.name}" was moved to recycle bin or removed from active diligence folders.`,
           mitigationPlan: 'Deletion verified in audit logs; document retained in immutable archive.',
           blocksStageAdvancement: false,
+        });
+      }
+    });
+
+    // ── 4B. REPEATED DOWNLOADS & SUSPICIOUS DOCUMENT RETRIEVAL ANOMALIES ──
+    let rawDocEditLogs = [];
+    try {
+      rawDocEditLogs = await db
+        .select({
+          id: documentEditLogs.id,
+          userId: documentEditLogs.userId,
+          documentId: documentEditLogs.documentId,
+          actionType: documentEditLogs.actionType,
+          metadata: documentEditLogs.metadata,
+          changedAt: documentEditLogs.changedAt,
+          docName: documents.name,
+          userName: users.name,
+          userEmail: users.email,
+          userRole: users.role,
+          docWorkspaceId: documents.workspaceId,
+        })
+        .from(documentEditLogs)
+        .leftJoin(documents, eq(documentEditLogs.documentId, documents.id))
+        .leftJoin(users, eq(documentEditLogs.userId, users.id))
+        .orderBy(desc(documentEditLogs.changedAt))
+        .limit(200);
+    } catch (e) {
+      console.warn('Error reading documentEditLogs table:', e);
+    }
+
+    // A. Detect Repeated Downloads (per-document and per-user)
+    const downloadsByDoc = new Map();
+    const downloadsByUserDoc = new Map();
+
+    rawDocEditLogs.forEach((l) => {
+      if ((l.actionType || '').toUpperCase().includes('DOWNLOAD')) {
+        const docId = l.documentId || l.metadata?.file_name || 'unknown_doc';
+        if (!downloadsByDoc.has(docId)) {
+          downloadsByDoc.set(docId, []);
+        }
+        downloadsByDoc.get(docId).push(l);
+
+        const userDocKey = `${l.userId || 'anon'}_${docId}`;
+        if (!downloadsByUserDoc.has(userDocKey)) {
+          downloadsByUserDoc.set(userDocKey, []);
+        }
+        downloadsByUserDoc.get(userDocKey).push(l);
+      }
+    });
+
+    // Check per-user repeated downloads (>= 2)
+    const flaggedDocIds = new Set();
+    downloadsByUserDoc.forEach((groupLogs, key) => {
+      if (groupLogs.length >= 2) {
+        const latest = groupLogs[0];
+        const docId = latest.documentId || latest.metadata?.file_name;
+        flaggedDocIds.add(docId);
+        const docName = latest.docName || latest.metadata?.file_name || 'Deal Document';
+        const ownerName = latest.userName || (latest.userEmail ? latest.userEmail.split('@')[0] : 'Audited User');
+        const side = getUserPartySide({
+          userId: latest.userId,
+          userEmail: latest.userEmail,
+        });
+        const isCritical = groupLogs.length >= 4;
+        const isHigh = groupLogs.length >= 3;
+        const sev = isCritical ? 'Critical' : isHigh ? 'High' : 'Medium';
+        const count = groupLogs.length;
+
+        dynamicRisks.push({
+          id: `sec-rep-dl-usr-${(docId || 'doc').slice(0, 8)}-${(latest.userId || 'usr').slice(0, 6)}`,
+          title: `Repeated Document Download Anomaly (${docName})`,
+          category: 'Security Alert',
+          type: 'Suspicious Download Activity',
+          severity: sev,
+          owner: ownerName,
+          ownerAvatar: (ownerName || 'DL').slice(0, 2).toUpperCase(),
+          status: 'in_review',
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          detectedAt: latest.changedAt ? new Date(latest.changedAt).toISOString() : new Date().toISOString(),
+          deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+          dealId: activeDeal.dealId,
+          side,
+          sideLabel: side === 'buyer' ? 'Buyer Side' : 'Seller Side',
+          relatedItem: `${docName} (${count} User Downloads)`,
+          relatedType: 'Document Download Log',
+          description: `User "${ownerName}" repeatedly downloaded "${docName}" (${count} times). Flagged as suspicious repeated offline acquisition or potential data exfiltration attempt.`,
+          mitigationPlan: 'Forensic download audit initiated. Watermark telemetry tracking verified against counterparty IP.',
+          blocksStageAdvancement: sev === 'High' || sev === 'Critical',
+        });
+      }
+    });
+
+    // Check overall repeated downloads on a sensitive document (>= 2 total downloads across reviewers)
+    downloadsByDoc.forEach((groupLogs, docId) => {
+      if (groupLogs.length >= 2 && !flaggedDocIds.has(docId)) {
+        const latest = groupLogs[0];
+        const docName = latest.docName || latest.metadata?.file_name || 'Deal Document';
+        const userNames = Array.from(new Set(groupLogs.map((g) => g.userName || (g.userEmail ? g.userEmail.split('@')[0] : 'User')))).join(', ');
+        const side = getUserPartySide({
+          userId: latest.userId,
+          userEmail: latest.userEmail,
+        });
+        const count = groupLogs.length;
+        const sev = count >= 4 ? 'High' : 'Medium';
+
+        dynamicRisks.push({
+          id: `sec-rep-dl-doc-${(docId || 'doc').slice(0, 8)}`,
+          title: `High-Frequency Document Downloads (${docName})`,
+          category: 'Security Alert',
+          type: 'Suspicious Download Activity',
+          severity: sev,
+          owner: userNames || sellerLeadName,
+          ownerAvatar: 'DL',
+          status: 'in_review',
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          detectedAt: latest.changedAt ? new Date(latest.changedAt).toISOString() : new Date().toISOString(),
+          deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+          dealId: activeDeal.dealId,
+          side,
+          sideLabel: side === 'buyer' ? 'Buyer Side' : 'Seller Side',
+          relatedItem: `${docName} (${count} Total Downloads)`,
+          relatedType: 'Document Download Log',
+          description: `Document "${docName}" has been downloaded ${count} times by multiple reviewers (${userNames}). Monitored for bulk data extraction.`,
+          mitigationPlan: 'Watermarked copies logged in forensic chain of custody ledger.',
+          blocksStageAdvancement: false,
+        });
+      }
+    });
+
+    // B. Detect Unauthorized Document Actions & Permission Denied Attempts
+    rawDocEditLogs.forEach((l) => {
+      const isDenied =
+        (l.actionType || '').toUpperCase().includes('DENIED') ||
+        (l.actionType || '').toUpperCase().includes('UNAUTHORIZED') ||
+        Boolean(l.metadata?.reason && l.metadata.reason.toLowerCase().includes('access denied'));
+
+      if (isDenied) {
+        const docName = l.docName || l.metadata?.file_name || 'Protected Deal Document';
+        const ownerName = l.userName || (l.userEmail ? l.userEmail.split('@')[0] : 'Restricted User');
+        const attemptedOp = l.metadata?.attempted_action || l.actionType || 'Document Access';
+        const side = getUserPartySide({
+          userId: l.userId,
+          userEmail: l.userEmail,
+        });
+
+        dynamicRisks.push({
+          id: `sec-perm-denied-${l.id}`,
+          title: `Unauthorized Document Action Attempt (${docName})`,
+          category: 'Policy Violation',
+          type: 'Permission Violation Alert',
+          severity: 'High',
+          owner: ownerName,
+          ownerAvatar: (ownerName || 'PV').slice(0, 2).toUpperCase(),
+          status: 'active',
+          dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          detectedAt: l.changedAt ? new Date(l.changedAt).toISOString() : new Date().toISOString(),
+          deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+          dealId: activeDeal.dealId,
+          side,
+          sideLabel: side === 'buyer' ? 'Buyer Side' : 'Seller Side',
+          relatedItem: `${docName} · ${attemptedOp}`,
+          relatedType: 'Access Control Violation',
+          description: l.metadata?.reason
+            ? `${l.metadata.reason} Attempted operation: ${attemptedOp} on "${docName}". Flagged for unauthorized clearance probing.`
+            : `User "${ownerName}" attempted unauthorized action (${attemptedOp}) on document "${docName}" without granted permissions. Gateway enforced 403 Forbidden.`,
+          mitigationPlan: 'Access violation flagged. Review user group permissions and notify Lead Administrator.',
+          blocksStageAdvancement: true,
         });
       }
     });
@@ -307,38 +556,61 @@ export async function GET(req) {
       }
     });
 
-    // ── 6. DERIVE RAPID EXTRATION SIGNALS FROM `documentAccessLogs` ──
-    const recentDocLogs = await db
-      .select({
-        id: documentAccessLogs.id,
-        userId: documentAccessLogs.userId,
-        documentId: documentAccessLogs.documentId,
-        openedAt: documentAccessLogs.openedAt,
-        durationSeconds: documentAccessLogs.durationSeconds,
-        docName: documents.name,
-        userName: users.name,
-        userEmail: users.email,
-        userRole: users.role,
-      })
-      .from(documentAccessLogs)
-      .leftJoin(documents, eq(documentAccessLogs.documentId, documents.id))
-      .leftJoin(users, eq(documentAccessLogs.userId, users.id))
-      .orderBy(desc(documentAccessLogs.openedAt))
-      .limit(10);
+    // ── 6. DERIVE SUSPICIOUS ACTIVITY & LESS THAN 1 SESSION VIEWING FROM `documentAccessLogs` ──
+    let recentDocLogs = [];
+    try {
+      recentDocLogs = await db
+        .select({
+          id: documentAccessLogs.id,
+          userId: documentAccessLogs.userId,
+          documentId: documentAccessLogs.documentId,
+          openedAt: documentAccessLogs.openedAt,
+          closedAt: documentAccessLogs.closedAt,
+          durationSeconds: documentAccessLogs.durationSeconds,
+          durationFormatted: documentAccessLogs.durationFormatted,
+          docName: documents.name,
+          userName: users.name,
+          userEmail: users.email,
+          userRole: users.role,
+        })
+        .from(documentAccessLogs)
+        .leftJoin(documents, eq(documentAccessLogs.documentId, documents.id))
+        .leftJoin(users, eq(documentAccessLogs.userId, users.id))
+        .orderBy(desc(documentAccessLogs.openedAt))
+        .limit(30);
+    } catch (e) {
+      console.warn('Error reading documentAccessLogs table:', e);
+    }
 
+    // Flag brief / rapid (< 1 session) views
+    const seenBriefDocs = new Set();
     recentDocLogs.forEach((l) => {
-      if (l.durationSeconds === 0 && l.docName) {
+      const isBrief = (l.durationSeconds !== null && l.durationSeconds <= 3) || l.durationSeconds === 0;
+      const isQuickOrUnclosed = isBrief || (!l.closedAt && l.durationSeconds === null);
+      const docName = l.docName || 'Protected Document';
+
+      if (isQuickOrUnclosed && l.documentId) {
+        // Prevent duplicate spam for the same user + doc in quick succession
+        const dedupKey = `${l.userId}_${l.documentId}`;
+        if (seenBriefDocs.has(dedupKey)) return;
+        seenBriefDocs.add(dedupKey);
+
         const side = getUserPartySide({
           userId: l.userId,
           userEmail: l.userEmail,
         });
         const ownerName = l.userName || (l.userEmail ? l.userEmail.split('@')[0] : 'Audited User');
+        const durText = l.durationSeconds !== null && l.durationSeconds !== undefined
+          ? `${l.durationSeconds}s`
+          : l.durationFormatted && l.durationFormatted !== '00:00'
+            ? l.durationFormatted
+            : '< 3s (instant view)';
 
         dynamicRisks.push({
           id: `sec-rapid-${l.id}`,
-          title: `Rapid Document Access & Extraction Signal (${l.docName})`,
+          title: `Suspicious Brief Document Access (< 1 Session) (${docName})`,
           category: 'Security Alert',
-          type: 'Automated Security Alert',
+          type: 'Suspicious Viewing Activity',
           severity: 'Medium',
           owner: ownerName,
           ownerAvatar: (ownerName || 'UN').slice(0, 2).toUpperCase(),
@@ -349,63 +621,16 @@ export async function GET(req) {
           dealId: activeDeal.dealId,
           side,
           sideLabel: side === 'buyer' ? 'Buyer Side' : 'Seller Side',
-          relatedItem: l.docName,
+          relatedItem: `${docName} (${durText})`,
           relatedType: 'Document Access Log',
-          description: `User "${ownerName}" opened "${l.docName}" with 0-second duration. Monitored for automated scraping or bulk download scripts.`,
-          mitigationPlan: 'Watermark tracking verified. Audit trail confirms single-page viewing.',
+          description: `User "${ownerName}" opened "${docName}" with duration ${durText} (< 1 standard review session). Monitored for automated scraping, bulk screen-capture, or unread quick-skimming.`,
+          mitigationPlan: 'Dynamic session telemetry logged. Forensic audit trail confirmed single-page view with watermark.',
           blocksStageAdvancement: false,
         });
       }
     });
 
-    // ── 7. STAGE 3 BIDDING BLOCKERS TIED TO REAL COUNTERPARTIES ──
-    // A. Buyer Stage Blocker
-    dynamicRisks.push({
-      id: `gate-buyer-${activeDeal.dealId.slice(0, 6)}`,
-      title: `Buyer Counterparty Financing & Escrow Verification (${buyerLeadName})`,
-      category: 'Regulatory & Compliance',
-      type: 'Deal Governance Risk',
-      severity: 'High',
-      owner: buyerLeadName,
-      ownerAvatar: buyerLeadAvatar,
-      status: 'active',
-      dueDate: '2026-11-12',
-      detectedAt: '2026-10-25T11:20:00Z',
-      deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
-      dealId: activeDeal.dealId,
-      side: 'buyer',
-      sideLabel: 'Buyer Side',
-      relatedItem: 'Acquisition Proof of Funds & Escrow Confirmation',
-      relatedType: 'Document Package',
-      description: `Formal verification of debt financing and bank escrow confirmation required for Buyer Principal "${buyerLeadName}". Required to advance to Stage 3 Bidding.`,
-      mitigationPlan: 'Buyer lead requested escrow confirmation letter and certified banking schedule.',
-      blocksStageAdvancement: true, // Blocks Stage 3 Bidding
-    });
-
-    // B. Seller Stage Blocker
-    dynamicRisks.push({
-      id: `gate-seller-${activeDeal.dealId.slice(0, 6)}`,
-      title: `Seller Due Diligence Disclosure Schedules Sign-Off (${activeDeal.dealName || activeDeal.projectName})`,
-      category: 'High Risk',
-      type: 'Deal Governance Risk',
-      severity: 'High',
-      owner: sellerLeadName,
-      ownerAvatar: sellerLeadAvatar,
-      status: 'active',
-      dueDate: '2026-11-15',
-      detectedAt: '2026-10-26T09:30:00Z',
-      deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
-      dealId: activeDeal.dealId,
-      side: 'seller',
-      sideLabel: 'Seller Side',
-      relatedItem: dealDocuments[0]?.name || 'Data Room Disclosure Exhibits',
-      relatedType: 'Document Package',
-      description: `Formal legal clearance of all uploaded disclosures and contracts required by Seller Lead "${sellerLead.name}". Unresolved disclosure gaps block Stage 3 Bidding.`,
-      mitigationPlan: 'Seller counsel finalizing legal disclosure schedule sign-off.',
-      blocksStageAdvancement: true, // Blocks Stage 3 Bidding
-    });
-
-    // ── 8. APPLY REQUEST FILTERS ──
+    // ── 7. APPLY REQUEST FILTERS ──
     let filtered = dynamicRisks;
 
     // Filter by Party Side
@@ -447,7 +672,7 @@ export async function GET(req) {
 
     // Compute metrics
     const total = dynamicRisks.length;
-    const high = dynamicRisks.filter((r) => r.severity === 'High' && r.status !== 'mitigated').length;
+    const high = dynamicRisks.filter((r) => (r.severity === 'High' || r.severity === 'Critical') && r.status !== 'mitigated').length;
     const blockingStage = dynamicRisks.filter(
       (r) => r.blocksStageAdvancement && r.status !== 'mitigated'
     ).length;
@@ -552,6 +777,20 @@ export async function POST(req) {
         { success: false, error: 'riskId and newStatus are required.' },
         { status: 400 }
       );
+    }
+
+    // If DD task risk, update dealTasks table status
+    if (riskId.startsWith('dd-task-')) {
+      const taskUuid = riskId.replace('dd-task-', '');
+      try {
+        const nextStatus = newStatus === 'mitigated' ? 'DONE' : newStatus === 'in_review' ? 'REVIEW' : 'IN_PROGRESS';
+        await db
+          .update(dealTasks)
+          .set({ status: nextStatus })
+          .where(eq(dealTasks.id, taskUuid));
+      } catch (e) {
+        console.warn('Could not update dealTasks for id:', taskUuid, e.message);
+      }
     }
 
     // If UUID matches riskIssues table, update it in DB

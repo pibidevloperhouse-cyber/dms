@@ -210,7 +210,20 @@ export async function POST(req) {
       assigned_subfolder_name,
       assigned_folder,
       assigned_subfolder,
+      severity,
+      problemDescription,
+      problem_description,
+      risk_level,
+      riskLevel,
+      risk_description,
+      riskDescription,
+      documentReference,
+      document_reference,
     } = payload;
+
+    const resolvedSeverity = severity || risk_level || riskLevel || null;
+    const resolvedProblemDesc = problemDescription || problem_description || riskDescription || risk_description || null;
+    const resolvedDocRef = documentReference || document_reference || null;
 
     const finalIsEnabled = is_enabled !== undefined
       ? Boolean(is_enabled)
@@ -275,6 +288,18 @@ export async function POST(req) {
       });
     }
 
+    if (resolvedProblemDesc || resolvedSeverity) {
+      initialAudit.push({
+        action: `Due Diligence Risk Factor Identified: [${resolvedSeverity || 'Medium'}]`,
+        performed_by: resolvedCreatedBy,
+        role: creator_role,
+        timestamp: formattedDate,
+        ip: ipAddress,
+        severity: resolvedSeverity,
+        problem_description: resolvedProblemDesc,
+      });
+    }
+
     const [newTask] = await db
       .insert(dealTasks)
       .values({
@@ -308,6 +333,9 @@ export async function POST(req) {
         folderName: resolvedFolderName,
         subfolderId: resolvedSubfolderId,
         subfolderName: resolvedSubfolderName,
+        severity: resolvedSeverity,
+        problemDescription: resolvedProblemDesc,
+        documentReference: resolvedDocRef,
       })
       .returning();
 
