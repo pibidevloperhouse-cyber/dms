@@ -280,7 +280,7 @@ export async function POST(req) {
             });
         }
 
-        // ── 2. SAVE PERMISSIONS FOR GUEST ADMIN ──
+        // ── 2. SAVE PERMISSIONS FOR GUEST ADMIN / BUYER USERS ──
         if (action === 'save_permissions') {
             if (!guestAdminId) {
                 return NextResponse.json({ error: 'Guest Admin ID required' }, { status: 400 });
@@ -289,66 +289,81 @@ export async function POST(req) {
                 return NextResponse.json({ error: 'Permissions map required' }, { status: 400 });
             }
 
-            // Find existing permission records for this user to update or insert
+            // Target users to apply permissions to (guestAdminId + all buyer-side users of this workspace/deal)
+            const targetUserIds = new Set([guestAdminId]);
+
+            if (workspaceId && UUID_REGEX.test(workspaceId)) {
+                const { data: deal } = await supabase
+                    .from('dms_deals')
+                    .select('buyer_id')
+                    .eq('id', workspaceId)
+                    .maybeSingle();
+                if (deal?.buyer_id) targetUserIds.add(deal.buyer_id);
+            }
+
+            // Get company_id of target user to find fellow buyer users
+            const { data: tUser } = await supabase
+                .from('users')
+                .select('company_id')
+                .eq('id', guestAdminId)
+                .maybeSingle();
+
+            const buyerCompId = tUser?.company_id;
+            if (buyerCompId) {
+                const { data: compUsers } = await supabase
+                    .from('users')
+                    .select('id, role, dms_role')
+                    .eq('company_id', buyerCompId);
+
+                (compUsers || []).forEach(u => {
+                    const isBuyer = ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes(u.role) || u.dms_role === 'buyer';
+                    if (isBuyer) targetUserIds.add(u.id);
+                });
+            }
+
+            const targetUsersList = Array.from(targetUserIds);
+
+            // Fetch existing permission records for all target users
             const { data: existingUserPerms } = await supabase
                 .from('permissions')
                 .select('id, document_id, user_id')
-                .eq('user_id', guestAdminId);
+                .in('user_id', targetUsersList);
 
             const existingMap = new Map();
             (existingUserPerms || []).forEach(p => {
-                if (p.document_id) existingMap.set(p.document_id, p.id);
+                if (p.document_id && p.user_id) existingMap.set(`${p.user_id}_${p.document_id}`, p.id);
             });
 
-            // Also check user's groups to keep group permissions in sync if applicable
+            // Also check groups of these users
             const { data: uGroups } = await supabase
                 .from('user_groups')
                 .select('group_id')
-                .eq('user_id', guestAdminId);
-            const primaryGroupId = uGroups?.[0]?.group_id || null;
+                .in('user_id', targetUsersList);
+            const primaryGroupIds = Array.from(new Set((uGroups || []).map(g => g.group_id).filter(Boolean)));
+
+            const grpExistingMap = new Map();
+            if (primaryGroupIds.length > 0) {
+                const { data: existingGrpPerms } = await supabase
+                    .from('permissions')
+                    .select('id, group_id, document_id')
+                    .in('group_id', primaryGroupIds);
+                (existingGrpPerms || []).forEach(p => {
+                    if (p.group_id && p.document_id) grpExistingMap.set(`${p.group_id}_${p.document_id}`, p.id);
+                });
+            }
 
             const now = new Date().toISOString();
             const entries = Object.entries(permissionsMap);
+            const toInsert = [];
+            const toUpdate = [];
 
             for (const [docId, perm] of entries) {
                 if (!docId) continue;
 
-                const payload = {
-                    company_id: companyId,
-                    user_id: guestAdminId,
-                    document_id: docId,
-                    scope: 'document',
-                    can_view: Boolean(perm.can_view),
-                    can_download_secure: Boolean(perm.can_download_secure),
-                    can_download_original: Boolean(perm.can_download_original),
-                    updated_at: now
-                };
-
-                const existingPermId = existingMap.get(docId);
-
-                if (existingPermId) {
-                    await supabase
-                        .from('permissions')
-                        .update(payload)
-                        .eq('id', existingPermId);
-                } else {
-                    await supabase
-                        .from('permissions')
-                        .insert(payload);
-                }
-
-                // If user has a group, also ensure group permission exists
-                if (primaryGroupId) {
-                    const { data: existingGrpPerm } = await supabase
-                        .from('permissions')
-                        .select('id')
-                        .eq('group_id', primaryGroupId)
-                        .eq('document_id', docId)
-                        .maybeSingle();
-
-                    const grpPayload = {
+                for (const uId of targetUsersList) {
+                    const payload = {
                         company_id: companyId,
-                        group_id: primaryGroupId,
+                        user_id: uId,
                         document_id: docId,
                         scope: 'document',
                         can_view: Boolean(perm.can_view),
@@ -357,17 +372,49 @@ export async function POST(req) {
                         updated_at: now
                     };
 
-                    if (existingGrpPerm?.id) {
-                        await supabase
-                            .from('permissions')
-                            .update(grpPayload)
-                            .eq('id', existingGrpPerm.id);
+                    const existingPermId = existingMap.get(`${uId}_${docId}`);
+                    if (existingPermId) {
+                        toUpdate.push({ id: existingPermId, payload });
                     } else {
-                        await supabase
-                            .from('permissions')
-                            .insert(grpPayload);
+                        toInsert.push(payload);
                     }
                 }
+
+                // If users have groups, also ensure group permission exists
+                for (const grpId of primaryGroupIds) {
+                    const grpPayload = {
+                        company_id: companyId,
+                        group_id: grpId,
+                        document_id: docId,
+                        scope: 'document',
+                        can_view: Boolean(perm.can_view),
+                        can_download_secure: Boolean(perm.can_download_secure),
+                        can_download_original: Boolean(perm.can_download_original),
+                        updated_at: now
+                    };
+
+                    const existingGrpPermId = grpExistingMap.get(`${grpId}_${docId}`);
+                    if (existingGrpPermId) {
+                        toUpdate.push({ id: existingGrpPermId, payload: grpPayload });
+                    } else {
+                        toInsert.push(grpPayload);
+                    }
+                }
+            }
+
+            // Perform batch insert and concurrent updates
+            if (toInsert.length > 0) {
+                await supabase.from('permissions').insert(toInsert);
+            }
+            if (toUpdate.length > 0) {
+                await Promise.all(
+                    toUpdate.map(item =>
+                        supabase
+                            .from('permissions')
+                            .update(item.payload)
+                            .eq('id', item.id)
+                    )
+                );
             }
 
             return NextResponse.json({

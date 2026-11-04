@@ -61,6 +61,76 @@ export async function POST(req) {
         // 2. Handle ORIGINAL Download
         const targetDocumentId = isHistoricalVersion ? doc.document_id : doc.id;
 
+        // Access Control Verification (Enforces permissions for Buyer-side and non-super-admin Seller users)
+        const isBuyerUser = isBuyerSide || ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes(session.role) || session.dms_role === 'buyer';
+        if (session.role !== 'super_admin' && session.role !== 'admin') {
+            let perm = null;
+            const { data: userPerm } = await supabase
+                .from('permissions')
+                .select('can_view, can_download_secure, can_download_original')
+                .eq('user_id', session.id)
+                .eq('document_id', targetDocumentId)
+                .maybeSingle();
+
+            perm = userPerm;
+
+            // Check group-level permissions if direct user permission is not explicitly defined
+            if (!perm) {
+                const { data: uGroups } = await supabase
+                    .from('user_groups')
+                    .select('group_id')
+                    .eq('user_id', session.id);
+
+                const gIds = (uGroups || []).map(g => g.group_id).filter(Boolean);
+                if (gIds.length > 0) {
+                    const { data: gPerm } = await supabase
+                        .from('permissions')
+                        .select('can_view, can_download_secure, can_download_original')
+                        .in('group_id', gIds)
+                        .eq('document_id', targetDocumentId)
+                        .maybeSingle();
+
+                    if (gPerm) {
+                        perm = gPerm;
+                    } else if (doc.folder_id) {
+                        const { data: fPerm } = await supabase
+                            .from('permissions')
+                            .select('can_view, can_download_secure, can_download_original')
+                            .in('group_id', gIds)
+                            .eq('folder_id', doc.folder_id)
+                            .maybeSingle();
+                        if (fPerm) perm = fPerm;
+                    }
+                }
+            }
+
+            // Buyer-side workspace deal fallback
+            if (!perm && isBuyerUser && session.active_workspace_id) {
+                const { data: deal } = await supabase.from('dms_deals').select('buyer_id').eq('id', session.active_workspace_id).maybeSingle();
+                if (deal?.buyer_id) {
+                    const { data: bPerm } = await supabase
+                        .from('permissions')
+                        .select('can_view, can_download_secure, can_download_original')
+                        .eq('user_id', deal.buyer_id)
+                        .eq('document_id', targetDocumentId)
+                        .maybeSingle();
+                    perm = bPerm;
+                }
+            }
+
+            if (perm) {
+                if (actionType === 'original' && !perm.can_download_original) {
+                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to download the original document." }, { status: 403 });
+                }
+                if (actionType === 'secure' && !perm.can_download_secure) {
+                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to download this secure document." }, { status: 403 });
+                }
+                if (!perm.can_view) {
+                    return NextResponse.json({ success: false, error: "Access Denied: You do not have permission to view or download this document." }, { status: 403 });
+                }
+            }
+        }
+
         if (actionType === 'original') {
             let data, error;
 

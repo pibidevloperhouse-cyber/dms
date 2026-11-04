@@ -33,30 +33,41 @@ export async function POST(req) {
             const { data: myGroups } = await supabase.from('user_groups').select('group_id').eq('user_id', session.id);
             const groupIds = (myGroups || []).map(g => g.group_id);
 
-            if (groupIds.length > 0) {
-                const { data: perms } = await supabase.from('permissions').select('*').in('group_id', groupIds);
-
-                (perms || []).forEach(p => {
-                    if (p.scope === 'files') {
-                        globalTemp.can_create = globalTemp.can_create || p.can_create_folder;
-                        globalTemp.can_merge = globalTemp.can_merge || p.can_merge_folder;
-                        globalTemp.can_delete = globalTemp.can_delete || p.can_delete_folder;
-                    }
-
-                    const key = p.scope === 'folder' ? `fol_${p.folder_id}` : `doc_${p.document_id}`;
-
-                    if (!myPerms[key]) {
-                        myPerms[key] = { ...p };
-                    } else {
-                        myPerms[key].can_view = myPerms[key].can_view || p.can_view;
-                        myPerms[key].can_edit = myPerms[key].can_edit || p.can_edit;
-                        myPerms[key].can_upload = myPerms[key].can_upload || p.can_upload;
-                        myPerms[key].can_download_secure = myPerms[key].can_download_secure || p.can_download_secure;
-                        myPerms[key].can_download_original = myPerms[key].can_download_original || p.can_download_original;
-                        myPerms[key].can_delete = myPerms[key].can_delete || p.can_delete;
-                    }
-                });
+            const userPermIds = [session.id];
+            const isBuyerRole = ['guest_admin', 'buyer', 'external_user', 'guest_lead', 'advisor'].includes(session.role) || session.dms_role === 'buyer';
+            if (isBuyerRole && session.active_workspace_id) {
+                const { data: deal } = await supabase.from('dms_deals').select('buyer_id').eq('id', session.active_workspace_id).maybeSingle();
+                if (deal?.buyer_id && !userPermIds.includes(deal.buyer_id)) {
+                    userPermIds.push(deal.buyer_id);
+                }
             }
+
+            // Fetch group permissions AND direct user permissions
+            let permsQuery = supabase.from('permissions').select('*');
+            if (groupIds.length > 0) {
+                permsQuery = permsQuery.or(`group_id.in.(${groupIds.join(',')}),user_id.in.(${userPermIds.join(',')})`);
+            } else {
+                permsQuery = permsQuery.in('user_id', userPermIds);
+            }
+
+            const { data: perms } = await permsQuery;
+
+            (perms || []).forEach(p => {
+                if (p.scope === 'files') {
+                    globalTemp.can_create = globalTemp.can_create || p.can_create_folder;
+                    globalTemp.can_merge = globalTemp.can_merge || p.can_merge_folder;
+                    globalTemp.can_delete = globalTemp.can_delete || p.can_delete_folder;
+                }
+
+                const key = p.scope === 'folder' ? `fol_${p.folder_id}` : `doc_${p.document_id}`;
+
+                // Direct user permission takes highest priority
+                if (!myPerms[key] || p.user_id === session.id) {
+                    myPerms[key] = { ...p };
+                } else if (!myPerms[key]?.user_id) {
+                    myPerms[key] = { ...p };
+                }
+            });
 
             // If internal user, find folders assigned in Preparation stage tasks created by Sub Admin
             if (isInternalUser) {
@@ -157,6 +168,8 @@ export async function POST(req) {
         const isBuyerSideUser = ['guest_admin', 'buyer', 'external_user', 'guest_lead', 'advisor'].includes(session.role) || session.dms_role === 'buyer';
         let standaloneDisclosureFolders = [];
         let standaloneDisclosureDocs = [];
+        const grantedFolderIds = new Set();
+        const grantedDocIds = new Set();
 
         if (isBuyerSideUser) {
             try {
@@ -182,9 +195,6 @@ export async function POST(req) {
                         .in('stage_id', grantedStageIds);
 
                     if (items && items.length > 0) {
-                        const grantedFolderIds = new Set();
-                        const grantedDocIds = new Set();
-
                         items.forEach(item => {
                             if (item.is_folder) {
                                 if (item.original_folder_id) grantedFolderIds.add(item.original_folder_id);
@@ -223,14 +233,17 @@ export async function POST(req) {
                             });
                         }
 
-                        // Cascade UP: ancestor folders for granted docs
+                        // Cascade UP: ancestor folders for granted docs that are viewable
                         (docsData || []).forEach(doc => {
                             if (grantedDocIds.has(doc.id) && doc.folder_id) {
-                                let currFolId = doc.folder_id;
-                                while (currFolId) {
-                                    grantedFolderIds.add(currFolId);
-                                    const parent = (foldersData || []).find(f => f.id === currFolId);
-                                    currFolId = parent?.parent_folder_id || null;
+                                const perm = myPerms[`doc_${doc.id}`];
+                                if (!perm || perm.can_view !== false) {
+                                    let currFolId = doc.folder_id;
+                                    while (currFolId) {
+                                        grantedFolderIds.add(currFolId);
+                                        const parent = (foldersData || []).find(f => f.id === currFolId);
+                                        currFolId = parent?.parent_folder_id || null;
+                                    }
                                 }
                             }
                         });
@@ -268,17 +281,27 @@ export async function POST(req) {
                         (docsData || []).forEach(doc => {
                             if (grantedDocIds.has(doc.id) || (doc.folder_id && grantedFolderIds.has(doc.folder_id))) {
                                 const key = `doc_${doc.id}`;
-                                if (!myPerms[key]) {
+                                const existing = myPerms[key];
+                                if (!existing) {
                                     myPerms[key] = {
                                         can_view: true,
                                         can_upload: false,
                                         can_download_secure: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
-                                        can_download_original: Boolean(dealRestrictions?.guestCanDownloadDocs ?? true),
+                                        can_download_original: false,
                                         can_edit: false,
                                         can_delete: false
                                     };
                                 } else {
-                                    myPerms[key].can_view = true;
+                                    // PRESERVE the exact permissions configured in Buyer Access Control!
+                                    myPerms[key] = {
+                                        ...existing,
+                                        can_view: Boolean(existing.can_view),
+                                        can_download_secure: Boolean(existing.can_download_secure),
+                                        can_download_original: Boolean(existing.can_download_original),
+                                        can_upload: false,
+                                        can_edit: false,
+                                        can_delete: false
+                                    };
                                 }
                             }
                         });
@@ -311,7 +334,14 @@ export async function POST(req) {
 
         // 3. 🧹 CLEAN AND FILTER THE DATA
         const mappedFolders = (foldersData || [])
-            .filter(f => isGodMode || (f.created_by === session.id && f.creator_revoked !== true) || myPerms[`fol_${f.id}`]?.can_view || prepTaskFolderIds.has(f.id))
+            .filter(f => {
+                if (isGodMode) return true;
+                if (f.created_by === session.id && f.creator_revoked !== true) return true;
+                if (isBuyerSideUser) {
+                    return grantedFolderIds.has(f.id) && myPerms[`fol_${f.id}`]?.can_view === true;
+                }
+                return myPerms[`fol_${f.id}`]?.can_view || prepTaskFolderIds.has(f.id);
+            })
             .map(f => ({
                 id: f.id, parentId: f.parent_folder_id || null, index: f.index_number ? f.index_number.toString() : '1',
                 name: f.name, type: 'folder', size: calculateFolderSize(f.id), uploadedBy: userMap[f.created_by] || 'System',
@@ -326,7 +356,14 @@ export async function POST(req) {
             .filter(doc => {
                 if (isGodMode) return true;
                 if (doc.uploaded_by === session.id && doc.creator_revoked !== true) return true;
-                if (myPerms[`doc_${doc.id}`]?.can_view) return true;
+                if (isBuyerSideUser) {
+                    // For buyer users, document MUST have can_view === true!
+                    // If seller explicitly disabled can_view in buyer access control, hide it!
+                    return myPerms[`doc_${doc.id}`]?.can_view === true;
+                }
+                if (myPerms[`doc_${doc.id}`]) {
+                    return myPerms[`doc_${doc.id}`].can_view === true;
+                }
                 if (doc.folder_id && (myPerms[`fol_${doc.folder_id}`]?.can_view || prepTaskFolderIds.has(doc.folder_id))) return true;
                 return false;
             })

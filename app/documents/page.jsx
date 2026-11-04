@@ -157,6 +157,15 @@ function UnifiedWorkspace() {
             if (['can_upload', 'can_create_folder', 'can_edit', 'can_delete', 'can_merge_folder'].includes(action)) {
                 return false;
             }
+            if (item) {
+                const key = item.type === 'folder' ? `fol_${item.id}` : `doc_${item.id}`;
+                if (mergedPerms[key] && mergedPerms[key][action] !== undefined) {
+                    return Boolean(mergedPerms[key][action]);
+                }
+                if (item.type !== 'folder' && item.parentId && mergedPerms[`fol_${item.parentId}`]?.[action] !== undefined) {
+                    return Boolean(mergedPerms[`fol_${item.parentId}`]?.[action]);
+                }
+            }
             if (['can_view', 'can_download_secure', 'can_download_original', 'can_download'].includes(action)) {
                 return true;
             }
@@ -203,14 +212,16 @@ function UnifiedWorkspace() {
             return false;
         }
         if (item.creator_id === session.id && item.creator_revoked !== true) return true;
+        const key = item.type === 'folder' ? `fol_${item.id}` : `doc_${item.id}`;
+        if (mergedPerms[key] && mergedPerms[key][action] !== undefined) {
+            return Boolean(mergedPerms[key][action]);
+        }
         if (isAdminRole) {
             if (['can_view', 'can_download_secure', 'can_download_original', 'can_download'].includes(action)) {
                 if (item.parentId && mergedPerms[`fol_${item.parentId}`]?.can_view) return true;
                 return true;
             }
         }
-        const key = item.type === 'folder' ? `fol_${item.id}` : `doc_${item.id}`;
-        if (mergedPerms[key]?.[action] === true) return true;
         if (item.type !== 'folder' && item.parentId && mergedPerms[`fol_${item.parentId}`]?.[action] === true) return true;
         return false;
     };
@@ -841,11 +852,11 @@ function UnifiedWorkspace() {
     const canUploadHere = isBuyerSide ? false : (currentFolderId === null ? canUser('can_upload') : canUser('can_upload', { type: 'folder', id: currentFolderId }));
     const canCreateFolder = isBuyerSide ? false : ['super_admin', 'admin'].includes(session?.role);
     const canMergeFolder = isBuyerSide ? false : (isGod || ['admin', 'sub_admin'].includes(session?.role) || globalFolderPerms.can_merge);
-    const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && (isBuyerSide || canUser('can_download_secure', item)));
-    const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && (isBuyerSide || canUser('can_download_original', item)));
+    const canDownloadSecureSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_secure', item));
+    const canDownloadOriginalSelected = selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type !== 'folder' && canUser('can_download_original', item));
     const canDeleteSelected = isBuyerSide ? false : (selectedItemsArray.length > 0 && selectedItemsArray.every(item => item.type === 'folder' ? (isGod || globalFolderPerms.can_delete) : canUser('can_delete', item)));
     const hasAnyRenameAccess = isBuyerSide ? false : (isGod || canUser('can_edit', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_edit', f)));
-    const hasAnyDownloadAccess = isBuyerSide || isGod || canUser('can_download_secure', { type: 'folder', id: currentFolderId }) || canUser('can_download_original', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_download_secure', f) || canUser('can_download_original', f));
+    const hasAnyDownloadAccess = isGod || canUser('can_download_secure', { type: 'folder', id: currentFolderId }) || canUser('can_download_original', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_download_secure', f) || canUser('can_download_original', f));
     const hasAnyDeleteAccess = isBuyerSide ? false : (isGod || globalFolderPerms.can_delete || canUser('can_delete', { type: 'folder', id: currentFolderId }) || filteredItems.some(f => canUser('can_delete', f)));
     const hasAnyExportAccess = isGod || canUser('can_export');
 

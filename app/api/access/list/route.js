@@ -48,7 +48,7 @@ export async function POST(req) {
             docQuery = docQuery.eq('company_id', companyId).is('workspace_id', null);
         }
 
-        let permQuery = supabase.from('permissions').select('id, document_id, folder_id, scope, group_id, can_view, can_edit, can_upload, can_download_secure, can_download_original, can_delete, can_redact, can_view_seller_groups');
+        let permQuery = supabase.from('permissions').select('id, user_id, document_id, folder_id, scope, group_id, can_view, can_edit, can_upload, can_download_secure, can_download_original, can_delete, can_redact, can_view_seller_groups');
         if (!session.active_workspace_id) {
             permQuery = permQuery.eq('company_id', companyId);
         }
@@ -133,11 +133,28 @@ export async function POST(req) {
         const myPerms = {};
         if (session.role !== 'super_admin' && permsData) {
             permsData.forEach(p => {
-                if (myGroupIds.includes(p.group_id)) {
+                if (myGroupIds.includes(p.group_id) || p.user_id === session.id) {
                     if (p.scope === 'document' && p.document_id) myPerms[`doc_${p.document_id}`] = p;
                     if (p.scope === 'folder' && p.folder_id) myPerms[`fol_${p.folder_id}`] = p;
                 }
             });
+
+            // If buyer user has no direct perm, check if deal buyer has explicit perm
+            if (isBuyer && session.active_workspace_id) {
+                const { data: deal } = await supabase.from('dms_deals').select('buyer_id').eq('id', session.active_workspace_id).maybeSingle();
+                if (deal?.buyer_id && deal.buyer_id !== session.id) {
+                    permsData.forEach(p => {
+                        if (p.user_id === deal.buyer_id) {
+                            if (p.scope === 'document' && p.document_id && !myPerms[`doc_${p.document_id}`]) {
+                                myPerms[`doc_${p.document_id}`] = p;
+                            }
+                            if (p.scope === 'folder' && p.folder_id && !myPerms[`fol_${p.folder_id}`]) {
+                                myPerms[`fol_${p.folder_id}`] = p;
+                            }
+                        }
+                    });
+                }
+            }
         }
 
         // ── 🛡️ BUYER DISCLOSURE STAGE FILTER FOR BUYER SIDE USERS ──
@@ -243,14 +260,17 @@ export async function POST(req) {
                             }
                         });
 
-                        // Cascade UP: ancestor folders
+                        // Cascade UP: ancestor folders for granted docs that have can_view !== false
                         (docsData || []).forEach(doc => {
                             if (grantedDocIds.has(doc.id) && doc.folder_id) {
-                                let currFolId = doc.folder_id;
-                                while (currFolId) {
-                                    grantedFolderIds.add(currFolId);
-                                    const parent = (foldersData || []).find(f => f.id === currFolId);
-                                    currFolId = parent?.parent_folder_id || null;
+                                const perm = myPerms[`doc_${doc.id}`];
+                                if (!perm || perm.can_view !== false) {
+                                    let currFolId = doc.folder_id;
+                                    while (currFolId) {
+                                        grantedFolderIds.add(currFolId);
+                                        const parent = (foldersData || []).find(f => f.id === currFolId);
+                                        currFolId = parent?.parent_folder_id || null;
+                                    }
                                 }
                             }
                         });
@@ -277,7 +297,7 @@ export async function POST(req) {
         const allowedFolders = [
             ...(foldersData || []).filter(f => {
                 if (isBuyer) {
-                    return grantedFolderIds.has(f.id);
+                    return grantedFolderIds.has(f.id) && (myPerms[`fol_${f.id}`]?.can_view !== false);
                 }
                 if (isFullAccess) return true;
                 if (f.created_by === session.id && f.creator_revoked !== true) return true;
@@ -289,7 +309,9 @@ export async function POST(req) {
         const allowedDocs = [
             ...(docsData || []).filter(doc => {
                 if (isBuyer) {
-                    return grantedDocIds.has(doc.id);
+                    if (!grantedDocIds.has(doc.id)) return false;
+                    if (myPerms[`doc_${doc.id}`] && myPerms[`doc_${doc.id}`].can_view === false) return false;
+                    return true;
                 }
                 if (isFullAccess) return true;
                 if (doc.uploaded_by === session.id && doc.creator_revoked !== true) return true;

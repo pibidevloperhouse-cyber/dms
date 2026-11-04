@@ -46,15 +46,31 @@ export async function POST(req, context) {
                 }, { status: 403 });
             }
         } else {
-            const { data: userGroups } = await supabase.from('user_groups').select('group_id').eq('user_id', userId);
-            if (userGroups && userGroups.length > 0) {
-                const groupIds = userGroups.map(g => g.group_id);
-                const { data: perms } = await supabase.from('permissions').select('can_view, scope, document_id, folder_id').in('group_id', groupIds);
+            // Check direct user permissions (e.g. Buyer Access Control)
+            const { data: directPerm } = await supabase
+                .from('permissions')
+                .select('can_view')
+                .eq('user_id', userId)
+                .eq('document_id', targetDocumentId)
+                .maybeSingle();
 
-                const docPerms = perms.filter(p => p.scope === 'document' && p.document_id === targetDocumentId);
-                const folderPerms = perms.filter(p => p.scope === 'folder' && p.folder_id === doc.folder_id);
+            if (directPerm) {
+                hasAccess = Boolean(directPerm.can_view);
+            } else {
+                const { data: userGroups } = await supabase.from('user_groups').select('group_id').eq('user_id', userId);
+                if (userGroups && userGroups.length > 0) {
+                    const groupIds = userGroups.map(g => g.group_id);
+                    const { data: perms } = await supabase.from('permissions').select('can_view, scope, document_id, folder_id').in('group_id', groupIds);
 
-                if (docPerms.some(p => p.can_view) || folderPerms.some(p => p.can_view)) hasAccess = true;
+                    const docPerms = perms.filter(p => p.scope === 'document' && p.document_id === targetDocumentId);
+                    const folderPerms = perms.filter(p => p.scope === 'folder' && p.folder_id === doc.folder_id);
+
+                    if (docPerms.length > 0) {
+                        hasAccess = docPerms.some(p => p.can_view);
+                    } else if (folderPerms.length > 0) {
+                        hasAccess = folderPerms.some(p => p.can_view);
+                    }
+                }
             }
         }
 
