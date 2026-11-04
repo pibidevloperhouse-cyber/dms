@@ -348,18 +348,48 @@ export default function GroupsSidebar({ isOpen = true }) {
                     }
                 }
 
-                const combined = [...formattedIndividuals, ...buyerUsers].filter(m => m.role === 'advisor');
-                const seen = new Set();
-                const uniqueMembers = combined.filter(m => {
-                    const key = (m.email || m.name || m.id).toLowerCase();
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
+                // Map individual groups by normalized name
+                const individualGroupByName = new Map();
+                formattedIndividuals.forEach(g => {
+                    if (g.name) individualGroupByName.set(g.name.trim().toLowerCase(), g);
                 });
 
-                uniqueMembers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                const mergedBuyerMembers = [];
+                const seenBuyerKeys = new Set();
 
-                setSellerMembers(uniqueMembers);
+                buyerUsers.forEach(u => {
+                    const nameKey = (u.name || '').trim().toLowerCase();
+                    const emailKey = (u.email || '').trim().toLowerCase();
+                    const matchingGroup = nameKey ? individualGroupByName.get(nameKey) : null;
+
+                    const member = {
+                        id: matchingGroup ? matchingGroup.id : u.id,
+                        name: u.name || matchingGroup?.name,
+                        email: u.email || matchingGroup?.name,
+                        role: u.role || matchingGroup?.role || 'advisor',
+                        isIndividualGroup: Boolean(matchingGroup)
+                    };
+
+                    const dedupKey = nameKey || emailKey || u.id;
+                    if (!seenBuyerKeys.has(dedupKey)) {
+                        seenBuyerKeys.add(dedupKey);
+                        if (nameKey) seenBuyerKeys.add(nameKey);
+                        if (emailKey) seenBuyerKeys.add(emailKey);
+                        mergedBuyerMembers.push(member);
+                    }
+                });
+
+                formattedIndividuals.forEach(g => {
+                    const nameKey = (g.name || '').trim().toLowerCase();
+                    if (nameKey && !seenBuyerKeys.has(nameKey)) {
+                        seenBuyerKeys.add(nameKey);
+                        mergedBuyerMembers.push(g);
+                    }
+                });
+
+                mergedBuyerMembers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                setSellerMembers(mergedBuyerMembers);
             } else if (companyId) {
                 const { data: sellers } = await supabase
                     .from('users')
@@ -375,13 +405,42 @@ export default function GroupsSidebar({ isOpen = true }) {
                     isIndividualGroup: true
                 }));
 
-                const combined = [...formattedIndividuals, ...(sellers || [])];
-                const seen = new Set();
-                const uniqueMembers = combined.filter(m => {
-                    const key = (m.email || m.name || m.id).toLowerCase();
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
+                const individualGroupByName = new Map();
+                formattedIndividuals.forEach(g => {
+                    if (g.name) individualGroupByName.set(g.name.trim().toLowerCase(), g);
+                });
+
+                const mergedSellerMembers = [];
+                const seenSellerKeys = new Set();
+
+                (sellers || []).forEach(u => {
+                    const nameKey = (u.name || '').trim().toLowerCase();
+                    const emailKey = (u.email || '').trim().toLowerCase();
+                    const matchingGroup = nameKey ? individualGroupByName.get(nameKey) : null;
+
+                    const member = {
+                        id: matchingGroup ? matchingGroup.id : u.id,
+                        name: u.name || matchingGroup?.name,
+                        email: u.email || matchingGroup?.name,
+                        role: u.role || matchingGroup?.role || '',
+                        isIndividualGroup: Boolean(matchingGroup)
+                    };
+
+                    const dedupKey = nameKey || emailKey || u.id;
+                    if (!seenSellerKeys.has(dedupKey)) {
+                        seenSellerKeys.add(dedupKey);
+                        if (nameKey) seenSellerKeys.add(nameKey);
+                        if (emailKey) seenSellerKeys.add(emailKey);
+                        mergedSellerMembers.push(member);
+                    }
+                });
+
+                formattedIndividuals.forEach(g => {
+                    const nameKey = (g.name || '').trim().toLowerCase();
+                    if (nameKey && !seenSellerKeys.has(nameKey)) {
+                        seenSellerKeys.add(nameKey);
+                        mergedSellerMembers.push(g);
+                    }
                 });
 
                 const memberRoleOrder = {
@@ -391,14 +450,14 @@ export default function GroupsSidebar({ isOpen = true }) {
                     'internal_user': 4,
                     'user': 4,
                 };
-                uniqueMembers.sort((a, b) => {
+                mergedSellerMembers.sort((a, b) => {
                     const orderA = memberRoleOrder[a.role] || 99;
                     const orderB = memberRoleOrder[b.role] || 99;
                     if (orderA !== orderB) return orderA - orderB;
                     return (a.name || '').localeCompare(b.name || '');
                 });
 
-                setSellerMembers(uniqueMembers);
+                setSellerMembers(mergedSellerMembers);
             }
 
             setIsLoading(false);

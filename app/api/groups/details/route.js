@@ -142,18 +142,53 @@ export async function POST(req) {
         let canRemoveMembers = false;
         let canEditPermissions = false;
 
-        if (session.role === 'super_admin') {
+        const isSellerAdmin = ['super_admin', 'admin'].includes(session.role);
+        const isBuyerAdmin = ['guest_admin', 'advisor'].includes(session.role);
+        const isBuyerSide = isBuyerAdmin || ['buyer', 'external_user', 'guest_lead'].includes(session.role) || session.dms_role === 'buyer';
+
+        if (isSellerAdmin) {
             canAddMembers = true;
             canRemoveMembers = true;
             canEditPermissions = true;
-        } else if (session.active_workspace_id && ['guest_admin', 'buyer', 'external_user'].includes(session.role)) {
+        } else if (session.active_workspace_id && isBuyerSide) {
             // Check Deal Restrictions for Buyers/Guests
             const dealRows = await db.select({ guestCanInviteMembers: dmsDeals.guestCanInviteMembers })
                 .from(dmsDeals)
                 .where(eq(dmsDeals.id, session.active_workspace_id));
-            if (dealRows && dealRows.length > 0) {
-                canAddMembers = dealRows[0].guestCanInviteMembers;
-                canRemoveMembers = dealRows[0].guestCanInviteMembers; // allow removing if they can invite
+
+            const canInvite = dealRows && dealRows.length > 0 ? Boolean(dealRows[0].guestCanInviteMembers) : true;
+
+            if (isBuyerAdmin) {
+                canAddMembers = canInvite;
+                canRemoveMembers = canInvite;
+                canEditPermissions = true;
+            } else {
+                canAddMembers = canInvite;
+                canRemoveMembers = canInvite;
+
+                const myGroups = await db.select({ groupId: userGroups.groupId })
+                    .from(userGroups)
+                    .where(eq(userGroups.userId, session.id));
+
+                const myGroupIds = myGroups.map(r => r.groupId);
+
+                if (myGroupIds.length > 0) {
+                    const perms = await db.select({
+                        can_access_edit_permissions: permissions.canAccessEditPermissions
+                    })
+                        .from(permissions)
+                        .where(
+                            and(
+                                eq(permissions.companyId, companyId),
+                                eq(permissions.scope, 'workspace'),
+                                inArray(permissions.groupId, myGroupIds)
+                            )
+                        );
+
+                    if (perms && perms.length > 0) {
+                        canEditPermissions = perms.some(p => p.can_access_edit_permissions);
+                    }
+                }
             }
         } else {
             const myGroups = await db.select({ groupId: userGroups.groupId })
