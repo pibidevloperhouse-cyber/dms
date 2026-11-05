@@ -64,6 +64,7 @@ export default function TaskBoardView() {
     activeDealStage,
     stageQuery,
     dueDiligenceCertificate,
+    negotiationInvitation,
   } = useDealWorkflow();
 
   // Task-Based Communication Overlay Drawer state
@@ -241,8 +242,15 @@ export default function TaskBoardView() {
     dueDiligenceCertificate &&
     dueDiligenceCertificate.status === 'SUBMITTED_TO_SELLER'
   );
+  const isBuyerUser = currentUser?.side === 'buyer' || ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normalizeRole(currentUser?.role));
+  const hasNegotiationNotification = Boolean(
+    negotiationInvitation && (
+      (isBuyerUser && (negotiationInvitation.status === 'PENDING_ACCEPTANCE' || negotiationInvitation.status === 'ACCEPTED')) ||
+      (isSuperAdmin && negotiationInvitation.status === 'PENDING_ACCEPTANCE')
+    )
+  );
   let notificationCount = 0;
-  if (isStageAllDone || hasActiveQuery || hasSellerCertificateNotification) notificationCount += 1;
+  if (isStageAllDone || hasActiveQuery || hasSellerCertificateNotification || hasNegotiationNotification) notificationCount += 1;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] pb-12 pt-2">

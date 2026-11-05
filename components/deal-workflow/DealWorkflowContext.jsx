@@ -419,6 +419,7 @@ export function DealWorkflowProvider({ children }) {
   const [stageQuery, setStageQuery] = useState(null);
   const [stageAdvanceRequest, setStageAdvanceRequest] = useState(null);
   const [dueDiligenceCertificate, setDueDiligenceCertificate] = useState(null);
+  const [negotiationInvitation, setNegotiationInvitation] = useState(null);
   const [dealInfo, setDealInfo] = useState({
     dealName: 'Naga raj Deal',
     dealNumber: 'D-F4FD2',
@@ -512,6 +513,101 @@ export function DealWorkflowProvider({ children }) {
     } catch (e) {
       console.error('Error fetching active stage from server:', e);
     }
+  };
+
+  // Super Admin sends Negotiation Stage Invitation to Buyer Guest Admin
+  const sendNegotiationInvite = async ({
+    askingPrice,
+    deadline,
+    deadlineDisplay,
+    invitedBuyerId,
+    invitedBuyerName,
+    message,
+    dealId,
+    dealName
+  }) => {
+    const normRole = normalizeRole(currentUser?.role);
+    if (normRole !== 'super_admin' && normRole !== 'admin') {
+      alert('Only Super Admin can invite buyers to the Negotiation stage.');
+      return false;
+    }
+
+    const numPrice = Number(askingPrice) || 10000000;
+    const invitePayload = {
+      id: `neg-invite-${Date.now()}`,
+      status: 'PENDING_ACCEPTANCE',
+      stage: 'Negotiation',
+      dealId: dealId || dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
+      dealName: dealName || dealInfo?.dealName || 'VDR Sell',
+      askingPrice: numPrice,
+      askingPriceFormatted: `${(numPrice / 1000000).toFixed(1)}M`,
+      deadline: deadline || '2026-11-20T18:00:00+05:30',
+      deadlineDisplay: deadlineDisplay || '18:00 IST, 20 Nov 2026',
+      invitedBuyerId: invitedBuyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13',
+      invitedBuyerName: invitedBuyerName || 'Naga raj',
+      message: message || 'Seller Super Admin invites you to submit your formal binding offer for the negotiation round.',
+      invitedBy: currentUser?.name || 'Super Admin',
+      timestamp: Date.now()
+    };
+
+    setNegotiationInvitation(invitePayload);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dms_negotiation_invitation', JSON.stringify(invitePayload));
+      window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: invitePayload }));
+    }
+
+    // Activate Negotiation stage
+    await activateStage('Negotiation');
+
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: 'Negotiation',
+          negotiationInvitation: invitePayload
+        })
+      });
+    } catch (err) {
+      console.error('Error sending negotiation invite:', err);
+    }
+
+    return true;
+  };
+
+  // Buyer Guest Admin accepts the invitation to unlock Bidding section
+  const acceptNegotiationInvite = async () => {
+    const updated = {
+      ...(negotiationInvitation || {}),
+      status: 'ACCEPTED',
+      acceptedAt: Date.now(),
+      acceptedBy: currentUser?.name || 'Guest Admin'
+    };
+
+    setNegotiationInvitation(updated);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dms_negotiation_invitation', JSON.stringify(updated));
+      localStorage.setItem('dms_bidding_unlocked', 'true');
+      window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: updated }));
+      window.dispatchEvent(new Event('permissions_updated'));
+      window.dispatchEvent(new Event('bidding_access_changed'));
+    }
+
+    try {
+      await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          negotiationInvitation: updated
+        })
+      });
+    } catch (err) {
+      console.error('Error accepting negotiation invite:', err);
+    }
+
+    return true;
   };
 
   // Super Admin / Guest Admin stage activation handler
@@ -3564,6 +3660,11 @@ export function DealWorkflowProvider({ children }) {
         sendDDCertificateToSeller,
         resetDDCertificate,
         ddCertificateMetrics,
+        // Negotiation Invitation & Bidding Stage
+        negotiationInvitation,
+        setNegotiationInvitation,
+        sendNegotiationInvite,
+        acceptNegotiationInvite,
         // Actions
         activeDealStage,
         setActiveDealStage,

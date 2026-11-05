@@ -5,6 +5,7 @@ import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTime
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import NDAModal from "../../../components/NDAModal";
+import DealBiddingDetails from "@/components/deal/DealBiddingDetails";
 
 function DealDashboardContent() {
   const searchParams = useSearchParams();
@@ -623,7 +624,7 @@ function DealDashboardContent() {
       <main className="flex-1 overflow-y-auto p-8 relative">
 
         {/* Top Header outside card */}
-        <div className="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 mt-2">
+        <div className={`w-full mx-auto flex items-center justify-between mb-4 mt-2 ${activeTab === "bidding" ? "max-w-[1600px]" : "max-w-5xl"}`}
           <Link href="/dms/marketplace/workspace" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-medium group">
             <div className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm group-hover:-translate-x-1 transition-transform">
               <FaArrowLeft className="text-sm" />
@@ -643,7 +644,7 @@ function DealDashboardContent() {
         </div>
 
         {/* Main Container */}
-        <div className="w-full max-w-5xl mx-auto min-h-[60vh] bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
+        <div className={`w-full mx-auto min-h-[60vh] bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col ${activeTab === "bidding" ? "max-w-[1600px]" : "max-w-5xl"}`}
 
           {/* Header Row */}
           {activeTab === 'deals' && (
@@ -1118,18 +1119,7 @@ function DealDashboardContent() {
 
             {activeTab === 'bidding' && (
               <div className="w-full">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Bidding Details</h2>
-                  <p className="text-sm text-gray-500 mt-1">Review and manage the bidding information.</p>
-                </div>
-
-                <div className="bg-white p-12 rounded-xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <FaFileInvoiceDollar className="text-3xl text-gray-300" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-700">No Bidding Details Yet</h3>
-                  <p className="text-sm text-gray-500 mt-2 max-w-sm">The bidding details section is currently empty. More information will appear here once the bidding phase begins.</p>
-                </div>
+                <DealBiddingDetails dealId={projectId} dealName={projectName} />
               </div>
             )}
 

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useDealWorkflow, normalizeRole } from './DealWorkflowContext';
-import { CheckCircle2, Lock, Zap } from 'lucide-react';
+import { CheckCircle2, Lock, Zap, Gavel } from 'lucide-react';
+import NegotiationInviteModal from './NegotiationInviteModal';
 
 export default function StageTracker() {
   const [mounted, setMounted] = React.useState(false);
@@ -24,6 +25,7 @@ export default function StageTracker() {
   } = useDealWorkflow();
 
   const [adminRequestModal, setAdminRequestModal] = React.useState({ isOpen: false, targetStage: '' });
+  const [isNegotiationModalOpen, setIsNegotiationModalOpen] = React.useState(false);
   const [isSubmittingReq, setIsSubmittingReq] = React.useState(false);
   const [reqSuccess, setReqSuccess] = React.useState(false);
 
@@ -50,9 +52,10 @@ export default function StageTracker() {
   }
 
   const { stages } = stageTrackerInfo;
-  const isBuyerSide = currentUser?.side === 'buyer';
   const normRole = normalizeRole(currentUser?.role);
-  const isSuperAdmin = normRole === 'super_admin' || normRole === 'guest_admin';
+  const isBuyerSide = currentUser?.side === 'buyer' || ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normRole);
+  const isSellerSuperAdmin = (currentUser?.side === 'seller' || !currentUser?.side) && normRole === 'super_admin';
+  const isSuperAdmin = normRole === 'super_admin';
   const isAdmin = normRole === 'admin' || normRole === 'advisor';
 
   const handleAdminToggle = (stage) => {
@@ -113,18 +116,29 @@ export default function StageTracker() {
 
               {/* Status Badge / Interactive Toggle */}
               <div className="shrink-0 flex items-center">
-                {isCompletedOnBuyer ? (
-                  /* Buyer Side Preparation: Replace toggle button with tick mark */
-                  <div className="flex items-center gap-1.5" title="Preparation stage completed by Seller">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                      COMPLETED
-                    </span>
-                    <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-300 flex items-center justify-center shadow-2xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {isCompletedOnBuyer || (isBuyerSide && normalizeStage(stage.name) === 'Negotiation') ? (
+                  /* Buyer Side: Preparation & Negotiation show tick mark only (no toggle switch) */
+                  normalizeStage(stage.name) === 'Negotiation' && !isActive && !stage.isCompleted ? (
+                    <div className="flex items-center gap-1.5" title="Stage pending Super Admin activation">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        INACTIVE
+                      </span>
+                      <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 border border-slate-200 flex items-center justify-center shadow-2xs">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
                     </div>
-                  </div>
-                ) : isSuperAdmin ? (
-                  /* Super Admin: Interactive Stage Activation Toggle (matches img 2) */
+                  ) : (
+                    <div className="flex items-center gap-1.5" title={`${stage.name} stage enabled by Seller Super Admin`}>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                        {isActive ? 'ACTIVE' : 'COMPLETED'}
+                      </span>
+                      <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-300 flex items-center justify-center shadow-2xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      </div>
+                    </div>
+                  )
+                ) : (normalizeStage(stage.name) === 'Negotiation' ? isSellerSuperAdmin : isSuperAdmin) ? (
+                  /* Super Admin (Seller only for Negotiation): Interactive Stage Activation Toggle */
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`text-[11px] font-semibold uppercase tracking-wider ${isActive ? 'text-[#006666]' : 'text-slate-400'
@@ -138,6 +152,10 @@ export default function StageTracker() {
                       aria-checked={isActive}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (normalizeStage(stage.name) === 'Negotiation' && !isActive) {
+                          setIsNegotiationModalOpen(true);
+                          return;
+                        }
                         if (activateStage) {
                           activateStage(stage.name);
                         }
@@ -296,15 +314,36 @@ export default function StageTracker() {
                     ● Completed
                   </span>
                 ) : isActive ? (
-                  <span className="text-[#006666] font-bold text-xs">
-                    ● Active
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#006666] font-bold text-xs">
+                      ● Active
+                    </span>
+                    {normalizeStage(stage.name) === 'Negotiation' && isSellerSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsNegotiationModalOpen(true);
+                        }}
+                        className="text-[10.5px] font-semibold text-[#006666] hover:text-white bg-teal-50 hover:bg-[#006666] border border-teal-200 px-2.5 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1"
+                        title="Configure asking price, deadline & send buyer invitations"
+                      >
+                        <Gavel className="w-3 h-3" />
+                        <span>Invite Buyer</span>
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </div>
             )}
           </div>
         );
       })}
+
+      <NegotiationInviteModal
+        isOpen={isNegotiationModalOpen}
+        onClose={() => setIsNegotiationModalOpen(false)}
+      />
 
       {adminRequestModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">

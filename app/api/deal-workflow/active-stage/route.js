@@ -4,6 +4,7 @@ import { dmsDeals, dmsProjects, companies, users, dealTasks } from '@/db/schema'
 import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
+import { updateRoundInDB, saveBidInDB } from '@/lib/biddingFlowService';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ let serverNotificationPayload = null;
 let serverStageQuery = null;
 let serverStageAdvanceRequest = null;
 let serverDueDiligenceCertificate = null;
+let serverNegotiationInvitation = null;
 
 const STATE_FILE_PATH = path.join(process.cwd(), '.vdr_active_stage.json');
 
@@ -35,13 +37,16 @@ function loadStateFromFile() {
       if (data.dueDiligenceCertificate !== undefined) {
         serverDueDiligenceCertificate = data.dueDiligenceCertificate;
       }
+      if (data.negotiationInvitation !== undefined) {
+        serverNegotiationInvitation = data.negotiationInvitation;
+      }
     }
   } catch (e) {
     console.error('Error reading active stage state file:', e);
   }
 }
 
-function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceRequest, dueDiligenceCertificate) {
+function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceRequest, dueDiligenceCertificate, negotiationInvitation) {
   try {
     fs.writeFileSync(
       STATE_FILE_PATH,
@@ -51,6 +56,7 @@ function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceReq
         stageQuery,
         stageAdvanceRequest,
         dueDiligenceCertificate,
+        negotiationInvitation,
         updatedAt: new Date().toISOString(),
       }),
       'utf-8'
@@ -65,10 +71,14 @@ loadStateFromFile();
 
 async function getDealMetadata() {
   let dealMeta = {
+    dealId: '51013f2a-99dd-4405-95fb-f25502053455',
     dealName: 'Naga raj Deal',
     dealNumber: 'D-F4FD2',
     sellerCompany: 'Vishwa Tech',
     buyerCompany: 'Naga Tech',
+    buyerId: '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+    buyerName: 'Naga raj',
+    buyerRole: 'Buyer Guest Admin',
     leadAdvisorName: 'Vijay',
     guestAdminName: 'Naga raj',
     sellerSuperAdminName: 'Vishwa Raj',
@@ -130,10 +140,14 @@ async function getDealMetadata() {
       }
 
       dealMeta = {
+        dealId: deal.id,
         dealName: deal.dealName || 'Naga raj Deal',
         dealNumber: `D-${deal.id.slice(0, 5).toUpperCase()}`,
         sellerCompany: sellerName,
         buyerCompany: buyerName,
+        buyerId: deal.buyerId,
+        buyerName: guestAdminName || 'Naga raj',
+        buyerRole: 'Buyer Guest Admin',
         leadAdvisorName: leadAdvisorName || 'Vijay',
         guestAdminName: guestAdminName || 'Naga raj',
         sellerSuperAdminName: sellerSuperAdminName || 'Vishwa Raj',
@@ -159,6 +173,7 @@ export async function GET() {
       stageQuery: serverStageQuery,
       stageAdvanceRequest: serverStageAdvanceRequest,
       dueDiligenceCertificate: serverDueDiligenceCertificate,
+      negotiationInvitation: serverNegotiationInvitation,
     });
   } catch (error) {
     console.error('GET active stage error:', error);
@@ -169,6 +184,7 @@ export async function GET() {
         stageQuery: serverStageQuery,
         stageAdvanceRequest: serverStageAdvanceRequest,
         dueDiligenceCertificate: serverDueDiligenceCertificate,
+        negotiationInvitation: serverNegotiationInvitation,
       },
       { status: 500 }
     );
@@ -178,7 +194,14 @@ export async function GET() {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { stage, notificationPayload, stageQuery, stageAdvanceRequest, dueDiligenceCertificate } = body;
+    const {
+      stage,
+      notificationPayload,
+      stageQuery,
+      stageAdvanceRequest,
+      dueDiligenceCertificate,
+      negotiationInvitation
+    } = body;
 
     const targetStage = stage || serverActiveStage;
     serverActiveStage = targetStage;
@@ -194,8 +217,53 @@ export async function POST(req) {
     if (dueDiligenceCertificate !== undefined) {
       serverDueDiligenceCertificate = dueDiligenceCertificate;
     }
+    if (negotiationInvitation !== undefined) {
+      serverNegotiationInvitation = negotiationInvitation;
 
-    saveStateToFile(targetStage, serverNotificationPayload, serverStageQuery, serverStageAdvanceRequest, serverDueDiligenceCertificate);
+      // Handle Negotiation Invite actions
+      if (negotiationInvitation) {
+        // If buyer accepted the invite -> unlock bidding on deal
+        if (negotiationInvitation.status === 'ACCEPTED') {
+          try {
+            await db.update(dmsDeals).set({ featureBidding: true });
+          } catch (e) {
+            console.error('Error enabling featureBidding on dmsDeals:', e);
+          }
+        }
+
+        // If Super Admin configured and sent the invite -> update round asking price & deadline
+        if (negotiationInvitation.askingPrice || negotiationInvitation.deadline) {
+          try {
+            const updates = {
+              status: 'open',
+              statusLabel: 'Negotiation / Bidding Open'
+            };
+            if (negotiationInvitation.askingPrice) {
+              const numPrice = Number(negotiationInvitation.askingPrice);
+              updates.askingPrice = numPrice;
+              updates.askingPriceFormatted = `$${(numPrice / 1000000).toFixed(1)}M`;
+            }
+            if (negotiationInvitation.deadline) {
+              updates.deadline = negotiationInvitation.deadline;
+              updates.deadlineDisplay = negotiationInvitation.deadlineDisplay || new Date(negotiationInvitation.deadline).toLocaleString();
+            }
+            const targetRoundId = negotiationInvitation.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f';
+            await updateRoundInDB(updates, targetRoundId);
+          } catch (e) {
+            console.error('Error updating bidding_rounds from negotiation invite:', e);
+          }
+        }
+      }
+    }
+
+    saveStateToFile(
+      targetStage,
+      serverNotificationPayload,
+      serverStageQuery,
+      serverStageAdvanceRequest,
+      serverDueDiligenceCertificate,
+      serverNegotiationInvitation
+    );
 
     try {
       if (stage) {
@@ -217,6 +285,7 @@ export async function POST(req) {
       stageQuery: serverStageQuery,
       stageAdvanceRequest: serverStageAdvanceRequest,
       dueDiligenceCertificate: serverDueDiligenceCertificate,
+      negotiationInvitation: serverNegotiationInvitation,
     });
   } catch (error) {
     console.error('POST active stage error:', error);

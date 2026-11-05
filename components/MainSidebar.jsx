@@ -133,7 +133,8 @@ export default function MainSidebar() {
       const canAccessSettings = !isGuest && perms?.some(p => p.can_access_settings);
       const canAccessQa = perms?.some(p => p.can_access_qa) || dealFeatures?.featureQa === true;
       const canAccessDeals = !isGuest && (perms?.some(p => p.can_access_deals) || dealFeatures?.featureBidding === true);
-      const canAccessBidding = dealFeatures?.featureBidding || false;
+      const isBiddingUnlockedLocally = typeof window !== 'undefined' && localStorage.getItem('dms_bidding_unlocked') === 'true';
+      const canAccessBidding = Boolean(dealFeatures?.featureBidding || isBiddingUnlockedLocally || role === 'super_admin');
       const canAccessCommunication = perms?.some(p => p.can_access_communication) || dealFeatures?.featureCommunication === true;
       const canAccessControlAudits =
         ['super_admin', 'admin', 'sub_admin', 'business_owner', 'guest_admin'].includes(role) ||
@@ -159,9 +160,13 @@ export default function MainSidebar() {
 
     window.addEventListener('permissions_updated', handlePermissionsUpdated);
     window.addEventListener('storage', handlePermissionsUpdated);
+    window.addEventListener('bidding_access_changed', handlePermissionsUpdated);
+    window.addEventListener('dms_negotiation_invite_event', handlePermissionsUpdated);
     return () => {
       window.removeEventListener('permissions_updated', handlePermissionsUpdated);
       window.removeEventListener('storage', handlePermissionsUpdated);
+      window.removeEventListener('bidding_access_changed', handlePermissionsUpdated);
+      window.removeEventListener('dms_negotiation_invite_event', handlePermissionsUpdated);
     };
   }, [pathname]);
 
@@ -205,8 +210,11 @@ export default function MainSidebar() {
             if (item.key === 'control_audits' && !hasControlAuditsAccess) return null;
             if (item.key === 'redaction' && !hasRedactionAccess) return null;
 
-            const isActive = pathname?.startsWith(item.href);
-            const hasSubItems = item.subItems && item.subItems.length > 0;
+            const isBiddingItem = item.key === 'bidding';
+            const isBuyer = ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(session?.role) || session?.dms_role === 'buyer';
+            const effectiveHref = isBiddingItem ? (isBuyer ? '/bidding/buyer-side/my-bid' : '/bidding/seller-side') : item.href;
+            const isActive = pathname?.startsWith(item.href) || (isBiddingItem && pathname?.startsWith('/bidding'));
+            const hasSubItems = !isBiddingItem && item.subItems && item.subItems.length > 0;
             const isSubmenuOpen = openSubmenuKey === item.key;
 
             return (
@@ -239,7 +247,7 @@ export default function MainSidebar() {
                   </button>
                 ) : (
                   <Link
-                    href={item.href}
+                    href={effectiveHref}
                     title={item.label}
                     className="group relative w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300"
                   >
@@ -269,7 +277,16 @@ export default function MainSidebar() {
                 {hasSubItems && isSubmenuOpen && (
                   <div className="absolute left-16 top-0 ml-2 w-48 bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-slate-100 p-2 z-[60] flex flex-col gap-1">
                     <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{item.label}</div>
-                    {item.subItems.map((sub) => {
+                    {item.subItems
+                      .filter((sub) => {
+                        if (item.key === 'bidding') {
+                          const isBuyer = ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(session?.role) || session?.dms_role === 'buyer';
+                          if (isBuyer) return sub.href.includes('buyer-side');
+                          return sub.href.includes('seller-side');
+                        }
+                        return true;
+                      })
+                      .map((sub) => {
                       const isSubActive = pathname === sub.href;
                       return (
                         <Link

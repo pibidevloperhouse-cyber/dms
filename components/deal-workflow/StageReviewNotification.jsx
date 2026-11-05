@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -42,6 +43,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
+  const router = useRouter();
 
   const normRole = normalizeRole(currentUser?.role);
   const isSuperAdmin = normRole === 'super_admin' || normRole === 'guest_admin';
@@ -252,6 +255,171 @@ export default function StageReviewNotification({ inDropdown = false }) {
         />
       </>
     );
+  }
+
+  // Case 1.8: Negotiation Stage Invitation / Bidding Activation Notification
+  if (negotiationInvitation && (normalizeStage(activeDealStage) === 'Negotiation' || negotiationInvitation.status === 'PENDING_ACCEPTANCE' || negotiationInvitation.status === 'ACCEPTED')) {
+    const isPendingAcceptance = negotiationInvitation.status === 'PENDING_ACCEPTANCE';
+    const isAccepted = negotiationInvitation.status === 'ACCEPTED';
+    const askingPriceNum = Number(negotiationInvitation.askingPrice) || 10000000;
+    const askingPriceFormatted = `${(askingPriceNum / 1000000).toFixed(1)}M`;
+    const deadlineFormatted = negotiationInvitation.deadlineDisplay || (negotiationInvitation.deadline ? new Date(negotiationInvitation.deadline).toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' }) : '25 Nov 2026');
+
+    // BUYER SIDE: Guest Admin Notification Card
+    if (isBuyerSide) {
+      if (isPendingAcceptance) {
+        return (
+          <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+            <div className="bg-gradient-to-r from-amber-50 via-teal-50/50 to-emerald-50/40 border-2 border-[#006666]/40 rounded-2xl p-4 sm:p-5 text-slate-900 shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#006666] text-white flex items-center justify-center shadow-sm shrink-0 mt-0.5">
+                    <Gavel className="w-5 h-5 text-teal-200" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="bg-[#006666] text-white text-[10.5px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-teal-200" />
+                        <span>Action Required · Negotiation Stage</span>
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">
+                        Deal: <strong className="text-slate-900">{dealInfo?.dealName || 'VDR Sell'}</strong>
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+                      Super Admin Invited You to Negotiation &amp; Bidding Stage
+                    </h3>
+
+                    <p className="text-xs sm:text-[13px] text-slate-700 mt-1 leading-relaxed">
+                      {negotiationInvitation.message || 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price and submit your binding acquisition proposal.'}
+                    </p>
+
+                    {/* Benchmark Terms Pills */}
+                    <div className="mt-3 flex items-center gap-3 flex-wrap">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <DollarSign className="w-3.5 h-3.5 text-[#006666]" />
+                        <span className="text-slate-500 font-medium">Benchmark Ask:</span>
+                        <span className="font-bold text-slate-900">{askingPriceFormatted}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="text-slate-500 font-medium">Bid Deadline:</span>
+                        <span className="font-bold text-slate-900">{deadlineFormatted}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
+                  <button
+                    type="button"
+                    disabled={isAcceptingInvite}
+                    onClick={async () => {
+                      setIsAcceptingInvite(true);
+                      try {
+                        await acceptNegotiationInvite();
+                      } catch (err) {
+                        console.error('Error accepting negotiation invite:', err);
+                      } finally {
+                        setIsAcceptingInvite(false);
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#006666] hover:bg-[#005252] text-white text-xs sm:text-[13px] font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                    <span>{isAcceptingInvite ? 'Unlocking Bidding...' : 'Accept Invitation & Unlock Bidding'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (isAccepted) {
+        return (
+          <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+            <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-4 sm:p-4.5 text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-emerald-200 text-emerald-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Invitation Accepted · Bidding Unlocked
+                      </span>
+                      <span className="text-xs text-slate-600">
+                        Ask Benchmark: <strong className="text-slate-900">{askingPriceFormatted}</strong>
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 mt-0.5 font-medium">
+                      Bidding section is unlocked in your sidebar. Prepare your initial binding proposal and submit it to Super Admin.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/bidding/buyer-side/my-bid')}
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Go to My Bid</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // SELLER SIDE (SUPER ADMIN): Status Notification Card
+    if (isSellerSide && isSuperAdmin) {
+      return (
+        <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+          <div className="bg-teal-50/80 border border-teal-200 rounded-2xl p-4 sm:p-4.5 text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-[#006666] text-white flex items-center justify-center shrink-0">
+                  <Gavel className="w-5 h-5 text-teal-200" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-teal-200 text-[#004d4d] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Negotiation Stage Active
+                    </span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Benchmark: <strong className="text-slate-900">{askingPriceFormatted}</strong> · Deadline: <strong className="text-slate-900">{deadlineFormatted}</strong>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 mt-0.5 font-medium">
+                    {isAccepted
+                      ? 'Buyer accepted invitation and unlocked bidding portal. Awaiting initial proposals.'
+                      : 'Invitation sent to Buyer Guest Admin (Awaiting Buyer acceptance).'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => router.push('/bidding/seller-side')}
+                  className="px-4 py-2 rounded-xl bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>View Bidding Ledger</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 
   // Case 2: All tasks in the active stage are completed
