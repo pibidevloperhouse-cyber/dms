@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerTermSheetPage() {
   const [loading, setLoading] = useState(true);
@@ -130,12 +131,7 @@ export default function SellerTermSheetPage() {
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen">
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white">
-        <Link href="/bidding/seller-side" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Bidding</Link>
-
-        <Link href="/bidding/seller-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Term sheet</Link>
-        <Link href="/bidding/seller-side/messages" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Messages</Link>
-      </div>
+      <BiddingHeaderNav portal="seller" activeTab="term-sheet" />
 
       <div className="mx-7 mt-5 px-4 py-3 bg-green-50 border border-[#C7DFCB] rounded-xl text-[12.5px] text-green-700 flex justify-between items-center shadow-xs">
         <span>Bid from {buyerName} ({keyTerms.purchasePrice}) accepted — {isSent ? 'Sent to buyer for signature.' : 'draft this term sheet and send for buyer signature.'}</span>

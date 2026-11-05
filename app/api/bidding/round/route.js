@@ -27,6 +27,31 @@ export async function PATCH(req) {
     if (action === 'CLOSE_ROUND') {
       updates.status = 'closed';
       updates.statusLabel = 'Bidding Round Closed';
+    } else if (action === 'RESUME_ROUND' || action === 'OPEN_ROUND') {
+      updates.status = 'open';
+      updates.statusLabel = 'Negotiation / Bidding Open';
+
+      // When resuming, also update any declined bid to Under review and log event
+      try {
+        const store = await loadBiddingStoreAsync();
+        for (const bid of Object.values(store.bids || {})) {
+          if (bid && bid.status === 'Declined') {
+            bid.status = 'Under review';
+            if (!bid.history) bid.history = [];
+            const now = new Date();
+            const formattedNow = `${now.getDate()} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`;
+            bid.history.push({
+              event: 'Bidding Round Resumed by Seller',
+              date: formattedNow,
+              note: 'Seller reopened the bidding round for further proposal submission.'
+            });
+            const { saveBidInDB } = await import('@/lib/biddingFlowService');
+            await saveBidInDB(bid);
+          }
+        }
+      } catch (err) {
+        console.error('Error updating bid on resume round:', err);
+      }
     } else {
       if (askingPrice !== undefined) {
         const numPrice = Number(askingPrice);

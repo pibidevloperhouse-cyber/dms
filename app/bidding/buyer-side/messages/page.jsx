@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function MessagesPage() {
   const [messages, setMessages] = useState([
@@ -124,12 +125,9 @@ export default function MessagesPage() {
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed h-screen max-h-screen flex flex-col overflow-hidden antialiased">
-      {/* Top Navigation Tabs - Fixed, not scrollable */}
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white shrink-0">
-        <Link href="/bidding/buyer-side/my-bid" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">My bid</Link>
-        <Link href="/bidding/buyer-side/bid-history" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Bid history</Link>
-        <Link href="/bidding/buyer-side/messages" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Messages</Link>
-        <Link href="/bidding/buyer-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Term sheet</Link>
+      {/* Top Navigation Tabs + Right Corner Bidding Notification Bell */}
+      <div className="shrink-0">
+        <BiddingHeaderNav portal="buyer" activeTab="messages" />
       </div>
 
       {/* Main Container - Fits exact viewport height without outer scrolling */}

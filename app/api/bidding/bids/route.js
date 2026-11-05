@@ -56,7 +56,8 @@ export async function POST(req) {
       financingType = 'Private Equity / Cash',
       contingencies = '',
       note = '',
-      requesterRole = 'guest_admin'
+      requesterRole = 'guest_admin',
+      documents
     } = body;
 
     const store = await loadBiddingStoreAsync(dealId);
@@ -102,6 +103,7 @@ export async function POST(req) {
       financingType,
       contingencies,
       note,
+      documents: Array.isArray(documents) ? documents : (existing.documents || []),
       status: 'Under review',
       submittedAt: formattedNow,
       history: [

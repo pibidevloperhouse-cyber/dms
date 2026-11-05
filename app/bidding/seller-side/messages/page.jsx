@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerMessagesPage() {
   const [conversations, setConversations] = useState({});
@@ -65,12 +66,8 @@ export default function SellerMessagesPage() {
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen flex flex-col antialiased">
-      {/* Top Bidding Navigation Tabs - Buyers tab removed */}
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white">
-        <Link href="/bidding/seller-side" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Bidding</Link>
-        <Link href="/bidding/seller-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Term sheet</Link>
-        <Link href="/bidding/seller-side/messages" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Messages</Link>
-      </div>
+      {/* Top Bidding Navigation Tabs + Right Corner Notification Bell */}
+      <BiddingHeaderNav portal="seller" activeTab="messages" />
 
       <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] m-7 border border-slate-200 rounded-xl bg-white overflow-hidden flex-1 min-h-[540px] shadow-sm">
         {/* Buyer conversations sidebar */}

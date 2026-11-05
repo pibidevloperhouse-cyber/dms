@@ -3,29 +3,55 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerBiddingPage() {
-  const [selectedBids, setSelectedBids] = useState(new Set());
-  const [showCompare, setShowCompare] = useState(false);
-  const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'Shortlisted' | 'Under review' | 'Declined'
-  const [sortBy, setSortBy] = useState('amount_high');
-  const [loading, setLoading] = useState(true);
-  const [round, setRound] = useState(null);
-  const [kpis, setKpis] = useState(null);
-  const [bidsData, setBidsData] = useState({});
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [activeBid, setActiveBid] = useState(null);
+  const [round, setRound] = useState(null);
+
+  // Decline Modal state
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
+
+  // Counter Modal states
+  const [isCounterModalOpen, setIsCounterModalOpen] = useState(false);
+  const [counterAmount, setCounterAmount] = useState('12000000');
+  const [counterExpectedDate, setCounterExpectedDate] = useState('2026-12-15');
+  const [counterNote, setCounterNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchBids = async () => {
     try {
       const res = await fetch('/api/bidding/bids?role=super_admin');
       if (res.ok) {
         const data = await res.json();
-        if (data.bids) setBidsData(data.bids);
-        if (data.kpis) setKpis(data.kpis);
+        if (data.bids) {
+          const bidsList = Object.values(data.bids || {});
+          if (bidsList.length > 0) {
+            // Pick this particular deal's active submitted bid (Naga Tech / invited buyer)
+            let active = bidsList.find(b => b.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13' || (b.name || '').toLowerCase().includes('naga')) || bidsList[0];
+            setActiveBid(active);
+
+            if (active.counterOffer?.amount) {
+              setCounterAmount(String(active.counterOffer.amount));
+            } else if (data.round?.askingPrice) {
+              setCounterAmount(String(data.round.askingPrice));
+            }
+
+            if (active.counterOffer?.expectedCloseDate) {
+              setCounterExpectedDate(active.counterOffer.expectedCloseDate);
+            } else if (active.expectedCloseDate) {
+              setCounterExpectedDate(active.expectedCloseDate);
+            }
+
+            setCounterNote(active.counterOffer?.note || `The seller board is requesting benchmark valuation.`);
+          }
+        }
         if (data.round) setRound(data.round);
       }
     } catch (e) {
-      console.error('Error fetching bids:', e);
+      console.error('Error fetching bids on seller side:', e);
     } finally {
       setLoading(false);
     }
@@ -33,380 +59,435 @@ export default function SellerBiddingPage() {
 
   useEffect(() => {
     fetchBids();
+
+    const handleBidUpdate = () => fetchBids();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('bid_submitted', handleBidUpdate);
+      window.addEventListener('focus', handleBidUpdate);
+      return () => {
+        window.removeEventListener('bid_submitted', handleBidUpdate);
+        window.removeEventListener('focus', handleBidUpdate);
+      };
+    }
   }, []);
 
-  const toggleCompare = (e, id) => {
-    e.stopPropagation();
-    const newSelected = new Set(selectedBids);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
+  const handleDeclineBid = () => {
+    if (!activeBid) return;
+    setIsDeclineModalOpen(true);
+  };
+
+  const handleConfirmDecline = async () => {
+    if (!activeBid) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/bidding/bids/${activeBid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DECLINE', requesterRole: 'super_admin' })
+      });
+      if (res.ok) {
+        setIsDeclineModalOpen(false);
+        await fetchBids();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bid_submitted'));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
     }
-    setSelectedBids(newSelected);
   };
 
-  const handleRowClick = (id) => {
-    router.push(`/bidding/seller-side/bid/${id}`);
-  };
-
-  const handleCloseRound = async () => {
-    if (!confirm('Are you sure you want to close this bidding round?')) return;
+  const handleResumeRound = async () => {
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/bidding/round', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'CLOSE_ROUND', requesterRole: 'super_admin' })
+        body: JSON.stringify({ action: 'RESUME_ROUND', requesterRole: 'super_admin' })
       });
       if (res.ok) {
-        alert('Bidding round closed successfully.');
-        fetchBids();
+        await fetchBids();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bid_submitted'));
+        }
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleExportLedger = () => {
-    const bidsList = Array.from(new Map(Object.values(bidsData || {}).filter(b => b && b.id).map(b => [b.id, b])).values());
-    if (bidsList.length === 0) return;
-    const headers = ['Buyer Name', 'Buyer Type', 'Offer Amount', 'Cash %', 'Stock %', 'Expected Close', 'Status', 'Engagement'];
-    const rows = bidsList.map(b => [
-      `"${b.name}"`,
-      `"${b.type}"`,
-      `"${b.offer}"`,
-      `"${b.cash}"`,
-      `"${b.stock}"`,
-      `"${b.close}"`,
-      `"${b.status}"`,
-      `"${b.engagement}"`
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Project_Alpha_Bid_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleSendCounter = async () => {
+    if (!activeBid) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/bidding/bids/${activeBid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'COUNTER',
+          counterAmount: Number(counterAmount) || 12000000,
+          expectedCloseDate: counterExpectedDate,
+          counterNote,
+          requesterRole: 'super_admin'
+        })
+      });
+      if (res.ok) {
+        alert(`Counter-offer sent to ${activeBid.name} successfully.`);
+        setIsCounterModalOpen(false);
+        await fetchBids();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bid_submitted'));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const allBidsList = Array.from(new Map(Object.values(bidsData || {}).filter(b => b && b.id).map(b => [b.id, b])).values());
+  const handleAcceptAndMoveToTermSheet = async () => {
+    if (!activeBid) return;
+    if (!confirm(`Accept bid from ${activeBid.name || 'buyer'} (${activeBid.offer || '$11.5M'}) and advance to Term Sheet?`)) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/bidding/bids/${activeBid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ACCEPT', requesterRole: 'super_admin' })
+      });
+      if (res.ok) {
+        router.push('/bidding/seller-side/term-sheet');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-  // Filter bids by tab
-  const filteredBids = allBidsList.filter(b => {
-    if (filterTab === 'ALL') return true;
-    return (b.status || '').toLowerCase() === filterTab.toLowerCase();
-  });
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] bg-[#F8F9FB]">
+        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  // Sort bids
-  const sortedBids = [...filteredBids].sort((a, b) => {
-    if (sortBy === 'amount_high') return (b.offerAmount || 0) - (a.offerAmount || 0);
-    if (sortBy === 'engagement') return (b.views || 0) - (a.views || 0);
-    return 0;
-  });
+  if (!activeBid) {
+    return (
+      <div className="bg-[#F8F9FB] min-h-screen text-slate-900 font-sans">
+        <BiddingHeaderNav portal="seller" activeTab="bidding" />
+        <div className="max-w-4xl mx-auto p-12 text-center">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">No Active Bids Found</h2>
+          <p className="text-sm text-slate-500">Awaiting acquisition proposals from invited buyers.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const shortlistedCount = allBidsList.filter(b => b.status === 'Shortlisted').length;
-  const underReviewCount = allBidsList.filter(b => b.status === 'Under review').length;
-  const declinedCount = allBidsList.filter(b => b.status === 'Declined').length;
+  const cashVal = parseInt(String(activeBid.cash || '75').replace('%', ''), 10) || 75;
+  const stockVal = 100 - cashVal;
+
+  // Compute vs asking price percentage dynamically
+  const askPrice = round?.askingPrice || 12000000;
+  const offerAmount = activeBid.offerAmount || 11500000;
+  const vsAskPct = Math.round(((offerAmount - askPrice) / askPrice) * 100);
+  const vsAskDisplay = vsAskPct === 0 ? '±0%' : `${vsAskPct > 0 ? '+' : ''}${vsAskPct}%`;
+  const vsColor = vsAskPct >= 0 ? '#16a34a' : '#dc2626';
+
+  const documents = Array.isArray(activeBid.documents) && activeBid.documents.length > 0
+    ? activeBid.documents
+    : [
+        { name: 'Binding Offer - Naga Tech.pdf', size: '2.4 MB', type: 'pdf' }
+      ];
 
   return (
-    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased">
-      {/* Top Bidding Navigation Tabs */}
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white">
-        <Link href="/bidding/seller-side" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Bidding</Link>
+    <div className="bg-[#F8F9FB] text-slate-900 font-sans min-h-screen pb-12 antialiased">
+      {/* Top Bidding Navigation Tabs + Right Corner Notification Bell */}
+      <BiddingHeaderNav portal="seller" activeTab="bidding" />
 
-        <Link href="/bidding/seller-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Term sheet</Link>
-        <Link href="/bidding/seller-side/messages" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Messages</Link>
+      {/* Profile Header without dropdown (img2) and without badges/location (img3) */}
+      <div className="pt-8 px-7 pb-6 flex justify-between items-center border-b border-slate-100 bg-white flex-wrap gap-5">
+        <div className="flex gap-4 items-center">
+          <div className="w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
+            {activeBid.mark || activeBid.name?.substring(0, 2).toUpperCase() || 'NT'}
+          </div>
+          <div>
+            <h1 className="text-[26px] font-bold text-slate-900 m-0 tracking-tight">{activeBid.name}</h1>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 items-center flex-wrap">
+          {(round?.status === 'closed' || activeBid.status === 'Declined') ? (
+            <button
+              type="button"
+              onClick={handleResumeRound}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 text-[13.5px] font-semibold px-5 py-2.5 rounded-lg cursor-pointer border border-emerald-500 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Resume Bidding Round
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleDeclineBid}
+              disabled={isSubmitting}
+              className="text-[13.5px] font-semibold px-5 py-2.5 rounded-lg cursor-pointer border border-rose-300 text-rose-700 bg-white hover:bg-rose-50 transition-colors shadow-2xs"
+            >
+              Decline bid
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsCounterModalOpen(true)}
+            disabled={isSubmitting}
+            className="text-[13.5px] font-semibold px-5 py-2.5 rounded-lg cursor-pointer border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400 transition-colors shadow-2xs"
+          >
+            Counter offer
+          </button>
+          <button
+            type="button"
+            onClick={handleAcceptAndMoveToTermSheet}
+            disabled={isSubmitting}
+            className="text-[13.5px] font-semibold px-5 py-2.5 rounded-lg cursor-pointer border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+          >
+            Accept &amp; move to term sheet
+          </button>
+        </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto">
-        <div className="pt-6 px-7">
-          <div className="flex justify-between items-start gap-6 flex-wrap">
-            <div>
-              <div className="text-[26px] text-slate-900 flex items-baseline gap-3 flex-wrap font-bold tracking-tight">
-                {round?.dealName || 'Project Alpha'}
-                <span className={`inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full tracking-wide border ${round?.status === 'closed'
-                    ? 'bg-slate-100 text-slate-700 border-slate-300'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${round?.status === 'closed' ? 'bg-slate-500' : 'bg-amber-500'}`}></span>
-                  {round?.status === 'closed' ? 'Round Closed' : (round?.statusLabel || 'Bid Evaluation')}
-                </span>
+      {/* Main Full-Width Content */}
+      <div className="max-w-[1400px] mx-auto p-7 flex flex-col gap-6">
+        {/* Closed Bidding Round Banner with Resume Option */}
+        {(round?.status === 'closed' || activeBid.status === 'Declined') && (
+          <div className="bg-rose-50/90 border border-rose-200 rounded-xl p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap shadow-2xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-base shrink-0">
+                !
               </div>
-              <div className="text-slate-500 text-[13px] font-medium mt-1.5">
-                Round opened {round?.openedDate || '12 Aug 2026'} &nbsp;·&nbsp; Ask {round?.askingPriceFormatted || '$100M'} &nbsp;·&nbsp; {kpis?.receivedCount || allBidsList.length} of {round?.invitedCount || 4} invited buyers have bid
-              </div>
-            </div>
-            <div className="flex gap-2.5 items-start">
-              <button
-                onClick={handleExportLedger}
-                className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
-              >
-                Export ledger
-              </button>
-              {round?.status !== 'closed' && (
-                <button
-                  onClick={handleCloseRound}
-                  className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity shadow-2xs"
-                >
-                  Close bidding round
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-[12.5px] text-rose-600 font-medium mt-3.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Bid deadline in <b className="font-bold">2 days 6 hrs</b> — {round?.deadlineDisplay || '18:00 IST, 6 Sep 2026'} · reminder sent to 1 outstanding buyer
-          </div>
-        </div>
-
-        {/* 5-Column KPI Cards */}
-        <div className="mt-6 mx-7 grid grid-cols-2 md:grid-cols-5 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-xs">
-          <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Bids received</div>
-            <div className="text-[24px] font-bold text-slate-900 tracking-tight">{kpis?.receivedCount || allBidsList.length}<span className="text-slate-400 font-normal text-[14px]"> / {round?.invitedCount || 4} invited</span></div>
-            <div className="text-[11.5px] text-slate-400 mt-1">1 outstanding — Meridian Partners</div>
-          </div>
-          <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Highest offer</div>
-            <div className="text-[24px] font-bold text-blue-600 tracking-tight">{kpis?.highestOfferFormatted || '$100.0M'}</div>
-            <div className="text-[11.5px] text-emerald-600 font-medium mt-1">At asking price</div>
-          </div>
-          <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Average offer</div>
-            <div className="text-[24px] font-bold text-slate-900 tracking-tight">{kpis?.averageOfferFormatted || '$95.0M'}</div>
-            <div className="text-[11.5px] text-slate-400 mt-1">Spread $10M</div>
-          </div>
-          <div className="p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-100">
-            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">Median cash component</div>
-            <div className="text-[24px] font-bold text-slate-900 tracking-tight">{kpis?.medianCashFormatted || '78%'}</div>
-            <div className="text-[11.5px] text-slate-400 mt-1">Across {allBidsList.length} bids</div>
-          </div>
-          <div className="p-4 md:p-5">
-            <div className="text-[11px] text-slate-500 font-semibold tracking-wide mb-2 uppercase">VDR engagement</div>
-            <div className="text-[24px] font-bold text-slate-900 tracking-tight">{kpis?.totalViews || 41}<span className="text-slate-400 font-normal text-[14px]"> views</span></div>
-            <div className="text-[11.5px] text-emerald-600 font-medium mt-1">Highest: {kpis?.highestEngagedBuyer || 'Halcyon Growth'}</div>
-          </div>
-        </div>
-
-        {/* Bid Ledger Table Container */}
-        <div className="grid grid-cols-1 gap-6 mt-6 mx-7 mb-10 items-start">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs">
-            <div className="flex items-center justify-between p-4 md:p-5 border-b border-slate-100">
-              <h2 className="text-[16px] font-bold text-slate-900 m-0">Bid ledger <span className="text-slate-400 font-normal text-[14px] ml-1.5">{allBidsList.length} offers</span></h2>
-              <span className="text-[12px] text-slate-400">Updated live as buyers submit</span>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 p-3 md:p-4 border-b border-slate-100 flex-wrap">
-              <div className="flex border border-slate-200 rounded-lg overflow-hidden bg-white">
-                <button
-                  onClick={() => setFilterTab('ALL')}
-                  className={`font-sans text-[12.5px] px-3 py-1.5 cursor-pointer transition-colors ${filterTab === 'ALL' ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  All ({allBidsList.length})
-                </button>
-                <button
-                  onClick={() => setFilterTab('Shortlisted')}
-                  className={`font-sans text-[12.5px] px-3 py-1.5 border-l border-slate-200 cursor-pointer transition-colors ${filterTab === 'Shortlisted' ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  Shortlisted ({shortlistedCount})
-                </button>
-                <button
-                  onClick={() => setFilterTab('Under review')}
-                  className={`font-sans text-[12.5px] px-3 py-1.5 border-l border-slate-200 cursor-pointer transition-colors ${filterTab === 'Under review' ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  Under review ({underReviewCount})
-                </button>
-                <button
-                  onClick={() => setFilterTab('Declined')}
-                  className={`font-sans text-[12.5px] px-3 py-1.5 border-l border-slate-200 cursor-pointer transition-colors ${filterTab === 'Declined' ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  Declined ({declinedCount})
-                </button>
-              </div>
-
-              <div className="text-[12px] text-slate-400 flex items-center gap-1.5">
-                Sort by
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="font-sans text-[12.5px] text-slate-900 border border-slate-200 rounded-lg px-2 py-1 bg-white ml-1 outline-none focus:border-slate-400 cursor-pointer"
-                >
-                  <option value="amount_high">Offer amount — high to low</option>
-                  <option value="engagement">Engagement — most active</option>
-                </select>
+              <div>
+                <div className="text-[15px] font-bold text-rose-950 flex items-center gap-2">
+                  <span>Bidding Round Closed</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800">
+                    Paused
+                  </span>
+                </div>
+                <div className="text-xs text-rose-700 mt-0.5">
+                  The bid from <b>{activeBid.name}</b> was declined and this deal's bidding round is currently closed. Invited buyers cannot submit further revisions until resumed.
+                </div>
               </div>
             </div>
-
-            {/* Compare Bar if >= 2 selected */}
-            <div className={`items-center justify-between p-3 mx-4 mt-4 bg-slate-900 text-white text-[12.5px] rounded-lg ${selectedBids.size >= 2 ? 'flex' : 'hidden'}`}>
-              <span><span className="font-bold">{selectedBids.size}</span> bids selected for side-by-side comparison</span>
-              <button
-                className="font-sans text-[12px] font-medium px-3 py-1.5 rounded-md cursor-pointer border border-white text-white hover:bg-white hover:text-slate-900 transition-colors"
-                onClick={() => setShowCompare(true)}
-              >
-                Compare selected →
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse mt-2">
-                <thead>
-                  <tr className="bg-[#F8F9FB] border-b border-slate-200">
-                    <th className="w-[34px] px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide"></th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Buyer</th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Offer</th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Structure</th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Engagement</th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-[11px] text-slate-500 tracking-wide">Submitted</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedBids.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="text-center py-8 text-slate-400 text-xs">
-                        No bids match the selected filter.
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedBids.map((b) => {
-                      const isSelected = selectedBids.has(b.id);
-                      const cashVal = parseInt(String(b.cash).replace('%', ''), 10) || 70;
-                      const stockVal = 100 - cashVal;
-
-                      let statusBadge = 'bg-slate-100 text-slate-700 border-slate-200';
-                      if (b.status === 'Shortlisted') statusBadge = 'bg-green-50 text-green-700 border-green-200';
-                      if (b.status === 'Under review') statusBadge = 'bg-purple-50 text-purple-700 border-purple-200';
-                      if (b.status === 'Declined') statusBadge = 'bg-red-50 text-red-700 border-red-200';
-                      if (b.status === 'Accepted') statusBadge = 'bg-blue-50 text-blue-700 border-blue-200';
-                      if (b.status === 'Countered') statusBadge = 'bg-amber-50 text-amber-700 border-amber-200';
-
-                      return (
-                        <tr
-                          key={b.id}
-                          className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
-                          onClick={() => handleRowClick(b.id)}
-                        >
-                          <td className="px-4 py-3.5 align-middle">
-                            <input
-                              type="checkbox"
-                              className="w-[15px] h-[15px] accent-slate-900 cursor-pointer"
-                              checked={isSelected}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => toggleCompare(e, b.id)}
-                            />
-                          </td>
-                          <td className="px-4 py-3.5 align-middle">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-[30px] h-[30px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
-                                {b.mark || b.name?.substring(0, 2).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-900 text-[13.5px]">{b.name}</div>
-                                <div className="text-[11.5px] text-slate-400">{b.type}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3.5 align-middle">
-                            <div className="text-[15px] font-bold text-blue-600">{b.offer}</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">Close: {b.close}</div>
-                          </td>
-                          <td className="px-4 py-3.5 align-middle">
-                            <div className="flex w-[90px] h-1.5 rounded-full overflow-hidden mb-1">
-                              <div className="bg-slate-800" style={{ width: `${cashVal}%` }}></div>
-                              <div className="bg-slate-300" style={{ width: `${stockVal}%` }}></div>
-                            </div>
-                            <div className="text-[11px] text-slate-400 font-medium">{cashVal}% cash / {stockVal}% stock</div>
-                          </td>
-                          <td className="px-4 py-3.5 align-middle">
-                            <div className="flex items-center gap-2">
-                              <div className="w-[56px] h-[5px] bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, (b.views || 10) * 5)}%` }}></div>
-                              </div>
-                              <span className="text-[11px] text-slate-600 font-medium">{b.views || 14} docs</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3.5 align-middle">
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusBadge}`}>
-                              {b.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5 align-middle text-slate-500 font-medium text-[13px]">
-                            {b.submittedAt || 'Aug 2026'}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Side-by-Side Comparison Modal */}
-        {showCompare && (
-          <div
-            className="fixed inset-0 bg-[#0f172a]/50 flex items-start justify-center pt-12 px-5 z-50 overflow-auto backdrop-blur-sm"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowCompare(false); }}
-          >
-            <div className="bg-white rounded-xl max-w-[980px] w-full border border-slate-200 shadow-xl overflow-hidden mb-12 animate-in fade-in zoom-in-95">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
-                <h2 className="text-[18px] font-bold text-slate-900 m-0">Compare bids ({selectedBids.size} selected)</h2>
-                <button
-                  className="cursor-pointer text-slate-400 hover:text-slate-900 text-[24px] leading-none border-none bg-transparent transition-colors"
-                  onClick={() => setShowCompare(false)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <tbody>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-semibold text-[11.5px] w-[150px] bg-[#F8F9FB] uppercase tracking-wider">Buyer</th>
-                      {Array.from(selectedBids).map(id => bidsData[id] && (
-                        <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900 font-semibold">{bidsData[id].name}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-semibold text-[11.5px] w-[150px] bg-[#F8F9FB] uppercase tracking-wider">Offer</th>
-                      {Array.from(selectedBids).map((id, index) => bidsData[id] && (
-                        <td key={id} className={`p-4 border-b border-slate-100 text-[13px] font-bold ${index === 0 ? 'text-blue-600' : 'text-slate-900'}`}>{bidsData[id].offer}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Cash / Stock</th>
-                      {Array.from(selectedBids).map(id => bidsData[id] && (
-                        <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900">{bidsData[id].cash} / {bidsData[id].stock}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Expected close</th>
-                      {Array.from(selectedBids).map(id => bidsData[id] && (
-                        <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900">{bidsData[id].close}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">Status</th>
-                      {Array.from(selectedBids).map(id => bidsData[id] && (
-                        <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900">{bidsData[id].status}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th className="p-4 border-b border-slate-100 text-slate-500 font-medium text-[11.5px] w-[150px] bg-[#F8F9FB]">VDR engagement</th>
-                      {Array.from(selectedBids).map(id => bidsData[id] && (
-                        <td key={id} className="p-4 border-b border-slate-100 text-[13px] text-slate-900">{bidsData[id].engagement}</td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={handleResumeRound}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs shrink-0"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Resume Bidding Round
+            </button>
           </div>
         )}
+
+        {/* Card 1: Offer Summary */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+          <div className="text-[16px] font-bold mb-4 text-slate-900 border-b border-slate-100 pb-2.5">
+            Offer Summary
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 mb-5">
+            <div className="border border-slate-100 rounded-lg p-4 bg-[#FAFAFA]">
+              <div className="text-[11.5px] text-slate-500 mb-1 font-semibold uppercase tracking-wider">Offer</div>
+              <div className="text-[22px] font-bold text-slate-900 tracking-tight">{activeBid.offer}</div>
+            </div>
+            <div className="border border-slate-100 rounded-lg p-4 bg-[#FAFAFA]">
+              <div className="text-[11.5px] text-slate-500 mb-1 font-semibold uppercase tracking-wider">vs. asking price</div>
+              <div className="text-[22px] font-bold tracking-tight" style={{ color: vsColor }}>
+                {vsAskDisplay}
+              </div>
+            </div>
+            <div className="border border-slate-100 rounded-lg p-4 bg-[#FAFAFA]">
+              <div className="text-[11.5px] text-slate-500 mb-1 font-semibold uppercase tracking-wider">Expected close</div>
+              <div className="text-[22px] font-bold text-slate-900 tracking-tight">{activeBid.close || 'Dec 2026'}</div>
+            </div>
+            <div className="border border-slate-100 rounded-lg p-4 bg-[#FAFAFA]">
+              <div className="text-[11.5px] text-slate-500 mb-1 font-semibold uppercase tracking-wider">Status</div>
+              <div className="text-[16px] font-semibold text-slate-900 mt-1">{activeBid.status || 'Under review'}</div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex justify-between items-center text-[12.5px] text-slate-500 font-medium mb-2">
+              <span>Structure</span>
+              <span>{activeBid.cash || `${cashVal}%`} Cash / {activeBid.stock || `${stockVal}%`} Stock</span>
+            </div>
+            <div className="flex h-3 rounded-full overflow-hidden bg-slate-100">
+              <div className="bg-slate-900" style={{ width: `${cashVal}%` }}></div>
+              <div className="bg-blue-200 border-l border-white" style={{ width: `${stockVal}%` }}></div>
+            </div>
+            <div className="flex gap-6 text-[12.5px] text-slate-500 mt-2.5">
+              <span className="flex items-center gap-1.5 before:content-['●'] before:text-[9px] before:relative before:-top-[1px] before:text-slate-900">
+                Cash {activeBid.cash || `${cashVal}%`}
+              </span>
+              <span className="flex items-center gap-1.5 before:content-['●'] before:text-[9px] before:relative before:-top-[1px] before:text-blue-600">
+                Stock {activeBid.stock || `${stockVal}%`}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Submitted Documents */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+          <div className="text-[16px] font-bold mb-4 text-slate-900 border-b border-slate-100 pb-2.5">
+            Submitted Documents
+          </div>
+          {documents.map((doc, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-300 transition-colors cursor-pointer bg-white"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-base text-blue-600">📄</span>
+                <span className="text-slate-900 font-medium truncate">{doc.name}</span>
+                {doc.size && <span className="text-xs text-slate-400 shrink-0">({doc.size})</span>}
+              </div>
+              <span className="text-slate-500 hover:text-blue-600 font-semibold text-[12px] shrink-0 ml-3">
+                Open ↗
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Decline Confirmation Modal Card */}
+      {isDeclineModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 sm:p-7">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200/80">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[17px] font-bold text-slate-900 leading-snug">
+                  Are you sure you want to decline the bid from {activeBid.name}?
+                </h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Declining this proposal will immediately <b>close the bidding round</b> for this deal and notify the buyer. You can reopen the round anytime using the <b>Resume Bidding Round</b> button.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsDeclineModalOpen(false)}
+                disabled={isSubmitting}
+                className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDecline}
+                disabled={isSubmitting}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isSubmitting ? 'Declining...' : 'OK, Decline & Close Round'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Counter Offer Modal — Simple, Neat, and Spacious Card */}
+      {isCounterModalOpen && (
+        <div className="fixed inset-0 bg-[#0f172a]/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-xl w-full border border-slate-200 shadow-2xl p-7 animate-in fade-in zoom-in-95">
+            <div className="mb-5 pb-3 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-900 mb-1 tracking-tight">Send Counter-Offer</h3>
+              <p className="text-xs text-slate-500">
+                Propose a revised valuation and closing condition to <b className="text-slate-700">{activeBid.name}</b>.
+              </p>
+            </div>
+
+            <div className="space-y-4.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Counter Valuation Amount ($)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                    <input
+                      type="number"
+                      value={counterAmount}
+                      onChange={(e) => setCounterAmount(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 text-sm focus:outline-none focus:border-[#0e7490] focus:ring-1 focus:ring-[#0e7490] transition-colors"
+                      placeholder="12000000"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Expected Close Date
+                  </label>
+                  <input
+                    type="date"
+                    value={counterExpectedDate}
+                    onChange={(e) => setCounterExpectedDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#0e7490] focus:ring-1 focus:ring-[#0e7490] transition-colors font-medium bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  Note to Buyer
+                </label>
+                <textarea
+                  rows="3"
+                  value={counterNote}
+                  onChange={(e) => setCounterNote(e.target.value)}
+                  className="w-full p-3.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#0e7490] focus:ring-1 focus:ring-[#0e7490] resize-none transition-colors"
+                  placeholder="The seller board is requesting benchmark valuation."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-7 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCounterModalOpen(false)}
+                className="px-4.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendCounter}
+                disabled={isSubmitting}
+                className="px-6 py-2.5 bg-[#0e7490] hover:bg-[#155e75] text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
+              >
+                {isSubmitting ? 'Sending...' : 'Transmit Counter-Offer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

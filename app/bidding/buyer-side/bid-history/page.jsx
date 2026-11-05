@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function BidHistoryPage() {
   const router = useRouter();
@@ -39,12 +40,7 @@ export default function BidHistoryPage() {
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased">
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white">
-        <Link href="/bidding/buyer-side/my-bid" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">My bid</Link>
-        <Link href="/bidding/buyer-side/bid-history" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Bid history</Link>
-        <Link href="/bidding/buyer-side/messages" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Messages</Link>
-        <Link href="/bidding/buyer-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Term sheet</Link>
-      </div>
+      <BiddingHeaderNav portal="buyer" activeTab="bid-history" />
 
       <div className="max-w-[1280px] mx-auto pb-8">
         <div className="pt-6 px-7 flex justify-between items-start">

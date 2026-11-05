@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function TermSheetPage() {
   const [loading, setLoading] = useState(true);
@@ -99,13 +100,7 @@ export default function TermSheetPage() {
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased">
-      <div className="flex gap-[2px] px-7 border-b border-slate-200 bg-white">
-
-        <Link href="/bidding/buyer-side/my-bid" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">My bid</Link>
-        <Link href="/bidding/buyer-side/bid-history" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Bid history</Link>
-        <Link href="/bidding/buyer-side/messages" className="px-4 py-[13px] text-[13px] text-slate-500 hover:text-slate-900 border-b-2 border-transparent">Messages</Link>
-        <Link href="/bidding/buyer-side/term-sheet" className="px-4 py-[13px] text-[13px] text-slate-900 border-b-2 border-blue-600 font-medium">Term sheet</Link>
-      </div>
+      <BiddingHeaderNav portal="buyer" activeTab="term-sheet" />
 
       <div className="max-w-[1280px] mx-auto pb-8">
         <div className="mt-5 mx-7 px-4.5 py-3 bg-green-50 border border-green-200/60 rounded-xl text-[12.5px] text-green-700 flex justify-between items-center shadow-xs">

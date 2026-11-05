@@ -27,7 +27,7 @@ export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { action, counterAmount, counterNote, requesterRole } = body;
+    const { action, counterAmount, counterNote, expectedCloseDate, closeDate, requesterRole } = body;
 
     const store = await loadBiddingStoreAsync();
     const bid = store.bids[id];
@@ -45,13 +45,17 @@ export async function PATCH(req, { params }) {
         return NextResponse.json({ success: false, error: 'Only Seller Super Admin can counter-offer.' }, { status: 403 });
       }
 
-      const numCounter = Number(counterAmount) || 100000000;
+      const numCounter = Number(counterAmount) || 12000000;
       const counterFormatted = `$${(numCounter / 1000000).toFixed(1)}M`;
+      const targetDate = expectedCloseDate || closeDate || '2026-12-15';
+      const formattedClose = new Date(targetDate).toLocaleString('default', { month: 'short', year: 'numeric' });
 
       bid.status = 'Countered';
       bid.counterOffer = {
         amount: numCounter,
         amountFormatted: counterFormatted,
+        expectedCloseDate: targetDate,
+        expectedCloseDisplay: formattedClose,
         note: counterNote || `The seller board is requesting ${counterFormatted} valuation.`,
         counteredAt: formattedNow
       };
@@ -61,13 +65,13 @@ export async function PATCH(req, { params }) {
         event: 'Seller Counter-Offer Sent',
         amount: counterFormatted,
         date: formattedNow,
-        note: counterNote || 'Seller sent counter proposal'
+        note: counterNote ? `${counterNote} · Expected close: ${formattedClose}` : `Counter-offer with expected close ${formattedClose}`
       });
 
       await saveBidInDB(bid);
     }
 
-    // 2. Seller Decline Bid
+    // 2. Seller Decline Bid & Close Round
     else if (action === 'DECLINE') {
       if (requesterRole && requesterRole !== 'super_admin') {
         return NextResponse.json({ success: false, error: 'Only Seller Super Admin can decline a bid.' }, { status: 403 });
@@ -76,12 +80,23 @@ export async function PATCH(req, { params }) {
       bid.status = 'Declined';
       if (!bid.history) bid.history = [];
       bid.history.push({
-        event: 'Bid Declined by Seller',
+        event: 'Bid Declined & Bidding Round Closed',
         date: formattedNow,
-        note: 'Bid declined by seller board'
+        note: 'Bid declined by seller board and bidding round closed'
       });
 
+      // Close the round in store and DB
+      if (store.round) {
+        store.round.status = 'closed';
+        store.round.statusLabel = 'Bidding Round Closed';
+      }
+
       await saveBidInDB(bid);
+      saveBiddingStore(store);
+      try {
+        const { updateRoundInDB } = await import('@/lib/biddingFlowService');
+        await updateRoundInDB({ status: 'closed', statusLabel: 'Bidding Round Closed' });
+      } catch (err) {}
     }
 
     // 3. Seller Accept Bid & Move to Term Sheet
