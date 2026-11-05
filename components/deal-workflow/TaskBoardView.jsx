@@ -16,13 +16,15 @@ import {
   ArrowRight,
   ChevronDown,
   MessageSquare,
-  Bell
+  Bell,
+  Gavel
 } from 'lucide-react';
 import { PRIORITIES, DEAL_STAGES, normalizeRole, normalizeStage } from './DealWorkflowContext';
 import StageTracker from './StageTracker';
 import StageReviewNotification from './StageReviewNotification';
 import TaskCreationStudio from './TaskCreationStudio';
 import TaskCommunicationPanel from './TaskCommunicationPanel';
+import NegotiationBiddingTracker from './NegotiationBiddingTracker';
 
 export default function TaskBoardView() {
   const {
@@ -128,6 +130,18 @@ export default function TaskBoardView() {
       setSelectedVisibility('ALL');
     }
   }, [isPrepStage, selectedVisibility, setSelectedVisibility]);
+
+  // Negotiation Stage: Live Bidding & Negotiation Pipeline vs Task Board
+  const isNegotiationStage = normalizeStage(selectedDealStage) === 'Negotiation';
+  const [negotiationTab, setNegotiationTab] = useState('PIPELINE'); // 'PIPELINE' | 'TASKS'
+  const [prevSelectedStage, setPrevSelectedStage] = useState(selectedDealStage);
+
+  if (prevSelectedStage !== selectedDealStage) {
+    setPrevSelectedStage(selectedDealStage);
+    if (normalizeStage(selectedDealStage) === 'Negotiation') {
+      setNegotiationTab('PIPELINE');
+    }
+  }
 
   const handleDepartmentChange = (newDept) => {
     setSelectedDepartment(newDept);
@@ -367,20 +381,47 @@ export default function TaskBoardView() {
       {/* ========================================================================= */}
       <div className="px-4 sm:px-6 lg:px-8 pt-2 sm:pt-2.5 pb-2">
         <div className="border-b border-gray-200">
-          <div className="flex gap-6">
-            {!isSuperAdmin && (
+          <div className="flex gap-6 overflow-x-auto">
+            {isNegotiationStage && (
+              <button
+                onClick={() => setNegotiationTab('PIPELINE')}
+                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  negotiationTab === 'PIPELINE'
+                    ? 'text-[#006666]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Gavel className="w-3.5 h-3.5" />
+                <span>Bidding &amp; Negotiation Pipeline</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    negotiationTab === 'PIPELINE'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  Live
+                </span>
+                {negotiationTab === 'PIPELINE' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#006666] rounded-t-full"></span>
+                )}
+              </button>
+            )}
+            {!isSuperAdmin && !isNegotiationStage && (
               <button
                 onClick={() => setTrackingSection('ASSIGNED_TO_ME')}
-                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${trackingSection === 'ASSIGNED_TO_ME'
-                  ? 'text-[#006666]'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  trackingSection === 'ASSIGNED_TO_ME'
+                    ? 'text-[#006666]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
                 <span>Assigned to You</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${trackingSection === 'ASSIGNED_TO_ME'
-                  ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
-                  : 'bg-slate-100 text-slate-500'
-                  }`}>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                  trackingSection === 'ASSIGNED_TO_ME'
+                    ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
                   {trackingCounts?.totalAssignedByOthers ?? trackingCounts?.assignedByOthers ?? 0}
                 </span>
                 {trackingSection === 'ASSIGNED_TO_ME' && (
@@ -389,22 +430,24 @@ export default function TaskBoardView() {
               </button>
             )}
 
-            {!isInternalUser && (
+            {!isInternalUser && !isNegotiationStage && (
               <button
                 onClick={() => {
                   setTrackingSection('CREATED_BY_ME');
                   if (memberFilter === 'MY_TASKS') setMemberFilter('ALL');
                 }}
-                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${trackingSection === 'CREATED_BY_ME'
-                  ? 'text-[#006666]'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  trackingSection === 'CREATED_BY_ME'
+                    ? 'text-[#006666]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
                 <span>Created by You</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${trackingSection === 'CREATED_BY_ME'
-                  ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
-                  : 'bg-slate-100 text-slate-500'
-                  }`}>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                  trackingSection === 'CREATED_BY_ME'
+                    ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
                   {trackingCounts?.totalCreatedByMe ?? trackingCounts?.createdByMe ?? 0}
                 </span>
                 {trackingSection === 'CREATED_BY_ME' && (
@@ -413,21 +456,23 @@ export default function TaskBoardView() {
               </button>
             )}
 
-            {!isInternalUser && (
+            {!isInternalUser && !isNegotiationStage && (
               <button
                 onClick={() => {
                   setTrackingSection('TASK_CREATION');
                 }}
-                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${trackingSection === 'TASK_CREATION'
-                  ? 'text-[#006666]'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                className={`pb-2 text-xs sm:text-[13px] font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  trackingSection === 'TASK_CREATION'
+                    ? 'text-[#006666]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
                 <span>Task Creation</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${trackingSection === 'TASK_CREATION'
-                  ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
-                  : 'bg-slate-100 text-slate-500'
-                  }`}>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                  trackingSection === 'TASK_CREATION'
+                    ? 'bg-teal-50 text-[#006666] border border-teal-200/80 font-bold'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
                   {trackingCounts?.totalTaskCreation ?? 0}
                 </span>
                 {trackingSection === 'TASK_CREATION' && (
@@ -439,7 +484,11 @@ export default function TaskBoardView() {
         </div>
       </div>
 
-      {trackingSection === 'TASK_CREATION' ? (
+      {isNegotiationStage ? (
+        <div className="px-4 sm:px-6 lg:px-8 pt-3">
+          <NegotiationBiddingTracker />
+        </div>
+      ) : trackingSection === 'TASK_CREATION' ? (
         <TaskCreationStudio />
       ) : (
         <>
