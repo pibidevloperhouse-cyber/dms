@@ -17,6 +17,9 @@ import {
   Sparkles,
   Send,
   FileText,
+  Gavel,
+  DollarSign,
+  Calendar,
 } from 'lucide-react';
 import { useDealWorkflow, normalizeRole, getNextStage } from './DealWorkflowContext';
 import StageQueryModal from './StageQueryModal';
@@ -52,7 +55,11 @@ export default function StageReviewNotification({ inDropdown = false }) {
   const isSuperAdmin = normRole === 'super_admin' || normRole === 'guest_admin';
   const isAdmin = normRole === 'admin' || normRole === 'advisor';
   const isDueDiligence = normalizeStage(activeDealStage) === 'Due Diligence';
-  const isBuyerSide = currentUser?.side === 'buyer' || ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normRole);
+  const isBuyerSide = currentUser?.side === 'buyer' ||
+    ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normRole) ||
+    String(currentUser?.role || '').toLowerCase().includes('guest') ||
+    String(currentUser?.role || '').toLowerCase().includes('buyer') ||
+    String(currentUser?.dms_role || '').toLowerCase() === 'buyer';
   const isSellerSide = currentUser?.side === 'seller' || ['super_admin', 'admin', 'sub_admin', 'internal_user'].includes(normRole);
 
   // Get active stage details from stageTrackerInfo
@@ -285,7 +292,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
                         <span>Action Required · Negotiation Stage</span>
                       </span>
                       <span className="text-xs font-semibold text-slate-500">
-                        Deal: <strong className="text-slate-900">{dealInfo?.dealName || 'VDR Sell'}</strong>
+                        Deal: <strong className="text-slate-900">{negotiationInvitation.dealName || dealInfo?.dealName || 'Test User Deal'}</strong>
                       </span>
                     </div>
 
@@ -381,7 +388,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
     }
 
     // SELLER SIDE (SUPER ADMIN): Status Notification Card
-    if (isSellerSide && isSuperAdmin) {
+    if (isSellerSide && isSuperAdmin && !isBuyerSide) {
       return (
         <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
           <div className="bg-teal-50/80 border border-teal-200 rounded-2xl p-4 sm:p-4.5 text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">

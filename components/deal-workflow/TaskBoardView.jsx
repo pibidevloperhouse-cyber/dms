@@ -242,7 +242,10 @@ export default function TaskBoardView() {
     dueDiligenceCertificate &&
     dueDiligenceCertificate.status === 'SUBMITTED_TO_SELLER'
   );
-  const isBuyerUser = currentUser?.side === 'buyer' || ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normalizeRole(currentUser?.role));
+  const isBuyerUser = currentUser?.side === 'buyer' ||
+    ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(normalizeRole(currentUser?.role)) ||
+    String(currentUser?.role || '').toLowerCase().includes('guest') ||
+    String(currentUser?.role || '').toLowerCase().includes('buyer');
   const hasNegotiationNotification = Boolean(
     negotiationInvitation && (
       (isBuyerUser && (negotiationInvitation.status === 'PENDING_ACCEPTANCE' || negotiationInvitation.status === 'ACCEPTED')) ||

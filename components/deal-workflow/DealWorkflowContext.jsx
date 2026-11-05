@@ -497,6 +497,18 @@ export function DealWorkflowProvider({ children }) {
           setDueDiligenceCertificate((prev) => (JSON.stringify(prev) === JSON.stringify(data.dueDiligenceCertificate) ? prev : data.dueDiligenceCertificate));
         }
 
+        if (data.negotiationInvitation !== undefined) {
+          setNegotiationInvitation((prev) => (JSON.stringify(prev) === JSON.stringify(data.negotiationInvitation) ? prev : data.negotiationInvitation));
+          if (typeof window !== 'undefined') {
+            if (data.negotiationInvitation) {
+              localStorage.setItem('dms_negotiation_invitation', JSON.stringify(data.negotiationInvitation));
+            }
+            if (data.negotiationInvitation?.status === 'ACCEPTED') {
+              localStorage.setItem('dms_bidding_unlocked', 'true');
+            }
+          }
+        }
+
         if (data.dealMeta) {
           setDealInfo(data.dealMeta);
         }
@@ -1496,18 +1508,30 @@ export function DealWorkflowProvider({ children }) {
     }, 3000);
 
     // Listen to storage and focus events so when another user logs in, state updates immediately
-    const handleStorageChange = (e) => {
+        const handleStorageChange = (e) => {
       if (!e || e.key === 'vdr_session') {
         const freshUser = readSessionUser();
         setSessionUser(freshUser);
       }
+      if (e?.key === 'dms_negotiation_invitation' && e.newValue) {
+        try {
+          setNegotiationInvitation(JSON.parse(e.newValue));
+        } catch (err) {}
+      }
     };
+    const handleInviteEvent = (e) => {
+      if (e?.detail) {
+        setNegotiationInvitation(e.detail);
+      }
+    };
+    window.addEventListener('dms_negotiation_invite_event', handleInviteEvent);
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleStorageChange);
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleStorageChange);
+      window.removeEventListener('dms_negotiation_invite_event', handleInviteEvent);
     };
   }, []);
 
