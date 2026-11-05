@@ -112,7 +112,12 @@ export default function WorkspacePage() {
       }
 
       session.active_workspace_id = workspaceId;
+      session.active_deal_id = workspaceId;
+      session.active_deal_name = targetWs?.name || 'Deal';
       localStorage.setItem('vdr_session', JSON.stringify(session));
+      localStorage.setItem('active_deal_id', workspaceId);
+      localStorage.setItem('active_deal_name', targetWs?.name || 'Deal');
+      localStorage.setItem('active_workspace_id', workspaceId);
       router.push('/documents');
     }
   };

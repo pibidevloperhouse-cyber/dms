@@ -77,7 +77,12 @@ export default function NotificationBell({ placement = 'dropdown', dropdownAlign
         const userId = session?.id;
         if (!userId) return;
 
-        const activeWorkspaceId = session?.active_workspace_id || '';
+        const activeWorkspaceId =
+          session?.active_workspace_id ||
+          session?.active_deal_id ||
+          localStorage.getItem('active_deal_id') ||
+          localStorage.getItem('active_workspace_id') ||
+          '';
         const url = `/api/communication/notifications?userId=${encodeURIComponent(userId)}${
           activeWorkspaceId ? `&workspaceId=${encodeURIComponent(activeWorkspaceId)}` : ''
         }`;

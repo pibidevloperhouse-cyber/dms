@@ -92,7 +92,11 @@ export default function CommunicationNotificationManager() {
 
     isFetchingRef.current = true;
     try {
-      const activeWorkspaceId = currentUser.active_workspace_id || '';
+      const activeWorkspaceId =
+        currentUser.active_workspace_id ||
+        currentUser.active_deal_id ||
+        (typeof window !== 'undefined' ? localStorage.getItem('active_deal_id') || localStorage.getItem('active_workspace_id') : '') ||
+        '';
       const url = `/api/communication/channels?userId=${encodeURIComponent(
         currentUser.id
       )}${activeWorkspaceId ? `&workspaceId=${encodeURIComponent(activeWorkspaceId)}` : ''}`;

@@ -24,8 +24,8 @@ export async function GET(req, { params }) {
     }
 
     const { channel, group } = authResult;
-    let members = [];
-    if (group) {
+    let members = authResult.members || [];
+    if (group && members.length === 0) {
       members = await getGroupMembers(group.id);
     }
 
@@ -35,8 +35,10 @@ export async function GET(req, { params }) {
         ...channel,
         groupId: group?.id || null,
         groupName: group?.name || channel.name,
-        department: group?.department || 'General',
+        department: group?.department || (channel.type === 'direct_message' ? 'Direct Message' : 'General'),
         description: group?.description || channel.description,
+        isDirectMessage: Boolean(channel.isDirectMessage || channel.type === 'direct_message'),
+        partner: authResult.partner || null,
       },
       group,
       members,

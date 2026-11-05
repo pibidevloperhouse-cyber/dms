@@ -9,7 +9,7 @@ import {
   channelMembers,
   messageMentions,
 } from '@/db/schema';
-import { eq, ne, gt, and, inArray, desc, isNull, or } from 'drizzle-orm';
+import { eq, ne, gt, and, inArray, desc, isNull, or, sql } from 'drizzle-orm';
 import { getActiveUser } from '@/lib/communication/service';
 
 function formatTimeAgo(dateInput) {
@@ -65,28 +65,36 @@ export async function GET(req) {
       groupIds = ugRows.map((r) => r.groupId);
     }
 
-    if (groupIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        notifications: [],
-        unreadCount: 0,
-        unreadMentionsCount: 0,
-      });
+    // Fetch channels for authorized groups
+    let chRows = [];
+    if (groupIds.length > 0) {
+      chRows = await db
+        .select({
+          id: communicationChannels.id,
+          groupId: communicationChannels.groupId,
+          groupName: groups.name,
+          department: groups.department,
+        })
+        .from(communicationChannels)
+        .innerJoin(groups, eq(communicationChannels.groupId, groups.id))
+        .where(inArray(communicationChannels.groupId, groupIds));
     }
 
-    // Fetch channels for authorized groups
-    const chRows = await db
+    // Also fetch direct message channels where user is a member
+    const dmRows = await db
       .select({
         id: communicationChannels.id,
         groupId: communicationChannels.groupId,
-        groupName: groups.name,
-        department: groups.department,
+        groupName: communicationChannels.name,
+        department: sql`'Direct Message'`,
       })
-      .from(communicationChannels)
-      .innerJoin(groups, eq(communicationChannels.groupId, groups.id))
-      .where(inArray(communicationChannels.groupId, groupIds));
+      .from(channelMembers)
+      .innerJoin(communicationChannels, eq(channelMembers.channelId, communicationChannels.id))
+      .where(and(eq(channelMembers.userId, user.id), eq(communicationChannels.type, 'direct_message')));
 
-    if (chRows.length === 0) {
+    const allChRows = [...chRows, ...dmRows];
+
+    if (allChRows.length === 0) {
       return NextResponse.json({
         success: true,
         notifications: [],
@@ -96,7 +104,7 @@ export async function GET(req) {
     }
 
     const channelMap = new Map();
-    const channelIds = chRows.map((c) => {
+    const channelIds = allChRows.map((c) => {
       channelMap.set(c.id, c);
       return c.id;
     });

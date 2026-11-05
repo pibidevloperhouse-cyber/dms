@@ -223,15 +223,31 @@ function DealDashboardContent() {
         setDeals(dealList);
         if (role === 'buyer') {
           const buyerDeal = dealList[0];
-          if (buyerDeal && buyerDeal.ndaStatus !== 'signed') {
-            setNdaTarget({
-              proposalId: buyerDeal.proposalId,
-              dealId: buyerDeal.id,
-              projectId: projectId,
-              projectName: projectName,
-              dealName: buyerDeal.name || projectName
-            });
-            setShowNDAModal(true);
+          if (buyerDeal) {
+            try {
+              localStorage.setItem('active_deal_id', buyerDeal.id);
+              localStorage.setItem('active_deal_name', buyerDeal.name || projectName || 'Deal');
+              localStorage.setItem('active_workspace_id', buyerDeal.id);
+              const raw = localStorage.getItem('vdr_session');
+              if (raw) {
+                const s = JSON.parse(raw);
+                s.active_workspace_id = buyerDeal.id;
+                s.active_deal_id = buyerDeal.id;
+                s.active_deal_name = buyerDeal.name || projectName || 'Deal';
+                localStorage.setItem('vdr_session', JSON.stringify(s));
+              }
+            } catch (e) {}
+
+            if (buyerDeal.ndaStatus !== 'signed') {
+              setNdaTarget({
+                proposalId: buyerDeal.proposalId,
+                dealId: buyerDeal.id,
+                projectId: projectId,
+                projectName: projectName,
+                dealName: buyerDeal.name || projectName
+              });
+              setShowNDAModal(true);
+            }
           }
         }
       })
@@ -847,9 +863,14 @@ function DealDashboardContent() {
                           dms_role: dmsRole,
                           name: localStorage.getItem('userName') || 'User',
                           company_id: localStorage.getItem('companyId') || '',
-                          active_workspace_id: deal.id
+                          active_workspace_id: deal.id,
+                          active_deal_id: deal.id,
+                          active_deal_name: deal.name || projectName || 'Deal',
                         };
                         localStorage.setItem('vdr_session', JSON.stringify(vdrSession));
+                        localStorage.setItem('active_deal_id', deal.id);
+                        localStorage.setItem('active_deal_name', deal.name || projectName || 'Deal');
+                        localStorage.setItem('active_workspace_id', deal.id);
                         router.push('/documents');
                       }}
                       className="h-44 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] p-4 relative flex flex-col hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)] transition-all cursor-pointer group"

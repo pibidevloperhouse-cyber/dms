@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu } from 'lucide-react';
+import { Hash, Lock, ShieldX, RefreshCw, MessageSquare, Menu, User } from 'lucide-react';
 import MessageTimeline from '@/components/communication/MessageTimeline';
 import RichComposer from '@/components/communication/RichComposer';
 import ContextPanel from '@/components/communication/ContextPanel';
@@ -46,7 +46,11 @@ export default function ChannelPage({ params }) {
   const fetchChannelDetails = useCallback(async () => {
     if (!channelId || !session?.id) return;
     try {
-      const activeWorkspaceId = session.active_workspace_id || '';
+      const activeWorkspaceId =
+        session.active_workspace_id ||
+        session.active_deal_id ||
+        localStorage.getItem('active_deal_id') ||
+        '';
       const url = `/api/communication/channels/${channelId}?userId=${encodeURIComponent(
         session.id
       )}${activeWorkspaceId ? `&workspaceId=${encodeURIComponent(activeWorkspaceId)}` : ''}`;
@@ -56,7 +60,7 @@ export default function ChannelPage({ params }) {
 
       if (!res.ok || !data.success) {
         if (res.status === 403) {
-          setAuthError(data.error || 'Access Denied: You are not authorized to view this group conversation.');
+          setAuthError(data.error || 'Access Denied: You are not authorized to view this conversation.');
         } else if (res.status === 404) {
           setAuthError('Conversation or associated group not found.');
         } else {
@@ -79,7 +83,11 @@ export default function ChannelPage({ params }) {
   const fetchMessages = useCallback(async () => {
     if (!channelId || !session?.id) return;
     try {
-      const activeWorkspaceId = session.active_workspace_id || '';
+      const activeWorkspaceId =
+        session.active_workspace_id ||
+        session.active_deal_id ||
+        localStorage.getItem('active_deal_id') ||
+        '';
       const url = `/api/communication/messages?channelId=${encodeURIComponent(
         channelId
       )}&userId=${encodeURIComponent(session.id)}${
@@ -158,6 +166,12 @@ export default function ChannelPage({ params }) {
 
     setSending(true);
     try {
+      const activeWorkspaceId =
+        session.active_workspace_id ||
+        session.active_deal_id ||
+        localStorage.getItem('active_deal_id') ||
+        null;
+
       const res = await fetch('/api/communication/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,7 +180,7 @@ export default function ChannelPage({ params }) {
           messageText: text.trim(),
           userId: session.id,
           session,
-          workspaceId: session.active_workspace_id || null,
+          workspaceId: activeWorkspaceId,
         }),
       });
 
@@ -288,7 +302,8 @@ export default function ChannelPage({ params }) {
     );
   }
 
-  const channelName = channelData?.groupName || channelData?.name || 'Group Conversation';
+  const isDirect = Boolean(channelData?.isDirectMessage || channelData?.type === 'direct_message');
+  const channelName = channelData?.groupName || channelData?.name || (isDirect ? 'Direct Conversation' : 'Group Conversation');
   const isPrivate = channelData?.type === 'private';
   const memberCount = members.length;
 
@@ -299,24 +314,36 @@ export default function ChannelPage({ params }) {
           <div className="flex items-center gap-3 min-w-0">
             <div
               className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 ${
-                isPrivate ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600 font-bold'
+                isDirect
+                  ? 'bg-indigo-100 text-indigo-700 font-bold shadow-2xs'
+                  : isPrivate
+                  ? 'bg-orange-100 text-orange-600'
+                  : 'bg-blue-100 text-blue-600 font-bold'
               }`}
             >
-              {isPrivate ? <Lock size={20} /> : <Hash size={20} />}
+              {isDirect ? <User size={20} /> : isPrivate ? <Lock size={20} /> : <Hash size={20} />}
             </div>
             <div className="min-w-0 truncate">
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-slate-800 text-base leading-tight truncate">
                   {channelName}
                 </h1>
-                {channelData?.department && (
-                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
-                    {channelData.department}
+                {isDirect ? (
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-md shrink-0">
+                    1:1 Direct Message
                   </span>
+                ) : (
+                  channelData?.department && (
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+                      {channelData.department}
+                    </span>
+                  )
                 )}
               </div>
               <p className="text-xs text-slate-400 font-medium truncate">
-                {memberCount} verified member{memberCount !== 1 ? 's' : ''}
+                {isDirect
+                  ? 'Private 1:1 conversation between Buyer and Seller'
+                  : `${memberCount} verified member${memberCount !== 1 ? 's' : ''}`}
               </p>
             </div>
           </div>
@@ -331,7 +358,7 @@ export default function ChannelPage({ params }) {
             </button>
             <button
               onClick={() => setShowDetails((prev) => !prev)}
-              title="Toggle Group Details"
+              title="Toggle Conversation Details"
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors lg:hidden cursor-pointer"
             >
               <Menu size={18} />
@@ -341,13 +368,20 @@ export default function ChannelPage({ params }) {
 
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#F8F9FB]">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-              <MessageSquare size={24} />
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${
+                isDirect ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'
+              }`}
+            >
+              {isDirect ? <User size={24} /> : <MessageSquare size={24} />}
             </div>
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Welcome to {channelName}</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-1">
+              {isDirect ? `Conversation with ${channelName}` : `Welcome to ${channelName}`}
+            </h3>
             <p className="text-xs text-slate-400 max-w-sm">
-              This conversation is strictly accessible only to authorized members of {channelName}.
-              Type a message below to start the conversation!
+              {isDirect
+                ? `This is a private 1:1 communication channel strictly between you and ${channelName} for this deal. Type a message below to start!`
+                : `This conversation is strictly accessible only to authorized members of ${channelName}. Type a message below to start the conversation!`}
             </p>
           </div>
         ) : (
