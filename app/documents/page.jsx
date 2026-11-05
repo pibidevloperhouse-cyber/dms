@@ -14,6 +14,79 @@ export default function DocumentsPage() {
     );
 }
 
+
+// ── REUSABLE HIERARCHICAL INDEX ENGINE ─────────────────────────────────────
+export function computeHierarchicalIndexEngine(files = [], deletedIds = new Set()) {
+    const active = (files || []).filter(f => f && !deletedIds.has(f.id) && !f.is_deleted);
+
+    const byParent = new Map();
+    active.forEach(item => {
+        const pId = item.parentId || 'root';
+        if (!byParent.has(pId)) byParent.set(pId, []);
+        byParent.get(pId).push(item);
+    });
+
+    const compareNatural = (a, b) => {
+        const isAFolder = a.type === 'folder';
+        const isBFolder = b.type === 'folder';
+        if (isAFolder && !isBFolder) return -1;
+        if (!isAFolder && isBFolder) return 1;
+
+        const rawA = (a.index !== undefined && a.index !== null && a.index !== '99' && a.index !== '999999')
+            ? a.index.toString().trim() : '';
+        const rawB = (b.index !== undefined && b.index !== null && b.index !== '99' && b.index !== '999999')
+            ? b.index.toString().trim() : '';
+
+        if (rawA && rawB) {
+            const partsA = rawA.split('.').map(n => parseInt(n, 10));
+            const partsB = rawB.split('.').map(n => parseInt(n, 10));
+            const len = Math.max(partsA.length, partsB.length);
+            for (let i = 0; i < len; i++) {
+                const numA = isNaN(partsA[i]) ? 999999 : partsA[i];
+                const numB = isNaN(partsB[i]) ? 999999 : partsB[i];
+                if (numA !== numB) return numA - numB;
+            }
+        } else if (rawA && !rawB) {
+            return -1;
+        } else if (!rawA && rawB) {
+            return 1;
+        }
+
+        const dateA = a.created_at || a.createdAt || a.dateCreated;
+        const dateB = b.created_at || b.createdAt || b.dateCreated;
+        if (dateA && dateB) {
+            const timeDiff = new Date(dateA).getTime() - new Date(dateB).getTime();
+            if (timeDiff !== 0 && !isNaN(timeDiff)) return timeDiff;
+        }
+
+        return (a.name || '').localeCompare(b.name || '');
+    };
+
+    const indexMap = new Map();
+    const folderUpdates = [];
+    const docUpdates = [];
+
+    const traverse = (parentId, prefix) => {
+        const siblings = byParent.get(parentId) || [];
+        siblings.sort(compareNatural);
+
+        siblings.forEach((item, idx) => {
+            const seq = idx + 1;
+            const hIndex = prefix ? `${prefix}.${seq}` : `${seq}`;
+            indexMap.set(item.id, hIndex);
+            if (item.type === 'folder') {
+                folderUpdates.push({ id: item.id, index_number: seq });
+                traverse(item.id, hIndex);
+            } else {
+                docUpdates.push({ id: item.id, index: hIndex });
+            }
+        });
+    };
+
+    traverse('root', '');
+    return { indexMap, folderUpdates, docUpdates };
+}
+
 function UnifiedWorkspace() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -65,6 +138,18 @@ function UnifiedWorkspace() {
     const [copyModalItem, setCopyModalItem] = useState(null);
     const [targetStageId, setTargetStageId] = useState('stage-1');
 
+    // ── ACTION API HELPER ────────────────────────────────────────────────────
+    const executeBackendAction = async (action, payload) => {
+        const res = await fetch('/api/documents/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, payload, session })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        return data;
+    };
+
     useEffect(() => {
         const handleClickOutside = () => setActiveActionMenuId(null);
         window.addEventListener('click', handleClickOutside);
@@ -72,15 +157,6 @@ function UnifiedWorkspace() {
     }, []);
 
     const fileInputRef = useRef(null);
-
-    // ── SESSION ──────────────────────────────────────────────────────────────
-    useEffect(() => {
-        const raw = localStorage.getItem('vdr_session');
-        if (!raw) { router.push('/login'); return; }
-        setSession(JSON.parse(raw));
-    }, [router]);
-
-
 
     // ── SMART FETCH (CALLS THE BACKEND API) ──────────────────────────────────
     const loadData = async (userSession) => {
@@ -108,6 +184,25 @@ function UnifiedWorkspace() {
             setDownloadedIds(new Set(data.files.filter(f => f.is_downloaded).map(f => f.id)));
             const newDeletedIds = new Set(data.files.filter(f => f.is_deleted).map(f => f.id));
             setDeletedIds(newDeletedIds);
+
+            // Auto self-healing check for Seller Admins:
+            const userIsBuyer = (userSession || session)?.dms_role === 'buyer' || ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes((userSession || session)?.role);
+            if (!userIsBuyer && ['super_admin', 'admin'].includes((userSession || session)?.role)) {
+                const { folderUpdates, docUpdates } = computeHierarchicalIndexEngine(data.files, newDeletedIds);
+                const hasStaleIndex = data.files.some(f => 
+                    !newDeletedIds.has(f.id) && (
+                        f.index === '99' || 
+                        f.index === '999999' || 
+                        !f.index || 
+                        (f.type === 'folder' && !f.index)
+                    )
+                );
+                if (hasStaleIndex && (folderUpdates.length > 0 || docUpdates.length > 0)) {
+                    executeBackendAction('reindex', { folderUpdates, docUpdates }).catch(err => {
+                        console.warn('Background auto-index sync notice:', err);
+                    });
+                }
+            }
             
             return { files: data.files, deletedIds: newDeletedIds };
         } catch (err) {
@@ -118,24 +213,27 @@ function UnifiedWorkspace() {
         }
     };
 
-    useEffect(() => { if (session) loadData(session); }, [session]);
+    // ── SESSION ──────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const raw = localStorage.getItem('vdr_session');
+        if (!raw) { router.push('/login'); return; }
+        try {
+            const parsed = JSON.parse(raw);
+            queueMicrotask(() => {
+                setSession(parsed);
+                loadData(parsed);
+            });
+        } catch (_) {}
+    }, [router]);
+
+
 
     useEffect(() => {
-        setCurrentFolderId(null);
-        setSelectedIds(new Set());
-    }, [currentView]);
-
-    // ── ACTION API HELPER ────────────────────────────────────────────────────
-    const executeBackendAction = async (action, payload) => {
-        const res = await fetch('/api/documents/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, payload, session })
+        queueMicrotask(() => {
+            setCurrentFolderId(null);
+            setSelectedIds(new Set());
         });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
-        return data;
-    };
+    }, [currentView]);
 
     // ── UTILITIES ────────────────────────────────────────────────────────────
     const formatBytes = (bytes) => {
@@ -227,51 +325,17 @@ function UnifiedWorkspace() {
     };
 
     // ── SORTING & INDEXING (Standard VDR Hierarchical Engine) ────────────────
+    const { indexMap: hierarchicalIndexMap } = useMemo(() => {
+        return computeHierarchicalIndexEngine(files, deletedIds);
+    }, [files, deletedIds]);
+
     const getActiveDisplayIndex = useCallback((f) => {
         if (!f) return '—';
-
-        // 1. If it's a folder, recursively traverse parent folders to build hierarchical index e.g. 1.2.1
-        if (f.type === 'folder') {
-            const path = [];
-            let curr = f;
-            let depth = 0;
-            while (curr && depth < 10) {
-                path.unshift((curr.index || '1').toString().trim());
-                if (!curr.parentId || curr.parentId === 'root') break;
-                curr = files.find(x => x.id === curr.parentId);
-                depth++;
-            }
-            return path.join('.') || '—';
+        if (deletedIds.has(f.id)) {
+            return f.index && f.index !== '99' && f.index !== '999999' ? f.index.toString() : '—';
         }
-
-        // 2. If it's a document:
-        // Case A: If doc already has a full dotted index (e.g. "1.1", "1.2.3") and not '99', use it
-        if (f.index && f.index !== '99' && f.index.toString().includes('.')) {
-            return f.index.toString().trim();
-        }
-
-        // Case B: If doc is in a parent folder, resolve parent folder's hierarchical index + doc suffix
-        if (f.parentId && f.parentId !== 'root') {
-            const parentFolder = files.find(x => x.id === f.parentId);
-            if (parentFolder) {
-                const parentPath = [];
-                let curr = parentFolder;
-                let depth = 0;
-                while (curr && depth < 10) {
-                    parentPath.unshift((curr.index || '1').toString().trim());
-                    if (!curr.parentId || curr.parentId === 'root') break;
-                    curr = files.find(x => x.id === curr.parentId);
-                    depth++;
-                }
-                const parentPrefix = parentPath.join('.');
-                const docSuffix = (f.index && f.index !== '99') ? f.index.toString().split('.').pop() : '1';
-                return parentPrefix ? `${parentPrefix}.${docSuffix}` : docSuffix;
-            }
-        }
-
-        // Case C: Root document
-        return f.index && f.index !== '99' ? f.index.toString().trim() : '1';
-    }, [files]);
+        return hierarchicalIndexMap.get(f.id) || (f.index && f.index !== '99' && f.index !== '999999' ? f.index.toString() : '—');
+    }, [hierarchicalIndexMap, deletedIds]);
 
     const getLocationPath = useCallback((f) => {
         if (!f || !f.parentId || f.parentId === 'root') return '/';
@@ -297,22 +361,25 @@ function UnifiedWorkspace() {
             if (!isAFolder && isBFolder) return 1;
         }
 
-        const compareIndexes = (idxA, idxB) => {
-            const partsA = (idxA || '999999').toString().split('.').map(n => parseInt(n, 10) || 0);
-            const partsB = (idxB || '999999').toString().split('.').map(n => parseInt(n, 10) || 0);
+        const idxA = a.displayIndex || hierarchicalIndexMap.get(a.id) || a.index;
+        const idxB = b.displayIndex || hierarchicalIndexMap.get(b.id) || b.index;
+
+        const compareIndexes = (iA, iB) => {
+            const partsA = (iA || '999999').toString().split('.').map(n => parseInt(n, 10) || 0);
+            const partsB = (iB || '999999').toString().split('.').map(n => parseInt(n, 10) || 0);
             const len = Math.max(partsA.length, partsB.length);
             for (let i = 0; i < len; i++) {
                 const numA = partsA[i] || 0;
                 const numB = partsB[i] || 0;
                 if (numA !== numB) return numA - numB;
             }
-            return (idxA || '').toString().localeCompare((idxB || '').toString());
+            return (iA || '').toString().localeCompare((iB || '').toString());
         };
 
-        const idxCmp = compareIndexes(a.displayIndex || a.index, b.displayIndex || b.index);
+        const idxCmp = compareIndexes(idxA, idxB);
         if (idxCmp !== 0) return idxCmp;
-        return a.name.localeCompare(b.name);
-    }, [currentView]);
+        return (a.name || '').localeCompare(b.name || '');
+    }, [currentView, hierarchicalIndexMap]);
 
     const currentItems = useMemo(() => {
         const raw = (() => {
@@ -320,7 +387,7 @@ function UnifiedWorkspace() {
             if (currentView === 'bookmarks') return files.filter(f => bookmarkedIds.has(f.id) && !deletedIds.has(f.id));
             if (currentView === 'downloads') return files.filter(f => downloadedIds.has(f.id) && !deletedIds.has(f.id));
             // Both active files view and buyers_side show all items folderwise
-            return files.filter(f => f.parentId === currentFolderId && !deletedIds.has(f.id));
+            return files.filter(f => (f.parentId || null) === (currentFolderId || null) && !deletedIds.has(f.id));
         })();
         return raw.map(f => ({ 
             ...f, 
@@ -367,10 +434,11 @@ function UnifiedWorkspace() {
         }
         if (!newFolderName.trim()) return;
         try {
-            const peers = files.filter(f => f.parentId === currentFolderId && !deletedIds.has(f.id));
+            const peers = files.filter(f => (f.parentId || null) === (currentFolderId || null) && !deletedIds.has(f.id));
             let newIndex = peers.reduce((m, it) => {
-                const lastPart = it.index ? it.index.toString().split('.').pop() : '0';
-                return Math.max(m, parseInt(lastPart) || 0);
+                const disp = getActiveDisplayIndex(it);
+                const lastPart = (disp && disp !== '—') ? disp.toString().split('.').pop() : '0';
+                return Math.max(m, parseInt(lastPart, 10) || 0);
             }, 0) + 1;
 
             await executeBackendAction('create_folder', { parentId: currentFolderId, name: newFolderName.trim(), index: newIndex });
@@ -583,9 +651,10 @@ function UnifiedWorkspace() {
             }
         }
 
-        const peers = files.filter(f => f.parentId === currentFolderId && !deletedIds.has(f.id));
+        const peers = files.filter(f => (f.parentId || null) === (currentFolderId || null) && !deletedIds.has(f.id));
         let nextIndex = peers.reduce((m, it) => {
-            const lastPart = it.index ? it.index.toString().split('.').pop() : '0';
+            const disp = getActiveDisplayIndex(it);
+            const lastPart = (disp && disp !== '—') ? disp.toString().split('.').pop() : '0';
             return Math.max(m, parseInt(lastPart, 10) || 0);
         }, 0) + 1;
 
@@ -792,49 +861,18 @@ function UnifiedWorkspace() {
                 }
             }
 
-            // Only active (non-deleted) items
-            const activeItems = currentFiles.filter(f => !currentDeletedIds.has(f.id));
+            const { indexMap, folderUpdates, docUpdates } = computeHierarchicalIndexEngine(currentFiles, currentDeletedIds);
 
-            // Group by parent
-            const byParent = {};
-            activeItems.forEach(f => {
-                const pId = f.parentId || 'root';
-                if (!byParent[pId]) byParent[pId] = [];
-                byParent[pId].push(f);
-            });
-
-            // Sort each group: folders first, then by existing index
-            Object.values(byParent).forEach(group => group.sort(sortItemsByIndex));
-
-            const folderUpdates = [];
-            const docUpdates = [];
-            const localUpdates = new Map();
-
-            // Recursively assign sequential hierarchical indexes
-            const assignIndexes = (parentId, prefix) => {
-                const group = byParent[parentId] || [];
-                group.forEach((item, idx) => {
-                    const newIndex = prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`;
-                    if (item.type === 'folder') {
-                        folderUpdates.push({ id: item.id, index_number: idx + 1 });
-                        localUpdates.set(item.id, (idx + 1).toString());
-                        assignIndexes(item.id, newIndex);
-                    } else {
-                        docUpdates.push({ id: item.id, index: newIndex });
-                        localUpdates.set(item.id, newIndex);
-                    }
-                });
-            };
-            assignIndexes('root', '');
-
-            // Send bulk updates to backend via route.js
-            await executeBackendAction('reindex', { folderUpdates, docUpdates });
+            // Send bulk updates to backend via route.js only if not buyer side
+            if (!isBuyerSide && (folderUpdates.length > 0 || docUpdates.length > 0)) {
+                await executeBackendAction('reindex', { folderUpdates, docUpdates });
+            }
 
             if (shouldReload) {
                 await loadData();
             } else {
                 setFiles(prev => prev.map(f => {
-                    if (localUpdates.has(f.id)) return { ...f, index: localUpdates.get(f.id) };
+                    if (indexMap.has(f.id)) return { ...f, index: indexMap.get(f.id) };
                     return f;
                 }));
             }
