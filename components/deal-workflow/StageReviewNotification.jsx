@@ -37,6 +37,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
     dealInfo,
     sendDDCertificateToSeller,
     setIsDDCertificateModalOpen,
+    negotiationInvitation,
+    acceptNegotiationInvite,
   } = useDealWorkflow();
 
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
