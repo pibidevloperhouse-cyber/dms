@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
-export default function MessagesPage() {
+export default function BuyerMessagesPage() {
+  const [dealName, setDealName] = useState('ABC Technologies');
   const [messages, setMessages] = useState([
     {
       id: "bm-1",
@@ -24,17 +24,18 @@ export default function MessagesPage() {
       id: "bm-3",
       sender: "V. Sharma",
       isMe: false,
-      text: "We've sent over a counter at $100.0M — full details are in the term sheet draft. Let us know your thoughts by the 6th.",
+      text: "We've sent over a counter at $10.0M — full details are in the term sheet draft. Let us know your thoughts by the deadline.",
       timestamp: "3 Sep, 9:05 AM"
     },
     {
       id: "bm-4",
-      sender: "V. Sharma",
+      sender: "Linklane LLP (Seller Counsel)",
       isMe: false,
       text: "Escrow holdback period works for us — no further changes needed on our side once you confirm the price.",
       timestamp: "7 Sep, 11:40 AM"
     }
   ]);
+
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
@@ -47,9 +48,28 @@ export default function MessagesPage() {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch live messages from API if available
+  // Resolve deal name
   useEffect(() => {
-    let buyerId = '3e5cac9b-e809-4a2a-a95d-35e9baa6eddf';
+    try {
+      const rawInv = localStorage.getItem('dms_negotiation_invitation');
+      if (rawInv) {
+        const inv = JSON.parse(rawInv);
+        if (inv.dealName) setDealName(inv.dealName);
+      }
+    } catch (e) {}
+
+    fetch('/api/deal-workflow/active-stage')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.dealInfo?.dealName) setDealName(data.dealInfo.dealName);
+        else if (data.negotiationInvitation?.dealName) setDealName(data.negotiationInvitation.dealName);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch live messages from API
+  useEffect(() => {
+    let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
     try {
       const raw = localStorage.getItem('vdr_session');
       if (raw) {
@@ -58,51 +78,67 @@ export default function MessagesPage() {
       }
     } catch (e) {}
 
-    fetch(`/api/bidding/messages?buyerId=${buyerId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.conversation?.threads && data.conversation.threads.length > 0) {
-          const mapped = data.conversation.threads.map(t => ({
-            id: t.id,
-            sender: t.sender === 'You' ? (t.senderRole === 'buyer' ? 'You' : 'Ohm Priya (Seller)') : (t.senderRole === 'buyer' ? 'You' : t.sender),
-            isMe: t.senderRole === 'buyer' || t.sender === 'You' || t.sender === 'Naga raj' || t.sender === 'Test User',
-            text: t.text,
-            timestamp: t.timestamp
-          }));
-          setMessages(mapped);
-        }
-      })
-      .catch(() => { });
+    const loadMessages = () => {
+      fetch(`/api/bidding/messages?buyerId=${encodeURIComponent(buyerId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.conversation?.threads && data.conversation.threads.length > 0) {
+            const mapped = data.conversation.threads.map((t) => ({
+              id: t.id || 'msg-' + Math.random(),
+              sender:
+                t.sender === 'You'
+                  ? (t.senderRole === 'buyer' ? 'You' : 'Ohm Priya (Seller)')
+                  : (t.senderRole === 'buyer' ? 'You' : t.sender || 'Seller Board'),
+              isMe:
+                t.senderRole === 'buyer' ||
+                t.sender === 'You' ||
+                t.sender === 'Naga raj' ||
+                t.sender === 'Naga Tech' ||
+                t.isMe === true,
+              text: t.text,
+              timestamp: t.timestamp
+            }));
+            setMessages(mapped);
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 6000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isSending) return;
     setIsSending(true);
 
-    let buyerId = '3e5cac9b-e809-4a2a-a95d-35e9baa6eddf';
+    let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
     let buyerName = 'You';
     try {
       const raw = localStorage.getItem('vdr_session');
       if (raw) {
         const user = JSON.parse(raw);
         if (user.id) buyerId = user.id;
-        if (user.name) buyerName = user.name;
+        if (user.company_name || user.name) buyerName = user.company_name || user.name;
       }
     } catch (e) {}
 
     const now = new Date();
-    const timestamp = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' +
+    const timestamp =
+      now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+      ', ' +
       now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     const newMsg = {
-      id: "bm-" + Date.now(),
-      sender: "You",
+      id: 'bm-' + Date.now(),
+      sender: 'You',
       isMe: true,
       text: inputText.trim(),
       timestamp
     };
 
-    setMessages(prev => [...prev, newMsg]);
+    setMessages((prev) => [...prev, newMsg]);
     setInputText('');
 
     try {
@@ -124,30 +160,33 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed h-screen max-h-screen flex flex-col overflow-hidden antialiased">
-      {/* Top Navigation Tabs + Right Corner Bidding Notification Bell */}
+    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed h-[calc(100vh-58px)] flex flex-col overflow-hidden antialiased">
+      {/* Top Bidding Navigation Tabs */}
       <div className="shrink-0">
         <BiddingHeaderNav portal="buyer" activeTab="messages" />
       </div>
 
-      {/* Main Container - Fits exact viewport height without outer scrolling */}
+      {/* Main Messages Container - Clean, focused, without unwanted banners */}
       <div className="max-w-[1240px] w-full mx-auto p-4 md:p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden flex-1 flex flex-col shadow-sm min-h-0">
 
-          {/* Chat Header - Fixed, shrink-0, img3 (audit trail) REMOVED */}
+          {/* Chat Header */}
           <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
             <div>
               <h1 className="text-[16px] font-bold text-slate-900 m-0 flex items-center gap-2">
-                <span>General — ABC Technologies</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" title="Active"></span>
+                <span>General — {dealName}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" title="Active"></span>
               </h1>
               <div className="text-[12px] text-slate-500 mt-0.5 font-medium">
                 Seller team: V. Sharma (Finance), Linklane LLP (Counsel)
               </div>
             </div>
+            <div className="text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
+              Direct Negotiation
+            </div>
           </div>
 
-          {/* Messages Thread - ONLY this section scrolls! (flex-1 overflow-y-auto min-h-0) */}
+          {/* Messages Thread - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-[#FAFAFA] min-h-0">
             {messages.map((msg) => (
               <div
@@ -155,10 +194,11 @@ export default function MessagesPage() {
                 className={`max-w-[72%] ${msg.isMe ? 'self-end' : 'self-start'}`}
               >
                 <div
-                  className={`px-4 py-3 rounded-2xl text-[13px] leading-relaxed shadow-xs ${msg.isMe
-                      ? 'bg-slate-900 text-white rounded-tr-xs'
+                  className={`px-4.5 py-3 rounded-2xl text-[13px] leading-relaxed shadow-xs ${
+                    msg.isMe
+                      ? 'bg-[#006666] text-white rounded-tr-xs'
                       : 'bg-white border border-slate-200 text-slate-900 rounded-tl-xs'
-                    }`}
+                  }`}
                 >
                   {msg.text}
                 </div>
@@ -170,7 +210,7 @@ export default function MessagesPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Reply & Send Box - Fixed at bottom, shrink-0, img2 (topic pills) REMOVED */}
+          {/* Message Input Box */}
           <div className="border-t border-slate-100 p-4 bg-white shrink-0">
             <div className="flex gap-3 items-end">
               <textarea
@@ -184,13 +224,13 @@ export default function MessagesPage() {
                   }
                 }}
                 placeholder="Write a message to the seller..."
-                className="w-full font-sans text-[13px] px-3.5 py-2.5 border border-slate-200 rounded-xl resize-none bg-[#FAFAFA] focus:bg-white focus:border-slate-400 outline-none transition-colors shadow-2xs"
+                className="w-full font-sans text-[13px] px-3.5 py-2.5 border border-slate-200 rounded-xl resize-none bg-[#FAFAFA] focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-colors shadow-2xs"
               />
               <button
                 type="button"
                 onClick={handleSendMessage}
                 disabled={isSending || !inputText.trim()}
-                className="font-sans text-[13px] font-semibold px-6 py-2.5 rounded-xl cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 disabled:opacity-40 transition-opacity shadow-sm shrink-0 h-[44px]"
+                className="font-sans text-[13px] font-semibold px-6 py-2.5 rounded-xl cursor-pointer bg-[#006666] hover:bg-[#005252] text-white disabled:opacity-40 transition-opacity shadow-sm shrink-0 h-[44px]"
               >
                 {isSending ? 'Sending...' : 'Send'}
               </button>

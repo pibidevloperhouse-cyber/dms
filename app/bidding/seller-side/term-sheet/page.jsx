@@ -2,20 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  FileText,
+  Send,
+  Save,
+  ShieldCheck,
+  Clock,
+  MessageSquare
+} from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerTermSheetPage() {
   const [loading, setLoading] = useState(true);
   const [termSheet, setTermSheet] = useState(null);
   const [keyTerms, setKeyTerms] = useState({
-    purchasePrice: "$100,000,000",
-    structure: "60% cash at close / 40% acquirer stock, 12-month vest",
-    expectedClose: "15 December 2026",
-    exclusivityPeriod: "45 days from execution",
-    keyEmployeeRetention: "90% of leadership team, 24-month terms",
-    escrow: "10% of purchase price, 18-month holdback",
-    regulatoryConditions: "Subject to standard antitrust clearance",
-    governingLaw: "Delaware, USA"
+    purchasePrice: '$10.0M',
+    structure: '70% Cash, 30% Common Stock',
+    expectedClose: '15 Dec 2026',
+    exclusivityPeriod: '45 days',
+    keyEmployeeRetention: '2-year lock-in for critical engineers',
+    escrow: '10% holdback for 12 months',
+    regulatoryConditions: 'Antitrust clearance in primary operating markets',
+    governingLaw: 'Delaware, USA'
   });
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -33,7 +41,7 @@ export default function SellerTermSheetPage() {
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching term sheet:', e);
     } finally {
       setLoading(false);
     }
@@ -84,7 +92,10 @@ export default function SellerTermSheetPage() {
       });
       if (res.ok) {
         alert('Term sheet transmitted to buyer for review & signature!');
-        fetchTermSheet();
+        await fetchTermSheet();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bid_submitted'));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -94,177 +105,288 @@ export default function SellerTermSheetPage() {
   };
 
   const handleAddComment = async (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (!newComment.trim()) return;
-      try {
-        const res = await fetch('/api/bidding/term-sheet/comments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sender: 'Linklane LLP (your counsel)',
-            role: 'super_admin',
-            avatar: 'LC',
-            message: newComment
-          })
-        });
-        if (res.ok) {
-          setNewComment('');
-          fetchTermSheet();
-        }
-      } catch (e) {
-        console.error(e);
+    if (e && e.key && (e.key !== 'Enter' || e.shiftKey)) return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newComment.trim()) return;
+
+    try {
+      const res = await fetch('/api/bidding/term-sheet/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: 'Linklane LLP (Seller Counsel)',
+          role: 'super_admin',
+          avatar: 'LC',
+          message: newComment.trim()
+        })
+      });
+      if (res.ok) {
+        setNewComment('');
+        fetchTermSheet();
       }
+    } catch (e) {
+      console.error(e);
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] bg-[#F8F9FB]">
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[#006666] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-slate-500">Loading Term Sheet Editor...</p>
+        </div>
       </div>
     );
   }
 
-  const buyerName = termSheet?.buyerName || 'Halcyon Growth';
+  const buyerName = termSheet?.buyerName || 'Naga Tech';
   const isSent = termSheet?.status === 'sent_to_buyer';
+  const isSigned = Boolean(
+    termSheet?.signatures?.buyer ||
+    termSheet?.status === 'signed' ||
+    termSheet?.status === 'signed_by_buyer' ||
+    termSheet?.status === 'executed'
+  );
 
   return (
-    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen">
+    <div className="bg-[#F8F9FB] text-slate-900 font-sans min-h-screen antialiased pb-16">
+      {/* Top Bidding Navigation Tabs */}
       <BiddingHeaderNav portal="seller" activeTab="term-sheet" />
 
-      <div className="mx-7 mt-5 px-4 py-3 bg-green-50 border border-[#C7DFCB] rounded-xl text-[12.5px] text-green-700 flex justify-between items-center shadow-xs">
-        <span>Bid from {buyerName} ({keyTerms.purchasePrice}) accepted — {isSent ? 'Sent to buyer for signature.' : 'draft this term sheet and send for buyer signature.'}</span>
-        <span className="font-semibold">Stage 5 of 6</span>
-      </div>
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col gap-6">
 
-      <div className="pt-5 px-7 flex justify-between items-start flex-wrap gap-3.5">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Term sheet — {buyerName}</h1>
-          <div className="text-[13px] text-slate-500 font-medium mt-1">
-            {termSheet?.version || 'Draft v2'} · {isSent ? 'Sent to buyer' : 'editable until sent for signature'}
+        {/* 1. CLEAN HEADER & ACTION BAR */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl font-bold text-slate-900 m-0">
+                Formulate Term Sheet — {buyerName}
+              </h1>
+              {isSigned ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Signed by Buyer ({termSheet?.signatures?.buyer?.signer || 'Buyer'})
+                </span>
+              ) : isSent ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-[#006666] border border-teal-200">
+                  <Send className="w-3.5 h-3.5" />
+                  Sent to Buyer for Signature
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                  <Clock className="w-3.5 h-3.5" />
+                  Drafting in Progress
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-1 font-normal">
+              {termSheet?.version || 'Draft v2'} · {isSigned ? 'Buyer executed binding term sheet' : 'Draft and transmit to buyer for signature'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs"
+            >
+              <Save className="w-3.5 h-3.5 text-slate-500" />
+              <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
+            </button>
+            <button
+              onClick={handleSendToBuyer}
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#006666] hover:bg-[#005252] border border-teal-700/50 transition-colors shadow-xs"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isSent ? 'Update & Re-send' : 'Transmit to Buyer'}</span>
+            </button>
           </div>
         </div>
-        <div className="flex gap-2.5">
-          <button
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-200 text-slate-700 bg-white hover:text-slate-900 hover:border-slate-900 transition-colors shadow-2xs"
-          >
-            {isSaving ? 'Saving...' : 'Save draft'}
-          </button>
-          <button
-            onClick={handleSendToBuyer}
-            disabled={isSaving}
-            className="text-[13px] font-semibold px-4 py-2 rounded-lg cursor-pointer border border-slate-900 bg-slate-900 text-white hover:opacity-90 transition-opacity shadow-xs"
-          >
-            {isSent ? 'Update & Re-send' : 'Send to buyer'}
-          </button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[22px] mx-7 mt-[22px] mb-10 items-start">
-        {/* Key Terms Table */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden row-span-2">
-          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-[15px] font-bold text-slate-900 m-0">Key terms</h2>
-            <span className="text-[12px] text-slate-400 font-medium">Editable draft</span>
-          </div>
-          <table className="w-full border-collapse">
-            <tbody>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Purchase price</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+        {/* 2. KEY TERMS EDITOR & COUNSEL THREAD */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          
+          {/* Left Column: Editable Terms Table (2 cols) */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-teal-700" />
+                <h2 className="text-sm font-bold text-slate-900 m-0">Commercial & Legal Clauses</h2>
+              </div>
+              <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                Editable Fields
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100 text-xs">
+              
+              {/* Purchase Price */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Purchase Price</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.purchasePrice}
                     onChange={(e) => handleTermChange('purchasePrice', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-bold text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Structure</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Consideration Structure */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Consideration Structure</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.structure}
                     onChange={(e) => handleTermChange('structure', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Expected close</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Expected Closing Date */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Expected Closing Date</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.expectedClose}
                     onChange={(e) => handleTermChange('expectedClose', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Exclusivity period</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Exclusivity Period */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Exclusivity Period</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.exclusivityPeriod}
                     onChange={(e) => handleTermChange('exclusivityPeriod', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Key employee retention</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Key Employee Retention */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Key Employee Retention</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.keyEmployeeRetention}
                     onChange={(e) => handleTermChange('keyEmployeeRetention', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Escrow</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Escrow Holdback */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Indemnity Escrow</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.escrow}
                     onChange={(e) => handleTermChange('escrow', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 border-b border-slate-100 align-top text-[13px]">Regulatory conditions</td>
-                <td className="px-5 py-3 border-b border-slate-100 align-top">
+                </div>
+              </div>
+
+              {/* Regulatory Conditions */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Regulatory Conditions</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.regulatoryConditions}
                     onChange={(e) => handleTermChange('regulatoryConditions', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[190px] text-slate-500 px-5 py-3 align-top text-[13px]">Governing law</td>
-                <td className="px-5 py-3 align-top">
+                </div>
+              </div>
+
+              {/* Governing Law */}
+              <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
+                <div className="w-44 shrink-0 font-bold text-slate-600">Governing Law</div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={keyTerms.governingLaw}
                     onChange={(e) => handleTermChange('governingLaw', e.target.value)}
-                    className="w-full font-medium text-[13px] text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-[#F8F9FB] outline-none focus:border-slate-900 focus:bg-white transition-colors"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
                   />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Right Column: Counsel Collaboration Thread (1 col) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-teal-700" />
+                <h3 className="text-sm font-bold text-slate-900 m-0">Legal Counsel Redlines</h3>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {comments.length} notes
+              </span>
+            </div>
+
+            {/* Comment Thread */}
+            <div className="p-4 flex-1 flex flex-col gap-3 min-h-[260px] max-h-[380px] overflow-y-auto bg-[#FAFBFD]">
+              {comments.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs">
+                  No redline comments yet. Legal counsel can annotate clauses here.
+                </div>
+              ) : (
+                comments.map((c, i) => (
+                  <div key={c.id || i} className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold text-slate-800">{c.sender}</span>
+                      <span className="text-[10px] text-slate-400">{c.timestamp}</span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed m-0">{c.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Comment Input */}
+            <div className="p-3.5 bg-white border-t border-slate-100">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={handleAddComment}
+                  placeholder="Annotate for buyer counsel..."
+                  className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#006666] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim()}
+                  className="text-xs font-bold px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition-colors"
+                >
+                  Post
+                </button>
+              </div>
+            </div>
+
+          </div>
+
         </div>
 
-              </div>
+      </div>
     </div>
   );
 }
