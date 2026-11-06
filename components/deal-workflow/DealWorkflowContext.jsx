@@ -460,6 +460,10 @@ export function DealWorkflowProvider({ children }) {
       if (savedCert) {
         setDueDiligenceCertificate(JSON.parse(savedCert));
       }
+      const savedInv = localStorage.getItem('dms_negotiation_invitation');
+      if (savedInv) {
+        setNegotiationInvitation(JSON.parse(savedInv));
+      }
     } catch (e) { }
   }, []);
 
@@ -497,13 +501,34 @@ export function DealWorkflowProvider({ children }) {
           setDueDiligenceCertificate((prev) => (JSON.stringify(prev) === JSON.stringify(data.dueDiligenceCertificate) ? prev : data.dueDiligenceCertificate));
         }
 
-        if (data.negotiationInvitation !== undefined) {
-          setNegotiationInvitation((prev) => (JSON.stringify(prev) === JSON.stringify(data.negotiationInvitation) ? prev : data.negotiationInvitation));
+        let activeInvite = data.negotiationInvitation;
+        if (!activeInvite && normalizeStage(matched) === 'Negotiation') {
+          activeInvite = {
+            id: 'neg-invite-active-deal',
+            status: 'PENDING_ACCEPTANCE',
+            stage: 'Negotiation',
+            dealId: data.dealMeta?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
+            dealName: data.dealMeta?.dealName || 'Naga raj Deal',
+            askingPrice: 10000000,
+            askingPriceFormatted: '10.0M',
+            deadline: '2026-11-25T18:00:00+05:30',
+            deadlineDisplay: '25 Nov 2026',
+            invitedBuyerId: data.dealMeta?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+            invitedBuyerName: data.dealMeta?.buyerName || 'Naga raj',
+            invitedBuyerCompany: data.dealMeta?.buyerCompany || 'Naga Tech',
+            message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price ($10.0M) and submit your acquisition proposal.',
+            invitedBy: data.dealMeta?.sellerSuperAdminName ? `${data.dealMeta.sellerSuperAdminName} (Super Admin)` : 'Super Admin',
+            timestamp: Date.now()
+          };
+        }
+
+        if (activeInvite !== undefined) {
+          setNegotiationInvitation((prev) => (JSON.stringify(prev) === JSON.stringify(activeInvite) ? prev : activeInvite));
           if (typeof window !== 'undefined') {
-            if (data.negotiationInvitation) {
-              localStorage.setItem('dms_negotiation_invitation', JSON.stringify(data.negotiationInvitation));
+            if (activeInvite) {
+              localStorage.setItem('dms_negotiation_invitation', JSON.stringify(activeInvite));
             }
-            if (data.negotiationInvitation?.status === 'ACCEPTED') {
+            if (activeInvite?.status === 'ACCEPTED') {
               localStorage.setItem('dms_bidding_unlocked', 'true');
             }
           }
@@ -565,8 +590,11 @@ export function DealWorkflowProvider({ children }) {
     setNegotiationInvitation(invitePayload);
 
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('dms_bidding_unlocked');
       localStorage.setItem('dms_negotiation_invitation', JSON.stringify(invitePayload));
       window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: invitePayload }));
+      window.dispatchEvent(new Event('bidding_access_changed'));
+      window.dispatchEvent(new Event('permissions_updated'));
     }
 
     // Activate Negotiation stage
@@ -590,8 +618,26 @@ export function DealWorkflowProvider({ children }) {
 
   // Buyer Guest Admin accepts the invitation to unlock Bidding section
   const acceptNegotiationInvite = async () => {
+    const baseInvite = negotiationInvitation || {
+      id: 'neg-invite-active-deal',
+      status: 'PENDING_ACCEPTANCE',
+      stage: 'Negotiation',
+      dealId: dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
+      dealName: dealInfo?.dealName || 'Naga raj Deal',
+      askingPrice: 10000000,
+      askingPriceFormatted: '10.0M',
+      deadline: '2026-11-25T18:00:00+05:30',
+      deadlineDisplay: '25 Nov 2026',
+      invitedBuyerId: dealInfo?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+      invitedBuyerName: dealInfo?.buyerName || 'Naga raj',
+      invitedBuyerCompany: dealInfo?.buyerCompany || 'Naga Tech',
+      message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price ($10.0M) and submit your acquisition proposal.',
+      invitedBy: dealInfo?.sellerSuperAdminName ? `${dealInfo.sellerSuperAdminName} (Super Admin)` : 'Super Admin',
+      timestamp: Date.now()
+    };
+
     const updated = {
-      ...(negotiationInvitation || {}),
+      ...baseInvite,
       status: 'ACCEPTED',
       acceptedAt: Date.now(),
       acceptedBy: currentUser?.name || 'Guest Admin'
@@ -654,11 +700,40 @@ export function DealWorkflowProvider({ children }) {
     setStageNotification(notificationPayload);
     setStageAdvanceRequest(null);
 
+    let pendingInvitePayload = null;
+    if (normalizeStage(matched) === 'Negotiation') {
+      pendingInvitePayload = {
+        id: `neg-invite-${Date.now()}`,
+        status: 'PENDING_ACCEPTANCE',
+        stage: 'Negotiation',
+        dealId: dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
+        dealName: dealInfo?.dealName || 'Naga raj Deal',
+        askingPrice: 10000000,
+        askingPriceFormatted: '10.0M',
+        deadline: '2026-11-25T18:00:00+05:30',
+        deadlineDisplay: '25 Nov 2026',
+        invitedBuyerId: dealInfo?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+        invitedBuyerName: dealInfo?.buyerName || 'Naga raj',
+        invitedBuyerCompany: dealInfo?.buyerCompany || 'Naga Tech',
+        message: 'Seller Super Admin has approved activating the Negotiation Stage. You are invited to review the benchmark asking price ($10.0M) and submit your binding proposal.',
+        invitedBy: currentUser?.name || 'Super Admin',
+        timestamp: Date.now()
+      };
+      setNegotiationInvitation(pendingInvitePayload);
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem('dms_active_deal_stage', matched);
       localStorage.setItem('dms_stage_notification', JSON.stringify(notificationPayload));
       localStorage.removeItem('dms_stage_query');
       localStorage.removeItem('dms_stage_advance_request');
+      if (pendingInvitePayload) {
+        localStorage.setItem('dms_negotiation_invitation', JSON.stringify(pendingInvitePayload));
+        localStorage.removeItem('dms_bidding_unlocked');
+        window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: pendingInvitePayload }));
+        window.dispatchEvent(new Event('bidding_access_changed'));
+        window.dispatchEvent(new Event('permissions_updated'));
+      }
       window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
       window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
       window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: null }));
@@ -674,6 +749,7 @@ export function DealWorkflowProvider({ children }) {
           notificationPayload,
           stageQuery: null,
           stageAdvanceRequest: null,
+          negotiationInvitation: pendingInvitePayload || negotiationInvitation
         }),
       });
     } catch (err) {

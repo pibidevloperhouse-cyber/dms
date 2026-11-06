@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useDealWorkflow, normalizeRole, getNextStage } from './DealWorkflowContext';
 import StageQueryModal from './StageQueryModal';
+import NegotiationInviteModal from './NegotiationInviteModal';
 
 export default function StageReviewNotification({ inDropdown = false }) {
   const {
@@ -45,6 +46,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
   } = useDealWorkflow();
 
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
+  const [isNegInviteModalOpen, setIsNegInviteModalOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isTransmitting, setIsTransmitting] = useState(false);
@@ -267,12 +269,31 @@ export default function StageReviewNotification({ inDropdown = false }) {
   }
 
   // Case 1.8: Negotiation Stage Invitation / Bidding Activation Notification
-  if (negotiationInvitation && (normalizeStage(activeDealStage) === 'Negotiation' || negotiationInvitation.status === 'PENDING_ACCEPTANCE' || negotiationInvitation.status === 'ACCEPTED')) {
-    const isPendingAcceptance = negotiationInvitation.status === 'PENDING_ACCEPTANCE';
-    const isAccepted = negotiationInvitation.status === 'ACCEPTED';
-    const askingPriceNum = Number(negotiationInvitation.askingPrice) || 10000000;
+  const isNegStage = normalizeStage(activeDealStage) === 'Negotiation';
+  const activeInvite = negotiationInvitation || (isNegStage ? {
+    id: 'neg-invite-active-deal',
+    status: 'PENDING_ACCEPTANCE',
+    stage: 'Negotiation',
+    dealId: dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
+    dealName: dealInfo?.dealName || 'Naga raj Deal',
+    askingPrice: 10000000,
+    askingPriceFormatted: '10.0M',
+    deadline: '2026-11-25T18:00:00+05:30',
+    deadlineDisplay: '25 Nov 2026',
+    invitedBuyerId: dealInfo?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+    invitedBuyerName: dealInfo?.buyerName || 'Naga raj',
+    invitedBuyerCompany: dealInfo?.buyerCompany || 'Naga Tech',
+    message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price ($10.0M) and submit your acquisition proposal.',
+    invitedBy: dealInfo?.sellerSuperAdminName ? `${dealInfo.sellerSuperAdminName} (Super Admin)` : 'Super Admin',
+    timestamp: Date.now()
+  } : null);
+
+  if (activeInvite && (isNegStage || activeInvite.status === 'PENDING_ACCEPTANCE' || activeInvite.status === 'ACCEPTED')) {
+    const isPendingAcceptance = activeInvite.status === 'PENDING_ACCEPTANCE';
+    const isAccepted = activeInvite.status === 'ACCEPTED';
+    const askingPriceNum = Number(activeInvite.askingPrice) || 10000000;
     const askingPriceFormatted = `${(askingPriceNum / 1000000).toFixed(1)}M`;
-    const deadlineFormatted = negotiationInvitation.deadlineDisplay || (negotiationInvitation.deadline ? new Date(negotiationInvitation.deadline).toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' }) : '25 Nov 2026');
+    const deadlineFormatted = activeInvite.deadlineDisplay || (activeInvite.deadline ? new Date(activeInvite.deadline).toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' }) : '25 Nov 2026');
 
     // BUYER SIDE: Guest Admin Notification Card
     if (isBuyerSide) {
@@ -292,7 +313,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
                         <span>Action Required · Negotiation Stage</span>
                       </span>
                       <span className="text-xs font-semibold text-slate-500">
-                        Deal: <strong className="text-slate-900">{negotiationInvitation.dealName || dealInfo?.dealName || 'Test User Deal'}</strong>
+                        Deal: <strong className="text-slate-900">{activeInvite.dealName || dealInfo?.dealName || 'Test User Deal'}</strong>
                       </span>
                     </div>
 
@@ -301,7 +322,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
                     </h3>
 
                     <p className="text-xs sm:text-[13px] text-slate-700 mt-1 leading-relaxed">
-                      {negotiationInvitation.message || 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price and submit your binding acquisition proposal.'}
+                      {activeInvite.message || 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price and submit your binding acquisition proposal.'}
                     </p>
 
                     {/* Benchmark Terms Pills */}
@@ -387,46 +408,69 @@ export default function StageReviewNotification({ inDropdown = false }) {
       }
     }
 
-    // SELLER SIDE (SUPER ADMIN): Status Notification Card
-    if (isSellerSide && isSuperAdmin && !isBuyerSide) {
+    // SELLER SIDE (SUPER ADMIN / ADMIN): Status Notification Card
+    if (isSellerSide && (isSuperAdmin || isAdmin) && !isBuyerSide) {
       return (
-        <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
-          <div className="bg-teal-50/80 border border-teal-200 rounded-2xl p-4 sm:p-4.5 text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#006666] text-white flex items-center justify-center shrink-0">
-                  <Gavel className="w-5 h-5 text-teal-200" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="bg-teal-200 text-[#004d4d] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Negotiation Stage Active
-                    </span>
-                    <span className="text-xs font-semibold text-slate-600">
-                      Benchmark: <strong className="text-slate-900">{askingPriceFormatted}</strong> · Deadline: <strong className="text-slate-900">{deadlineFormatted}</strong>
-                    </span>
+        <>
+          <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
+            <div className="bg-teal-50/80 border border-teal-200 rounded-2xl p-4 sm:p-4.5 text-slate-900 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#006666] text-white flex items-center justify-center shrink-0">
+                    <Gavel className="w-5 h-5 text-teal-200" />
                   </div>
-                  <p className="text-xs text-slate-700 mt-0.5 font-medium">
-                    {isAccepted
-                      ? 'Buyer accepted invitation and unlocked bidding portal. Awaiting initial proposals.'
-                      : 'Invitation sent to Buyer Guest Admin (Awaiting Buyer acceptance).'}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-teal-200 text-[#004d4d] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Negotiation Stage Active
+                      </span>
+                      <span className="text-xs font-semibold text-slate-600">
+                        Benchmark: <strong className="text-slate-900">{askingPriceFormatted}</strong> · Deadline: <strong className="text-slate-900">{deadlineFormatted}</strong>
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        isAccepted ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {isAccepted ? 'Buyer Accepted' : 'Awaiting Buyer Acceptance'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 mt-0.5 font-medium">
+                      {isAccepted
+                        ? 'Buyer accepted invitation and unlocked bidding portal. Awaiting initial proposals.'
+                        : 'Invitation sent to Buyer (Naga Tech). Bidding portal unlocks for buyer once accepted.'}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => router.push('/bidding/seller-side')}
-                  className="px-4 py-2 rounded-xl bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>View Bidding Ledger</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setIsNegInviteModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="Configure asking price & re-send invitation"
+                    >
+                      <Gavel className="w-3.5 h-3.5 text-[#006666]" />
+                      <span>Edit Invite</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => router.push('/bidding/seller-side')}
+                    className="px-4 py-2 rounded-xl bg-[#006666] hover:bg-[#005252] text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>View Bidding Ledger</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+
+          <NegotiationInviteModal
+            isOpen={isNegInviteModalOpen}
+            onClose={() => setIsNegInviteModalOpen(false)}
+          />
+        </>
       );
     }
   }

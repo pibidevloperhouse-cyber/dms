@@ -274,7 +274,21 @@ export default function StageTracker() {
                     )}
                   </div>
 
-                  <div>
+                  <div className="flex items-center gap-2">
+                    {normalizeStage(stage.name) === 'Negotiation' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsNegotiationModalOpen(true);
+                        }}
+                        className="text-[10.5px] font-semibold text-[#006666] hover:text-white bg-teal-50 hover:bg-[#006666] border border-teal-200 px-2.5 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title="Configure asking price, deadline & send buyer invitations"
+                      >
+                        <Gavel className="w-3 h-3" />
+                        <span>Invite Buyer</span>
+                      </button>
+                    )}
                     {isActive ? (
                       <span className="text-[#006666] font-semibold text-[11px] sm:text-xs flex items-center gap-1">
                         Currently active

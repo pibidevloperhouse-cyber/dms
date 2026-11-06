@@ -128,13 +128,66 @@ export default function MainSidebar() {
         dealFeatures?.featureTasks === true;
 
       const isGuest = ['guest_admin', 'buyer', 'external_user'].includes(role);
+      const isBuyerRole =
+        ['guest_admin', 'advisor', 'guest_lead', 'external_user', 'buyer'].includes(role) ||
+        sessionObj.dms_role === 'buyer' ||
+        sessionObj.side === 'buyer' ||
+        String(role || '').toLowerCase().includes('guest') ||
+        String(role || '').toLowerCase().includes('buyer');
 
       const canAccessGroups = perms?.some(p => p.can_access_groups) || (isGuest && dealFeatures?.featureGroups === true);
       const canAccessSettings = !isGuest && perms?.some(p => p.can_access_settings);
       const canAccessQa = perms?.some(p => p.can_access_qa) || dealFeatures?.featureQa === true;
       const canAccessDeals = !isGuest && (perms?.some(p => p.can_access_deals) || dealFeatures?.featureBidding === true);
-      const isBiddingUnlockedLocally = typeof window !== 'undefined' && localStorage.getItem('dms_bidding_unlocked') === 'true';
-      const canAccessBidding = Boolean(dealFeatures?.featureBidding || isBiddingUnlockedLocally || role === 'super_admin');
+
+      // Bidding Access Rule:
+      // For Buyer, Bidding icon in sidebar is ONLY visible if Seller sent invitation from Negotiation stage AND Buyer accepted it!
+      let canAccessBidding = false;
+      if (isBuyerRole) {
+        let isAccepted = false;
+        let isPending = false;
+        try {
+          const rawInv = localStorage.getItem('dms_negotiation_invitation');
+          if (rawInv) {
+            const inv = JSON.parse(rawInv);
+            if (inv && (inv.status === 'ACCEPTED' || inv.isAccepted === true)) {
+              isAccepted = true;
+            } else if (inv && inv.status === 'PENDING_ACCEPTANCE') {
+              isPending = true;
+            }
+          }
+        } catch (e) {}
+
+        if (!isAccepted) {
+          try {
+            const stageRes = await fetch('/api/deal-workflow/active-stage');
+            if (stageRes.ok) {
+              const stageData = await stageRes.json();
+              if (
+                stageData.negotiationInvitation &&
+                (stageData.negotiationInvitation.status === 'ACCEPTED' || stageData.negotiationInvitation.isAccepted === true)
+              ) {
+                isAccepted = true;
+                isPending = false;
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('dms_negotiation_invitation', JSON.stringify(stageData.negotiationInvitation));
+                  localStorage.setItem('dms_bidding_unlocked', 'true');
+                }
+              } else if (
+                stageData.activeStage === 'Negotiation' ||
+                stageData?.negotiationInvitation?.status === 'PENDING_ACCEPTANCE'
+              ) {
+                isPending = true;
+              }
+            }
+          } catch (e) {}
+        }
+
+        canAccessBidding = isAccepted;
+      } else {
+        const isBiddingUnlockedLocally = typeof window !== 'undefined' && localStorage.getItem('dms_bidding_unlocked') === 'true';
+        canAccessBidding = Boolean(dealFeatures?.featureBidding || isBiddingUnlockedLocally || ['super_admin', 'admin', 'sub_admin'].includes(role));
+      }
       const canAccessCommunication = perms?.some(p => p.can_access_communication) || dealFeatures?.featureCommunication === true;
       const canAccessControlAudits =
         ['super_admin', 'admin', 'sub_admin', 'business_owner', 'guest_admin'].includes(role) ||
