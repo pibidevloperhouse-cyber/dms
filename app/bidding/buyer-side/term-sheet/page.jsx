@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -23,6 +23,10 @@ export default function BuyerTermSheetPage() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [signerName, setSignerName] = useState('Naga raj');
 
+  const commentsEndRef = useRef(null);
+  const prevCommentCountRef = useRef(0);
+  const isFirstCommentsLoadRef = useRef(true);
+
   const fetchTermSheet = async () => {
     try {
       try {
@@ -39,7 +43,12 @@ export default function BuyerTermSheetPage() {
         if (data.termSheet) {
           setTermSheet(data.termSheet);
           if (data.termSheet.counselComments) {
-            setComments(data.termSheet.counselComments);
+            setComments((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.termSheet.counselComments)) {
+                return prev;
+              }
+              return data.termSheet.counselComments;
+            });
           }
         }
       }
@@ -50,33 +59,89 @@ export default function BuyerTermSheetPage() {
     }
   };
 
+  const fetchComments = async () => {
+    try {
+      const res = await fetch('/api/bidding/term-sheet/comments');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comments && Array.isArray(data.comments)) {
+          setComments((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(data.comments)) {
+              return prev;
+            }
+            return data.comments;
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching comments:', e);
+    }
+  };
+
   useEffect(() => {
     fetchTermSheet();
   }, []);
+
+  useEffect(() => {
+    fetchComments();
+    const interval = setInterval(fetchComments, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (comments.length === 0) return;
+    if (isFirstCommentsLoadRef.current) {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      isFirstCommentsLoadRef.current = false;
+      prevCommentCountRef.current = comments.length;
+    } else if (comments.length > prevCommentCountRef.current) {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      prevCommentCountRef.current = comments.length;
+    }
+  }, [comments.length]);
 
   const handleAddComment = async (e) => {
     if (e && e.key && (e.key !== 'Enter' || e.shiftKey)) return;
     if (e && e.preventDefault) e.preventDefault();
     if (!newComment.trim() || isSendingComment) return;
 
+    const textToSend = newComment.trim();
+    setNewComment('');
     setIsSendingComment(true);
+
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.toLocaleString('en-US', { month: 'short' });
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const formattedTimestamp = `${day} ${month}, ${time}`;
+
+    const optimisticComment = {
+      id: `c-opt-${Date.now()}`,
+      sender: `${signerName} (Buyer)`,
+      role: 'guest_admin',
+      avatar: 'BA',
+      message: textToSend,
+      timestamp: formattedTimestamp
+    };
+
+    setComments((prev) => [...prev, optimisticComment]);
+
     try {
       const res = await fetch('/api/bidding/term-sheet/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender: `${signerName} (Buyer Lead)`,
+          sender: `${signerName} (Buyer)`,
           role: 'guest_admin',
-          avatar: 'NL',
-          message: newComment.trim()
+          avatar: 'BA',
+          message: textToSend
         })
       });
       if (res.ok) {
-        setNewComment('');
-        fetchTermSheet();
+        fetchComments();
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error posting comment:', e);
     } finally {
       setIsSendingComment(false);
     }
@@ -286,10 +351,10 @@ export default function BuyerTermSheetPage() {
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-teal-700" />
-                <h3 className="text-sm font-bold text-slate-900 m-0">Counsel Redline Notes</h3>
+                <h3 className="text-sm font-bold text-slate-900 m-0">Legal Counsel Redlines</h3>
               </div>
               <span className="text-[11px] font-semibold text-slate-400">
-                {comments.length} entries
+                {comments.length} notes
               </span>
             </div>
 
@@ -301,7 +366,7 @@ export default function BuyerTermSheetPage() {
                 </div>
               ) : (
                 comments.map((c, i) => (
-                  <div key={c.id || i} className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs">
+                  <div key={c.id || `bc-${i}-${c.timestamp || ''}`} className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-slate-800">{c.sender}</span>
                       <span className="text-[10px] text-slate-400">{c.timestamp}</span>
@@ -310,6 +375,7 @@ export default function BuyerTermSheetPage() {
                   </div>
                 ))
               )}
+              <div ref={commentsEndRef} />
             </div>
 
             {/* Comment Input */}
@@ -320,16 +386,16 @@ export default function BuyerTermSheetPage() {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   onKeyDown={handleAddComment}
-                  placeholder="Add note for counsel..."
+                  placeholder="Annotate for buyer counsel..."
                   className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#006666] outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleAddComment}
                   disabled={isSendingComment || !newComment.trim()}
-                  className="text-xs font-bold px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition-colors"
+                  className="text-xs font-bold px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition-colors cursor-pointer"
                 >
-                  Post
+                  {isSendingComment ? 'Posting...' : 'Post'}
                 </button>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -15,6 +15,7 @@ import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 export default function SellerTermSheetPage() {
   const [loading, setLoading] = useState(true);
   const [termSheet, setTermSheet] = useState(null);
+  const [currentUserName, setCurrentUserName] = useState('Vishwa Raj');
   const [keyTerms, setKeyTerms] = useState({
     purchasePrice: '$10.0M',
     structure: '70% Cash, 30% Common Stock',
@@ -27,7 +28,22 @@ export default function SellerTermSheetPage() {
   });
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const commentsEndRef = useRef(null);
+  const prevCommentCountRef = useRef(0);
+  const isFirstCommentsLoadRef = useRef(true);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('vdr_session');
+      if (raw) {
+        const user = JSON.parse(raw);
+        if (user?.name) setCurrentUserName(user.name);
+      }
+    } catch (_) {}
+  }, []);
 
   const fetchTermSheet = async () => {
     try {
@@ -37,7 +53,14 @@ export default function SellerTermSheetPage() {
         if (data.termSheet) {
           setTermSheet(data.termSheet);
           if (data.termSheet.keyTerms) setKeyTerms(data.termSheet.keyTerms);
-          if (data.termSheet.counselComments) setComments(data.termSheet.counselComments);
+          if (data.termSheet.counselComments) {
+            setComments((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.termSheet.counselComments)) {
+                return prev;
+              }
+              return data.termSheet.counselComments;
+            });
+          }
         }
       }
     } catch (e) {
@@ -47,9 +70,46 @@ export default function SellerTermSheetPage() {
     }
   };
 
+  const fetchComments = async () => {
+    try {
+      const res = await fetch('/api/bidding/term-sheet/comments');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comments && Array.isArray(data.comments)) {
+          setComments((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(data.comments)) {
+              return prev;
+            }
+            return data.comments;
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching counsel comments:', e);
+    }
+  };
+
   useEffect(() => {
     fetchTermSheet();
   }, []);
+
+  useEffect(() => {
+    fetchComments();
+    const interval = setInterval(fetchComments, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (comments.length === 0) return;
+    if (isFirstCommentsLoadRef.current) {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      isFirstCommentsLoadRef.current = false;
+      prevCommentCountRef.current = comments.length;
+    } else if (comments.length > prevCommentCountRef.current) {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      prevCommentCountRef.current = comments.length;
+    }
+  }, [comments.length]);
 
   const handleTermChange = (field, value) => {
     setKeyTerms(prev => ({ ...prev, [field]: value }));
@@ -107,25 +167,47 @@ export default function SellerTermSheetPage() {
   const handleAddComment = async (e) => {
     if (e && e.key && (e.key !== 'Enter' || e.shiftKey)) return;
     if (e && e.preventDefault) e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || isPostingComment) return;
+
+    const textToSend = newComment.trim();
+    setNewComment('');
+    setIsPostingComment(true);
+
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.toLocaleString('en-US', { month: 'short' });
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const formattedTimestamp = `${day} ${month}, ${time}`;
+
+    const optimisticComment = {
+      id: `c-opt-${Date.now()}`,
+      sender: `${currentUserName} (Seller Admin)`,
+      role: 'super_admin',
+      avatar: 'SA',
+      message: textToSend,
+      timestamp: formattedTimestamp
+    };
+
+    setComments((prev) => [...prev, optimisticComment]);
 
     try {
       const res = await fetch('/api/bidding/term-sheet/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender: 'Linklane LLP (Seller Counsel)',
+          sender: `${currentUserName} (Seller Admin)`,
           role: 'super_admin',
-          avatar: 'LC',
-          message: newComment.trim()
+          avatar: 'SA',
+          message: textToSend
         })
       });
       if (res.ok) {
-        setNewComment('');
-        fetchTermSheet();
+        fetchComments();
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error('Error posting comment:', err);
+    } finally {
+      setIsPostingComment(false);
     }
   };
 
@@ -228,9 +310,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.purchasePrice}
+                    value={keyTerms.purchasePrice || ''}
                     onChange={(e) => handleTermChange('purchasePrice', e.target.value)}
-                    className="w-full font-bold text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. $10.0M"
+                    className="w-full font-bold text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -241,9 +324,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.structure}
+                    value={keyTerms.structure || ''}
                     onChange={(e) => handleTermChange('structure', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. 70% Cash, 30% Common Stock"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -254,9 +338,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.expectedClose}
+                    value={keyTerms.expectedClose || ''}
                     onChange={(e) => handleTermChange('expectedClose', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. 15 Dec 2026"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -267,9 +352,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.exclusivityPeriod}
+                    value={keyTerms.exclusivityPeriod || ''}
                     onChange={(e) => handleTermChange('exclusivityPeriod', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. 45 days from execution"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -280,9 +366,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.keyEmployeeRetention}
+                    value={keyTerms.keyEmployeeRetention || ''}
                     onChange={(e) => handleTermChange('keyEmployeeRetention', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. 2-year lock-in for critical engineers"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -293,9 +380,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.escrow}
+                    value={keyTerms.escrow || ''}
                     onChange={(e) => handleTermChange('escrow', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. 10% holdback for 12 months"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -306,9 +394,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.regulatoryConditions}
+                    value={keyTerms.regulatoryConditions || ''}
                     onChange={(e) => handleTermChange('regulatoryConditions', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. Antitrust clearance in primary operating markets"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -319,9 +408,10 @@ export default function SellerTermSheetPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={keyTerms.governingLaw}
+                    value={keyTerms.governingLaw || ''}
                     onChange={(e) => handleTermChange('governingLaw', e.target.value)}
-                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all"
+                    placeholder="e.g. Delaware, USA"
+                    className="w-full font-medium text-xs text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -349,7 +439,7 @@ export default function SellerTermSheetPage() {
                 </div>
               ) : (
                 comments.map((c, i) => (
-                  <div key={c.id || i} className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs">
+                  <div key={c.id || `sc-${i}-${c.timestamp || ''}`} className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-slate-800">{c.sender}</span>
                       <span className="text-[10px] text-slate-400">{c.timestamp}</span>
@@ -358,6 +448,7 @@ export default function SellerTermSheetPage() {
                   </div>
                 ))
               )}
+              <div ref={commentsEndRef} />
             </div>
 
             {/* Comment Input */}
@@ -374,10 +465,10 @@ export default function SellerTermSheetPage() {
                 <button
                   type="button"
                   onClick={handleAddComment}
-                  disabled={!newComment.trim()}
-                  className="text-xs font-bold px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition-colors"
+                  disabled={!newComment.trim() || isPostingComment}
+                  className="text-xs font-bold px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl disabled:opacity-40 transition-colors cursor-pointer"
                 >
-                  Post
+                  {isPostingComment ? 'Posting...' : 'Post'}
                 </button>
               </div>
             </div>

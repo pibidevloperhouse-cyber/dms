@@ -815,6 +815,44 @@ export const dmsInboxMessages = pgTable('dms_inbox_messages', {
   isRead: boolean('is_read').default(false)
 });
 
+export const biddingMessages = pgTable('bidding_messages', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  roundId: varchar('round_id', { length: 255 }),
+  buyerId: varchar('buyer_id', { length: 255 }).notNull(),
+  buyerName: varchar('buyer_name', { length: 255 }).notNull(),
+  mark: varchar('mark', { length: 50 }),
+  type: varchar('type', { length: 255 }),
+  status: varchar('status', { length: 100 }),
+  leadName: varchar('lead_name', { length: 255 }),
+  advisorName: varchar('advisor_name', { length: 255 }),
+  currentOffer: varchar('current_offer', { length: 100 }),
+  unreadCount: integer('unread_count').default(0),
+  threads: jsonb('threads').default('[]'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+export const biddingTermSheets = pgTable('bidding_term_sheets', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  roundId: varchar('round_id', { length: 255 }),
+  dealName: varchar('deal_name', { length: 255 }),
+  acceptedBidId: varchar('accepted_bid_id', { length: 255 }),
+  buyerName: varchar('buyer_name', { length: 255 }),
+  buyerMark: varchar('buyer_mark', { length: 50 }),
+  buyerType: varchar('buyer_type', { length: 255 }),
+  version: varchar('version', { length: 100 }),
+  stage: varchar('stage', { length: 100 }),
+  status: varchar('status', { length: 100 }),
+  lastUpdated: varchar('last_updated', { length: 100 }),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  keyTerms: jsonb('key_terms').default('{}'),
+  changedFields: jsonb('changed_fields').default('{}'),
+  counselComments: jsonb('counsel_comments').default('[]'),
+  signatures: jsonb('signatures').default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
 // DEAL TASKS & WORKFLOW TABLES
 
 export const dealTasks = pgTable('deal_tasks', {
