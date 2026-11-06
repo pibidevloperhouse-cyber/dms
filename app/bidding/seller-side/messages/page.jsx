@@ -177,25 +177,6 @@ export default function SellerMessagesPage() {
                 Counterparty: {currentConv.leadName || 'Naga raj'} (Buyer Lead) · {currentConv.currentOffer ? `Offer: ${currentConv.currentOffer}` : 'Active Proposal'}
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              {convList.length > 1 && (
-                <select
-                  value={selectedBuyerId}
-                  onChange={(e) => setSelectedBuyerId(e.target.value)}
-                  className="text-xs font-semibold px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#006666]"
-                >
-                  {convList.map((c) => (
-                    <option key={c.buyerId || c.id} value={c.buyerId || c.id}>
-                      {c.buyerName}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <div className="text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
-                Direct Negotiation
-              </div>
-            </div>
           </div>
 
           {/* Messages Thread - Scrollable */}

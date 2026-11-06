@@ -540,17 +540,6 @@ export default function SellerBiddingPage() {
                 ))}
               </div>
             </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => router.push('/bidding/seller-side/term-sheet')}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2"
-              >
-                <span>Open Term Sheet Dossier</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         </div>
 

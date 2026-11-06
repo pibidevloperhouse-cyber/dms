@@ -181,9 +181,6 @@ export default function BuyerMessagesPage() {
                 Seller team: V. Sharma (Finance), Linklane LLP (Counsel)
               </div>
             </div>
-            <div className="text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
-              Direct Negotiation
-            </div>
           </div>
 
           {/* Messages Thread - Scrollable */}
