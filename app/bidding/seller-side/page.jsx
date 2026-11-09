@@ -17,7 +17,8 @@ import {
   Building,
   Clock,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  ChevronDown
 } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 import BiddingPipelineBanner from '@/components/bidding/BiddingPipelineBanner';
@@ -25,6 +26,8 @@ import BiddingPipelineBanner from '@/components/bidding/BiddingPipelineBanner';
 export default function SellerBiddingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [bidsList, setBidsList] = useState([]);
+  const [selectedBidId, setSelectedBidId] = useState(null);
   const [activeBid, setActiveBid] = useState(null);
   const [round, setRound] = useState(null);
   const [termSheet, setTermSheet] = useState(null);
@@ -39,6 +42,54 @@ export default function SellerBiddingPage() {
   const [counterNote, setCounterNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleOpenCounterModal = () => {
+    if (activeBid) {
+      if (activeBid.counterOffer?.amount) {
+        setCounterAmount(String(activeBid.counterOffer.amount));
+      } else if (round?.askingPrice) {
+        setCounterAmount(String(round.askingPrice));
+      } else {
+        setCounterAmount('12000000');
+      }
+
+      if (activeBid.counterOffer?.expectedCloseDate) {
+        setCounterExpectedDate(activeBid.counterOffer.expectedCloseDate);
+      } else if (activeBid.expectedCloseDate) {
+        setCounterExpectedDate(activeBid.expectedCloseDate);
+      } else {
+        setCounterExpectedDate('2026-12-15');
+      }
+
+      setCounterNote(
+        activeBid.counterOffer?.note || `The seller board is requesting benchmark valuation.`
+      );
+    }
+    setIsCounterModalOpen(true);
+  };
+
+  const handleSelectBid = (bidId) => {
+    setSelectedBidId(bidId);
+    const target = bidsList.find((b) => b.id === bidId || b.buyerId === bidId);
+    if (target) {
+      setActiveBid(target);
+      if (!isCounterModalOpen) {
+        if (target.counterOffer?.amount) {
+          setCounterAmount(String(target.counterOffer.amount));
+        } else if (round?.askingPrice) {
+          setCounterAmount(String(round.askingPrice));
+        }
+        if (target.counterOffer?.expectedCloseDate) {
+          setCounterExpectedDate(target.counterOffer.expectedCloseDate);
+        } else if (target.expectedCloseDate) {
+          setCounterExpectedDate(target.expectedCloseDate);
+        }
+        setCounterNote(
+          target.counterOffer?.note || `The seller board is requesting benchmark valuation.`
+        );
+      }
+    }
+  };
+
   const fetchBids = async () => {
     try {
       const [bidsRes, tsRes] = await Promise.all([
@@ -49,31 +100,25 @@ export default function SellerBiddingPage() {
       if (bidsRes.ok) {
         const data = await bidsRes.json();
         if (data.bids) {
-          const bidsList = Object.values(data.bids || {});
-          if (bidsList.length > 0) {
-            let active =
-              bidsList.find(
-                (b) =>
-                  b.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13' ||
-                  (b.name || '').toLowerCase().includes('naga')
-              ) || bidsList[0];
+          const list = Object.values(data.bids || {});
+          setBidsList(list);
+
+          if (list.length > 0) {
+            let active = null;
+            if (selectedBidId) {
+              active = list.find((b) => b.id === selectedBidId || b.buyerId === selectedBidId);
+            }
+            if (!active) {
+              const lastActiveId = typeof window !== 'undefined' ? localStorage.getItem('dms_active_bid_id') : null;
+              if (lastActiveId) {
+                active = list.find((b) => b.id === lastActiveId || b.buyerId === lastActiveId);
+              }
+            }
+            if (!active) {
+              // Prefer recently submitted or active bid
+              active = list[0];
+            }
             setActiveBid(active);
-
-            if (active.counterOffer?.amount) {
-              setCounterAmount(String(active.counterOffer.amount));
-            } else if (data.round?.askingPrice) {
-              setCounterAmount(String(data.round.askingPrice));
-            }
-
-            if (active.counterOffer?.expectedCloseDate) {
-              setCounterExpectedDate(active.counterOffer.expectedCloseDate);
-            } else if (active.expectedCloseDate) {
-              setCounterExpectedDate(active.expectedCloseDate);
-            }
-
-            setCounterNote(
-              active.counterOffer?.note || `The seller board is requesting benchmark valuation.`
-            );
           }
         }
         if (data.round) setRound(data.round);
@@ -94,15 +139,19 @@ export default function SellerBiddingPage() {
     fetchBids();
 
     const handleBidUpdate = () => fetchBids();
+    const interval = setInterval(fetchBids, 4000);
+
     if (typeof window !== 'undefined') {
       window.addEventListener('bid_submitted', handleBidUpdate);
       window.addEventListener('focus', handleBidUpdate);
       return () => {
+        clearInterval(interval);
         window.removeEventListener('bid_submitted', handleBidUpdate);
         window.removeEventListener('focus', handleBidUpdate);
       };
     }
-  }, []);
+    return () => clearInterval(interval);
+  }, [selectedBidId]);
 
   const handleDeclineBid = () => {
     if (!activeBid) return;
@@ -279,6 +328,25 @@ export default function SellerBiddingPage() {
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-[#006666] border border-teal-200">
                   {activeBid.status || 'Under review'}
                 </span>
+
+                {/* Buyer Switcher Dropdown (matching Image 4 pill) */}
+                {bidsList.length > 1 && (
+                  <div className="relative inline-flex items-center">
+                    <select
+                      value={activeBid.id}
+                      onChange={(e) => handleSelectBid(e.target.value)}
+                      className="appearance-none bg-sky-50/80 hover:bg-sky-100/90 text-sky-900 border border-sky-300 text-xs font-bold rounded-full pl-3 pr-7 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500/30 transition-all shadow-2xs"
+                      title="Switch buyer proposal"
+                    >
+                      {bidsList.map((b) => (
+                        <option key={b.id} value={b.id} className="text-slate-900 bg-white">
+                          {b.name} ({b.offer || `$${(b.offerAmount / 1000000).toFixed(1)}M`})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-sky-700 absolute right-2 pointer-events-none" />
+                  </div>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                 <span>{activeBid.type || 'Venture Capital (VC) · Invited Buyer'}</span>
@@ -315,7 +383,7 @@ export default function SellerBiddingPage() {
 
             <button
               type="button"
-              onClick={() => setIsCounterModalOpen(true)}
+              onClick={handleOpenCounterModal}
               disabled={isSubmitting}
               className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-slate-400 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
             >
@@ -391,7 +459,7 @@ export default function SellerBiddingPage() {
 
             <button
               type="button"
-              onClick={() => setIsCounterModalOpen(true)}
+              onClick={handleOpenCounterModal}
               className="px-3.5 py-1.5 rounded-xl border border-amber-400 bg-white hover:bg-amber-100 text-amber-900 text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
             >
               Revise Counter-Offer

@@ -239,15 +239,16 @@ export default function NegotiationBiddingTracker({ onSwitchToTaskBoard }) {
       (activeBid.offerAmount || activeBid.status === 'Shortlisted' || activeBid.status === 'Accepted' || activeBid.counterOffer)
     );
 
-    // Step 3: Term Sheet Sign Request Sent
+    // Step 3: Term Sheet Sign Request Sent (Only true for buyer when transmitted)
     const isTermSheetSent = Boolean(
       termSheetData &&
       (termSheetData.status === 'sent_to_buyer' ||
         termSheetData.status === 'signed' ||
-        termSheetData.acceptedBidId ||
-        termSheetData.version)
+        termSheetData.status === 'signed_by_buyer' ||
+        termSheetData.status === 'executed' ||
+        termSheetData.signatures?.buyer)
     );
-    const step3Done = Boolean(step2Done && isTermSheetSent);
+    const step3Done = Boolean(step2Done && (isSellerSide ? (isTermSheetSent || activeBid?.status === 'Accepted') : isTermSheetSent));
 
     // Step 4: Term Sheet Signed
     const isTermSheetSigned = Boolean(
@@ -285,12 +286,14 @@ export default function NegotiationBiddingTracker({ onSwitchToTaskBoard }) {
         id: 'STEP_3',
         number: 3,
         title: 'Term Sheet Sign Request',
-        desc: 'Agreed commercial terms formulated into Term Sheet & sent for sign-off',
+        desc: isTermSheetSent
+          ? 'Agreed commercial terms formulated into Term Sheet & sent to buyer for sign-off'
+          : 'Agreed commercial terms being formulated into Term Sheet by seller board',
         isDone: step3Done,
         isActive: step2Done && !step3Done,
         tag: `Exclusivity: ${termSheetData?.keyTerms?.exclusivityPeriod || '45 Days'}`,
-        actionText: 'Review Term Sheet',
-        actionUrl: isSellerSide ? '/bidding/seller-side/term-sheet' : '/bidding/buyer-side/term-sheet',
+        actionText: isSellerSide ? 'Review Term Sheet' : (isTermSheetSent ? 'Review Term Sheet' : null),
+        actionUrl: isSellerSide ? '/bidding/seller-side/term-sheet' : (isTermSheetSent ? '/bidding/buyer-side/term-sheet' : null),
       },
       {
         id: 'STEP_4',
@@ -300,8 +303,8 @@ export default function NegotiationBiddingTracker({ onSwitchToTaskBoard }) {
         isDone: step4Done,
         isActive: step3Done && !step4Done,
         tag: step4Done ? 'Signed & Executed' : 'Awaiting Buyer Signatures',
-        actionText: !step4Done && isBuyerSide ? 'Sign Term Sheet' : null,
-        actionUrl: '/bidding/buyer-side/term-sheet',
+        actionText: !step4Done && isBuyerSide && isTermSheetSent ? 'Sign Term Sheet' : null,
+        actionUrl: isTermSheetSent ? '/bidding/buyer-side/term-sheet' : null,
       },
       {
         id: 'STEP_5',

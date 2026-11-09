@@ -42,7 +42,11 @@ export async function PATCH(req) {
       updates.status = 'sent_to_buyer';
       updates.version = 'Draft v1 · sent for signature';
       updates.lastUpdated = `${new Date().getDate()} ${new Date().toLocaleString('default', { month: 'short' })} ${new Date().getFullYear()}`;
-    } else if (action === 'SAVE_DRAFT') {
+    } else if (action === 'SAVE_DRAFT' || action === 'RESET_DRAFT') {
+      if (action === 'RESET_DRAFT') {
+        updates.status = 'draft';
+        updates.signatures = { buyer: null, seller: null };
+      }
       updates.lastUpdated = `${new Date().getDate()} ${new Date().toLocaleString('default', { month: 'short' })} ${new Date().getFullYear()}`;
     }
 

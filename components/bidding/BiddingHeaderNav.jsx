@@ -1,18 +1,64 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import BiddingNotificationBell from './BiddingNotificationBell';
 
 export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'bidding' }) {
   const isBuyer = portal === 'buyer';
+  const [isTermSheetTransmitted, setIsTermSheetTransmitted] = useState(false);
+
+  useEffect(() => {
+    if (!isBuyer) return;
+
+    let isMounted = true;
+    const checkTermSheetStatus = async () => {
+      try {
+        const res = await fetch('/api/bidding/term-sheet');
+        if (res.ok) {
+          const data = await res.json();
+          const ts = data?.termSheet;
+          const transmitted = Boolean(
+            ts && (
+              ts.status === 'sent_to_buyer' ||
+              ts.status === 'signed' ||
+              ts.status === 'signed_by_buyer' ||
+              ts.status === 'executed' ||
+              ts.signatures?.buyer
+            )
+          );
+          if (isMounted) setIsTermSheetTransmitted(transmitted);
+        }
+      } catch (err) {
+        // silent catch
+      }
+    };
+
+    checkTermSheetStatus();
+    const interval = setInterval(checkTermSheetStatus, 3000);
+    const handleEvents = () => checkTermSheetStatus();
+
+    window.addEventListener('storage', handleEvents);
+    window.addEventListener('bid_submitted', handleEvents);
+    window.addEventListener('focus', handleEvents);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('storage', handleEvents);
+      window.removeEventListener('bid_submitted', handleEvents);
+      window.removeEventListener('focus', handleEvents);
+    };
+  }, [isBuyer]);
 
   const buyerTabs = [
     { id: 'my-bid', label: 'My Bid & Proposal', href: '/bidding/buyer-side/my-bid' },
     { id: 'bid-history', label: 'Bid History', href: '/bidding/buyer-side/bid-history' },
     { id: 'messages', label: 'Messages', href: '/bidding/buyer-side/messages' },
-    { id: 'term-sheet', label: 'Term Sheet', href: '/bidding/buyer-side/term-sheet' }
+    ...(isTermSheetTransmitted
+      ? [{ id: 'term-sheet', label: 'Term Sheet', href: '/bidding/buyer-side/term-sheet' }]
+      : [])
   ];
 
   const sellerTabs = [

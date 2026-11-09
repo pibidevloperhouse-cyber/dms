@@ -7,7 +7,7 @@ export async function GET(req, { params }) {
   try {
     const { id } = await params;
     const store = await loadBiddingStoreAsync();
-    const bid = store.bids[id];
+    const bid = store.bids[id] || Object.values(store.bids || {}).find(b => b.buyerId === id || b.id === id);
 
     if (!bid) {
       return NextResponse.json({ success: false, error: 'Bid not found' }, { status: 404 });
@@ -30,7 +30,7 @@ export async function PATCH(req, { params }) {
     const { action, counterAmount, counterNote, expectedCloseDate, closeDate, requesterRole } = body;
 
     const store = await loadBiddingStoreAsync();
-    const bid = store.bids[id];
+    const bid = store.bids[id] || Object.values(store.bids || {}).find(b => b.buyerId === id || b.id === id);
 
     if (!bid) {
       return NextResponse.json({ success: false, error: 'Bid not found' }, { status: 404 });
@@ -116,7 +116,7 @@ export async function PATCH(req, { params }) {
 
       await saveBidInDB(bid);
 
-      // Update term sheet in DB to reflect the accepted buyer
+      // Update term sheet in DB to reflect the accepted buyer in draft state
       const updatedTermSheet = {
         ...store.termSheet,
         acceptedBidId: id,
@@ -124,8 +124,9 @@ export async function PATCH(req, { params }) {
         buyerMark: bid.mark,
         buyerType: bid.type,
         status: 'draft',
+        signatures: { buyer: null, seller: null },
         keyTerms: {
-          ...(store.termSheet.keyTerms || {}),
+          ...(store.termSheet?.keyTerms || {}),
           purchasePrice: `$${(bid.offerAmount).toLocaleString()}`,
           structure: `${bid.cash} cash at close / ${bid.stock} acquirer stock, 12-month vest`,
           expectedClose: bid.expectedCloseDate ? `${new Date(bid.expectedCloseDate).getDate()} ${new Date(bid.expectedCloseDate).toLocaleString('default', { month: 'long', year: 'numeric' })}` : "15 December 2026"

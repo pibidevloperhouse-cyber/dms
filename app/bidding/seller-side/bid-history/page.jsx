@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerBidHistoryPage() {
   const [loading, setLoading] = useState(true);
+  const [bidsList, setBidsList] = useState([]);
+  const [selectedBidId, setSelectedBidId] = useState(null);
   const [activeBid, setActiveBid] = useState(null);
   const [round, setRound] = useState(null);
 
@@ -15,10 +18,16 @@ export default function SellerBidHistoryPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.bids) {
-          const bidsList = Object.values(data.bids || {});
-          if (bidsList.length > 0) {
-            // Find the active bid for this particular deal (Naga Tech / invited buyer)
-            const target = bidsList.find(b => b.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13' || (b.name || '').toLowerCase().includes('naga')) || bidsList[0];
+          const list = Object.values(data.bids || {});
+          setBidsList(list);
+          if (list.length > 0) {
+            let target = null;
+            if (selectedBidId) {
+              target = list.find((b) => b.id === selectedBidId || b.buyerId === selectedBidId);
+            }
+            if (!target) {
+              target = list[0];
+            }
             setActiveBid(target);
           }
         }
@@ -35,15 +44,19 @@ export default function SellerBidHistoryPage() {
     fetchBidHistory();
 
     const handleBidUpdate = () => fetchBidHistory();
+    const interval = setInterval(fetchBidHistory, 4000);
+
     if (typeof window !== 'undefined') {
       window.addEventListener('bid_submitted', handleBidUpdate);
       window.addEventListener('focus', handleBidUpdate);
       return () => {
+        clearInterval(interval);
         window.removeEventListener('bid_submitted', handleBidUpdate);
         window.removeEventListener('focus', handleBidUpdate);
       };
     }
-  }, []);
+    return () => clearInterval(interval);
+  }, [selectedBidId]);
 
   if (loading) {
     return (
@@ -63,11 +76,34 @@ export default function SellerBidHistoryPage() {
 
       <div className="max-w-[1280px] mx-auto pb-8">
         {/* Page Title & Subtitle matching buyer side */}
-        <div className="pt-6 px-7 flex justify-between items-start">
+        <div className="pt-6 px-7 flex justify-between items-start flex-wrap gap-3">
           <div>
-            <h1 className="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Bid history</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Bid history</h1>
+              {bidsList.length > 1 && activeBid && (
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={activeBid.id}
+                    onChange={(e) => {
+                      setSelectedBidId(e.target.value);
+                      const target = bidsList.find((b) => b.id === e.target.value);
+                      if (target) setActiveBid(target);
+                    }}
+                    className="appearance-none bg-sky-50/80 hover:bg-sky-100/90 text-sky-900 border border-sky-300 text-xs font-bold rounded-full pl-3 pr-7 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500/30 transition-all shadow-2xs"
+                    title="Switch buyer proposal"
+                  >
+                    {bidsList.map((b) => (
+                      <option key={b.id} value={b.id} className="text-slate-900 bg-white">
+                        {b.name} ({b.offer || `$${(b.offerAmount / 1000000).toFixed(1)}M`})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-sky-700 absolute right-2 pointer-events-none" />
+                </div>
+              )}
+            </div>
             <div className="text-[13px] text-slate-500 font-medium mt-1.5">
-              Every version submitted on {dealName}, in order
+              Every version submitted by <b>{activeBid?.name || 'Buyer'}</b> on {dealName}, in order
             </div>
           </div>
         </div>

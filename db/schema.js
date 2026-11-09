@@ -815,6 +815,61 @@ export const dmsInboxMessages = pgTable('dms_inbox_messages', {
   isRead: boolean('is_read').default(false)
 });
 
+export const biddingRounds = pgTable('bidding_rounds', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  dealId: varchar('deal_id', { length: 255 }),
+  dealName: varchar('deal_name', { length: 255 }),
+  askingPrice: bigint('asking_price', { mode: 'number' }),
+  askingPriceFormatted: varchar('asking_price_formatted', { length: 100 }),
+  status: varchar('status', { length: 100 }),
+  statusLabel: varchar('status_label', { length: 100 }),
+  openedDate: varchar('opened_date', { length: 100 }),
+  deadline: timestamp('deadline', { withTimezone: true }),
+  deadlineDisplay: varchar('deadline_display', { length: 100 }),
+  invitedCount: integer('invited_count').default(2),
+  sector: varchar('sector', { length: 255 }),
+  arr: varchar('arr', { length: 255 }),
+  employees: varchar('employees', { length: 255 }),
+  financialHealth: varchar('financial_health', { length: 255 }),
+  sellerAdvisor: varchar('seller_advisor', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+export const biddingBids = pgTable('bidding_bids', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  roundId: varchar('round_id', { length: 255 }),
+  dealId: varchar('deal_id', { length: 255 }),
+  buyerId: varchar('buyer_id', { length: 255 }),
+  name: varchar('name', { length: 255 }),
+  mark: varchar('mark', { length: 50 }),
+  type: varchar('type', { length: 255 }),
+  buyerRole: varchar('buyer_role', { length: 100 }).default('guest_admin'),
+  offerAmount: bigint('offer_amount', { mode: 'number' }),
+  offer: varchar('offer', { length: 100 }),
+  vsAsk: varchar('vs_ask', { length: 50 }),
+  vsColor: varchar('vs_color', { length: 50 }),
+  cash: varchar('cash', { length: 50 }),
+  stock: varchar('stock', { length: 50 }),
+  close: varchar('close', { length: 100 }),
+  expectedCloseDate: varchar('expected_close_date', { length: 100 }),
+  status: varchar('status', { length: 100 }),
+  engagement: varchar('engagement', { length: 100 }),
+  views: integer('views').default(0),
+  submittedAt: varchar('submitted_at', { length: 100 }),
+  financingType: varchar('financing_type', { length: 255 }),
+  contingencies: text('contingencies'),
+  note: text('note'),
+  ndaSignedDate: varchar('nda_signed_date', { length: 100 }),
+  leadName: varchar('lead_name', { length: 255 }),
+  advisorName: varchar('advisor_name', { length: 255 }),
+  documents: jsonb('documents').default('[]'),
+  counterOffer: jsonb('counter_offer'),
+  history: jsonb('history').default('[]'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
 export const biddingMessages = pgTable('bidding_messages', {
   id: varchar('id', { length: 255 }).primaryKey(),
   roundId: varchar('round_id', { length: 255 }),

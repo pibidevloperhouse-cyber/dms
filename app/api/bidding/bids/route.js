@@ -14,9 +14,14 @@ export async function GET(req) {
     const kpis = computeBiddingKPIs(store);
 
     if (role === 'super_admin') {
-      // Ensure only unique bids keyed by bid.id are returned
+      // Ensure only unique bids keyed by bid.id are returned, sorted by latest updated_at descending
       const uniqueBids = {};
-      for (const b of Object.values(store.bids || {})) {
+      const sortedBids = Object.values(store.bids || {}).sort((a, b) => {
+        const timeA = new Date(a.updatedAt || a.updated_at || a.history?.[a.history?.length - 1]?.date || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.updated_at || b.history?.[b.history?.length - 1]?.date || 0).getTime();
+        return timeB - timeA;
+      });
+      for (const b of sortedBids) {
         if (b && b.id && !uniqueBids[b.id]) {
           uniqueBids[b.id] = b;
         }

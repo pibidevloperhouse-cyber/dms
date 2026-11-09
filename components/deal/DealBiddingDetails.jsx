@@ -86,6 +86,20 @@ export default function DealBiddingDetails({ dealId, dealName = "Project Alpha" 
 
   useEffect(() => {
     fetchBiddingData();
+
+    const handleUpdate = () => fetchBiddingData();
+    const interval = setInterval(fetchBiddingData, 4000);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('bid_submitted', handleUpdate);
+      window.addEventListener('focus', handleUpdate);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('bid_submitted', handleUpdate);
+        window.removeEventListener('focus', handleUpdate);
+      };
+    }
+    return () => clearInterval(interval);
   }, [dealId]);
 
   // Handle Export Ledger to CSV

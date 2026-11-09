@@ -9,7 +9,8 @@ import {
   PenTool,
   ShieldCheck,
   Clock,
-  MessageSquare
+  MessageSquare,
+  RotateCcw
 } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
@@ -21,11 +22,95 @@ export default function BuyerTermSheetPage() {
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
-  const [signerName, setSignerName] = useState('Naga raj');
+  const [signerName, setSignerName] = useState('Vijay');
+
+  // Mouse & Touch Signature Canvas States
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef({ x: 0, y: 0 });
+  const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
 
   const commentsEndRef = useRef(null);
   const prevCommentCountRef = useRef(0);
   const isFirstCommentsLoadRef = useRef(true);
+
+  // Setup canvas high-DPI scaling
+  const setupCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#0f172a';
+  };
+
+  const handleClearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawnSignature(false);
+  };
+
+  useEffect(() => {
+    if (showSignModal) {
+      const timer = setTimeout(() => {
+        setupCanvas();
+      }, 70);
+      return () => clearTimeout(timer);
+    } else {
+      setHasDrawnSignature(false);
+    }
+  }, [showSignModal]);
+
+  const getCanvasPos = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches && e.touches.length > 0) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e) => {
+    const pos = getCanvasPos(e);
+    isDrawingRef.current = true;
+    lastPosRef.current = pos;
+  };
+
+  const drawStroke = (e) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const pos = getCanvasPos(e);
+
+    ctx.beginPath();
+    ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+
+    lastPosRef.current = pos;
+    setHasDrawnSignature(true);
+  };
+
+  const stopDrawing = () => {
+    isDrawingRef.current = false;
+  };
 
   const fetchTermSheet = async () => {
     try {
@@ -42,6 +127,9 @@ export default function BuyerTermSheetPage() {
         const data = await res.json();
         if (data.termSheet) {
           setTermSheet(data.termSheet);
+          if (data.termSheet.buyerName && (!signerName || signerName === 'Naga raj')) {
+            setSignerName(data.termSheet.buyerName);
+          }
           if (data.termSheet.counselComments) {
             setComments((prev) => {
               if (JSON.stringify(prev) === JSON.stringify(data.termSheet.counselComments)) {
@@ -80,6 +168,17 @@ export default function BuyerTermSheetPage() {
 
   useEffect(() => {
     fetchTermSheet();
+    const interval = setInterval(fetchTermSheet, 3000);
+    const handleEvents = () => fetchTermSheet();
+    window.addEventListener('storage', handleEvents);
+    window.addEventListener('bid_submitted', handleEvents);
+    window.addEventListener('focus', handleEvents);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleEvents);
+      window.removeEventListener('bid_submitted', handleEvents);
+      window.removeEventListener('focus', handleEvents);
+    };
   }, []);
 
   useEffect(() => {
@@ -150,12 +249,18 @@ export default function BuyerTermSheetPage() {
   const handleExecuteSign = async () => {
     setIsSigning(true);
     try {
+      let signatureDataUrl = null;
+      if (canvasRef.current && hasDrawnSignature) {
+        signatureDataUrl = canvasRef.current.toDataURL('image/png');
+      }
+
       const res = await fetch('/api/bidding/term-sheet/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           signerRole: 'guest_admin',
-          signerName: signerName || 'Naga raj'
+          signerName: signerName || termSheet?.buyerName || 'Vijay',
+          signatureDataUrl
         })
       });
       if (res.ok) {
@@ -163,7 +268,11 @@ export default function BuyerTermSheetPage() {
         setShowSignModal(false);
         await fetchTermSheet();
         if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('dms_termsheet_updated', Date.now().toString());
+          } catch (_) {}
           window.dispatchEvent(new Event('bid_submitted'));
+          window.dispatchEvent(new Event('storage'));
         }
       }
     } catch (e) {
@@ -196,6 +305,48 @@ export default function BuyerTermSheetPage() {
     termSheet.status === 'signed_by_buyer' ||
     termSheet.status === 'executed'
   );
+
+  const isTransmitted = Boolean(
+    termSheet.status === 'sent_to_buyer' ||
+    isBuyerSigned
+  );
+
+  // Term Sheet is ONLY shown to buyer after seller transmits it from seller term-sheet page
+  if (!isTransmitted) {
+    return (
+      <div className="bg-[#F8F9FB] text-slate-900 font-sans min-h-screen antialiased pb-16">
+        <BiddingHeaderNav portal="buyer" activeTab="my-bid" />
+
+        <div className="max-w-[760px] mx-auto px-4 sm:px-6 pt-12">
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-8 sm:p-12 shadow-xs text-center flex flex-col items-center">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-5 border border-amber-200/80 shadow-2xs">
+              <Clock className="w-8 h-8 text-amber-600" />
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-200 uppercase tracking-wider mb-3">
+              <span>Drafting in Progress</span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-2">
+              Term Sheet Under Formulation
+            </h2>
+
+            <p className="text-xs sm:text-sm text-slate-600 max-w-lg mb-8 leading-relaxed">
+              The seller board has accepted your proposal and is currently drafting the official Term Sheet clauses.
+              Once the seller transmits the finalized document to you, this section will automatically unlock for your legal review and digital execution.
+            </p>
+
+            <Link
+              href="/bidding/buyer-side/my-bid"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
+            >
+              <span>← Return to My Bid &amp; Proposal</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans min-h-screen antialiased pb-16">
@@ -343,6 +494,44 @@ export default function BuyerTermSheetPage() {
                 </div>
               </div>
 
+              {/* Digitally Executed Signature Block */}
+              {isBuyerSigned && (
+                <div className="p-5 bg-emerald-50/60 border-t border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                        Digitally Executed Signature
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        SHA-256 Validated
+                      </span>
+                    </div>
+                    <div className="text-xs text-emerald-800">
+                      Signed by: <strong className="text-slate-900">{termSheet?.signatures?.buyer?.signer || signerName}</strong> ({termSheet?.signatures?.buyer?.role || 'Buyer Lead Principal'})
+                    </div>
+                    <div className="text-[11px] text-emerald-700/80 mt-0.5">
+                      Executed on: {termSheet?.signatures?.buyer?.signedAt || 'Recently'}
+                    </div>
+                  </div>
+
+                  {termSheet?.signatures?.buyer?.signatureDataUrl ? (
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs shrink-0 flex flex-col items-center">
+                      <img
+                        src={termSheet.signatures.buyer.signatureDataUrl}
+                        alt="Buyer Drawn Signature"
+                        className="h-12 max-w-[200px] object-contain"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-wider">Hand-drawn signature</span>
+                    </div>
+                  ) : (
+                    <div className="font-serif italic text-2xl text-slate-900 bg-white px-4 py-2 rounded-xl border border-emerald-200 shadow-2xs shrink-0">
+                      {termSheet?.signatures?.buyer?.signer || signerName}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
 
@@ -406,27 +595,89 @@ export default function BuyerTermSheetPage() {
 
       </div>
 
-      {/* DIGITAL SIGNATURE EXECUTION MODAL */}
+      {/* DIGITAL SIGNATURE EXECUTION MODAL WITH TERM SHEET PREVIEW & MOUSE CANVAS */}
       {showSignModal && (
-        <div className="fixed inset-0 bg-[#0f172a]/60 flex items-center justify-center p-4 z-50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 relative">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-[#006666]">
-                <PenTool className="w-5 h-5" />
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl p-6 sm:p-7 relative max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-[#006666] shrink-0">
+                  <PenTool className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 m-0">Execute Binding Term Sheet</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Deal: <strong className="text-slate-800">{termSheet.dealName || 'VDR Sell'}</strong> · Target Value: <strong className="text-slate-900">{keyTerms.purchasePrice || '$22,000,000'}</strong>
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 m-0">Execute Binding Term Sheet</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Deal: <strong>{termSheet.dealName || 'Project Alpha'}</strong> · Target Value: <strong>{keyTerms.purchasePrice || '$10,000,000'}</strong>
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowSignModal(false)}
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed">
+            {/* Legal Notice */}
+            <p className="text-xs text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200/90 leading-relaxed">
               By digitally signing below, the Buyer acknowledges acceptance of all core clauses outlined in this Term Sheet. This document creates a binding exclusivity and due diligence obligation.
             </p>
 
             <div className="space-y-4 mb-6">
+              {/* 1. DOCUMENT PREVIEW BOX */}
+              <div className="bg-[#FAFBFD] rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 mb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#006666]" />
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                      Term Sheet Clauses Preview
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-[#006666] border border-teal-200">
+                    Final Negotiated Version
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Enterprise Valuation</span>
+                      <span className="text-sm font-black text-slate-900">{keyTerms.purchasePrice || '$22,000,000'}</span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consideration Structure</span>
+                      <span className="text-xs font-bold text-slate-800">{keyTerms.structure || '70% Cash / 30% Acquirer Stock'}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Exclusivity Period</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.exclusivityPeriod || '45 Days'}</span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Close Date</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.expectedClose || '15 Dec 2026'}</span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Governing Law</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.governingLaw || 'Delaware, USA'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                    <span className="font-bold text-slate-500">Escrow &amp; Key Retention:</span>
+                    <span className="font-medium text-slate-800">
+                      {keyTerms.escrow || '10% holdback'} · {keyTerms.keyEmployeeRetention || 'Key engineering retention lock-in'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SIGNATORY LEGAL NAME */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Signatory Full Legal Name
@@ -435,30 +686,82 @@ export default function BuyerTermSheetPage() {
                   type="text"
                   value={signerName}
                   onChange={(e) => setSignerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30"
+                  placeholder="Enter full legal name"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 bg-white"
                 />
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Cryptographic Digital Signature Preview</span>
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">SHA-256 Validated</span>
+              {/* 3. MOUSE-DRAWN SIGNATURE CANVAS */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <PenTool className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Draw Signature (Use Mouse / Trackpad)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {hasDrawnSignature ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                        Recorded
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-slate-400">
+                        Use mouse cursor to draw inside box
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-rose-600 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Clear and redraw signature"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Clear</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="font-serif italic text-2xl text-slate-900 py-3 border-b border-slate-200">
-                  {signerName || 'Naga raj'}
+
+                {/* Canvas Drawing Area */}
+                <div className="relative border-2 border-dashed border-slate-300 rounded-2xl bg-white overflow-hidden shadow-2xs hover:border-[#006666]/60 transition-colors">
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={startDrawing}
+                    onMouseMove={drawStroke}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={drawStroke}
+                    onTouchEnd={stopDrawing}
+                    className="w-full h-[125px] cursor-crosshair block touch-none"
+                  />
+
+                  {/* Guide placeholder watermark when empty */}
+                  {!hasDrawnSignature && (
+                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-end p-4">
+                      <div className="border-b border-slate-200 w-full flex items-center justify-between pb-1">
+                        <span className="text-[11px] font-serif italic text-slate-400">✕ Sign above this line using mouse</span>
+                        <span className="text-[10px] text-slate-300 uppercase tracking-wider">Canvas Signature Pad</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-2 flex items-center justify-between">
+
+                <div className="text-[10px] text-slate-500 mt-2 flex items-center justify-between flex-wrap gap-2">
                   <span>Role: Buyer Lead Principal</span>
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    SHA-256 Validated
+                  </span>
                   <span>Date: {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2.5">
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowSignModal(false)}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -466,7 +769,7 @@ export default function BuyerTermSheetPage() {
                 type="button"
                 onClick={handleExecuteSign}
                 disabled={isSigning || !signerName.trim()}
-                className="px-5 py-2 bg-[#006666] hover:bg-[#005252] text-white rounded-xl text-xs font-bold transition-colors shadow-xs flex items-center gap-1.5"
+                className="px-5 py-2 bg-[#006666] hover:bg-[#005252] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>{isSigning ? 'Executing...' : 'Confirm & Legally Sign'}</span>

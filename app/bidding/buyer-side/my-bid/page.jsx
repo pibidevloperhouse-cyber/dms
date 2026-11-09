@@ -236,6 +236,14 @@ export default function MyBidPage() {
       });
 
       if (res.ok) {
+        const resData = await res.json();
+        const savedBidId = resData?.bid?.id || buyerId;
+        try {
+          localStorage.setItem('dms_active_bid_id', savedBidId);
+        } catch (_) {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bid_submitted'));
+        }
         alert(
           isInitial
             ? 'Your initial binding proposal has been submitted to Super Admin for evaluation!'
@@ -278,7 +286,16 @@ export default function MyBidPage() {
   // 5-Step Pipeline state for buyer
   const step1Done = Boolean(round?.askingPrice || negotiationInvitation?.askingPrice);
   const step2Done = Boolean(bid?.offer && bid.status !== 'Draft');
-  const step3Done = Boolean(termSheet && (termSheet.status === 'sent_to_buyer' || termSheet.status === 'signed' || bid?.status === 'Accepted'));
+  const isTermSheetTransmitted = Boolean(
+    termSheet && (
+      termSheet.status === 'sent_to_buyer' ||
+      termSheet.status === 'signed' ||
+      termSheet.status === 'signed_by_buyer' ||
+      termSheet.status === 'executed' ||
+      termSheet.signatures?.buyer
+    )
+  );
+  const step3Done = Boolean(isTermSheetTransmitted);
   const step4Done = Boolean(termSheet && (termSheet.status === 'signed' || termSheet.signatures?.buyer));
   const step5Done = false;
 
@@ -353,26 +370,28 @@ export default function MyBidPage() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. PROMINENT SELLER COUNTER-OFFER CALLOUT (WHEN PRESENT)                  */}
+        {/* 3. PROMINENT SELLER COUNTER-OFFER CALLOUT (BLUE THEME)                   */}
         {/* ========================================================================= */}
         {hasCounter && (
-          <div className="bg-amber-50/95 border-2 border-amber-300 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
+          <div className="bg-gradient-to-r from-blue-50 via-sky-50/70 to-blue-50/90 border border-blue-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
             <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300">
-                <Gavel className="w-5 h-5 text-amber-700" />
+              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Gavel className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <div className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                   <span>Seller Counter-Offer Received: {bid.counterOffer?.amountFormatted || '$10.0M'}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 uppercase">
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 uppercase tracking-wider">
                     Action Required
                   </span>
                 </div>
-                <p className="text-xs text-amber-800 mt-1">
+                <p className="text-xs text-slate-700 mt-1 font-medium leading-relaxed">
                   "{bid.counterOffer?.note || 'The seller board is requesting benchmark enterprise valuation.'}"
                 </p>
-                <div className="text-[11px] text-amber-700/80 font-medium mt-1">
-                  Dispatched on {bid.counterOffer?.counteredAt || 'Recent'} · Expected Close: {bid.counterOffer?.expectedCloseDate || 'Dec 2026'}
+                <div className="text-[11px] text-blue-700 font-semibold mt-1 flex items-center gap-2 flex-wrap">
+                  <span>Dispatched on {bid.counterOffer?.counteredAt || 'Recent'}</span>
+                  <span>·</span>
+                  <span>Expected Close: {bid.counterOffer?.expectedCloseDate || 'Dec 2026'}</span>
                 </div>
               </div>
             </div>
@@ -382,7 +401,7 @@ export default function MyBidPage() {
                 type="button"
                 onClick={handleMatchCounter}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Match Counter ({bid.counterOffer?.amountFormatted || '$10.0M'})</span>
@@ -390,11 +409,67 @@ export default function MyBidPage() {
               <button
                 type="button"
                 onClick={() => setShowRecentCounterModal(true)}
-                className="px-3.5 py-2.5 rounded-xl border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                className="px-3.5 py-2.5 rounded-xl border border-blue-200 bg-white hover:bg-blue-50 text-blue-700 hover:text-blue-900 text-xs font-bold transition-all cursor-pointer shadow-2xs"
               >
                 View Details
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Proposal Accepted & Term Sheet Formulation Underway (Prior to Transmit) */}
+        {bid?.status === 'Accepted' && !isTermSheetTransmitted && (
+          <div className="bg-gradient-to-r from-teal-50/90 via-emerald-50/50 to-teal-50/80 border border-teal-200/90 rounded-2xl p-5 shadow-xs flex items-start gap-4 animate-in fade-in">
+            <div className="w-11 h-11 rounded-2xl bg-[#006666] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Check className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                <span>Proposal Accepted by Seller Board</span>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider">
+                  Term Sheet Drafting in Progress
+                </span>
+              </div>
+              <p className="text-xs text-slate-700 mt-1 font-medium leading-relaxed">
+                The seller board has accepted your acquisition proposal of <strong className="text-slate-900">{bid.offer || '$10.0M'}</strong> and is currently formulating the commercial and legal clauses of the Term Sheet. Once transmitted by the seller, the Term Sheet section will unlock for your review and execution.
+              </p>
+              <div className="text-[11px] text-[#006666] font-semibold mt-1">
+                Awaiting seller transmission · No action required from you right now.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Binding Term Sheet Transmitted by Seller Banner */}
+        {isTermSheetTransmitted && (
+          <div className="bg-gradient-to-r from-blue-50 via-sky-50/70 to-blue-50/90 border border-blue-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                  <span>Binding Term Sheet Transmitted by Seller</span>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 uppercase tracking-wider">
+                    Ready for Review
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 mt-1 font-medium leading-relaxed">
+                  The seller board has finalized and transmitted the acquisition Term Sheet for your commercial review and digital execution.
+                </p>
+                <div className="text-[11px] text-blue-700 font-semibold mt-1">
+                  Exclusivity Period: {termSheet?.keyTerms?.exclusivityPeriod || '45 Days'} · Expected Close: {termSheet?.keyTerms?.expectedClose || 'Dec 2026'}
+                </div>
+              </div>
+            </div>
+
+            <Link
+              href="/bidding/buyer-side/term-sheet"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+            >
+              <span>Review &amp; Sign Term Sheet</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         )}
 
@@ -650,8 +725,8 @@ export default function MyBidPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 sm:p-7 animate-in fade-in zoom-in-95">
             <div className="flex items-start gap-3.5 mb-4 pb-3 border-b border-slate-100">
-              <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
-                <Gavel className="w-5 h-5 text-amber-700" />
+              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
+                <Gavel className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
@@ -675,9 +750,9 @@ export default function MyBidPage() {
             {hasCounter ? (
               <>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/60">
-                    <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Counter Valuation</div>
-                    <div className="text-2xl font-black text-amber-950 mt-0.5">
+                  <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70">
+                    <div className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Counter Valuation</div>
+                    <div className="text-2xl font-black text-blue-950 mt-0.5">
                       {bid.counterOffer?.amountFormatted || '$10.0M'}
                     </div>
                   </div>
@@ -708,7 +783,7 @@ export default function MyBidPage() {
                       handleMatchCounter();
                     }}
                     disabled={isSubmitting}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                     <span>Match Counter — {bid.counterOffer?.amountFormatted || '$10.0M'}</span>

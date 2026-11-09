@@ -19,10 +19,23 @@ export default function BidDetailsPage() {
 
   // Counter Modal states
   const [isCounterModalOpen, setIsCounterModalOpen] = useState(false);
-  const [counterAmount, setCounterAmount] = useState('100000000');
+  const [counterAmount, setCounterAmount] = useState('12000000');
   const [counterExpectedDate, setCounterExpectedDate] = useState('2026-12-15');
   const [counterNote, setCounterNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleOpenCounterModal = () => {
+    if (bid) {
+      setCounterAmount(String(bid.counterOffer?.amount || round?.askingPrice || 12000000));
+      if (bid.counterOffer?.expectedCloseDate) {
+        setCounterExpectedDate(bid.counterOffer.expectedCloseDate);
+      } else if (bid.expectedCloseDate) {
+        setCounterExpectedDate(bid.expectedCloseDate);
+      }
+      setCounterNote(bid.counterOffer?.note || `The seller board is requesting benchmark valuation.`);
+    }
+    setIsCounterModalOpen(true);
+  };
 
   const fetchBidDetails = async () => {
     try {
@@ -31,13 +44,15 @@ export default function BidDetailsPage() {
         const data = await res.json();
         if (data.bid) {
           setBid(data.bid);
-          setCounterAmount(String(data.bid.counterOffer?.amount || 100000000));
-          if (data.bid.counterOffer?.expectedCloseDate) {
-            setCounterExpectedDate(data.bid.counterOffer.expectedCloseDate);
-          } else if (data.bid.expectedCloseDate) {
-            setCounterExpectedDate(data.bid.expectedCloseDate);
+          if (!isCounterModalOpen) {
+            setCounterAmount(String(data.bid.counterOffer?.amount || data.round?.askingPrice || 12000000));
+            if (data.bid.counterOffer?.expectedCloseDate) {
+              setCounterExpectedDate(data.bid.counterOffer.expectedCloseDate);
+            } else if (data.bid.expectedCloseDate) {
+              setCounterExpectedDate(data.bid.expectedCloseDate);
+            }
+            setCounterNote(data.bid.counterOffer?.note || `The seller board is requesting benchmark valuation.`);
           }
-          setCounterNote(data.bid.counterOffer?.note || `The seller board is requesting benchmark valuation.`);
         }
         if (data.round) setRound(data.round);
       }
@@ -109,7 +124,7 @@ export default function BidDetailsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'COUNTER',
-          counterAmount: Number(counterAmount) || 100000000,
+          counterAmount: Number(counterAmount) || 12000000,
           expectedCloseDate: counterExpectedDate,
           counterNote,
           requesterRole: 'super_admin'
@@ -131,7 +146,7 @@ export default function BidDetailsPage() {
   };
 
   const handleAcceptAndMoveToTermSheet = async () => {
-    if (!confirm(`Accept bid from ${bid?.name || 'buyer'} (${bid?.offer || '$100.0M'}) and advance to Term Sheet?`)) return;
+    if (!confirm(`Accept bid from ${bid?.name || 'buyer'} (${bid?.offer || '$12.0M'}) and advance to Term Sheet?`)) return;
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/bidding/bids/${id}`, {
@@ -198,7 +213,7 @@ export default function BidDetailsPage() {
           )}
           <button
             type="button"
-            onClick={() => setIsCounterModalOpen(true)}
+            onClick={handleOpenCounterModal}
             disabled={isSubmitting}
             className="text-[13.5px] font-semibold px-5 py-2.5 rounded-lg cursor-pointer border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400 transition-colors shadow-2xs"
           >

@@ -80,9 +80,21 @@ export default function BiddingPipelineBanner({
         const resolvedDealName = overrideDealName || round?.dealName || termSheet?.dealName || 'Project Alpha';
         const resolvedPartyName = overridePartyName || (portal === 'buyer' ? (activeBid?.name || 'Naga Tech') : 'ABC Technologies');
 
+        const isTermSheetTransmitted = Boolean(
+          termSheet && (
+            termSheet.status === 'sent_to_buyer' ||
+            termSheet.status === 'signed' ||
+            termSheet.status === 'signed_by_buyer' ||
+            termSheet.status === 'executed' ||
+            termSheet.signatures?.buyer
+          )
+        );
+
         const step1 = Boolean(asking);
         const step2 = Boolean(activeBid && (activeBid.offerAmount || activeBid.offer || activeBid.status !== 'Draft'));
-        const step3 = Boolean(step2 && termSheet && (termSheet.status === 'sent_to_buyer' || termSheet.status === 'signed' || termSheet.status === 'signed_by_buyer' || termSheet.status === 'executed' || activeBid?.status === 'Accepted'));
+        const step3 = portal === 'buyer'
+          ? Boolean(step2 && isTermSheetTransmitted)
+          : Boolean(step2 && (isTermSheetTransmitted || activeBid?.status === 'Accepted'));
         const step4 = Boolean(step3 && termSheet && (termSheet.status === 'signed' || termSheet.status === 'signed_by_buyer' || termSheet.status === 'executed' || termSheet.signatures?.buyer));
 
         let step5 = false;

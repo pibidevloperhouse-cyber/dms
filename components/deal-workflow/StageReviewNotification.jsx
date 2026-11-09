@@ -288,7 +288,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
     timestamp: Date.now()
   } : null);
 
-  if (activeInvite && (isNegStage || activeInvite.status === 'PENDING_ACCEPTANCE' || activeInvite.status === 'ACCEPTED')) {
+  if (isNegStage && activeInvite) {
     const isPendingAcceptance = activeInvite.status === 'PENDING_ACCEPTANCE';
     const isAccepted = activeInvite.status === 'ACCEPTED';
     const askingPriceNum = Number(activeInvite.askingPrice) || 10000000;
@@ -427,9 +427,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       <span className="text-xs font-semibold text-slate-600">
                         Benchmark: <strong className="text-slate-900">{askingPriceFormatted}</strong> · Deadline: <strong className="text-slate-900">{deadlineFormatted}</strong>
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        isAccepted ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isAccepted ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
                         {isAccepted ? 'Buyer Accepted' : 'Awaiting Buyer Acceptance'}
                       </span>
                     </div>
@@ -526,8 +525,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       {certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller
                         ? `Guest Admin (${guestAdminSigner}) has endorsed Certificate No. ${certNumber} and transmitted it to Seller Super Admin (${sellerSuperAdminSigner}).`
                         : isCertPending
-                        ? `Certificate No. ${certNumber} has been submitted to Guest Admin (${guestAdminSigner}) for executive sign-off.`
-                        : 'All buyer diligence tasks are 100% complete. Please digitally sign the Completion Certificate to submit to Guest Admin.'}
+                          ? `Certificate No. ${certNumber} has been submitted to Guest Admin (${guestAdminSigner}) for executive sign-off.`
+                          : 'All buyer diligence tasks are 100% complete. Please digitally sign the Completion Certificate to submit to Guest Admin.'}
                     </p>
                   </div>
                 </div>
@@ -576,10 +575,10 @@ export default function StageReviewNotification({ inDropdown = false }) {
                         {certStatus === 'SIGNED_AND_COMPLETED'
                           ? 'Certificate Accepted by Seller'
                           : isSubmittedToSeller
-                          ? 'Certificate Transmitted to Seller Super Admin'
-                          : isCertPending
-                          ? 'Due Diligence Certificate Awaiting Your Signature'
-                          : 'All Due Diligence Tasks Completed!'}
+                            ? 'Certificate Transmitted to Seller Super Admin'
+                            : isCertPending
+                              ? 'Due Diligence Certificate Awaiting Your Signature'
+                              : 'All Due Diligence Tasks Completed!'}
                       </span>
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-semibold">
                         100% Done
@@ -602,8 +601,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       {certStatus === 'SIGNED_AND_COMPLETED' || isSubmittedToSeller
                         ? `Certificate No. ${certNumber} has been officially endorsed and transmitted to Seller (${dealInfo?.sellerCompany || 'Vishwa Tech'}).`
                         : isCertPending
-                        ? `Lead Advisor ${advisorSigner} has reviewed all tasks and submitted Certificate No. ${certNumber} for your digital signature.`
-                        : `All buyer diligence tasks are 100% complete. Awaiting Lead Advisor ${advisorSigner} to certify first.`}
+                          ? `Lead Advisor ${advisorSigner} has reviewed all tasks and submitted Certificate No. ${certNumber} for your digital signature.`
+                          : `All buyer diligence tasks are 100% complete. Awaiting Lead Advisor ${advisorSigner} to certify first.`}
                     </p>
                   </div>
                 </div>
@@ -662,10 +661,10 @@ export default function StageReviewNotification({ inDropdown = false }) {
                       {certStatus === 'SIGNED_AND_COMPLETED'
                         ? `Due Diligence Certificate No. ${certNumber} has been accepted by Seller. Stage unlocked.`
                         : isSubmittedToSeller
-                        ? `Due Diligence Certificate No. ${certNumber} has been transmitted to Seller.`
-                        : isCertPending
-                        ? `Due Diligence Certificate is currently awaiting Guest Admin (${guestAdminSigner}) signature.`
-                        : `Lead Advisor ${advisorSigner} is preparing the official Completion Certificate.`}
+                          ? `Due Diligence Certificate No. ${certNumber} has been transmitted to Seller.`
+                          : isCertPending
+                            ? `Due Diligence Certificate is currently awaiting Guest Admin (${guestAdminSigner}) signature.`
+                            : `Lead Advisor ${advisorSigner} is preparing the official Completion Certificate.`}
                     </p>
                   </div>
                 </div>

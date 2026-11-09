@@ -154,7 +154,11 @@ export default function SellerTermSheetPage() {
         alert('Term sheet transmitted to buyer for review & signature!');
         await fetchTermSheet();
         if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('dms_termsheet_updated', Date.now().toString());
+          } catch (_) {}
           window.dispatchEvent(new Event('bid_submitted'));
+          window.dispatchEvent(new Event('storage'));
         }
       }
     } catch (e) {
@@ -415,6 +419,44 @@ export default function SellerTermSheetPage() {
                   />
                 </div>
               </div>
+
+              {/* Digitally Executed Signature Block */}
+              {isSigned && (
+                <div className="p-5 bg-emerald-50/60 border-t border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                        Executed Binding Signature
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        SHA-256 Validated
+                      </span>
+                    </div>
+                    <div className="text-xs text-emerald-800">
+                      Signed by: <strong className="text-slate-900">{termSheet?.signatures?.buyer?.signer || buyerName}</strong> ({termSheet?.signatures?.buyer?.role || 'Buyer Lead Principal'})
+                    </div>
+                    <div className="text-[11px] text-emerald-700/80 mt-0.5">
+                      Executed on: {termSheet?.signatures?.buyer?.signedAt || 'Recently'}
+                    </div>
+                  </div>
+
+                  {termSheet?.signatures?.buyer?.signatureDataUrl ? (
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs shrink-0 flex flex-col items-center">
+                      <img
+                        src={termSheet.signatures.buyer.signatureDataUrl}
+                        alt="Buyer Drawn Signature"
+                        className="h-12 max-w-[200px] object-contain"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-wider">Buyer hand-drawn signature</span>
+                    </div>
+                  ) : (
+                    <div className="font-serif italic text-2xl text-slate-900 bg-white px-4 py-2 rounded-xl border border-emerald-200 shadow-2xs shrink-0">
+                      {termSheet?.signatures?.buyer?.signer || buyerName}
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>

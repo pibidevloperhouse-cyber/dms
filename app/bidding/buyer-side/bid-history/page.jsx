@@ -9,26 +9,47 @@ export default function BidHistoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [bid, setBid] = useState(null);
+  const [round, setRound] = useState(null);
+
+  const fetchBidHistory = async () => {
+    try {
+      let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+      try {
+        const raw = localStorage.getItem('vdr_session');
+        if (raw) {
+          const user = JSON.parse(raw);
+          if (user.id) buyerId = user.id;
+        }
+      } catch (e) {}
+
+      const res = await fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.myBid) setBid(data.myBid);
+        if (data.round) setRound(data.round);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/bidding/bids?role=guest_admin&buyerId=b')
-      .then(res => res.json())
-      .then(data => {
-        if (data.myBid) setBid(data.myBid);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetchBidHistory();
   }, []);
 
   const handleMatchCounter = async () => {
+    const targetBidId = bid?.id || bid?.buyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+    const counterAmountFormatted = bid?.counterOffer?.amountFormatted || '$12.0M';
     try {
-      const res = await fetch('/api/bidding/bids/b', {
+      const res = await fetch(`/api/bidding/bids/${targetBidId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'MATCH_COUNTER', requesterRole: 'guest_admin' })
       });
       if (res.ok) {
-        alert('Counter-offer matched at $100.0M!');
+        alert(`Counter-offer matched at ${counterAmountFormatted}!`);
         router.push('/bidding/buyer-side/my-bid');
       }
     } catch (e) {
@@ -37,6 +58,7 @@ export default function BidHistoryPage() {
   };
 
   const historyItems = (bid?.history || []).slice().reverse();
+  const dealName = round?.dealName || 'VDR Sell';
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased">
@@ -46,7 +68,7 @@ export default function BidHistoryPage() {
         <div className="pt-6 px-7 flex justify-between items-start">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Bid history</h1>
-            <div className="text-[13px] text-slate-500 font-medium mt-1.5">Every version you've submitted on Project Alpha, in order</div>
+            <div className="text-[13px] text-slate-500 font-medium mt-1.5">Every version you've submitted on {dealName}, in order</div>
           </div>
         </div>
 
@@ -58,10 +80,10 @@ export default function BidHistoryPage() {
               </div>
               <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-[14px] font-bold text-slate-900">Current offer — {bid?.offer || '$95.0M'}</span>
+                  <span className="text-[14px] font-bold text-slate-900">Current offer — {bid?.offer || '$11.5M'}</span>
                   <span className="text-[11.5px] text-slate-500 font-medium">Latest</span>
                 </div>
-                <div className="text-[12.5px] text-slate-600 mt-1">{bid?.cash} cash / {bid?.stock} stock · Expected close {bid?.close}</div>
+                <div className="text-[12.5px] text-slate-600 mt-1">{bid?.cash || '75%'} cash / {bid?.stock || '25%'} stock · Expected close {bid?.close || 'Dec 2026'}</div>
               </div>
             </div>
           ) : (

@@ -261,6 +261,7 @@ export default function TaskBoardView() {
     String(currentUser?.role || '').toLowerCase().includes('guest') ||
     String(currentUser?.role || '').toLowerCase().includes('buyer');
   const hasNegotiationNotification = Boolean(
+    normalizeStage(activeDealStage) === 'Negotiation' &&
     negotiationInvitation && (
       (isBuyerUser && (negotiationInvitation.status === 'PENDING_ACCEPTANCE' || negotiationInvitation.status === 'ACCEPTED')) ||
       (isSuperAdmin && negotiationInvitation.status === 'PENDING_ACCEPTANCE')

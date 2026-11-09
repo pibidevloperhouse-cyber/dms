@@ -66,10 +66,31 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         ? '/api/bidding/bids?role=super_admin'
         : `/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`;
 
-      const res = await fetch(url);
+      const [res, tsRes] = await Promise.all([
+        fetch(url),
+        fetch('/api/bidding/term-sheet')
+      ]);
       if (!res.ok) return;
 
       const data = await res.json();
+      let termSheet = null;
+      if (tsRes.ok) {
+        try {
+          const tsData = await tsRes.json();
+          termSheet = tsData?.termSheet;
+        } catch (_) {}
+      }
+
+      const isTermSheetTransmitted = Boolean(
+        termSheet && (
+          termSheet.status === 'sent_to_buyer' ||
+          termSheet.status === 'signed' ||
+          termSheet.status === 'signed_by_buyer' ||
+          termSheet.status === 'executed' ||
+          termSheet.signatures?.buyer
+        )
+      );
+
       const generated = [];
 
       if (role === 'seller') {
@@ -169,17 +190,32 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
           // 1. Seller Accepted Bid
           if (bid.status === 'Accepted' || history.some(h => h.event?.includes('Accept'))) {
             const acceptEvent = history.find(h => h.event?.includes('Accept'));
-            generated.push({
-              id: `buyer-accept-${bid.id}-${acceptEvent?.date || 'now'}`,
-              type: 'accepted',
-              title: '🎉 Your Bid Has Been Accepted!',
-              message: `Congratulations! The seller board accepted your ${bid.offer} acquisition proposal. Term Sheet stage is now active.`,
-              timestamp: acceptEvent?.date || 'Recently',
-              link: '/bidding/buyer-side/term-sheet',
-              actionLabel: 'Proceed to Term Sheet',
-              icon: 'accept',
-              color: 'emerald'
-            });
+
+            if (!isTermSheetTransmitted) {
+              generated.push({
+                id: `buyer-accept-${bid.id}-${acceptEvent?.date || 'now'}`,
+                type: 'accepted',
+                title: '🎉 Your Bid Has Been Accepted!',
+                message: `Congratulations! The seller board accepted your ${bid.offer} acquisition proposal. The bilateral Term Sheet is currently being drafted by the seller board.`,
+                timestamp: acceptEvent?.date || 'Recently',
+                link: '/bidding/buyer-side/my-bid',
+                actionLabel: 'View Proposal Status',
+                icon: 'accept',
+                color: 'emerald'
+              });
+            } else {
+              generated.push({
+                id: `buyer-termsheet-${bid.id}-${termSheet?.lastUpdated || 'now'}`,
+                type: 'termsheet',
+                title: '📄 Binding Term Sheet Received',
+                message: `The seller board has finalized and transmitted the formal Term Sheet for your review and digital signature.`,
+                timestamp: termSheet?.lastUpdated || acceptEvent?.date || 'Recently',
+                link: '/bidding/buyer-side/term-sheet',
+                actionLabel: 'Review & Sign Term Sheet',
+                icon: 'termsheet',
+                color: 'emerald'
+              });
+            }
           }
 
           // 2. Seller Counter-Offer Received
