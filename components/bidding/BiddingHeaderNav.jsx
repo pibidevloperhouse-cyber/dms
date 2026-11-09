@@ -8,16 +8,21 @@ import BiddingNotificationBell from './BiddingNotificationBell';
 export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'bidding' }) {
   const isBuyer = portal === 'buyer';
   const [isTermSheetTransmitted, setIsTermSheetTransmitted] = useState(false);
+  const [isSpaVisible, setIsSpaVisible] = useState(false);
 
   useEffect(() => {
     if (!isBuyer) return;
 
     let isMounted = true;
-    const checkTermSheetStatus = async () => {
+    const checkStatus = async () => {
       try {
-        const res = await fetch('/api/bidding/term-sheet');
-        if (res.ok) {
-          const data = await res.json();
+        const [tsRes, spaRes] = await Promise.all([
+          fetch('/api/bidding/term-sheet'),
+          fetch('/api/bidding/spa')
+        ]);
+
+        if (tsRes.ok) {
+          const data = await tsRes.json();
           const ts = data?.termSheet;
           const transmitted = Boolean(
             ts && (
@@ -28,16 +33,41 @@ export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'biddin
               ts.signatures?.buyer
             )
           );
-          if (isMounted) setIsTermSheetTransmitted(transmitted);
+          const isTSSigned = Boolean(
+            ts && (
+              ts.status === 'signed' ||
+              ts.status === 'signed_by_buyer' ||
+              ts.status === 'executed' ||
+              ts.signatures?.buyer
+            )
+          );
+          if (isMounted) {
+            setIsTermSheetTransmitted(transmitted);
+            if (isTSSigned) setIsSpaVisible(true);
+          }
         }
+
+        if (spaRes.ok) {
+          const spaData = await spaRes.json();
+          if (spaData?.spa && (spaData.spa.status === 'dispatched' || spaData.spa.status === 'executed')) {
+            if (isMounted) setIsSpaVisible(true);
+          }
+        }
+
+        try {
+          const rawSpa = localStorage.getItem('dms_spa_agreement_dispatched');
+          if (rawSpa && isMounted) {
+            setIsSpaVisible(true);
+          }
+        } catch (_) {}
       } catch (err) {
         // silent catch
       }
     };
 
-    checkTermSheetStatus();
-    const interval = setInterval(checkTermSheetStatus, 3000);
-    const handleEvents = () => checkTermSheetStatus();
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000);
+    const handleEvents = () => checkStatus();
 
     window.addEventListener('storage', handleEvents);
     window.addEventListener('bid_submitted', handleEvents);
@@ -58,6 +88,9 @@ export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'biddin
     { id: 'messages', label: 'Messages', href: '/bidding/buyer-side/messages' },
     ...(isTermSheetTransmitted
       ? [{ id: 'term-sheet', label: 'Term Sheet', href: '/bidding/buyer-side/term-sheet' }]
+      : []),
+    ...(isSpaVisible
+      ? [{ id: 'spa', label: 'SPA Agreement', href: '/bidding/buyer-side/spa' }]
       : [])
   ];
 
@@ -65,7 +98,8 @@ export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'biddin
     { id: 'bidding', label: 'Bidding Ledger', href: '/bidding/seller-side' },
     { id: 'bid-history', label: 'Bid History', href: '/bidding/seller-side/bid-history' },
     { id: 'messages', label: 'Messages', href: '/bidding/seller-side/messages' },
-    { id: 'term-sheet', label: 'Term Sheet', href: '/bidding/seller-side/term-sheet' }
+    { id: 'term-sheet', label: 'Term Sheet', href: '/bidding/seller-side/term-sheet' },
+    { id: 'spa', label: 'SPA Agreement', href: '/bidding/seller-side/spa' }
   ];
 
   const tabs = isBuyer ? buyerTabs : sellerTabs;

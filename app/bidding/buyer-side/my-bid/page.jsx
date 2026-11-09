@@ -95,7 +95,7 @@ export default function MyBidPage() {
           const user = JSON.parse(raw);
           if (user.id) buyerId = user.id;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       let benchmarkAsk = 10000000;
       try {
@@ -105,7 +105,7 @@ export default function MyBidPage() {
           setNegotiationInvitation(inv);
           if (inv.askingPrice) benchmarkAsk = Number(inv.askingPrice);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       try {
         const stageRes = await fetch('/api/deal-workflow/active-stage');
@@ -118,7 +118,7 @@ export default function MyBidPage() {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const [bidsRes, tsRes] = await Promise.all([
         fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`),
@@ -213,7 +213,7 @@ export default function MyBidPage() {
           if (user.id) buyerId = user.id;
           if (user.company_name || user.name) buyerName = user.company_name || user.name;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const isInitial = !bid || bid.status === 'Draft' || !bid.history || bid.history.length === 0;
 
@@ -240,7 +240,7 @@ export default function MyBidPage() {
         const savedBidId = resData?.bid?.id || buyerId;
         try {
           localStorage.setItem('dms_active_bid_id', savedBidId);
-        } catch (_) {}
+        } catch (_) { }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bid_submitted'));
         }
@@ -638,11 +638,10 @@ export default function MyBidPage() {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-5 text-center text-xs cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 ${
-                  isDragging
+                className={`border-2 border-dashed rounded-xl p-5 text-center text-xs cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 ${isDragging
                     ? 'border-[#006666] bg-teal-50/70 text-[#006666]'
                     : 'border-slate-300 bg-slate-50/50 text-slate-500 hover:bg-slate-50 hover:border-slate-400'
-                }`}
+                  }`}
               >
                 <div className="w-9 h-9 rounded-full bg-teal-50 text-[#006666] flex items-center justify-center">
                   <Upload className="w-4 h-4" />
@@ -700,19 +699,18 @@ export default function MyBidPage() {
               type="button"
               onClick={handleSubmitRevisedBid}
               disabled={isSubmitting || round?.status === 'closed' || bid?.status === 'Declined'}
-              className={`text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-2 ${
-                round?.status === 'closed' || bid?.status === 'Declined'
+              className={`text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-2 ${round?.status === 'closed' || bid?.status === 'Declined'
                   ? 'border border-slate-300 bg-slate-200 text-slate-500 cursor-not-allowed'
                   : 'cursor-pointer bg-[#006666] hover:bg-[#005252] text-white'
-              }`}
+                }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
               <span>
                 {isSubmitting
                   ? 'Transmitting...'
                   : (!bid || bid.status === 'Draft' || !bid.history || bid.history.length === 0)
-                  ? 'Submit Initial Proposal to Board'
-                  : 'Submit Revised Proposal'}
+                    ? 'Submit Initial Proposal to Board'
+                    : 'Submit Revised Proposal'}
               </span>
             </button>
           </div>

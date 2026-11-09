@@ -309,13 +309,13 @@ export default function NegotiationBiddingTracker({ onSwitchToTaskBoard }) {
       {
         id: 'STEP_5',
         number: 5,
-        title: 'SPA Agreement Dispatched',
-        desc: 'Definitive Share Purchase Agreement (SPA) dispatched for closing',
+        title: 'SPA Agreement Dispatched & Executed',
+        desc: 'Definitive Share Purchase Agreement (SPA) closing and binding execution',
         isDone: step5Done,
         isActive: step4Done && !step5Done,
-        tag: step5Done ? `Dispatched on ${spaStatus?.date || 'Today'}` : 'Pending Dispatch',
-        actionText: !step5Done && step4Done && isSellerSide ? 'Dispatch SPA Agreement' : null,
-        onAction: !step5Done && step4Done && isSellerSide ? handleDispatchSPA : null,
+        tag: step5Done ? `Executed & Closed: ${spaStatus?.date || 'Recent'}` : (isSellerSide ? 'Formulate SPA' : 'Awaiting Seller Dispatch'),
+        actionText: isSellerSide ? (step5Done ? 'View SPA Agreement' : 'Formulate / Dispatch SPA') : (spaStatus?.dispatched ? 'Review & Execute SPA' : null),
+        actionUrl: isSellerSide ? '/bidding/seller-side/spa' : (spaStatus?.dispatched ? '/bidding/buyer-side/spa' : null),
       },
     ];
   }, [

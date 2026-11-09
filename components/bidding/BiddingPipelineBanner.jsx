@@ -48,23 +48,27 @@ export default function BiddingPipelineBanner({
         } catch (e) {}
 
         const roleParam = portal === 'buyer' ? 'guest_admin' : 'super_admin';
-        const [bidsRes, tsRes] = await Promise.all([
+        const [bidsRes, tsRes, spaRes] = await Promise.all([
           fetch(`/api/bidding/bids?role=${roleParam}&buyerId=${encodeURIComponent(buyerId)}`),
           fetch('/api/bidding/term-sheet'),
+          fetch('/api/bidding/spa')
         ]);
 
         if (isCancelled) return;
 
         let bJson = null;
         let tsJson = null;
+        let spaJson = null;
 
         if (bidsRes.ok) bJson = await bidsRes.json();
         if (tsRes.ok) tsJson = await tsRes.json();
+        if (spaRes?.ok) spaJson = await spaRes.json();
 
         const round = bJson?.round;
         const myBid = bJson?.myBid;
         const bids = bJson?.bids || {};
         const termSheet = tsJson?.termSheet;
+        const spaObj = spaJson?.spa;
 
         let activeBid = myBid;
         if (!activeBid) {
@@ -97,14 +101,16 @@ export default function BiddingPipelineBanner({
           : Boolean(step2 && (isTermSheetTransmitted || activeBid?.status === 'Accepted'));
         const step4 = Boolean(step3 && termSheet && (termSheet.status === 'signed' || termSheet.status === 'signed_by_buyer' || termSheet.status === 'executed' || termSheet.signatures?.buyer));
 
-        let step5 = false;
-        try {
-          const rawSpa = localStorage.getItem('dms_spa_agreement_dispatched');
-          if (rawSpa) {
-            const spa = JSON.parse(rawSpa);
-            if (spa.dispatched) step5 = true;
-          }
-        } catch (e) {}
+        let step5 = Boolean(spaObj && (spaObj.status === 'executed' || spaObj.signatures?.buyer));
+        if (!step5) {
+          try {
+            const rawSpa = localStorage.getItem('dms_spa_agreement_dispatched');
+            if (rawSpa) {
+              const s = JSON.parse(rawSpa);
+              if (s.signed || s.dispatched) step5 = true;
+            }
+          } catch (e) {}
+        }
 
         if (!isCancelled) {
           setData({

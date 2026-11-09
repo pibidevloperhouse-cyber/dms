@@ -66,18 +66,26 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         ? '/api/bidding/bids?role=super_admin'
         : `/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`;
 
-      const [res, tsRes] = await Promise.all([
+      const [res, tsRes, spaRes] = await Promise.all([
         fetch(url),
-        fetch('/api/bidding/term-sheet')
+        fetch('/api/bidding/term-sheet'),
+        fetch('/api/bidding/spa')
       ]);
       if (!res.ok) return;
 
       const data = await res.json();
       let termSheet = null;
+      let spa = null;
       if (tsRes.ok) {
         try {
           const tsData = await tsRes.json();
           termSheet = tsData?.termSheet;
+        } catch (_) {}
+      }
+      if (spaRes?.ok) {
+        try {
+          const spaData = await spaRes.json();
+          spa = spaData?.spa;
         } catch (_) {}
       }
 
@@ -97,6 +105,21 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         const bidsList = Object.values(data.bids || {});
         // Primary target: Naga Tech or active bid
         const target = bidsList.find(b => b.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13' || (b.name || '').toLowerCase().includes('naga')) || bidsList[0];
+
+        // 0. SPA Executed by Buyer
+        if (spa && spa.status === 'executed') {
+          generated.push({
+            id: `seller-spa-executed-${spa.lastUpdated || 'now'}`,
+            type: 'spa_closed',
+            title: '🎉 SPA Agreement Fully Executed!',
+            message: `${spa.buyerName || 'Buyer'} has digitally executed the Share Purchase Agreement (SPA). Deal is closed!`,
+            timestamp: spa.signatures?.buyer?.signedAt || spa.lastUpdated || 'Recently',
+            link: '/bidding/seller-side/spa',
+            actionLabel: 'View Closed SPA',
+            icon: 'accept',
+            color: 'emerald'
+          });
+        }
 
         if (target) {
           const history = target.history || [];
@@ -186,6 +209,36 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         const bid = data.myBid;
         if (bid) {
           const history = bid.history || [];
+
+          // 0. SPA Dispatched & Ready for Final Signature
+          if (spa && spa.status === 'dispatched' && !spa.signatures?.buyer) {
+            generated.push({
+              id: `buyer-spa-dispatched-${spa.lastUpdated || 'now'}`,
+              type: 'spa',
+              title: '📑 Definitive SPA Dispatched for Execution',
+              message: 'The seller board has transmitted the definitive Share Purchase Agreement (SPA). Review clauses and sign with your mouse to close the deal.',
+              timestamp: spa.lastUpdated || 'Recently',
+              link: '/bidding/buyer-side/spa',
+              actionLabel: 'Review & Sign SPA',
+              icon: 'termsheet',
+              color: 'teal'
+            });
+          }
+
+          // 0b. SPA Executed & Closed
+          if (spa && spa.status === 'executed') {
+            generated.push({
+              id: `buyer-spa-executed-${spa.lastUpdated || 'now'}`,
+              type: 'spa_closed',
+              title: '🎉 M&A Deal Closed & Fully Executed!',
+              message: 'Your Share Purchase Agreement has been successfully executed and recorded. The acquisition is closed!',
+              timestamp: spa.signatures?.buyer?.signedAt || 'Recently',
+              link: '/bidding/buyer-side/spa',
+              actionLabel: 'View Executed SPA',
+              icon: 'accept',
+              color: 'emerald'
+            });
+          }
 
           // 1. Seller Accepted Bid
           if (bid.status === 'Accepted' || history.some(h => h.event?.includes('Accept'))) {
