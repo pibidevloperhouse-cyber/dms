@@ -77,8 +77,6 @@ export async function POST(req) {
         const clientIp = forwarded ? forwarded.split(',')[0].trim() : (realIp || '127.0.0.1');
 
         // 2. Handle ORIGINAL Download
-        const targetDocumentId = isHistoricalVersion ? doc.document_id : doc.id;
-
         // Access Control Verification (Enforces permissions for Buyer-side and non-super-admin Seller users)
         const isBuyerUser = isBuyerSide || ['guest_admin', 'advisor', 'buyer', 'external_user', 'guest_lead'].includes(session.role) || session.dms_role === 'buyer';
         if (session.role !== 'super_admin' && session.role !== 'admin') {
