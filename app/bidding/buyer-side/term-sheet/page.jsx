@@ -22,7 +22,17 @@ export default function BuyerTermSheetPage() {
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
-  const [signerName, setSignerName] = useState('Vijay');
+  const [signerName, setSignerName] = useState('');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('vdr_session');
+      if (raw) {
+        const user = JSON.parse(raw);
+        if (user?.name) setSignerName(user.name);
+      }
+    } catch (_) {}
+  }, []);
 
   // Mouse & Touch Signature Canvas States
   const canvasRef = useRef(null);
@@ -114,21 +124,25 @@ export default function BuyerTermSheetPage() {
 
   const fetchTermSheet = async () => {
     try {
+      let sessionName = '';
       try {
         const raw = localStorage.getItem('vdr_session');
         if (raw) {
           const user = JSON.parse(raw);
-          if (user.name) setSignerName(user.name);
+          if (user.name) {
+            sessionName = user.name;
+            setSignerName(user.name);
+          }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const res = await fetch('/api/bidding/term-sheet');
       if (res.ok) {
         const data = await res.json();
         if (data.termSheet) {
           setTermSheet(data.termSheet);
-          if (data.termSheet.buyerName && (!signerName || signerName === 'Naga raj')) {
-            setSignerName(data.termSheet.buyerName);
+          if (!sessionName && (data.dealMeta?.buyerName || data.termSheet.buyerName)) {
+            setSignerName(data.dealMeta?.buyerName || data.termSheet.buyerName);
           }
           if (data.termSheet.counselComments) {
             setComments((prev) => {
@@ -259,7 +273,7 @@ export default function BuyerTermSheetPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           signerRole: 'guest_admin',
-          signerName: signerName || termSheet?.buyerName || 'Vijay',
+          signerName: signerName || termSheet?.buyerName || 'Buyer',
           signatureDataUrl
         })
       });
@@ -270,7 +284,7 @@ export default function BuyerTermSheetPage() {
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem('dms_termsheet_updated', Date.now().toString());
-          } catch (_) {}
+          } catch (_) { }
           window.dispatchEvent(new Event('bid_submitted'));
           window.dispatchEvent(new Event('storage'));
         }
@@ -318,7 +332,7 @@ export default function BuyerTermSheetPage() {
         <BiddingHeaderNav portal="buyer" activeTab="my-bid" />
 
         <div className="max-w-[760px] mx-auto px-4 sm:px-6 pt-12">
-          <div className="bg-white rounded-3xl border border-slate-200/90 p-8 sm:p-12 shadow-xs text-center flex flex-col items-center">
+          <div className="bg-white rounded-3xl border-2 border-gray-300 p-8 sm:p-12 shadow-md shadow-gray-300/80 text-center flex flex-col items-center">
             <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-5 border border-amber-200/80 shadow-2xs">
               <Clock className="w-8 h-8 text-amber-600" />
             </div>
@@ -360,7 +374,7 @@ export default function BuyerTermSheetPage() {
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl font-bold text-slate-900 m-0">
-                Term Sheet — {termSheet.dealName || 'Project Alpha'}
+                Term Sheet — {termSheet.dealName || 'Active Deal'}
               </h1>
               {isBuyerSigned ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -406,10 +420,10 @@ export default function BuyerTermSheetPage() {
         </div>
 
         {/* 2. DETAILED KEY TERMS DOSSIER & COUNSEL REDLINES */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
           {/* Left Column: Key Terms Table (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+          <div className="lg:col-span-2 bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-teal-700" />
@@ -419,7 +433,7 @@ export default function BuyerTermSheetPage() {
             </div>
 
             <div className="divide-y divide-slate-100 text-xs">
-              
+
               {/* Purchase Price */}
               <div className="p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/40 transition-colors">
                 <div className="w-44 shrink-0 font-bold text-slate-600">Purchase Price</div>
@@ -536,8 +550,8 @@ export default function BuyerTermSheetPage() {
           </div>
 
           {/* Right Column: Counsel Notes & Comments (1 col) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden flex flex-col h-[440px] lg:h-[calc(100vh-200px)] lg:sticky lg:top-[88px]">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-teal-700" />
                 <h3 className="text-sm font-bold text-slate-900 m-0">Legal Counsel Redlines</h3>
@@ -548,7 +562,7 @@ export default function BuyerTermSheetPage() {
             </div>
 
             {/* Comment Thread */}
-            <div className="p-4 flex-1 flex flex-col gap-3 min-h-[260px] max-h-[380px] overflow-y-auto bg-[#FAFBFD]">
+            <div className="p-4 flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto bg-[#FAFBFD]">
               {comments.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
                   No redline comments yet. Legal counsel can annotate clauses here.
@@ -568,7 +582,7 @@ export default function BuyerTermSheetPage() {
             </div>
 
             {/* Comment Input */}
-            <div className="p-3.5 bg-white border-t border-slate-100">
+            <div className="p-3.5 bg-white border-t border-slate-100 shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -608,7 +622,7 @@ export default function BuyerTermSheetPage() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 m-0">Execute Binding Term Sheet</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Deal: <strong className="text-slate-800">{termSheet.dealName || 'VDR Sell'}</strong> · Target Value: <strong className="text-slate-900">{keyTerms.purchasePrice || '$22,000,000'}</strong>
+                    Deal: <strong className="text-slate-800">{termSheet.dealName || 'Deal'}</strong> · Target Value: <strong className="text-slate-900">{keyTerms.purchasePrice || '—'}</strong>
                   </p>
                 </div>
               </div>
@@ -645,33 +659,33 @@ export default function BuyerTermSheetPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Enterprise Valuation</span>
-                      <span className="text-sm font-black text-slate-900">{keyTerms.purchasePrice || '$22,000,000'}</span>
+                      <span className="text-sm font-black text-slate-900">{keyTerms.purchasePrice || '—'}</span>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consideration Structure</span>
-                      <span className="text-xs font-bold text-slate-800">{keyTerms.structure || '70% Cash / 30% Acquirer Stock'}</span>
+                      <span className="text-xs font-bold text-slate-800">{keyTerms.structure || '—'}</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Exclusivity Period</span>
-                      <span className="text-xs font-semibold text-slate-800">{keyTerms.exclusivityPeriod || '45 Days'}</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.exclusivityPeriod || '—'}</span>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Close Date</span>
-                      <span className="text-xs font-semibold text-slate-800">{keyTerms.expectedClose || '15 Dec 2026'}</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.expectedClose || '—'}</span>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Governing Law</span>
-                      <span className="text-xs font-semibold text-slate-800">{keyTerms.governingLaw || 'Delaware, USA'}</span>
+                      <span className="text-xs font-semibold text-slate-800">{keyTerms.governingLaw || '—'}</span>
                     </div>
                   </div>
 
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
                     <span className="font-bold text-slate-500">Escrow &amp; Key Retention:</span>
                     <span className="font-medium text-slate-800">
-                      {keyTerms.escrow || '10% holdback'} · {keyTerms.keyEmployeeRetention || 'Key engineering retention lock-in'}
+                      {keyTerms.escrow || '—'} · {keyTerms.keyEmployeeRetention || '—'}
                     </span>
                   </div>
                 </div>

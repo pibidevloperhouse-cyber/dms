@@ -5,9 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Gavel,
-  DollarSign,
-  Calendar,
-  TrendingUp,
   FileText,
   CheckCircle2,
   Check,
@@ -16,7 +13,6 @@ import {
   AlertCircle,
   Building,
   Clock,
-  Sparkles,
   RotateCcw,
   ChevronDown
 } from 'lucide-react';
@@ -282,16 +278,13 @@ export default function SellerBiddingPage() {
   const cashVal = parseInt(String(activeBid.cash || '70').replace('%', ''), 10) || 70;
   const stockVal = 100 - cashVal;
 
-  const askPrice = round?.askingPrice || 10000000;
-  const offerAmount = activeBid.offerAmount || 10000000;
-  const vsAskPct = Math.round(((offerAmount - askPrice) / askPrice) * 100);
+  const askPrice = round?.askingPrice || 0;
+  const offerAmount = activeBid.offerAmount || 0;
+  const vsAskPct = askPrice > 0 ? Math.round(((offerAmount - askPrice) / askPrice) * 100) : 0;
   const vsAskDisplay = vsAskPct === 0 ? '±0%' : `${vsAskPct > 0 ? '+' : ''}${vsAskPct}%`;
   const vsColor = vsAskPct >= 0 ? '#16a34a' : '#dc2626';
 
-  const documents =
-    Array.isArray(activeBid.documents) && activeBid.documents.length > 0
-      ? activeBid.documents
-      : [{ name: 'Binding Offer - Naga Tech.pdf', size: '2.4 MB', type: 'pdf' }];
+  const documents = Array.isArray(activeBid.documents) ? activeBid.documents : [];
 
   // 5-Step Pipeline state for seller side
   const step1Done = Boolean(round?.askingPrice);
@@ -311,10 +304,10 @@ export default function SellerBiddingPage() {
         {/* ========================================================================= */}
         {/* 2. PROFILE & ACTION COCKPIT HEADER                                        */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="bg-white rounded-2xl border-2 border-gray-300 p-5 sm:p-6 shadow-md shadow-gray-300/80 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-[#006666] text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-xs">
-              {activeBid.mark || activeBid.name?.substring(0, 2).toUpperCase() || 'NT'}
+              {activeBid.mark || activeBid.name?.substring(0, 2).toUpperCase() || '--'}
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -347,9 +340,9 @@ export default function SellerBiddingPage() {
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                 <span>{activeBid.type || 'Venture Capital (VC) · Invited Buyer'}</span>
                 <span>·</span>
-                <span>Lead: <strong className="text-slate-700">{activeBid.leadName || 'Naga raj'}</strong></span>
+                <span>Lead: <strong className="text-slate-700">{activeBid.leadName || activeBid.name || 'Buyer Lead'}</strong></span>
                 <span>·</span>
-                <span>Submitted: <strong className="text-slate-700">{activeBid.submittedAt || '14 Oct 2026'}</strong></span>
+                <span>Submitted: <strong className="text-slate-700">{activeBid.submittedAt || 'Recent'}</strong></span>
               </p>
             </div>
           </div>
@@ -464,144 +457,194 @@ export default function SellerBiddingPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* 3. CORE 4 FINANCIAL & OFFER COMPARISON METRICS                            */}
+        {/* 3A. OFFER COMPARISON METRICS CARD                                         */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Metric 1: Benchmark Asking Price */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Asking Benchmark</span>
-              <DollarSign className="w-4 h-4 text-teal-600" />
-            </div>
-            <div className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">
-              ${(askPrice / 1000000).toFixed(1)}M
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-medium">Enterprise valuation target</div>
-          </div>
-
-          {/* Metric 2: Buyer Proposed Offer */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Proposed Offer</span>
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="flex items-center gap-2.5 mt-2">
-              <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{activeBid.offer}</span>
-              <span
-                className="text-xs font-bold px-2 py-0.5 rounded-full border"
-                style={{
-                  color: vsColor,
-                  backgroundColor: vsAskPct >= 0 ? '#f0fdf4' : '#fef2f2',
-                  borderColor: vsAskPct >= 0 ? '#bbf7d0' : '#fecaca'
-                }}
-              >
-                {vsAskDisplay} vs Ask
+        <div className="bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-300 bg-gradient-to-b from-slate-50/90 to-white">
+            {/* Metric 1: Benchmark Asking Price */}
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Asking Benchmark
               </span>
+              <div className="text-[26px] leading-tight font-black text-slate-900 tracking-tight tabular-nums mt-2">
+                ${(askPrice / 1000000).toFixed(1)}M
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                Enterprise valuation target
+              </div>
             </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-medium">Binding acquisition price</div>
-          </div>
 
-          {/* Metric 3: Consideration Mix */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Consideration Structure</span>
-              <Sparkles className="w-4 h-4 text-blue-600" />
+            {/* Metric 2: Buyer Proposed Offer */}
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Proposed Offer
+              </span>
+              <div className="flex items-center gap-2 flex-wrap mt-2">
+                <span className="text-[26px] leading-tight font-black text-slate-900 tracking-tight tabular-nums">
+                  {activeBid.offer}
+                </span>
+                <span
+                  className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border"
+                  style={{
+                    color: vsColor,
+                    backgroundColor: vsAskPct >= 0 ? '#ecfdf5' : '#fef2f2',
+                    borderColor: vsAskPct >= 0 ? '#6ee7b7' : '#fca5a5'
+                  }}
+                >
+                  {vsAskDisplay} vs Ask
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                Binding acquisition price
+              </div>
             </div>
-            <div className="text-sm font-bold text-slate-900 mt-2">
-              {activeBid.cash || `${cashVal}%`} Cash / {activeBid.stock || `${stockVal}%`} Stock
-            </div>
-            <div className="w-full h-2 rounded-full overflow-hidden bg-slate-100 flex mt-2">
-              <div className="bg-[#006666] h-full" style={{ width: `${cashVal}%` }} />
-              <div className="bg-blue-300 h-full" style={{ width: `${stockVal}%` }} />
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-semibold mt-1">
-              <span>{cashVal}% Cash</span>
-              <span>{stockVal}% Stock</span>
-            </div>
-          </div>
 
-          {/* Metric 4: Expected Closing Date */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Expected Close</span>
-              <Calendar className="w-4 h-4 text-indigo-600" />
+            {/* Metric 3: Consideration Mix */}
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Consideration Structure
+              </span>
+              <div className="text-[15px] font-extrabold text-slate-900 mt-2.5 tracking-tight">
+                {activeBid.cash || `${cashVal}%`} Cash / {activeBid.stock || `${stockVal}%`} Stock
+              </div>
+              <div className="mt-2.5">
+                <div className="w-full h-2.5 rounded-full overflow-hidden bg-slate-200 flex border border-slate-300/80">
+                  <div className="bg-[#006666] h-full" style={{ width: `${cashVal}%` }} />
+                  <div className="bg-blue-500 h-full" style={{ width: `${stockVal}%` }} />
+                </div>
+                <div className="flex justify-between text-[10.5px] text-slate-600 font-semibold mt-1.5">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#006666]" />
+                    {cashVal}% Cash
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    {stockVal}% Stock
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="text-xl font-extrabold text-slate-900 tracking-tight mt-2">
-              {activeBid.close || 'Dec 2026'}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-medium">
-              Target execution window
+
+            {/* Metric 4: Expected Closing Date */}
+            <div className="p-5 sm:p-6 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Expected Close
+              </span>
+              <div className="text-[22px] leading-tight font-black text-slate-900 tracking-tight mt-2">
+                {activeBid.close || 'Dec 2026'}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                Target execution window
+              </div>
             </div>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. PROPOSAL DOSSIER & SUBMITTED DOCUMENTS (TWO-COLUMN SPLIT)              */}
+        {/* 3B. COMMERCIAL DOSSIER & SUBMITTED DOCUMENTS CARD                         */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Cols: Commercial Terms & Strategic Rationale */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 pb-3 border-b border-slate-100 flex items-center justify-between">
-              <span>Buyer Commercial Dossier &amp; Rationale</span>
-              <span className="text-xs font-medium text-slate-400">LOI Terms</span>
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Financing Confirmation
-                </span>
-                <span className="text-xs sm:text-sm font-semibold text-slate-800 mt-1 block">
-                  {activeBid.financingType || 'Private Equity / Balance Sheet Cash'}
+        <div className="bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-gray-300">
+            {/* Left 2 Cols: Commercial Terms & Strategic Rationale */}
+            <div className="lg:col-span-2 p-6 sm:p-7">
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-300">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-1 h-5 rounded-full bg-[#006666]" />
+                  <h3 className="text-[15px] sm:text-base font-bold text-slate-900 m-0 tracking-tight">
+                    Buyer Commercial Dossier &amp; Rationale
+                  </h3>
+                </div>
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-gray-300 uppercase tracking-wider">
+                  LOI Terms
                 </span>
               </div>
 
-              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Key Contingencies
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-50/90 p-4 rounded-xl border border-gray-300 shadow-2xs">
+                  <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Financing Confirmation
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 mt-1.5 block leading-snug">
+                    {activeBid.financingType || 'Private Equity / Balance Sheet Cash'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50/90 p-4 rounded-xl border border-gray-300 shadow-2xs">
+                  <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Key Contingencies
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 mt-1.5 block leading-snug">
+                    {activeBid.contingencies || 'Standard antitrust clearance, leadership team retention'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 bg-gradient-to-br from-slate-50 to-teal-50/30 p-4.5 rounded-xl border border-gray-300 border-l-4 border-l-[#006666] shadow-2xs">
+                <span className="text-[10.5px] font-bold text-[#006666] uppercase tracking-wider block">
+                  Buyer Strategic Note
                 </span>
-                <span className="text-xs sm:text-sm font-semibold text-slate-800 mt-1 block">
-                  {activeBid.contingencies || 'Standard antitrust clearance, leadership team retention'}
-                </span>
+                <p className="text-xs sm:text-[13.5px] text-slate-800 mt-1.5 font-medium leading-relaxed m-0">
+                  &ldquo;{activeBid.note || 'We see strong synergistic value with our technology portfolio and are ready for rapid execution.'}&rdquo;
+                </p>
               </div>
             </div>
 
-            <div className="mt-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Buyer Strategic Note
-              </span>
-              <p className="text-xs sm:text-[13px] text-slate-700 mt-1 font-medium leading-relaxed">
-                {activeBid.note || 'We see strong synergistic value with our technology portfolio and are ready for rapid execution.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Right Col: Submitted Documents & Term Sheet Shortcut */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 pb-3 border-b border-slate-100 flex items-center justify-between">
-                <span>Submitted Documents</span>
-                <span className="text-xs font-semibold text-[#006666]">{documents.length} Files</span>
-              </h3>
-
-              <div className="flex flex-col gap-2.5 mt-4">
-                {documents.map((doc, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="w-4 h-4 text-teal-700 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate">{doc.name}</div>
-                        {doc.size && <div className="text-[10px] text-slate-400">{doc.size}</div>}
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold text-[#006666] hover:underline shrink-0 ml-2">
-                      View ↗
-                    </span>
+            {/* Right Col: Submitted Documents */}
+            <div className="p-6 sm:p-7 bg-slate-100/60 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-300">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#006666]" />
+                    <h3 className="text-[15px] sm:text-base font-bold text-slate-900 m-0 tracking-tight">
+                      Submitted Documents
+                    </h3>
                   </div>
-                ))}
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-[#006666] border border-teal-300">
+                    {documents.length} {documents.length === 1 ? 'File' : 'Files'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {documents.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-white border border-gray-300 text-xs text-slate-500 text-center">
+                      No documents uploaded yet.
+                    </div>
+                  ) : (
+                    documents.map((doc, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-gray-300 hover:border-[#006666] hover:shadow-xs transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-teal-50 text-[#006666] flex items-center justify-center border border-teal-200 shrink-0">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 truncate group-hover:text-[#006666] transition-colors">
+                              {doc.name}
+                            </div>
+                            {doc.size && (
+                              <div className="text-[10.5px] text-slate-500 font-medium mt-0.5">
+                                {doc.size}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-teal-50 text-[#006666] border border-teal-200 group-hover:bg-[#006666] group-hover:text-white group-hover:border-[#006666] transition-colors shrink-0 ml-2">
+                          View ↗
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-gray-300 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  NDA Verified Submission
+                </span>
+                <span>{activeBid.submittedAt || 'Recent'}</span>
               </div>
             </div>
           </div>

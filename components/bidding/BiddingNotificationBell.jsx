@@ -47,24 +47,24 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
       if (stored) {
         setReadIds(new Set(JSON.parse(stored)));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [storageKey]);
 
   // Fetch bid data and generate notifications
   const fetchNotifications = async () => {
     try {
-      let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+      let buyerId = '';
       try {
         const raw = localStorage.getItem('vdr_session');
         if (raw) {
           const user = JSON.parse(raw);
           if (user.id) buyerId = user.id;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const url = role === 'seller'
         ? '/api/bidding/bids?role=super_admin'
-        : `/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`;
+        : `/api/bidding/bids?role=guest_admin${buyerId ? `&buyerId=${encodeURIComponent(buyerId)}` : ''}`;
 
       const [res, tsRes, spaRes] = await Promise.all([
         fetch(url),
@@ -80,13 +80,13 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         try {
           const tsData = await tsRes.json();
           termSheet = tsData?.termSheet;
-        } catch (_) {}
+        } catch (_) { }
       }
       if (spaRes?.ok) {
         try {
           const spaData = await spaRes.json();
           spa = spaData?.spa;
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const isTermSheetTransmitted = Boolean(
@@ -103,8 +103,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
 
       if (role === 'seller') {
         const bidsList = Object.values(data.bids || {});
-        // Primary target: Naga Tech or active bid
-        const target = bidsList.find(b => b.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13' || (b.name || '').toLowerCase().includes('naga')) || bidsList[0];
+        const target = bidsList[0] || null;
 
         // 0. SPA Executed by Buyer
         if (spa && spa.status === 'executed') {
@@ -116,6 +115,31 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
             timestamp: spa.signatures?.buyer?.signedAt || spa.lastUpdated || 'Recently',
             link: '/bidding/seller-side/spa',
             actionLabel: 'View Closed SPA',
+            icon: 'accept',
+            color: 'emerald'
+          });
+        }
+
+        // 0b. Term Sheet Signed by Buyer
+        const isTermSheetSignedByBuyer = Boolean(
+          termSheet && (
+            termSheet.signatures?.buyer ||
+            termSheet.status === 'signed_by_buyer' ||
+            termSheet.status === 'signed' ||
+            termSheet.status === 'executed'
+          )
+        );
+        if (isTermSheetSignedByBuyer) {
+          const buyerSigner = termSheet.signatures?.buyer?.signer || termSheet.buyerName || target?.name || 'Buyer';
+          const signedAt = termSheet.signatures?.buyer?.signedAt || termSheet.lastUpdated || 'Recently';
+          generated.push({
+            id: `seller-termsheet-signed-${signedAt}`,
+            type: 'accept',
+            title: '✍️ Term Sheet Signed by Buyer',
+            message: `${buyerSigner} has digitally signed the Term Sheet. You can now move to the SPA Agreement.`,
+            timestamp: signedAt,
+            link: '/bidding/seller-side/term-sheet',
+            actionLabel: 'View Signed Term Sheet',
             icon: 'accept',
             color: 'emerald'
           });
@@ -147,7 +171,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
               id: `seller-counter-${target.id}-${target.counterOffer?.counteredAt || 'now'}`,
               type: 'counter',
               title: 'Counter-Offer Transmitted',
-              message: `You sent a counter-offer of ${target.counterOffer?.amountFormatted || '$12.0M'}${expClose ? ` (Target close: ${expClose})` : ''} to ${target.name}.`,
+              message: `You sent a counter-offer of ${target.counterOffer?.amountFormatted || 'revised valuation'}${expClose ? ` (Target close: ${expClose})` : ''} to ${target.name}.`,
               timestamp: target.counterOffer?.counteredAt || 'Recently',
               link: '/bidding/seller-side',
               actionLabel: 'View in Bidding',
@@ -278,7 +302,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
               id: `buyer-counter-${bid.id}-${bid.counterOffer?.counteredAt || 'now'}`,
               type: 'counter',
               title: 'Seller Counter-Offer Received',
-              message: `The seller board requested ${bid.counterOffer?.amountFormatted || '$12.0M'}${expClose ? ` (Target close: ${expClose})` : ''}: "${bid.counterOffer?.note || 'Please review our counter valuation.'}"`,
+              message: `The seller board requested ${bid.counterOffer?.amountFormatted || 'revised valuation'}${expClose ? ` (Target close: ${expClose})` : ''}: "${bid.counterOffer?.note || 'Please review our counter valuation.'}"`,
               timestamp: bid.counterOffer?.counteredAt || 'Recently',
               link: '/bidding/buyer-side/my-bid',
               actionLabel: 'View counter',
@@ -288,7 +312,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
                 ...bid.counterOffer,
                 bidId: bid.id,
                 bidOffer: bid.offer,
-                expectedCloseDisplay: expClose || 'Dec 2026'
+                expectedCloseDisplay: expClose || ''
               }
             });
           }
@@ -352,6 +376,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
   useEffect(() => {
     fetchNotifications();
 
+    const interval = setInterval(fetchNotifications, 8000);
     const handleUpdate = () => fetchNotifications();
     if (typeof window !== 'undefined') {
       window.addEventListener('bid_submitted', handleUpdate);
@@ -359,12 +384,14 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
       window.addEventListener('focus', handleUpdate);
       window.addEventListener('storage', handleUpdate);
       return () => {
+        clearInterval(interval);
         window.removeEventListener('bid_submitted', handleUpdate);
         window.removeEventListener('bid_updated', handleUpdate);
         window.removeEventListener('focus', handleUpdate);
         window.removeEventListener('storage', handleUpdate);
       };
     }
+    return () => clearInterval(interval);
   }, [role]);
 
   // Close dropdown on outside click
@@ -385,7 +412,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
     setReadIds(allIds);
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(allIds)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const markSingleAsRead = (id) => {
@@ -394,7 +421,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
     setReadIds(updated);
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(updated)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
@@ -433,14 +460,18 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
       {/* Bell Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen;
+          setIsOpen(next);
+          if (next) fetchNotifications();
+        }}
         className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center"
         title="Bidding Notifications"
         aria-label="Bidding Notifications"
       >
-        <Bell className="w-4 h-4 text-slate-700" />
+        <Bell className="w-[22px] h-[22px] text-slate-700" strokeWidth={2} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs ring-2 ring-white animate-pulse">
+          <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs ring-2 ring-white animate-pulse">
             {unreadCount}
           </span>
         )}
@@ -490,9 +521,8 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
                   <div
                     key={n.id}
                     onClick={() => markSingleAsRead(n.id)}
-                    className={`p-4 transition-colors flex gap-3.5 items-start ${
-                      isRead ? 'bg-white hover:bg-slate-50/60 opacity-80' : 'bg-blue-50/20 hover:bg-blue-50/40'
-                    }`}
+                    className={`p-4 transition-colors flex gap-3.5 items-start ${isRead ? 'bg-white hover:bg-slate-50/60 opacity-80' : 'bg-blue-50/20 hover:bg-blue-50/40'
+                      }`}
                   >
                     {renderIcon(n.type, n.color)}
 

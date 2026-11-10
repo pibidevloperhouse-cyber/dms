@@ -20,9 +20,9 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
     sendNegotiationInvite,
   } = useDealWorkflow();
 
-  const [askingPrice, setAskingPrice] = useState('12000000');
-  // Date only (time removed as requested)
-  const [deadlineDate, setDeadlineDate] = useState('2026-11-25');
+  const [askingPrice, setAskingPrice] = useState('');
+  // Date only
+  const [deadlineDate, setDeadlineDate] = useState('');
   const [invitationMessage, setInvitationMessage] = useState(
     'The seller board has approved activating the Negotiation Stage. You are invited to review the asking price and submit your initial binding proposal.'
   );
@@ -49,7 +49,7 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
         fetch('/api/bidding/bids?role=super_admin')
           .then(res => res.json())
           .then(data => {
-            if (data.round?.askingPrice) {
+            if (data.round?.askingPrice && Number(data.round.askingPrice) > 0 && data.round?.status === 'open') {
               setAskingPrice(String(data.round.askingPrice));
             }
             if (data.round?.deadline) {
@@ -68,13 +68,13 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Single static Buyer Guest Admin assigned to this deal
+  // Buyer Guest Admin resolved dynamically from DB dealInfo
   const buyerGuestAdmin = {
-    name: dealInfo?.buyerName || 'Test User',
-    company: dealInfo?.buyerCompany || dealInfo?.dealName || 'Test User Deal',
+    name: dealInfo?.buyerName || '',
+    company: dealInfo?.buyerCompany || dealInfo?.dealName || '',
     role: dealInfo?.buyerRole || 'Buyer Guest Admin',
-    id: dealInfo?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-    email: dealInfo?.buyerEmail || 'admin@testvdr.com',
+    id: dealInfo?.buyerId || '',
+    email: dealInfo?.buyerEmail || '',
     ndaStatus: 'signed'
   };
 
@@ -104,8 +104,8 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
         invitedBuyerName: buyerGuestAdmin.name,
         invitedBuyerCompany: buyerGuestAdmin.company,
         message: invitationMessage.trim(),
-        dealId: dealInfo?.dealId || '51013f2a-99dd-4405-95fb-f25502053455',
-        dealName: dealInfo?.dealName || 'Test User Deal'
+        dealId: dealInfo?.dealId || '',
+        dealName: dealInfo?.dealName || ''
       });
 
       alert(`Negotiation Stage enabled! Formal invitation sent to ${buyerGuestAdmin.name} (${buyerGuestAdmin.company}).`);
@@ -165,7 +165,7 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
               <div className="min-w-0">
                 <span className="text-[10.5px] font-semibold text-slate-400 uppercase tracking-wider block">Target Deal</span>
                 <span className="text-xs sm:text-sm font-bold text-slate-900 truncate block">
-                  {dealInfo?.dealName || 'Test User Deal'}
+                  {dealInfo?.dealName || '—'}
                 </span>
               </div>
             </div>
@@ -195,8 +195,8 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
                 value={askingPrice}
                 onChange={(e) => setAskingPrice(e.target.value)}
                 placeholder="12000000"
-                step="500000"
-                min="100000"
+                step="any"
+                min="1"
                 required
                 className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:border-[#006666] focus:ring-2 focus:ring-[#006666]/10 outline-none transition-all"
               />

@@ -67,7 +67,7 @@ export default function SellerBidHistoryPage() {
   }
 
   const historyItems = (activeBid?.history || []).slice().reverse();
-  const dealName = round?.dealName || 'VDR Sell';
+  const dealName = round?.dealName || 'Active Deal';
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased pb-12">
@@ -110,20 +110,27 @@ export default function SellerBidHistoryPage() {
 
         {/* Timeline List matching buyer side structure */}
         <div className="mt-6 mx-7">
-          {historyItems.length === 0 ? (
+          {!activeBid ? (
+            <div className="bg-white border-2 border-gray-300 rounded-xl p-8 text-center shadow-md shadow-gray-300/80">
+              <div className="text-[15px] font-bold text-slate-900">No Active Proposals Found</div>
+              <div className="text-[13px] text-slate-500 mt-1">
+                Awaiting initial proposal submission from invited buyers.
+              </div>
+            </div>
+          ) : historyItems.length === 0 ? (
             <div className="flex gap-4.5 py-5 border-b border-slate-100 last:border-b-0">
               <div className="flex flex-col items-center shrink-0 w-6">
                 <div className="w-3.5 h-3.5 rounded-full bg-blue-50 border-2 border-blue-600"></div>
               </div>
-              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+              <div className="flex-1 bg-white border-2 border-gray-300 rounded-xl p-5 shadow-md shadow-gray-300/80">
                 <div className="flex justify-between items-center">
                   <span className="text-[14px] font-bold text-slate-900">
-                    Current offer — {activeBid?.offer || '$11.5M'}
+                    Current offer — {activeBid.offer || '—'}
                   </span>
                   <span className="text-[11.5px] text-slate-500 font-medium">Latest</span>
                 </div>
                 <div className="text-[12.5px] text-slate-600 mt-1">
-                  {activeBid?.cash || '75%'} cash / {activeBid?.stock || '25%'} stock · Expected close {activeBid?.close || 'Dec 2026'}
+                  {activeBid.cash || '—'} cash / {activeBid.stock || '—'} stock{activeBid.close ? ` · Expected close ${activeBid.close}` : ''}
                 </div>
               </div>
             </div>
@@ -136,20 +143,19 @@ export default function SellerBidHistoryPage() {
                 <div key={idx} className="flex gap-4.5 py-5 border-b border-slate-100 last:border-b-0">
                   <div className="flex flex-col items-center shrink-0 w-6">
                     <div
-                      className={`w-3.5 h-3.5 rounded-full border-2 ${
-                        isCounter
+                      className={`w-3.5 h-3.5 rounded-full border-2 ${isCounter
                           ? 'bg-amber-50 border-amber-500'
                           : isLatest
-                          ? 'bg-blue-50 border-blue-600'
-                          : 'bg-white border-slate-300'
-                      }`}
+                            ? 'bg-blue-50 border-blue-600'
+                            : 'bg-white border-slate-300'
+                        }`}
                     ></div>
                     {idx < historyItems.length - 1 && (
                       <div className="w-[1.5px] flex-1 bg-slate-200 mt-1.5 mb-[-20px]"></div>
                     )}
                   </div>
 
-                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                  <div className="flex-1 bg-white border-2 border-gray-300 rounded-xl p-5 shadow-md shadow-gray-300/80">
                     <div className="flex justify-between items-center">
                       <span className="text-[14px] font-bold text-slate-900">{item.event}</span>
                       <span className="text-[11.5px] text-slate-500 font-medium">{item.date}</span>

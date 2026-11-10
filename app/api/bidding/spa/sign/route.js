@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { signerRole, signerName, signatureDataUrl } = body;
+    const { dealId, signerName, signatureDataUrl } = body;
 
-    const store = await loadBiddingStoreAsync();
+    const store = await loadBiddingStoreAsync(dealId || null);
+    const targetRoundId = dealId || store.round?.id || store.dealMeta?.roundId || null;
     const spa = store.spa;
 
     const now = new Date();
@@ -18,38 +19,43 @@ export async function POST(req) {
 
     // Buyer signs the definitive Share Purchase Agreement
     signatures.buyer = {
-      signer: signerName || spa.buyerName || 'Vijay',
+      signer: signerName || store.dealMeta?.buyerName || spa.buyerName || 'Buyer',
       role: 'Buyer Lead Principal & Authorized Signatory',
-      company: spa.buyerCompany || 'Vijay Strategic Holdings LLC',
+      company: store.dealMeta?.buyerCompany || spa.buyerCompany || '',
       signedAt: formattedTimestamp,
       signatureDataUrl: signatureDataUrl || null
     };
 
-    // Ensure seller signature is also endorsed
+    // Ensure seller signature is also endorsed from DB deal seller
     if (!signatures.seller) {
       signatures.seller = {
-        signer: 'Vishwa Raj',
-        company: 'VDR Sell Technologies Inc.',
+        signer: store.dealMeta?.sellerName || spa.sellerName || 'Seller Admin',
+        company: store.dealMeta?.sellerCompany || spa.sellerCompany || '',
         role: 'Seller Super Admin & Authorized Officer',
         signedAt: formattedTimestamp,
         endorsed: true
       };
     }
 
-    const newStatus = 'executed';
+    const updatedSpa = await updateSpaInDB(
+      {
+        signatures,
+        status: 'executed'
+      },
+      targetRoundId
+    );
 
-    const updatedSpa = await updateSpaInDB({
-      signatures,
-      status: newStatus
-    });
-
-    // Update round status to Deal Executed & Closed
     try {
-      await updateRoundInDB({
-        status: 'closed',
-        statusLabel: 'Deal Executed & Closed'
-      });
-    } catch (_) {}
+      await updateRoundInDB(
+        {
+          status: 'closed',
+          statusLabel: 'Deal Executed & Closed'
+        },
+        targetRoundId
+      );
+    } catch (err) {
+      console.error('Error closing round after SPA execution:', err);
+    }
 
     return NextResponse.json({
       success: true,
@@ -62,4 +68,3 @@ export async function POST(req) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-

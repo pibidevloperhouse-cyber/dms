@@ -23,24 +23,25 @@ import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 export default function SellerSpaPage() {
   const [loading, setLoading] = useState(true);
   const [spa, setSpa] = useState(null);
+  const [dealMeta, setDealMeta] = useState(null);
   const [articles, setArticles] = useState({
-    purchasePrice: '$22,000,000',
-    cashComponent: '$15,400,000 (70% via Wire Transfer at Closing)',
-    stockComponent: '$6,600,000 (30% in Acquirer Common Stock)',
-    closingDate: '15 December 2026',
-    escrowHoldback: '$2,200,000 (10% held in Escrow for 18 months)',
-    exclusivityPeriod: '45 Days from Execution',
-    keyEmployeeRetention: '90% of key engineering team subject to 24-month retention lock-ins',
-    governingLaw: 'State of Delaware, United States',
-    representations: 'Customary corporate authority, capitalization, audited financials, tax compliance, and intellectual property ownership.',
-    covenants: 'Seller agrees to operate the business exclusively in the ordinary course and preserve standard commercial relationships.',
-    conditionsPrecedent: 'Antitrust clearances, delivery of share certificates, board approvals, and absence of Material Adverse Effect.'
+    purchasePrice: '',
+    cashComponent: '',
+    stockComponent: '',
+    closingDate: '',
+    escrowHoldback: '',
+    exclusivityPeriod: '',
+    keyEmployeeRetention: '',
+    governingLaw: '',
+    representations: '',
+    covenants: '',
+    conditionsPrecedent: ''
   });
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState('Vishwa Raj');
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const commentsEndRef = useRef(null);
 
@@ -59,6 +60,10 @@ export default function SellerSpaPage() {
       const res = await fetch('/api/bidding/spa');
       if (res.ok) {
         const data = await res.json();
+        if (data.dealMeta) {
+          setDealMeta(data.dealMeta);
+          if (data.dealMeta.sellerName) setCurrentUserName((prev) => prev || data.dealMeta.sellerName);
+        }
         if (data.spa) {
           setSpa(data.spa);
           if (data.spa.articles) setArticles(data.spa.articles);
@@ -203,7 +208,11 @@ export default function SellerSpaPage() {
 
   const isExecuted = spa?.status === 'executed' || Boolean(spa?.signatures?.buyer);
   const isDispatched = spa?.status === 'dispatched' || isExecuted;
-  const buyerName = spa?.buyerName || 'Vijay';
+  const buyerName = spa?.buyerName || dealMeta?.buyerName || dealMeta?.buyerCompany || 'Buyer';
+  const buyerCompany = spa?.buyerCompany || dealMeta?.buyerCompany || '';
+  const sellerName = spa?.sellerName || dealMeta?.sellerName || currentUserName || 'Seller Admin';
+  const sellerCompany = spa?.companyName || spa?.sellerCompany || dealMeta?.sellerCompany || '';
+  const dealName = spa?.dealName || dealMeta?.dealName || 'Deal';
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans min-h-screen antialiased pb-20">
@@ -237,7 +246,7 @@ export default function SellerSpaPage() {
               )}
             </div>
             <p className="text-xs text-slate-500 mt-1 font-normal">
-              Acquisition Target: <strong>{spa?.dealName || 'VDR Sell'}</strong> · Purchaser: <strong>{buyerName}</strong> · {spa?.version || 'v1.0 Final Execution Draft'}
+              Acquisition Target: <strong>{dealName}</strong> · Purchaser: <strong>{buyerName}</strong> · {spa?.version || 'v1.0 Draft'}
             </p>
           </div>
 
@@ -278,7 +287,7 @@ export default function SellerSpaPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
           {/* LEFT: THE REAL-TIME AUTHENTIC LEGAL DOCUMENT */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-300 shadow-md p-6 sm:p-12 font-serif text-slate-800 leading-relaxed text-[13px] relative print:border-none print:shadow-none print:p-0">
+          <div className="lg:col-span-2 bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 p-6 sm:p-12 font-serif text-slate-800 leading-relaxed text-[13px] relative print:border-none print:shadow-none print:p-0">
 
             {/* Official Legal Header / Seal */}
             <div className="text-center pb-8 border-b-2 border-slate-900 mb-8 font-sans">
@@ -290,9 +299,9 @@ export default function SellerSpaPage() {
                 Share Purchase Agreement
               </h1>
               <p className="text-xs text-slate-500 font-sans mt-2 max-w-xl mx-auto">
-                Dated as of <strong className="text-slate-800">{articles.closingDate}</strong>, by and between{' '}
-                <strong className="text-slate-900">{spa?.companyName || 'VDR Sell Technologies Inc.'}</strong> (&ldquo;Seller&rdquo;) and{' '}
-                <strong className="text-slate-900">{buyerName} / {spa?.buyerCompany || 'Vijay Strategic Holdings LLC'}</strong> (&ldquo;Purchaser&rdquo;).
+                Dated as of <strong className="text-slate-800">{articles.closingDate || '—'}</strong>, by and between{' '}
+                <strong className="text-slate-900">{sellerCompany || sellerName}</strong> (&ldquo;Seller&rdquo;) and{' '}
+                <strong className="text-slate-900">{buyerCompany ? `${buyerName} / ${buyerCompany}` : buyerName}</strong> (&ldquo;Purchaser&rdquo;).
               </p>
             </div>
 
@@ -302,7 +311,7 @@ export default function SellerSpaPage() {
                 Preamble &amp; Recitals
               </h3>
               <p className="indent-6">
-                <strong>WHEREAS</strong>, Seller is the record and beneficial owner of one hundred percent (100%) of the issued and outstanding capital equity securities of <strong className="font-sans font-bold">{spa?.dealName || 'VDR Sell'}</strong> (the &ldquo;Company&rdquo;);
+                <strong>WHEREAS</strong>, Seller is the record and beneficial owner of one hundred percent (100%) of the issued and outstanding capital equity securities of <strong className="font-sans font-bold">{dealName}</strong> (the &ldquo;Company&rdquo;);
               </p>
               <p className="indent-6">
                 <strong>WHEREAS</strong>, Purchaser desires to acquire and purchase from Seller, and Seller desires to sell, transfer, assign, and convey to Purchaser, all right, title, and interest in and to all of the Purchased Shares, free and clear of all encumbrances, upon the terms and subject to the conditions set forth herein;
@@ -336,7 +345,7 @@ export default function SellerSpaPage() {
                   <span className="font-semibold text-slate-600">(a) Cash Consideration at Close:</span>
                   <input
                     type="text"
-                    value={articles.cashComponent}
+                    value={articles.cashComponent || ''}
                     onChange={(e) => handleArticleChange('cashComponent', e.target.value)}
                     className="font-bold text-slate-900 text-right bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs w-72 focus:outline-none focus:border-[#006666]"
                   />
@@ -345,7 +354,7 @@ export default function SellerSpaPage() {
                   <span className="font-semibold text-slate-600">(b) Acquirer Common Stock Component:</span>
                   <input
                     type="text"
-                    value={articles.stockComponent}
+                    value={articles.stockComponent || ''}
                     onChange={(e) => handleArticleChange('stockComponent', e.target.value)}
                     className="font-bold text-slate-900 text-right bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs w-72 focus:outline-none focus:border-[#006666]"
                   />
@@ -442,16 +451,16 @@ export default function SellerSpaPage() {
                     Seller Signatory
                   </span>
                   <div className="font-bold text-slate-900 text-sm">
-                    {spa?.sellerName || 'Vishwa Raj'}
+                    {sellerName}
                   </div>
                   <div className="text-[11px] text-slate-500 mb-3">
-                    Seller Super Admin · {spa?.sellerCompany || 'VDR Sell Technologies Inc.'}
+                    Seller Super Admin{sellerCompany ? ` · ${sellerCompany}` : ''}
                   </div>
                   <div className="border-t border-slate-200 pt-2 flex items-center justify-between text-[10px]">
                     <span className="text-emerald-700 font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Endorsed by Board
                     </span>
-                    <span className="text-slate-400">9 Nov 2026</span>
+                    <span className="text-slate-400">{spa?.signatures?.seller?.signedAt || spa?.lastUpdated || 'Pending'}</span>
                   </div>
                 </div>
 
@@ -464,7 +473,7 @@ export default function SellerSpaPage() {
                     {buyerName}
                   </div>
                   <div className="text-[11px] text-slate-500 mb-3">
-                    Buyer Lead Principal · {spa?.buyerCompany || 'Vijay Strategic Holdings LLC'}
+                    Buyer Lead Principal{buyerCompany ? ` · ${buyerCompany}` : ''}
                   </div>
 
                   {isExecuted ? (
@@ -503,8 +512,8 @@ export default function SellerSpaPage() {
           </div>
 
           {/* RIGHT: COUNSEL REDLINES & ANNOTATION THREAD */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden flex flex-col h-[440px] lg:h-[calc(100vh-200px)] lg:sticky lg:top-[88px]">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-teal-700" />
                 <h3 className="text-sm font-bold text-slate-900 m-0">Counsel SPA Redlines</h3>
@@ -515,7 +524,7 @@ export default function SellerSpaPage() {
             </div>
 
             {/* Comment Thread */}
-            <div className="p-4 flex-1 flex flex-col gap-3 min-h-[280px] max-h-[420px] overflow-y-auto bg-[#FAFBFD]">
+            <div className="p-4 flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto bg-[#FAFBFD]">
               {comments.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
                   No redlines yet. Post legal annotations here.
@@ -535,7 +544,7 @@ export default function SellerSpaPage() {
             </div>
 
             {/* Comment Input */}
-            <div className="p-3.5 bg-white border-t border-slate-100">
+            <div className="p-3.5 bg-white border-t border-slate-100 shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"

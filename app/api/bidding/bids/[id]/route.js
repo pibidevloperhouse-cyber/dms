@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { loadBiddingStoreAsync, saveBidInDB, updateTermSheetInDB, saveBiddingStore } from '@/lib/biddingFlowService';
+import { loadBiddingStoreAsync, saveBidInDB, updateTermSheetInDB, updateRoundInDB } from '@/lib/biddingFlowService';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,10 +45,12 @@ export async function PATCH(req, { params }) {
         return NextResponse.json({ success: false, error: 'Only Seller Super Admin can counter-offer.' }, { status: 403 });
       }
 
-      const numCounter = Number(counterAmount) || 12000000;
+      const numCounter = Number(counterAmount) || 0;
       const counterFormatted = `$${(numCounter / 1000000).toFixed(1)}M`;
-      const targetDate = expectedCloseDate || closeDate || '2026-12-15';
-      const formattedClose = new Date(targetDate).toLocaleString('default', { month: 'short', year: 'numeric' });
+      const targetDate = expectedCloseDate || closeDate || bid.expectedCloseDate || '';
+      const formattedClose = targetDate
+        ? new Date(targetDate).toLocaleString('default', { month: 'short', year: 'numeric' })
+        : '';
 
       bid.status = 'Countered';
       bid.counterOffer = {
@@ -92,11 +94,11 @@ export async function PATCH(req, { params }) {
       }
 
       await saveBidInDB(bid);
-      saveBiddingStore(store);
       try {
-        const { updateRoundInDB } = await import('@/lib/biddingFlowService');
-        await updateRoundInDB({ status: 'closed', statusLabel: 'Bidding Round Closed' });
-      } catch (err) { }
+        await updateRoundInDB({ status: 'closed', statusLabel: 'Bidding Round Closed' }, bid.roundId || store.round?.id);
+      } catch (err) {
+        console.error('Error closing round in DB:', err);
+      }
     }
 
     // 3. Seller Accept Bid & Move to Term Sheet
@@ -119,7 +121,7 @@ export async function PATCH(req, { params }) {
       // Update term sheet in DB to reflect the accepted buyer in draft state
       const updatedTermSheet = {
         ...store.termSheet,
-        dealName: store.round?.dealName || store.termSheet?.dealName || 'VDR Sell',
+        dealName: store.round?.dealName || store.termSheet?.dealName || store.dealMeta?.dealName || '',
         acceptedBidId: id,
         buyerName: bid.name,
         buyerMark: bid.mark,
@@ -130,11 +132,13 @@ export async function PATCH(req, { params }) {
           ...(store.termSheet?.keyTerms || {}),
           purchasePrice: `$${(bid.offerAmount).toLocaleString()}`,
           structure: `${bid.cash} cash at close / ${bid.stock} acquirer stock, 12-month vest`,
-          expectedClose: bid.expectedCloseDate ? `${new Date(bid.expectedCloseDate).getDate()} ${new Date(bid.expectedCloseDate).toLocaleString('default', { month: 'long', year: 'numeric' })}` : "15 December 2026"
+          expectedClose: bid.expectedCloseDate
+            ? `${new Date(bid.expectedCloseDate).getDate()} ${new Date(bid.expectedCloseDate).toLocaleString('default', { month: 'long', year: 'numeric' })}`
+            : ''
         }
       };
 
-      await updateTermSheetInDB(updatedTermSheet);
+      await updateTermSheetInDB(updatedTermSheet, bid.roundId || store.round?.id);
       store.termSheet = updatedTermSheet;
     }
 
@@ -142,8 +146,8 @@ export async function PATCH(req, { params }) {
     else if (action === 'MATCH_COUNTER') {
       if (bid.counterOffer) {
         const matchedAmount = Number(bid.counterOffer.amount) || bid.offerAmount;
-        const askPrice = Number(store.round?.askingPrice) || 10000000;
-        const vsAskPct = Math.round(((matchedAmount - askPrice) / askPrice) * 100);
+        const askPrice = Number(store.round?.askingPrice) || matchedAmount;
+        const vsAskPct = askPrice > 0 ? Math.round(((matchedAmount - askPrice) / askPrice) * 100) : 0;
         bid.offerAmount = matchedAmount;
         bid.offer = bid.counterOffer.amountFormatted;
         bid.vsAsk = vsAskPct === 0 ? '±0%' : `${vsAskPct > 0 ? '+' : ''}${vsAskPct}%`;

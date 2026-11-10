@@ -264,7 +264,7 @@ export default function BidDetailsPage() {
           </div>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+        <div className="bg-white border-2 border-gray-300 rounded-xl p-6 shadow-md shadow-gray-300/80">
           <div className="text-[16px] font-bold mb-4 text-slate-900 border-b border-slate-100 pb-2.5">Offer Summary</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 mb-5">
             <div className="border border-slate-100 rounded-lg p-4 bg-[#FAFAFA]">
@@ -301,22 +301,22 @@ export default function BidDetailsPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+        <div className="bg-white border-2 border-gray-300 rounded-xl p-6 shadow-md shadow-gray-300/80">
           <div className="text-[16px] font-bold mb-4 text-slate-900 border-b border-slate-100 pb-2.5">Submitted Documents</div>
-          {(bid.documents || [
-            { name: 'Letter of Intent — signed.pdf', size: '2.4 MB' },
-            { name: 'Financing confirmation.pdf', size: '1.1 MB' },
-            { name: 'Term sheet draft v2.docx', size: '840 KB' }
-          ]).map((doc, idx) => (
-            <div key={idx} className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-300 transition-colors cursor-pointer bg-white">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-base text-blue-600">📄</span>
-                <span className="text-slate-900 font-medium truncate">{doc.name}</span>
-                {doc.size && <span className="text-xs text-slate-400 shrink-0">({doc.size})</span>}
+          {!bid.documents || bid.documents.length === 0 ? (
+            <div className="text-xs text-slate-500 py-4 text-center">No documents submitted by buyer.</div>
+          ) : (
+            bid.documents.map((doc, idx) => (
+              <div key={idx} className="flex items-center justify-between px-4.5 py-3.5 border border-slate-200 rounded-lg text-[14px] mb-3 hover:bg-[#F8F9FB] hover:border-slate-300 transition-colors cursor-pointer bg-white">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-base text-blue-600">📄</span>
+                  <span className="text-slate-900 font-medium truncate">{doc.name}</span>
+                  {doc.size && <span className="text-xs text-slate-400 shrink-0">({doc.size})</span>}
+                </div>
+                <span className="text-slate-500 hover:text-blue-600 font-semibold text-[12px] shrink-0 ml-3">Open ↗</span>
               </div>
-              <span className="text-slate-500 hover:text-blue-600 font-semibold text-[12px] shrink-0 ml-3">Open ↗</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

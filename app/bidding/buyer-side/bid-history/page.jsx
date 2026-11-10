@@ -13,7 +13,7 @@ export default function BidHistoryPage() {
 
   const fetchBidHistory = async () => {
     try {
-      let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+      let buyerId = '';
       try {
         const raw = localStorage.getItem('vdr_session');
         if (raw) {
@@ -22,10 +22,10 @@ export default function BidHistoryPage() {
         }
       } catch (e) {}
 
-      const res = await fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`);
+      const res = await fetch(`/api/bidding/bids?role=guest_admin${buyerId ? `&buyerId=${encodeURIComponent(buyerId)}` : ''}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.myBid) setBid(data.myBid);
+        setBid(data.myBid || null);
         if (data.round) setRound(data.round);
       }
     } catch (e) {
@@ -40,8 +40,9 @@ export default function BidHistoryPage() {
   }, []);
 
   const handleMatchCounter = async () => {
-    const targetBidId = bid?.id || bid?.buyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13';
-    const counterAmountFormatted = bid?.counterOffer?.amountFormatted || '$12.0M';
+    const targetBidId = bid?.id || bid?.buyerId;
+    if (!targetBidId) return;
+    const counterAmountFormatted = bid?.counterOffer?.amountFormatted || '';
     try {
       const res = await fetch(`/api/bidding/bids/${targetBidId}`, {
         method: 'PATCH',
@@ -58,7 +59,7 @@ export default function BidHistoryPage() {
   };
 
   const historyItems = (bid?.history || []).slice().reverse();
-  const dealName = round?.dealName || 'VDR Sell';
+  const dealName = round?.dealName || 'Active Deal';
 
   return (
     <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed min-h-screen antialiased">
@@ -73,17 +74,26 @@ export default function BidHistoryPage() {
         </div>
 
         <div className="mt-6 mx-7">
-          {historyItems.length === 0 ? (
+          {!bid ? (
+            <div className="bg-white border-2 border-gray-300 rounded-xl p-8 text-center shadow-md shadow-gray-300/80">
+              <div className="text-[15px] font-bold text-slate-900">No bid proposals submitted yet</div>
+              <div className="text-[13px] text-slate-500 mt-1">
+                Submit your initial proposal in the My Bid section to view your timeline here.
+              </div>
+            </div>
+          ) : historyItems.length === 0 ? (
             <div className="flex gap-4.5 py-5 border-b border-slate-100 last:border-b-0">
               <div className="flex flex-col items-center shrink-0 w-6">
                 <div className="w-3.5 h-3.5 rounded-full bg-amber-50 border-2 border-amber-500"></div>
               </div>
-              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+              <div className="flex-1 bg-white border-2 border-gray-300 rounded-xl p-5 shadow-md shadow-gray-300/80">
                 <div className="flex justify-between items-center">
-                  <span className="text-[14px] font-bold text-slate-900">Current offer — {bid?.offer || '$11.5M'}</span>
+                  <span className="text-[14px] font-bold text-slate-900">Current offer — {bid.offer || '—'}</span>
                   <span className="text-[11.5px] text-slate-500 font-medium">Latest</span>
                 </div>
-                <div className="text-[12.5px] text-slate-600 mt-1">{bid?.cash || '75%'} cash / {bid?.stock || '25%'} stock · Expected close {bid?.close || 'Dec 2026'}</div>
+                <div className="text-[12.5px] text-slate-600 mt-1">
+                  {bid.cash || '—'} cash / {bid.stock || '—'} stock{bid.close ? ` · Expected close ${bid.close}` : ''}
+                </div>
               </div>
             </div>
           ) : (
@@ -101,7 +111,7 @@ export default function BidHistoryPage() {
                       <div className="w-[1.5px] flex-1 bg-slate-200 mt-1.5 mb-[-20px]"></div>
                     )}
                   </div>
-                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                  <div className="flex-1 bg-white border-2 border-gray-300 rounded-xl p-5 shadow-md shadow-gray-300/80">
                     <div className="flex justify-between items-center">
                       <span className="text-[14px] font-bold text-slate-900">{item.event}</span>
                       <span className="text-[11.5px] text-slate-500 font-medium">{item.date}</span>

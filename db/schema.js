@@ -908,6 +908,23 @@ export const biddingTermSheets = pgTable('bidding_term_sheets', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
 });
 
+export const biddingSpas = pgTable('bidding_spas', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  roundId: varchar('round_id', { length: 255 }),
+  dealName: varchar('deal_name', { length: 255 }),
+  buyerName: varchar('buyer_name', { length: 255 }),
+  sellerName: varchar('seller_name', { length: 255 }),
+  version: varchar('version', { length: 100 }),
+  status: varchar('status', { length: 100 }),
+  lastUpdated: varchar('last_updated', { length: 100 }),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  articles: jsonb('articles').default('{}'),
+  counselComments: jsonb('counsel_comments').default('[]'),
+  signatures: jsonb('signatures').default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
 // DEAL TASKS & WORKFLOW TABLES
 
 export const dealTasks = pgTable('deal_tasks', {

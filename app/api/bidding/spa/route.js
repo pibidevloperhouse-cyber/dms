@@ -6,14 +6,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const dealId = searchParams.get('dealId') || searchParams.get('projectId');
+    const dealId = searchParams.get('dealId') || searchParams.get('projectId') || null;
 
     const store = await loadBiddingStoreAsync(dealId);
     return NextResponse.json({
       success: true,
       spa: store.spa,
       termSheet: store.termSheet,
-      round: store.round
+      round: store.round,
+      dealMeta: store.dealMeta
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -23,10 +24,10 @@ export async function GET(req) {
 export async function PATCH(req) {
   try {
     const body = await req.json();
-    const { dealId, action, articles, changedFields, requesterRole } = body;
+    const { dealId, action, articles } = body;
 
-    const targetRoundId = dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f';
-    const store = await loadBiddingStoreAsync(targetRoundId);
+    const store = await loadBiddingStoreAsync(dealId || null);
+    const targetRoundId = dealId || store.round?.id || store.dealMeta?.roundId || null;
     const spa = store.spa;
 
     const updates = {};
@@ -48,8 +49,8 @@ export async function PATCH(req) {
       updates.status = 'draft';
       updates.signatures = {
         seller: {
-          signer: 'Vishwa Raj',
-          company: 'VDR Sell Technologies Inc.',
+          signer: store.dealMeta?.sellerName || spa.sellerName || 'Seller Admin',
+          company: store.dealMeta?.sellerCompany || spa.sellerCompany || '',
           role: 'Seller Super Admin & Authorized Officer',
           signedAt: `${formattedDate}, 04:00 PM IST`,
           endorsed: true
@@ -71,4 +72,3 @@ export async function PATCH(req) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-

@@ -89,18 +89,18 @@ async function getDealMetadata(forceRefresh = false) {
 
   _inFlightDealMeta = (async () => {
     let dealMeta = {
-      dealId: '51013f2a-99dd-4405-95fb-f25502053455',
-      dealName: 'Naga raj Deal',
-      dealNumber: 'D-F4FD2',
-      sellerCompany: 'Vishwa Tech',
-      buyerCompany: 'Naga Tech',
-      buyerId: '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-      buyerName: 'Naga raj',
+      dealId: '',
+      dealName: '',
+      dealNumber: '',
+      sellerCompany: '',
+      buyerCompany: '',
+      buyerId: '',
+      buyerName: '',
       buyerRole: 'Buyer Guest Admin',
-      leadAdvisorName: 'Vijay',
-      guestAdminName: 'Naga raj',
-      sellerSuperAdminName: 'Vishwa Raj',
-      period: '02 Sep to 30 Oct 2026',
+      leadAdvisorName: '',
+      guestAdminName: '',
+      sellerSuperAdminName: '',
+      period: '',
     };
 
     try {
@@ -196,34 +196,6 @@ export async function GET() {
     }
     const dealMeta = await getDealMetadata();
 
-    if (serverActiveStage === 'Negotiation' && !serverNegotiationInvitation) {
-      serverNegotiationInvitation = {
-        id: 'neg-invite-active-deal',
-        status: 'PENDING_ACCEPTANCE',
-        stage: 'Negotiation',
-        dealId: dealMeta?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-        dealName: dealMeta?.dealName || 'Naga raj Deal',
-        askingPrice: 10000000,
-        askingPriceFormatted: '10.0M',
-        deadline: '2026-11-25T18:00:00+05:30',
-        deadlineDisplay: '25 Nov 2026',
-        invitedBuyerId: dealMeta?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-        invitedBuyerName: dealMeta?.buyerName || 'Naga raj',
-        invitedBuyerCompany: dealMeta?.buyerCompany || 'Naga Tech',
-        message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price and submit your acquisition proposal.',
-        invitedBy: dealMeta?.sellerSuperAdminName ? `${dealMeta.sellerSuperAdminName} (Super Admin)` : 'Super Admin',
-        timestamp: Date.now()
-      };
-      saveStateToFile(
-        serverActiveStage,
-        serverNotificationPayload,
-        serverStageQuery,
-        serverStageAdvanceRequest,
-        serverDueDiligenceCertificate,
-        serverNegotiationInvitation
-      );
-    }
-
     return NextResponse.json({
       success: true,
       activeStage: serverActiveStage,
@@ -279,21 +251,22 @@ export async function POST(req) {
     if (negotiationInvitation !== undefined) {
       serverNegotiationInvitation = negotiationInvitation;
     } else if (targetStage === 'Negotiation' && !serverNegotiationInvitation) {
+      const dm = await getDealMetadata();
       serverNegotiationInvitation = {
         id: `neg-invite-${Date.now()}`,
         status: 'PENDING_ACCEPTANCE',
         stage: 'Negotiation',
-        dealId: 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-        dealName: 'Naga raj Deal',
-        askingPrice: 10000000,
-        askingPriceFormatted: '10.0M',
-        deadline: '2026-11-25T18:00:00+05:30',
-        deadlineDisplay: '25 Nov 2026',
-        invitedBuyerId: '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-        invitedBuyerName: 'Naga raj',
-        invitedBuyerCompany: 'Naga Tech',
-        message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price and submit your acquisition proposal.',
-        invitedBy: notificationPayload?.activatedBy || 'Super Admin',
+        dealId: dm?.dealId || '',
+        dealName: dm?.dealName || '',
+        askingPrice: 0,
+        askingPriceFormatted: '',
+        deadline: '',
+        deadlineDisplay: '',
+        invitedBuyerId: dm?.buyerId || '',
+        invitedBuyerName: dm?.buyerName || '',
+        invitedBuyerCompany: dm?.buyerCompany || '',
+        message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the asking price and submit your acquisition proposal.',
+        invitedBy: notificationPayload?.activatedBy || dm?.sellerSuperAdminName || 'Super Admin',
         timestamp: Date.now()
       };
     }
@@ -326,7 +299,7 @@ export async function POST(req) {
             updates.deadline = serverNegotiationInvitation.deadline;
             updates.deadlineDisplay = serverNegotiationInvitation.deadlineDisplay || new Date(serverNegotiationInvitation.deadline).toLocaleString();
           }
-          const targetRoundId = serverNegotiationInvitation.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f';
+          const targetRoundId = serverNegotiationInvitation.dealId || null;
           await updateRoundInDB(updates, targetRoundId);
         } catch (e) {
           console.error('Error updating bidding_rounds from negotiation invite:', e);

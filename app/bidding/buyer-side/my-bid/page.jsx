@@ -28,13 +28,13 @@ export default function MyBidPage() {
   const [termSheet, setTermSheet] = useState(null);
   const [negotiationInvitation, setNegotiationInvitation] = useState(null);
 
-  // Form states
-  const [offerAmount, setOfferAmount] = useState('10000000');
-  const [closeDate, setCloseDate] = useState('2026-12-15');
+  // Form states (populated from DB round / existing bid)
+  const [offerAmount, setOfferAmount] = useState('');
+  const [closeDate, setCloseDate] = useState('');
   const [cashPercent, setCashPercent] = useState(70);
-  const [financingType, setFinancingType] = useState('Committed debt + equity');
-  const [contingencies, setContingencies] = useState('Standard regulatory clearance, key employee retention');
-  const [note, setNote] = useState('We see strong synergistic value and are ready for rapid execution.');
+  const [financingType, setFinancingType] = useState('');
+  const [contingencies, setContingencies] = useState('');
+  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal states
@@ -87,7 +87,7 @@ export default function MyBidPage() {
 
   const fetchMyBid = async (populateForm = true) => {
     try {
-      let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+      let buyerId = '';
       let sessionBuyerName = '';
       try {
         const raw = localStorage.getItem('vdr_session');
@@ -98,70 +98,73 @@ export default function MyBidPage() {
         }
       } catch (e) { }
 
-      let benchmarkAsk = 10000000;
+      let benchmarkAsk = 0;
       let latestInvite = null;
-      try {
-        const rawInv = localStorage.getItem('dms_negotiation_invitation');
-        if (rawInv) {
-          const inv = JSON.parse(rawInv);
-          latestInvite = inv;
-          setNegotiationInvitation(inv);
-          if (inv.askingPrice) benchmarkAsk = Number(inv.askingPrice);
-        }
-      } catch (e) { }
+      let serverDealMeta = null;
 
-      const [stageRes, bidsRes, tsRes] = await Promise.all([
-        fetch('/api/deal-workflow/active-stage').catch(() => null),
-        fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`),
-        fetch('/api/bidding/term-sheet')
-      ]);
-
+      const stageRes = await fetch('/api/deal-workflow/active-stage').catch(() => null);
       if (stageRes && stageRes.ok) {
         try {
           const stageData = await stageRes.json();
+          serverDealMeta = stageData.dealMeta || null;
+          if (!buyerId && serverDealMeta?.buyerId) {
+            buyerId = serverDealMeta.buyerId;
+          }
           if (stageData.negotiationInvitation) {
             latestInvite = stageData.negotiationInvitation;
             setNegotiationInvitation(stageData.negotiationInvitation);
             if (stageData.negotiationInvitation.askingPrice) {
               benchmarkAsk = Number(stageData.negotiationInvitation.askingPrice);
             }
+          } else {
+            setNegotiationInvitation(null);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('dms_negotiation_invitation');
+            }
           }
         } catch (e) { }
       }
 
+      const [bidsRes, tsRes] = await Promise.all([
+        fetch(`/api/bidding/bids?role=guest_admin${buyerId ? `&buyerId=${encodeURIComponent(buyerId)}` : ''}`),
+        fetch('/api/bidding/term-sheet')
+      ]);
+
       if (bidsRes.ok) {
         const data = await bidsRes.json();
         if (data.round) setRound(data.round);
+        const dealMeta = data.dealMeta || serverDealMeta;
 
         if (data.myBid) {
           setBid(data.myBid);
           if (populateForm) {
-            setOfferAmount(String(data.myBid.offerAmount || benchmarkAsk));
-            setCloseDate(data.myBid.expectedCloseDate || '2026-12-15');
+            setOfferAmount(data.myBid.offerAmount ? String(data.myBid.offerAmount) : (benchmarkAsk ? String(benchmarkAsk) : ''));
+            setCloseDate(data.myBid.expectedCloseDate || '');
             const cashVal = parseInt(String(data.myBid.cash).replace('%', ''), 10);
             setCashPercent(isNaN(cashVal) ? 70 : cashVal);
-            if (data.myBid.financingType) setFinancingType(data.myBid.financingType);
-            if (data.myBid.contingencies) setContingencies(data.myBid.contingencies);
-            if (data.myBid.note) setNote(data.myBid.note);
-            if (Array.isArray(data.myBid.documents) && data.myBid.documents.length > 0) {
-              setUploadedDocs(data.myBid.documents);
-            }
+            setFinancingType(data.myBid.financingType || '');
+            setContingencies(data.myBid.contingencies || '');
+            setNote(data.myBid.note || '');
+            setUploadedDocs(Array.isArray(data.myBid.documents) ? data.myBid.documents : []);
           }
         } else {
-          const defaultVal = benchmarkAsk || data.round?.askingPrice || 10000000;
+          const defaultVal = benchmarkAsk || Number(data.round?.askingPrice) || 0;
+          const rawDeadline = latestInvite?.deadline || data.round?.deadline || '';
+          const defaultClose = rawDeadline ? String(rawDeadline).slice(0, 10) : '';
           if (populateForm) {
-            setOfferAmount(String(defaultVal));
+            if (defaultVal > 0) setOfferAmount(String(defaultVal));
+            if (defaultClose) setCloseDate(defaultClose);
           }
           setBid({
-            id: buyerId,
-            buyerId: buyerId,
-            name: 'Naga Tech',
-            offer: `$${(defaultVal / 1000000).toFixed(1)}M`,
+            id: buyerId || dealMeta?.buyerId || '',
+            buyerId: buyerId || dealMeta?.buyerId || '',
+            name: sessionBuyerName || latestInvite?.invitedBuyerCompany || dealMeta?.buyerCompany || '',
+            offer: defaultVal > 0 ? `$${(defaultVal / 1000000).toFixed(1)}M` : 'Pending',
             offerAmount: defaultVal,
             cash: '70%',
             stock: '30%',
-            close: 'Dec 2026',
-            expectedCloseDate: '2026-12-15',
+            close: defaultClose ? new Date(defaultClose).toLocaleString('default', { month: 'short', year: 'numeric' }) : '',
+            expectedCloseDate: defaultClose,
             status: 'Draft',
             history: []
           });
@@ -195,9 +198,10 @@ export default function MyBidPage() {
   }, []);
 
   const handleMatchCounter = async () => {
-    const targetBidId = bid?.id || bid?.buyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13';
-    const counterAmountFormatted = bid?.counterOffer?.amountFormatted || '$10.0M';
-    if (!confirm(`Match seller counter-offer at ${counterAmountFormatted}?`)) return;
+    const targetBidId = bid?.id || bid?.buyerId;
+    if (!targetBidId) return;
+    const counterAmountFormatted = bid?.counterOffer?.amountFormatted || '';
+    if (!confirm(`Match seller counter-offer${counterAmountFormatted ? ` at ${counterAmountFormatted}` : ''}?`)) return;
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/bidding/bids/${targetBidId}`, {
@@ -223,8 +227,8 @@ export default function MyBidPage() {
   const handleSubmitRevisedBid = async () => {
     setIsSubmitting(true);
     try {
-      let buyerId = bid?.buyerId || bid?.id || '8ec0af77-0630-444f-8e1c-d362f35a2e13';
-      let buyerName = bid?.name || 'Naga Tech';
+      let buyerId = bid?.buyerId || bid?.id || '';
+      let buyerName = bid?.name || negotiationInvitation?.invitedBuyerCompany || '';
       try {
         const raw = localStorage.getItem('vdr_session');
         if (raw) {
@@ -240,10 +244,10 @@ export default function MyBidPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dealId: round?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-          buyerId,
-          buyerName,
-          offerAmount: Number(offerAmount) || 10000000,
+          dealId: round?.dealId || round?.id || undefined,
+          buyerId: buyerId || undefined,
+          buyerName: buyerName || undefined,
+          offerAmount: Number(offerAmount) || 0,
           expectedCloseDate: closeDate,
           cashPercent: Number(cashPercent),
           financingType,
@@ -294,13 +298,13 @@ export default function MyBidPage() {
     negotiationInvitation?.askingPriceFormatted ||
     (negotiationInvitation?.askingPrice ? `$${(Number(negotiationInvitation.askingPrice) / 1000000).toFixed(1)}M` : null) ||
     round?.askingPriceFormatted ||
-    (round?.askingPrice ? `$${(Number(round.askingPrice) / 1000000).toFixed(1)}M` : '$10.0M');
+    (round?.askingPrice ? `$${(Number(round.askingPrice) / 1000000).toFixed(1)}M` : '—');
 
   const sellerDeadline =
     negotiationInvitation?.deadlineDisplay ||
     (negotiationInvitation?.deadline ? new Date(negotiationInvitation.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : null) ||
     round?.deadlineDisplay ||
-    (round?.deadline ? new Date(round.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '20 Nov 2026');
+    (round?.deadline ? new Date(round.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
   // 5-Step Pipeline state for buyer
   const step1Done = Boolean(round?.askingPrice || negotiationInvitation?.askingPrice);
@@ -330,7 +334,7 @@ export default function MyBidPage() {
         {/* ========================================================================= */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Card 1: Benchmark Asking Price */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex items-center gap-4">
+          <div className="bg-white border-2 border-gray-300 rounded-2xl p-5 shadow-md shadow-gray-300/80 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-teal-50 text-[#006666] flex items-center justify-center font-bold text-xl border border-teal-200/70 shrink-0">
               <DollarSign className="w-6 h-6 text-[#006666]" />
             </div>
@@ -346,7 +350,7 @@ export default function MyBidPage() {
           </div>
 
           {/* Card 2: Your Current Proposal */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex items-center gap-4">
+          <div className="bg-white border-2 border-gray-300 rounded-2xl p-5 shadow-md shadow-gray-300/80 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xl border border-emerald-200/70 shrink-0">
               <TrendingUp className="w-6 h-6 text-emerald-600" />
             </div>
@@ -369,7 +373,7 @@ export default function MyBidPage() {
           </div>
 
           {/* Card 3: Bid Submission Deadline */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs flex items-center gap-4">
+          <div className="bg-white border-2 border-gray-300 rounded-2xl p-5 shadow-md shadow-gray-300/80 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xl border border-amber-200/70 shrink-0">
               <Calendar className="w-6 h-6 text-amber-600" />
             </div>
@@ -479,7 +483,7 @@ export default function MyBidPage() {
         {/* ========================================================================= */}
         {/* 4. PROPOSAL FORM & DOCUMENT SUBMISSION COCKPIT                             */}
         {/* ========================================================================= */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs">
+        <div className="bg-white border-2 border-gray-300 rounded-2xl overflow-hidden shadow-md shadow-gray-300/80">
           <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white flex-wrap gap-3">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 m-0">

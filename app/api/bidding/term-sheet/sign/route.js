@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { signerRole, signerName, signatureDataUrl } = body;
+    const { dealId, signerRole, signerName, signatureDataUrl } = body;
 
-    const store = await loadBiddingStoreAsync();
+    const store = await loadBiddingStoreAsync(dealId || null);
     const termSheet = store.termSheet;
 
     const now = new Date();
@@ -20,7 +20,7 @@ export async function POST(req) {
 
     if (signerRole === 'guest_admin' || signerRole === 'buyer') {
       signatures.buyer = {
-        signer: signerName || 'Arjun Mehta',
+        signer: signerName || store.dealMeta?.buyerName || termSheet?.buyerName || 'Buyer',
         role: 'Buyer Guest Admin',
         signedAt: formattedTimestamp,
         signatureDataUrl: signatureDataUrl || null
@@ -28,7 +28,7 @@ export async function POST(req) {
       newStatus = 'signed_by_buyer';
     } else if (signerRole === 'super_admin' || signerRole === 'seller') {
       signatures.seller = {
-        signer: signerName || 'Ravi Shankar',
+        signer: signerName || store.dealMeta?.sellerName || 'Seller Admin',
         role: 'Seller Super Admin',
         signedAt: formattedTimestamp,
         signatureDataUrl: signatureDataUrl || null
@@ -40,11 +40,14 @@ export async function POST(req) {
       }
     }
 
-    const updatedTermSheet = await updateTermSheetInDB({
-      signatures,
-      status: newStatus,
-      stage: newStage
-    });
+    const updatedTermSheet = await updateTermSheetInDB(
+      {
+        signatures,
+        status: newStatus,
+        stage: newStage
+      },
+      dealId || store.round?.id || null
+    );
 
     return NextResponse.json({
       success: true,

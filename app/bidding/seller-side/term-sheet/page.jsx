@@ -8,23 +8,25 @@ import {
   Save,
   ShieldCheck,
   Clock,
-  MessageSquare
+  MessageSquare,
+  ArrowRight
 } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerTermSheetPage() {
   const [loading, setLoading] = useState(true);
   const [termSheet, setTermSheet] = useState(null);
-  const [currentUserName, setCurrentUserName] = useState('Vishwa Raj');
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [dealMeta, setDealMeta] = useState(null);
   const [keyTerms, setKeyTerms] = useState({
-    purchasePrice: '$10.0M',
-    structure: '70% Cash, 30% Common Stock',
-    expectedClose: '15 Dec 2026',
-    exclusivityPeriod: '45 days',
-    keyEmployeeRetention: '2-year lock-in for critical engineers',
-    escrow: '10% holdback for 12 months',
-    regulatoryConditions: 'Antitrust clearance in primary operating markets',
-    governingLaw: 'Delaware, USA'
+    purchasePrice: '',
+    structure: '',
+    expectedClose: '',
+    exclusivityPeriod: '',
+    keyEmployeeRetention: '',
+    escrow: '',
+    regulatoryConditions: '',
+    governingLaw: ''
   });
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -34,6 +36,7 @@ export default function SellerTermSheetPage() {
   const commentsEndRef = useRef(null);
   const prevCommentCountRef = useRef(0);
   const isFirstCommentsLoadRef = useRef(true);
+  const isDirtyRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -50,9 +53,13 @@ export default function SellerTermSheetPage() {
       const res = await fetch('/api/bidding/term-sheet');
       if (res.ok) {
         const data = await res.json();
+        if (data.dealMeta) {
+          setDealMeta(data.dealMeta);
+          if (data.dealMeta.sellerName) setCurrentUserName((prev) => prev || data.dealMeta.sellerName);
+        }
         if (data.termSheet) {
           setTermSheet(data.termSheet);
-          if (data.termSheet.keyTerms) setKeyTerms(data.termSheet.keyTerms);
+          if (data.termSheet.keyTerms && !isDirtyRef.current) setKeyTerms(data.termSheet.keyTerms);
           if (data.termSheet.counselComments) {
             setComments((prev) => {
               if (JSON.stringify(prev) === JSON.stringify(data.termSheet.counselComments)) {
@@ -91,6 +98,17 @@ export default function SellerTermSheetPage() {
 
   useEffect(() => {
     fetchTermSheet();
+    const interval = setInterval(fetchTermSheet, 4000);
+    const handleEvents = () => fetchTermSheet();
+    window.addEventListener('storage', handleEvents);
+    window.addEventListener('bid_submitted', handleEvents);
+    window.addEventListener('focus', handleEvents);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleEvents);
+      window.removeEventListener('bid_submitted', handleEvents);
+      window.removeEventListener('focus', handleEvents);
+    };
   }, []);
 
   useEffect(() => {
@@ -112,6 +130,7 @@ export default function SellerTermSheetPage() {
   }, [comments.length]);
 
   const handleTermChange = (field, value) => {
+    isDirtyRef.current = true;
     setKeyTerms(prev => ({ ...prev, [field]: value }));
   };
 
@@ -128,6 +147,7 @@ export default function SellerTermSheetPage() {
         })
       });
       if (res.ok) {
+        isDirtyRef.current = false;
         alert('Term sheet draft saved successfully.');
         fetchTermSheet();
       }
@@ -151,6 +171,7 @@ export default function SellerTermSheetPage() {
         })
       });
       if (res.ok) {
+        isDirtyRef.current = false;
         alert('Term sheet transmitted to buyer for review & signature!');
         await fetchTermSheet();
         if (typeof window !== 'undefined') {
@@ -226,7 +247,7 @@ export default function SellerTermSheetPage() {
     );
   }
 
-  const buyerName = termSheet?.buyerName || 'Naga Tech';
+  const buyerName = termSheet?.buyerName || dealMeta?.buyerCompany || dealMeta?.buyerName || 'Buyer';
   const isSent = termSheet?.status === 'sent_to_buyer';
   const isSigned = Boolean(
     termSheet?.signatures?.buyer ||
@@ -280,14 +301,24 @@ export default function SellerTermSheetPage() {
               <Save className="w-3.5 h-3.5 text-slate-500" />
               <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
             </button>
-            <button
-              onClick={handleSendToBuyer}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#006666] hover:bg-[#005252] border border-teal-700/50 transition-colors shadow-xs"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isSent ? 'Update & Re-send' : 'Transmit to Buyer'}</span>
-            </button>
+            {isSigned ? (
+              <Link
+                href="/bidding/seller-side/spa"
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#006666] hover:bg-[#005252] border border-teal-700/50 transition-colors shadow-xs cursor-pointer"
+              >
+                <span>Move to SPA Agreement</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <button
+                onClick={handleSendToBuyer}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#006666] hover:bg-[#005252] border border-teal-700/50 transition-colors shadow-xs"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isSent ? 'Update & Re-send' : 'Transmit to Buyer'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -295,7 +326,7 @@ export default function SellerTermSheetPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
           {/* Left Column: Editable Terms Table (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+          <div className="lg:col-span-2 bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-teal-700" />
@@ -462,8 +493,8 @@ export default function SellerTermSheetPage() {
           </div>
 
           {/* Right Column: Counsel Collaboration Thread (1 col) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border-2 border-gray-300 shadow-md shadow-gray-300/80 overflow-hidden flex flex-col h-[440px] lg:h-[calc(100vh-200px)] lg:sticky lg:top-[88px]">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-teal-700" />
                 <h3 className="text-sm font-bold text-slate-900 m-0">Legal Counsel Redlines</h3>
@@ -474,7 +505,7 @@ export default function SellerTermSheetPage() {
             </div>
 
             {/* Comment Thread */}
-            <div className="p-4 flex-1 flex flex-col gap-3 min-h-[260px] max-h-[380px] overflow-y-auto bg-[#FAFBFD]">
+            <div className="p-4 flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto bg-[#FAFBFD]">
               {comments.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
                   No redline comments yet. Legal counsel can annotate clauses here.
@@ -494,7 +525,7 @@ export default function SellerTermSheetPage() {
             </div>
 
             {/* Comment Input */}
-            <div className="p-3.5 bg-white border-t border-slate-100">
+            <div className="p-3.5 bg-white border-t border-slate-100 shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"

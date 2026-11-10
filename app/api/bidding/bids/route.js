@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { loadBiddingStoreAsync, saveBidInDB, computeBiddingKPIs, getBidForBuyer } from '@/lib/biddingFlowService';
+import {
+  loadBiddingStoreAsync,
+  saveBidInDB,
+  computeBiddingKPIs,
+  getBidForBuyer,
+  getDealContextFromDB
+} from '@/lib/biddingFlowService';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,14 +13,13 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const role = searchParams.get('role') || 'super_admin';
-    const dealId = searchParams.get('dealId') || searchParams.get('projectId');
-    const buyerId = searchParams.get('buyerId') || 'b';
+    const dealId = searchParams.get('dealId') || searchParams.get('projectId') || null;
+    const buyerId = searchParams.get('buyerId') || null;
 
     const store = await loadBiddingStoreAsync(dealId);
     const kpis = computeBiddingKPIs(store);
 
     if (role === 'super_admin') {
-      // Ensure only unique bids keyed by bid.id are returned, sorted by latest updated_at descending
       const uniqueBids = {};
       const sortedBids = Object.values(store.bids || {}).sort((a, b) => {
         const timeA = new Date(a.updatedAt || a.updated_at || a.history?.[a.history?.length - 1]?.date || 0).getTime();
@@ -30,16 +35,19 @@ export async function GET(req) {
         success: true,
         bids: uniqueBids,
         kpis,
-        round: store.round
+        round: store.round,
+        dealMeta: store.dealMeta
       });
     }
 
-    const myBid = getBidForBuyer(store, buyerId);
+    const effectiveBuyerId = buyerId || store.dealMeta?.buyerId || null;
+    const myBid = getBidForBuyer(store, effectiveBuyerId);
 
     return NextResponse.json({
       success: true,
       myBid,
-      round: store.round
+      round: store.round,
+      dealMeta: store.dealMeta
     });
   } catch (error) {
     console.error('Error in /api/bidding/bids GET:', error);
@@ -53,25 +61,31 @@ export async function POST(req) {
     const body = await req.json();
     const {
       dealId,
-      buyerId = '3e5cac9b-e809-4a2a-a95d-35e9baa6eddf',
-      buyerName = 'Naga Tech',
+      buyerId: rawBuyerId,
+      buyerName: rawBuyerName,
       offerAmount,
       closeDate,
       expectedCloseDate,
       cashPercent = 70,
-      financingType = 'Private Equity / Cash',
+      financingType = '',
       contingencies = '',
       note = '',
-      requesterRole = 'guest_admin',
       documents
     } = body;
 
-    const targetCloseDate = expectedCloseDate || closeDate || '2026-12-15';
     const store = await loadBiddingStoreAsync(dealId);
+    const dealCtx = await getDealContextFromDB(dealId, rawBuyerId);
+    const buyerId = rawBuyerId || dealCtx.buyerId;
+    if (!buyerId) {
+      return NextResponse.json({ success: false, error: 'Missing buyerId for bid submission' }, { status: 400 });
+    }
 
-    const numOffer = Number(offerAmount) || 10000000;
-    const askPrice = store.round?.askingPrice || 10000000;
-    const vsAskPct = Math.round(((numOffer - askPrice) / askPrice) * 100);
+    const buyerName = rawBuyerName || dealCtx.buyerCompany || dealCtx.buyerName || 'Buyer';
+    const targetCloseDate = expectedCloseDate || closeDate || '';
+
+    const numOffer = Number(offerAmount) || 0;
+    const askPrice = Number(store.round?.askingPrice) || 0;
+    const vsAskPct = askPrice > 0 ? Math.round(((numOffer - askPrice) / askPrice) * 100) : 0;
     const vsAskStr = vsAskPct === 0 ? '±0%' : `${vsAskPct > 0 ? '+' : ''}${vsAskPct}%`;
     const vsColor = vsAskPct >= 0 ? '#16a34a' : '#dc2626';
 
@@ -81,32 +95,37 @@ export async function POST(req) {
     const now = new Date();
     const formattedNow = `${now.getDate()} ${now.toLocaleString('default', { month: 'short' })} ${now.getFullYear()}`;
 
-    // Target existing or create new bid
-    const existing = store.bids[buyerId] || 
+    const existing =
+      store.bids[buyerId] ||
       Object.values(store.bids).find(b => b.buyerId === buyerId || b.id === buyerId) || {
-      id: buyerId,
-      roundId: store.round?.id || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-      dealId: buyerId,
-      buyerId: buyerId,
-      name: buyerName,
-      mark: buyerName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'NT',
-      type: 'Venture Capital (VC)',
-      buyerRole: 'guest_admin',
-      leadName: buyerName,
-      views: 12,
-      documents: [{ name: 'Letter of Intent — signed.pdf', size: '2.1 MB', type: 'pdf' }],
-      history: []
-    };
+        id: buyerId,
+        roundId: store.round?.id || dealCtx.roundId || null,
+        dealId: dealCtx.dealId || buyerId,
+        buyerId,
+        name: buyerName,
+        mark: buyerName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'B',
+        type: [dealCtx.buyerType, dealCtx.buyerCountry].filter(Boolean).join(' · ') || 'Strategic Buyer',
+        buyerRole: 'guest_admin',
+        leadName: dealCtx.buyerName || buyerName,
+        advisorName: store.round?.sellerAdvisor || dealCtx.sellerName || '',
+        ndaSignedDate: dealCtx.ndaSignedDate || '',
+        views: 0,
+        documents: [],
+        history: []
+      };
 
     const updatedBid = {
       ...existing,
+      roundId: existing.roundId || store.round?.id || dealCtx.roundId || null,
       offerAmount: numOffer,
       offer: offerFormatted,
       vsAsk: vsAskStr,
       vsColor,
       cash: `${cashPercent}%`,
       stock: `${stockPercent}%`,
-      close: targetCloseDate ? new Date(targetCloseDate).toLocaleString('default', { month: 'short', year: 'numeric' }) : 'Dec 2026',
+      close: targetCloseDate
+        ? new Date(targetCloseDate).toLocaleString('default', { month: 'short', year: 'numeric' })
+        : '',
       expectedCloseDate: targetCloseDate,
       financingType,
       contingencies,
@@ -120,7 +139,7 @@ export async function POST(req) {
           event: existing.history?.length > 0 ? 'Bid Revised' : 'Initial Bid Submitted',
           amount: offerFormatted,
           date: `${formattedNow}, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`,
-          note: note || `Offer revised with ${cashPercent}% cash / ${stockPercent}% stock`
+          note: note || `Offer submitted with ${cashPercent}% cash / ${stockPercent}% stock`
         }
       ]
     };

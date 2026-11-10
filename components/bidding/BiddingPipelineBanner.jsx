@@ -11,12 +11,12 @@ export default function BiddingPipelineBanner({
   partyName: overridePartyName
 }) {
   const [data, setData] = useState({
-    dealName: overrideDealName || 'Project Alpha',
-    partyName: overridePartyName || (portal === 'buyer' ? 'Naga Tech' : 'ABC Technologies'),
-    askingPrice: '$10.0M',
-    offerAmount: '$10.0M',
-    step1Done: true,
-    step2Done: true,
+    dealName: overrideDealName || 'Active Deal',
+    partyName: overridePartyName || (portal === 'buyer' ? 'Buyer' : 'Seller Board'),
+    askingPrice: '—',
+    offerAmount: 'Pending',
+    step1Done: false,
+    step2Done: false,
     step3Done: false,
     step4Done: false,
     step5Done: false,
@@ -27,7 +27,7 @@ export default function BiddingPipelineBanner({
 
     const loadData = async () => {
       try {
-        let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+        let buyerId = '';
         try {
           const raw = localStorage.getItem('vdr_session');
           if (raw) {
@@ -36,7 +36,7 @@ export default function BiddingPipelineBanner({
           }
         } catch (e) {}
 
-        let asking = '$10.0M';
+        let asking = '';
         try {
           const rawInv = localStorage.getItem('dms_negotiation_invitation');
           if (rawInv) {
@@ -49,7 +49,7 @@ export default function BiddingPipelineBanner({
 
         const roleParam = portal === 'buyer' ? 'guest_admin' : 'super_admin';
         const [bidsRes, tsRes, spaRes] = await Promise.all([
-          fetch(`/api/bidding/bids?role=${roleParam}&buyerId=${encodeURIComponent(buyerId)}`),
+          fetch(`/api/bidding/bids?role=${roleParam}${buyerId ? `&buyerId=${encodeURIComponent(buyerId)}` : ''}`),
           fetch('/api/bidding/term-sheet'),
           fetch('/api/bidding/spa')
         ]);
@@ -67,6 +67,7 @@ export default function BiddingPipelineBanner({
         const round = bJson?.round;
         const myBid = bJson?.myBid;
         const bids = bJson?.bids || {};
+        const dealMeta = bJson?.dealMeta || spaJson?.dealMeta || tsJson?.dealMeta || {};
         const termSheet = tsJson?.termSheet;
         const spaObj = spaJson?.spa;
 
@@ -80,9 +81,9 @@ export default function BiddingPipelineBanner({
           asking = `$${(Number(round.askingPrice) / 1000000).toFixed(1)}M`;
         }
 
-        const offer = activeBid?.offer || (activeBid?.offerAmount ? `$${(Number(activeBid.offerAmount) / 1000000).toFixed(1)}M` : asking);
-        const resolvedDealName = overrideDealName || round?.dealName || termSheet?.dealName || 'Project Alpha';
-        const resolvedPartyName = overridePartyName || (portal === 'buyer' ? (activeBid?.name || 'Naga Tech') : 'ABC Technologies');
+        const offer = activeBid?.offer || (activeBid?.offerAmount ? `$${(Number(activeBid.offerAmount) / 1000000).toFixed(1)}M` : (asking || 'Pending'));
+        const resolvedDealName = overrideDealName || round?.dealName || termSheet?.dealName || dealMeta?.dealName || 'Active Deal';
+        const resolvedPartyName = overridePartyName || (portal === 'buyer' ? (activeBid?.name || dealMeta?.buyerCompany || 'Buyer') : (dealMeta?.sellerCompany || 'Seller Board'));
 
         const isTermSheetTransmitted = Boolean(
           termSheet && (
@@ -177,7 +178,7 @@ export default function BiddingPipelineBanner({
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
+    <div className="bg-white rounded-2xl border-2 border-gray-300 p-4 sm:p-5 shadow-md shadow-gray-300/80">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-[#006666] border border-teal-200/80">

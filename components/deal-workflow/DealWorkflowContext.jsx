@@ -525,11 +525,24 @@ export function DealWorkflowProvider({ children }) {
         if (activeInvite !== undefined) {
           setNegotiationInvitation((prev) => (JSON.stringify(prev) === JSON.stringify(activeInvite) ? prev : activeInvite));
           if (typeof window !== 'undefined') {
+            const prevUnlocked = localStorage.getItem('dms_bidding_unlocked');
+            const prevInv = localStorage.getItem('dms_negotiation_invitation');
             if (activeInvite) {
               localStorage.setItem('dms_negotiation_invitation', JSON.stringify(activeInvite));
+            } else {
+              localStorage.removeItem('dms_negotiation_invitation');
+              localStorage.removeItem('dms_active_bid_id');
+              localStorage.removeItem('dms_spa_agreement_dispatched');
             }
             if (activeInvite?.status === 'ACCEPTED') {
               localStorage.setItem('dms_bidding_unlocked', 'true');
+            } else {
+              localStorage.removeItem('dms_bidding_unlocked');
+            }
+            const nextUnlocked = localStorage.getItem('dms_bidding_unlocked');
+            const nextInv = localStorage.getItem('dms_negotiation_invitation');
+            if (prevUnlocked !== nextUnlocked || prevInv !== nextInv) {
+              window.dispatchEvent(new Event('bidding_access_changed'));
             }
           }
         }
@@ -570,20 +583,20 @@ export function DealWorkflowProvider({ children }) {
       return false;
     }
 
-    const numPrice = Number(askingPrice) || 10000000;
+    const numPrice = Number(askingPrice) || 0;
     const invitePayload = {
       id: `neg-invite-${Date.now()}`,
       status: 'PENDING_ACCEPTANCE',
       stage: 'Negotiation',
-      dealId: dealId || dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-      dealName: dealName || dealInfo?.dealName || 'VDR Sell',
+      dealId: dealId || dealInfo?.dealId || '',
+      dealName: dealName || dealInfo?.dealName || '',
       askingPrice: numPrice,
-      askingPriceFormatted: `${(numPrice / 1000000).toFixed(1)}M`,
-      deadline: deadline || '2026-11-20T18:00:00+05:30',
-      deadlineDisplay: deadlineDisplay || '18:00 IST, 20 Nov 2026',
-      invitedBuyerId: invitedBuyerId || dealInfo?.buyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13',
-      invitedBuyerName: invitedBuyerName || dealInfo?.buyerName || 'Naga raj',
-      invitedBuyerCompany: invitedBuyerCompany || dealInfo?.buyerCompany || 'Naga Tech',
+      askingPriceFormatted: numPrice > 0 ? `${(numPrice / 1000000).toFixed(1)}M` : '',
+      deadline: deadline || '',
+      deadlineDisplay: deadlineDisplay || '',
+      invitedBuyerId: invitedBuyerId || dealInfo?.buyerId || '',
+      invitedBuyerName: invitedBuyerName || dealInfo?.buyerName || '',
+      invitedBuyerCompany: invitedBuyerCompany || dealInfo?.buyerCompany || '',
       message: message || 'Seller Super Admin invites you to submit your formal binding offer for the negotiation round.',
       invitedBy: currentUser?.name || 'Super Admin',
       timestamp: Date.now()
@@ -600,16 +613,16 @@ export function DealWorkflowProvider({ children }) {
       id: 'neg-invite-active-deal',
       status: 'PENDING_ACCEPTANCE',
       stage: 'Negotiation',
-      dealId: dealInfo?.dealId || 'c7330177-a8ab-47a2-933c-af0be1d1246f',
-      dealName: dealInfo?.dealName || 'Naga raj Deal',
-      askingPrice: 10000000,
-      askingPriceFormatted: '10.0M',
-      deadline: '2026-11-25T18:00:00+05:30',
-      deadlineDisplay: '25 Nov 2026',
-      invitedBuyerId: dealInfo?.buyerId || '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-      invitedBuyerName: dealInfo?.buyerName || 'Naga raj',
-      invitedBuyerCompany: dealInfo?.buyerCompany || 'Naga Tech',
-      message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the benchmark asking price ($10.0M) and submit your acquisition proposal.',
+      dealId: dealInfo?.dealId || '',
+      dealName: dealInfo?.dealName || '',
+      askingPrice: 0,
+      askingPriceFormatted: '',
+      deadline: '',
+      deadlineDisplay: '',
+      invitedBuyerId: dealInfo?.buyerId || '',
+      invitedBuyerName: dealInfo?.buyerName || '',
+      invitedBuyerCompany: dealInfo?.buyerCompany || '',
+      message: 'The seller board has approved activating the Negotiation Stage.',
       invitedBy: dealInfo?.sellerSuperAdminName ? `${dealInfo.sellerSuperAdminName} (Super Admin)` : 'Super Admin',
       timestamp: Date.now()
     };

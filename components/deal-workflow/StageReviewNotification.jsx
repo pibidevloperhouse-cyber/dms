@@ -300,7 +300,7 @@ export default function StageReviewNotification({ inDropdown = false }) {
       if (isPendingAcceptance) {
         return (
           <div className={inDropdown ? "w-full" : "px-4 sm:px-6 lg:px-8 mb-3"}>
-            <div className="bg-gradient-to-r from-amber-50 via-teal-50/50 to-emerald-50/40 border-2 border-[#006666]/40 rounded-2xl p-4 sm:p-5 text-slate-900 shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-4 sm:p-5 text-slate-900 shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-[#006666] text-white flex items-center justify-center shadow-sm shrink-0 mt-0.5">
@@ -327,13 +327,13 @@ export default function StageReviewNotification({ inDropdown = false }) {
 
                     {/* Benchmark Terms Pills */}
                     <div className="mt-3 flex items-center gap-3 flex-wrap">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-emerald-200 text-xs shadow-2xs">
                         <DollarSign className="w-3.5 h-3.5 text-[#006666]" />
                         <span className="text-slate-500 font-medium">Benchmark Ask:</span>
                         <span className="font-bold text-slate-900">{askingPriceFormatted}</span>
                       </div>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-emerald-200 text-xs shadow-2xs">
+                        <Calendar className="w-3.5 h-3.5 text-[#006666]" />
                         <span className="text-slate-500 font-medium">Bid Deadline:</span>
                         <span className="font-bold text-slate-900">{deadlineFormatted}</span>
                       </div>

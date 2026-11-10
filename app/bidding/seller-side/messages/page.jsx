@@ -5,11 +5,12 @@ import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
 
 export default function SellerMessagesPage() {
   const [conversations, setConversations] = useState({});
-  const [selectedBuyerId, setSelectedBuyerId] = useState('8ec0af77-0630-444f-8e1c-d362f35a2e13');
+  const [dealMeta, setDealMeta] = useState(null);
+  const [selectedBuyerId, setSelectedBuyerId] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState('Vishwa Raj');
+  const [currentUserName, setCurrentUserName] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ export default function SellerMessagesPage() {
         const user = JSON.parse(raw);
         if (user?.name) setCurrentUserName(user.name);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   const fetchMessages = async () => {
@@ -27,10 +28,16 @@ export default function SellerMessagesPage() {
       const res = await fetch('/api/bidding/messages');
       if (res.ok) {
         const data = await res.json();
+        if (data.dealMeta) {
+          setDealMeta(data.dealMeta);
+          setCurrentUserName((prev) => prev || data.dealMeta.sellerName || '');
+        }
         if (data.conversations) {
           setConversations(data.conversations);
           if (!selectedBuyerId && Object.keys(data.conversations).length > 0) {
             setSelectedBuyerId(Object.keys(data.conversations)[0]);
+          } else if (!selectedBuyerId && data.dealMeta?.buyerId) {
+            setSelectedBuyerId(data.dealMeta.buyerId);
           }
         }
       }
@@ -65,16 +72,10 @@ export default function SellerMessagesPage() {
 
   const currentConv =
     conversations[selectedBuyerId] ||
-    convList.find(
-      (c) =>
-        (c.buyerName && c.buyerName.toLowerCase().includes('naga')) ||
-        (c.leadName && c.leadName.toLowerCase().includes('naga')) ||
-        c.buyerId === '8ec0af77-0630-444f-8e1c-d362f35a2e13'
-    ) ||
     convList[0] || {
-      buyerId: '8ec0af77-0630-444f-8e1c-d362f35a2e13',
-      buyerName: 'Naga Tech',
-      leadName: 'Naga raj',
+      buyerId: dealMeta?.buyerId || '',
+      buyerName: dealMeta?.buyerCompany || dealMeta?.dealName || 'Buyer',
+      leadName: dealMeta?.buyerName || 'Buyer Admin',
       threads: []
     };
 
@@ -85,14 +86,12 @@ export default function SellerMessagesPage() {
       t.senderRole === 'seller' ||
       t.isMe === true ||
       t.sender?.includes('Super Admin') ||
-      t.sender?.includes('Vishwa') ||
       t.sender?.includes('Seller') ||
       t.sender === 'You';
 
     const isBuyer =
       t.senderRole === 'buyer' ||
       t.sender?.includes('Guest Admin') ||
-      t.sender?.includes('Naga') ||
       t.sender?.includes('Buyer');
 
     const isMe = isSeller && !isBuyer;
@@ -101,7 +100,7 @@ export default function SellerMessagesPage() {
       id: t.id || 'msg-' + Math.random(),
       sender: isMe
         ? 'You (Super Admin)'
-        : (t.sender || 'Naga raj (Guest Admin)'),
+        : (t.sender || `${currentConv.leadName || 'Buyer'} (Guest Admin)`),
       isMe,
       text: t.text,
       timestamp: t.timestamp
@@ -112,7 +111,11 @@ export default function SellerMessagesPage() {
     if (!inputMessage.trim() || isSending) return;
     setIsSending(true);
 
-    const targetBuyerId = currentConv.buyerId || currentConv.id || selectedBuyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+    const targetBuyerId = currentConv.buyerId || currentConv.id || selectedBuyerId || dealMeta?.buyerId;
+    if (!targetBuyerId) {
+      setIsSending(false);
+      return;
+    }
     const textToSend = inputMessage.trim();
     setInputMessage('');
 
@@ -163,25 +166,25 @@ export default function SellerMessagesPage() {
   };
 
   return (
-    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed h-[calc(100vh-58px)] flex flex-col overflow-hidden antialiased">
+    <div className="bg-[#F8F9FB] text-slate-900 font-sans text-[14px] leading-relaxed h-full flex flex-col overflow-hidden antialiased">
       {/* Top Bidding Navigation Tabs */}
       <div className="shrink-0">
         <BiddingHeaderNav portal="seller" activeTab="messages" />
       </div>
 
       {/* Main Messages Container */}
-      <div className="max-w-[1240px] w-full mx-auto p-4 md:p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden flex-1 flex flex-col shadow-sm min-h-0">
+      <div className="w-full mx-auto px-3 py-3 md:px-5 md:py-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="border-2 border-gray-300 rounded-2xl bg-white overflow-hidden flex-1 flex flex-col shadow-md shadow-gray-300/80 min-h-0">
 
           {/* Chat Header */}
           <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
             <div>
               <h1 className="text-[16px] font-bold text-slate-900 m-0 flex items-center gap-2">
-                <span>Direct Negotiation — {currentConv.buyerName || 'Naga Tech'}</span>
+                <span>Direct Negotiation — {currentConv.buyerName || dealMeta?.buyerCompany || 'Buyer'}</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" title="Active Channel"></span>
               </h1>
               <div className="text-[12px] text-slate-500 mt-0.5 font-medium">
-                Counterparty: <strong className="text-slate-800">{currentConv.leadName || 'Naga raj'}</strong> (Guest Admin · Naga Tech) · Seller: <strong className="text-slate-800">{currentUserName}</strong> (Super Admin)
+                Counterparty: <strong className="text-slate-800">{currentConv.leadName || dealMeta?.buyerName || 'Buyer Admin'}</strong> (Guest Admin{currentConv.buyerName ? ` · ${currentConv.buyerName}` : ''}) · Seller: <strong className="text-slate-800">{currentUserName || 'Seller Admin'}</strong> (Super Admin)
               </div>
             </div>
           </div>
@@ -191,7 +194,7 @@ export default function SellerMessagesPage() {
             {threads.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400">
                 <p className="text-sm font-semibold text-slate-600 mb-1">Start Negotiation Thread</p>
-                <p className="text-xs">Send a direct message to Naga raj (Buyer Guest Admin) regarding valuation terms or diligence.</p>
+                <p className="text-xs">Send a direct message to {currentConv.leadName || dealMeta?.buyerName || 'Buyer'} (Buyer Guest Admin) regarding valuation terms or diligence.</p>
               </div>
             ) : (
               threads.map((msg) => (
@@ -200,11 +203,10 @@ export default function SellerMessagesPage() {
                   className={`max-w-[72%] ${msg.isMe ? 'self-end' : 'self-start'}`}
                 >
                   <div
-                    className={`px-4.5 py-3 rounded-2xl text-[13px] leading-relaxed shadow-xs ${
-                      msg.isMe
+                    className={`px-4.5 py-3 rounded-2xl text-[13px] leading-relaxed shadow-xs ${msg.isMe
                         ? 'bg-[#006666] text-white rounded-tr-xs'
                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-xs'
-                    }`}
+                      }`}
                   >
                     {msg.text}
                   </div>
@@ -230,7 +232,7 @@ export default function SellerMessagesPage() {
                     handleSendMessage();
                   }
                 }}
-                placeholder={`Write a message to Naga raj (Buyer Guest Admin)...`}
+                placeholder={`Write a message to ${currentConv.leadName || dealMeta?.buyerName || 'Buyer'} (Buyer Guest Admin)...`}
                 className="w-full font-sans text-[13px] px-3.5 py-2.5 border border-slate-200 rounded-xl resize-none bg-[#FAFAFA] focus:bg-white focus:border-[#006666] focus:ring-1 focus:ring-[#006666]/30 outline-none transition-colors shadow-2xs"
               />
               <button

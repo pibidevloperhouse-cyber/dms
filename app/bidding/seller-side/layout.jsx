@@ -56,7 +56,7 @@ export default function SellerSideLayout({ children }) {
   if (!authorized) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-6 bg-[#F8F9FB]">
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 max-w-md text-center shadow-sm">
+        <div className="bg-white border-2 border-gray-300 rounded-2xl p-8 max-w-md text-center shadow-md shadow-gray-300/80">
           <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4">
             <ShieldAlert className="w-6 h-6" />
           </div>
