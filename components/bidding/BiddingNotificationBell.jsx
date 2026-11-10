@@ -47,7 +47,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
       if (stored) {
         setReadIds(new Set(JSON.parse(stored)));
       }
-    } catch (e) { }
+    } catch (e) {}
   }, [storageKey]);
 
   // Fetch bid data and generate notifications
@@ -60,7 +60,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
           const user = JSON.parse(raw);
           if (user.id) buyerId = user.id;
         }
-      } catch (e) { }
+      } catch (e) {}
 
       const url = role === 'seller'
         ? '/api/bidding/bids?role=super_admin'
@@ -80,13 +80,13 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
         try {
           const tsData = await tsRes.json();
           termSheet = tsData?.termSheet;
-        } catch (_) { }
+        } catch (_) {}
       }
       if (spaRes?.ok) {
         try {
           const spaData = await spaRes.json();
           spa = spaData?.spa;
-        } catch (_) { }
+        } catch (_) {}
       }
 
       const isTermSheetTransmitted = Boolean(
@@ -412,7 +412,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
     setReadIds(allIds);
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(allIds)));
-    } catch (e) { }
+    } catch (e) {}
   };
 
   const markSingleAsRead = (id) => {
@@ -421,7 +421,7 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
     setReadIds(updated);
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(updated)));
-    } catch (e) { }
+    } catch (e) {}
   };
 
   const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
@@ -521,8 +521,9 @@ export default function BiddingNotificationBell({ role = 'buyer' }) {
                   <div
                     key={n.id}
                     onClick={() => markSingleAsRead(n.id)}
-                    className={`p-4 transition-colors flex gap-3.5 items-start ${isRead ? 'bg-white hover:bg-slate-50/60 opacity-80' : 'bg-blue-50/20 hover:bg-blue-50/40'
-                      }`}
+                    className={`p-4 transition-colors flex gap-3.5 items-start ${
+                      isRead ? 'bg-white hover:bg-slate-50/60 opacity-80' : 'bg-blue-50/20 hover:bg-blue-50/40'
+                    }`}
                   >
                     {renderIcon(n.type, n.color)}
 
