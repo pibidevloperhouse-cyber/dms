@@ -57,6 +57,7 @@ export async function POST(req) {
       buyerName = 'Naga Tech',
       offerAmount,
       closeDate,
+      expectedCloseDate,
       cashPercent = 70,
       financingType = 'Private Equity / Cash',
       contingencies = '',
@@ -65,6 +66,7 @@ export async function POST(req) {
       documents
     } = body;
 
+    const targetCloseDate = expectedCloseDate || closeDate || '2026-12-15';
     const store = await loadBiddingStoreAsync(dealId);
 
     const numOffer = Number(offerAmount) || 10000000;
@@ -90,6 +92,7 @@ export async function POST(req) {
       mark: buyerName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'NT',
       type: 'Venture Capital (VC)',
       buyerRole: 'guest_admin',
+      leadName: buyerName,
       views: 12,
       documents: [{ name: 'Letter of Intent — signed.pdf', size: '2.1 MB', type: 'pdf' }],
       history: []
@@ -103,8 +106,8 @@ export async function POST(req) {
       vsColor,
       cash: `${cashPercent}%`,
       stock: `${stockPercent}%`,
-      close: closeDate ? new Date(closeDate).toLocaleString('default', { month: 'short', year: 'numeric' }) : 'Dec 2026',
-      expectedCloseDate: closeDate || '2026-12-15',
+      close: targetCloseDate ? new Date(targetCloseDate).toLocaleString('default', { month: 'short', year: 'numeric' }) : 'Dec 2026',
+      expectedCloseDate: targetCloseDate,
       financingType,
       contingencies,
       note,

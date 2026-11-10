@@ -21,7 +21,6 @@ import {
   ChevronDown
 } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
-import BiddingPipelineBanner from '@/components/bidding/BiddingPipelineBanner';
 
 export default function SellerBiddingPage() {
   const router = useRouter();
@@ -308,9 +307,6 @@ export default function SellerBiddingPage() {
 
       {/* Main Container */}
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col gap-6">
-
-        {/* 1. TOP PIPELINE STEPPER BANNER */}
-        <BiddingPipelineBanner portal="seller" highlightStep={2} />
 
         {/* ========================================================================= */}
         {/* 2. PROFILE & ACTION COCKPIT HEADER                                        */}

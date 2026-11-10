@@ -20,7 +20,6 @@ import {
   X
 } from 'lucide-react';
 import BiddingHeaderNav from '@/components/bidding/BiddingHeaderNav';
-import BiddingPipelineBanner from '@/components/bidding/BiddingPipelineBanner';
 
 export default function MyBidPage() {
   const [loading, setLoading] = useState(true);
@@ -86,44 +85,49 @@ export default function MyBidPage() {
     setUploadedDocs((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const fetchMyBid = async () => {
+  const fetchMyBid = async (populateForm = true) => {
     try {
       let buyerId = '8ec0af77-0630-444f-8e1c-d362f35a2e13';
+      let sessionBuyerName = '';
       try {
         const raw = localStorage.getItem('vdr_session');
         if (raw) {
           const user = JSON.parse(raw);
           if (user.id) buyerId = user.id;
+          sessionBuyerName = user.company_name || user.name || '';
         }
       } catch (e) { }
 
       let benchmarkAsk = 10000000;
+      let latestInvite = null;
       try {
         const rawInv = localStorage.getItem('dms_negotiation_invitation');
         if (rawInv) {
           const inv = JSON.parse(rawInv);
+          latestInvite = inv;
           setNegotiationInvitation(inv);
           if (inv.askingPrice) benchmarkAsk = Number(inv.askingPrice);
         }
       } catch (e) { }
 
-      try {
-        const stageRes = await fetch('/api/deal-workflow/active-stage');
-        if (stageRes.ok) {
+      const [stageRes, bidsRes, tsRes] = await Promise.all([
+        fetch('/api/deal-workflow/active-stage').catch(() => null),
+        fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`),
+        fetch('/api/bidding/term-sheet')
+      ]);
+
+      if (stageRes && stageRes.ok) {
+        try {
           const stageData = await stageRes.json();
           if (stageData.negotiationInvitation) {
+            latestInvite = stageData.negotiationInvitation;
             setNegotiationInvitation(stageData.negotiationInvitation);
             if (stageData.negotiationInvitation.askingPrice) {
               benchmarkAsk = Number(stageData.negotiationInvitation.askingPrice);
             }
           }
-        }
-      } catch (e) { }
-
-      const [bidsRes, tsRes] = await Promise.all([
-        fetch(`/api/bidding/bids?role=guest_admin&buyerId=${buyerId}`),
-        fetch('/api/bidding/term-sheet')
-      ]);
+        } catch (e) { }
+      }
 
       if (bidsRes.ok) {
         const data = await bidsRes.json();
@@ -131,19 +135,23 @@ export default function MyBidPage() {
 
         if (data.myBid) {
           setBid(data.myBid);
-          setOfferAmount(String(data.myBid.offerAmount || benchmarkAsk));
-          setCloseDate(data.myBid.expectedCloseDate || '2026-12-15');
-          const cashVal = parseInt(String(data.myBid.cash).replace('%', ''), 10);
-          setCashPercent(isNaN(cashVal) ? 70 : cashVal);
-          if (data.myBid.financingType) setFinancingType(data.myBid.financingType);
-          if (data.myBid.contingencies) setContingencies(data.myBid.contingencies);
-          if (data.myBid.note) setNote(data.myBid.note);
-          if (Array.isArray(data.myBid.documents) && data.myBid.documents.length > 0) {
-            setUploadedDocs(data.myBid.documents);
+          if (populateForm) {
+            setOfferAmount(String(data.myBid.offerAmount || benchmarkAsk));
+            setCloseDate(data.myBid.expectedCloseDate || '2026-12-15');
+            const cashVal = parseInt(String(data.myBid.cash).replace('%', ''), 10);
+            setCashPercent(isNaN(cashVal) ? 70 : cashVal);
+            if (data.myBid.financingType) setFinancingType(data.myBid.financingType);
+            if (data.myBid.contingencies) setContingencies(data.myBid.contingencies);
+            if (data.myBid.note) setNote(data.myBid.note);
+            if (Array.isArray(data.myBid.documents) && data.myBid.documents.length > 0) {
+              setUploadedDocs(data.myBid.documents);
+            }
           }
         } else {
           const defaultVal = benchmarkAsk || data.round?.askingPrice || 10000000;
-          setOfferAmount(String(defaultVal));
+          if (populateForm) {
+            setOfferAmount(String(defaultVal));
+          }
           setBid({
             id: buyerId,
             buyerId: buyerId,
@@ -172,7 +180,18 @@ export default function MyBidPage() {
   };
 
   useEffect(() => {
-    fetchMyBid();
+    fetchMyBid(true);
+    const handleRefresh = () => fetchMyBid(false);
+    const interval = setInterval(handleRefresh, 8000);
+    window.addEventListener('bid_submitted', handleRefresh);
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('bid_submitted', handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
   }, []);
 
   const handleMatchCounter = async () => {
@@ -306,9 +325,6 @@ export default function MyBidPage() {
 
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col gap-6">
 
-        {/* 1. TOP 5-STEP PIPELINE BANNER */}
-        <BiddingPipelineBanner portal="buyer" highlightStep={2} />
-
         {/* ========================================================================= */}
         {/* 2. SELLER BENCHMARK & CURRENT OFFER OVERVIEW CARDS                         */}
         {/* ========================================================================= */}
@@ -437,39 +453,6 @@ export default function MyBidPage() {
                 Awaiting seller transmission · No action required from you right now.
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Binding Term Sheet Transmitted by Seller Banner */}
-        {isTermSheetTransmitted && (
-          <div className="bg-gradient-to-r from-blue-50 via-sky-50/70 to-blue-50/90 border border-blue-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
-            <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                  <span>Binding Term Sheet Transmitted by Seller</span>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 uppercase tracking-wider">
-                    Ready for Review
-                  </span>
-                </div>
-                <p className="text-xs text-slate-700 mt-1 font-medium leading-relaxed">
-                  The seller board has finalized and transmitted the acquisition Term Sheet for your commercial review and digital execution.
-                </p>
-                <div className="text-[11px] text-blue-700 font-semibold mt-1">
-                  Exclusivity Period: {termSheet?.keyTerms?.exclusivityPeriod || '45 Days'} · Expected Close: {termSheet?.keyTerms?.expectedClose || 'Dec 2026'}
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href="/bidding/buyer-side/term-sheet"
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-            >
-              <span>Review &amp; Sign Term Sheet</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
         )}
 
@@ -639,8 +622,8 @@ export default function MyBidPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-xl p-5 text-center text-xs cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 ${isDragging
-                    ? 'border-[#006666] bg-teal-50/70 text-[#006666]'
-                    : 'border-slate-300 bg-slate-50/50 text-slate-500 hover:bg-slate-50 hover:border-slate-400'
+                  ? 'border-[#006666] bg-teal-50/70 text-[#006666]'
+                  : 'border-slate-300 bg-slate-50/50 text-slate-500 hover:bg-slate-50 hover:border-slate-400'
                   }`}
               >
                 <div className="w-9 h-9 rounded-full bg-teal-50 text-[#006666] flex items-center justify-center">
@@ -700,8 +683,8 @@ export default function MyBidPage() {
               onClick={handleSubmitRevisedBid}
               disabled={isSubmitting || round?.status === 'closed' || bid?.status === 'Declined'}
               className={`text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-2 ${round?.status === 'closed' || bid?.status === 'Declined'
-                  ? 'border border-slate-300 bg-slate-200 text-slate-500 cursor-not-allowed'
-                  : 'cursor-pointer bg-[#006666] hover:bg-[#005252] text-white'
+                ? 'border border-slate-300 bg-slate-200 text-slate-500 cursor-not-allowed'
+                : 'cursor-pointer bg-[#006666] hover:bg-[#005252] text-white'
                 }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />

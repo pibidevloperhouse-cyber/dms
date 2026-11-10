@@ -67,102 +67,133 @@ function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceReq
 }
 
 // Initial load on server start
-loadStateFromFile();
+let _stateLoaded = false;
+if (!_stateLoaded) {
+  loadStateFromFile();
+  _stateLoaded = true;
+}
 
-async function getDealMetadata() {
-  let dealMeta = {
-    dealId: '51013f2a-99dd-4405-95fb-f25502053455',
-    dealName: 'Naga raj Deal',
-    dealNumber: 'D-F4FD2',
-    sellerCompany: 'Vishwa Tech',
-    buyerCompany: 'Naga Tech',
-    buyerId: '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
-    buyerName: 'Naga raj',
-    buyerRole: 'Buyer Guest Admin',
-    leadAdvisorName: 'Vijay',
-    guestAdminName: 'Naga raj',
-    sellerSuperAdminName: 'Vishwa Raj',
-    period: '02 Sep to 30 Oct 2026',
-  };
+let _cachedDealMeta = null;
+let _cachedDealMetaAt = 0;
+let _inFlightDealMeta = null;
+const DEAL_META_TTL_MS = 60000; // 60 seconds cache
 
-  try {
-    const deals = await db.select().from(dmsDeals);
-    const allUsers = await db.select().from(users);
-    const allComps = await db.select().from(companies);
+async function getDealMetadata(forceRefresh = false) {
+  if (!forceRefresh && _cachedDealMeta && (Date.now() - _cachedDealMetaAt) < DEAL_META_TTL_MS) {
+    return _cachedDealMeta;
+  }
 
-    if (deals.length > 0) {
-      const deal = deals.find(d => (d.dealName || '').toLowerCase().includes('naga'))
-        || deals.find(d => d.featureTasks)
-        || deals[0];
+  if (!forceRefresh && _inFlightDealMeta) {
+    return _inFlightDealMeta;
+  }
 
-      if (deal.currentStage) {
-        serverActiveStage = deal.currentStage;
-      }
+  _inFlightDealMeta = (async () => {
+    let dealMeta = {
+      dealId: '51013f2a-99dd-4405-95fb-f25502053455',
+      dealName: 'Naga raj Deal',
+      dealNumber: 'D-F4FD2',
+      sellerCompany: 'Vishwa Tech',
+      buyerCompany: 'Naga Tech',
+      buyerId: '5082a2ab-a4d7-4ca9-add7-7a2a85bfe9cc',
+      buyerName: 'Naga raj',
+      buyerRole: 'Buyer Guest Admin',
+      leadAdvisorName: 'Vijay',
+      guestAdminName: 'Naga raj',
+      sellerSuperAdminName: 'Vishwa Raj',
+      period: '02 Sep to 30 Oct 2026',
+    };
 
-      let sellerName = 'Vishwa Tech';
-      let buyerName = 'Naga Tech';
-      let sellerSuperAdminName = 'Vishwa Raj';
-      let guestAdminName = 'Naga raj';
-      let leadAdvisorName = 'Vijay';
+    try {
+      const [deals, allUsers, allComps, allProjs] = await Promise.all([
+        db.select().from(dmsDeals),
+        db.select({ id: users.id, name: users.name, role: users.role, companyId: users.companyId }).from(users),
+        db.select({ id: companies.id, name: companies.name }).from(companies),
+        db.select({ id: dmsProjects.id, companyId: dmsProjects.companyId }).from(dmsProjects),
+      ]);
 
-      if (deal.projectId) {
-        const projs = await db.select().from(dmsProjects).where(eq(dmsProjects.id, deal.projectId));
-        if (projs[0]?.companyId) {
-          const seller = allComps.find(c => c.id === projs[0].companyId);
-          if (seller?.name) sellerName = seller.name;
+      if (deals.length > 0) {
+        const deal = deals.find(d => (d.dealName || '').toLowerCase().includes('naga'))
+          || deals.find(d => d.featureTasks)
+          || deals[0];
 
-          const sAdmin = allUsers.find(u => u.companyId === projs[0].companyId && (u.role || '').toLowerCase() === 'super_admin' && (u.name || '').toLowerCase().includes('vishwa'))
-            || allUsers.find(u => u.companyId === projs[0].companyId && (u.role || '').toLowerCase() === 'super_admin');
-          if (sAdmin?.name) sellerSuperAdminName = sAdmin.name;
+        if (deal.currentStage) {
+          serverActiveStage = deal.currentStage;
         }
-      }
 
-      if (deal.buyerId) {
-        const buyer = allUsers.find(u => u.id === deal.buyerId);
-        if (buyer) {
-          if (buyer.role === 'guest_admin') guestAdminName = buyer.name;
-          if (buyer.companyId) {
-            const bComp = allComps.find(c => c.id === buyer.companyId);
-            if (bComp?.name) buyerName = bComp.name;
+        let sellerName = 'Vishwa Tech';
+        let buyerName = 'Naga Tech';
+        let sellerSuperAdminName = 'Vishwa Raj';
+        let guestAdminName = 'Naga raj';
+        let leadAdvisorName = 'Vijay';
 
-            const gAdmin = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'guest_admin');
-            if (gAdmin?.name) guestAdminName = gAdmin.name;
+        if (deal.projectId) {
+          const proj = allProjs.find(p => p.id === deal.projectId);
+          if (proj?.companyId) {
+            const seller = allComps.find(c => c.id === proj.companyId);
+            if (seller?.name) sellerName = seller.name;
 
-            const adv = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'advisor');
-            if (adv?.name) leadAdvisorName = adv.name;
+            const sAdmin = allUsers.find(u => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin' && (u.name || '').toLowerCase().includes('vishwa'))
+              || allUsers.find(u => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin');
+            if (sAdmin?.name) sellerSuperAdminName = sAdmin.name;
           }
         }
-      }
 
-      if (!leadAdvisorName) {
-        const adv = allUsers.find(u => (u.role || '').toLowerCase() === 'advisor');
-        if (adv?.name) leadAdvisorName = adv.name;
-      }
+        if (deal.buyerId) {
+          const buyer = allUsers.find(u => u.id === deal.buyerId);
+          if (buyer) {
+            if (buyer.role === 'guest_admin') guestAdminName = buyer.name;
+            if (buyer.companyId) {
+              const bComp = allComps.find(c => c.id === buyer.companyId);
+              if (bComp?.name) buyerName = bComp.name;
 
-      dealMeta = {
-        dealId: deal.id,
-        dealName: deal.dealName || 'Naga raj Deal',
-        dealNumber: `D-${deal.id.slice(0, 5).toUpperCase()}`,
-        sellerCompany: sellerName,
-        buyerCompany: buyerName,
-        buyerId: deal.buyerId,
-        buyerName: guestAdminName || 'Naga raj',
-        buyerRole: 'Buyer Guest Admin',
-        leadAdvisorName: leadAdvisorName || 'Vijay',
-        guestAdminName: guestAdminName || 'Naga raj',
-        sellerSuperAdminName: sellerSuperAdminName || 'Vishwa Raj',
-        period: '02 Sep to 30 Oct 2026',
-      };
+              const gAdmin = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'guest_admin');
+              if (gAdmin?.name) guestAdminName = gAdmin.name;
+
+              const adv = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'advisor');
+              if (adv?.name) leadAdvisorName = adv.name;
+            }
+          }
+        }
+
+        if (!leadAdvisorName) {
+          const adv = allUsers.find(u => (u.role || '').toLowerCase() === 'advisor');
+          if (adv?.name) leadAdvisorName = adv.name;
+        }
+
+        dealMeta = {
+          dealId: deal.id,
+          dealName: deal.dealName || 'Naga raj Deal',
+          dealNumber: `D-${deal.id.slice(0, 5).toUpperCase()}`,
+          sellerCompany: sellerName,
+          buyerCompany: buyerName,
+          buyerId: deal.buyerId,
+          buyerName: guestAdminName || 'Naga raj',
+          buyerRole: 'Buyer Guest Admin',
+          leadAdvisorName: leadAdvisorName || 'Vijay',
+          guestAdminName: guestAdminName || 'Naga raj',
+          sellerSuperAdminName: sellerSuperAdminName || 'Vishwa Raj',
+          period: '02 Sep to 30 Oct 2026',
+        };
+      }
+      _cachedDealMeta = dealMeta;
+      _cachedDealMetaAt = Date.now();
+    } catch (dbErr) {
+      console.warn('Could not query deal metadata from DB:', dbErr?.message);
+    } finally {
+      _inFlightDealMeta = null;
     }
-  } catch (dbErr) {
-    console.warn('Could not query deal metadata from DB:', dbErr?.message);
-  }
-  return dealMeta;
+    return dealMeta;
+  })();
+
+  return _inFlightDealMeta;
 }
 
 export async function GET() {
   try {
-    loadStateFromFile();
+    if (!_stateLoaded) {
+      loadStateFromFile();
+      _stateLoaded = true;
+    }
     const dealMeta = await getDealMetadata();
 
     if (serverActiveStage === 'Negotiation' && !serverNegotiationInvitation) {
@@ -283,6 +314,9 @@ export async function POST(req) {
             status: 'open',
             statusLabel: 'Negotiation / Bidding Open'
           };
+          if (serverNegotiationInvitation.dealName) {
+            updates.dealName = serverNegotiationInvitation.dealName;
+          }
           if (serverNegotiationInvitation.askingPrice) {
             const numPrice = Number(serverNegotiationInvitation.askingPrice);
             updates.askingPrice = numPrice;
@@ -311,6 +345,7 @@ export async function POST(req) {
 
     try {
       if (stage) {
+        _cachedDealMeta = null;
         await db.update(dmsDeals).set({ currentStage: targetStage });
         // Automatically enable all deal tasks created/assigned for the activated stage in DB
         await db.update(dealTasks).set({ isEnabled: true });

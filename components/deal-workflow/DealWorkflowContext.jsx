@@ -559,6 +559,7 @@ export function DealWorkflowProvider({ children }) {
     deadlineDisplay,
     invitedBuyerId,
     invitedBuyerName,
+    invitedBuyerCompany,
     message,
     dealId,
     dealName
@@ -580,39 +581,16 @@ export function DealWorkflowProvider({ children }) {
       askingPriceFormatted: `${(numPrice / 1000000).toFixed(1)}M`,
       deadline: deadline || '2026-11-20T18:00:00+05:30',
       deadlineDisplay: deadlineDisplay || '18:00 IST, 20 Nov 2026',
-      invitedBuyerId: invitedBuyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13',
-      invitedBuyerName: invitedBuyerName || 'Naga raj',
+      invitedBuyerId: invitedBuyerId || dealInfo?.buyerId || '8ec0af77-0630-444f-8e1c-d362f35a2e13',
+      invitedBuyerName: invitedBuyerName || dealInfo?.buyerName || 'Naga raj',
+      invitedBuyerCompany: invitedBuyerCompany || dealInfo?.buyerCompany || 'Naga Tech',
       message: message || 'Seller Super Admin invites you to submit your formal binding offer for the negotiation round.',
       invitedBy: currentUser?.name || 'Super Admin',
       timestamp: Date.now()
     };
 
-    setNegotiationInvitation(invitePayload);
-
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('dms_bidding_unlocked');
-      localStorage.setItem('dms_negotiation_invitation', JSON.stringify(invitePayload));
-      window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: invitePayload }));
-      window.dispatchEvent(new Event('bidding_access_changed'));
-      window.dispatchEvent(new Event('permissions_updated'));
-    }
-
-    // Activate Negotiation stage
-    await activateStage('Negotiation');
-
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: 'Negotiation',
-          negotiationInvitation: invitePayload
-        })
-      });
-    } catch (err) {
-      console.error('Error sending negotiation invite:', err);
-    }
-
+    // Single atomic activation + invite dispatch (prevents $10.0M overwrite / race condition)
+    await activateStage('Negotiation', invitePayload);
     return true;
   };
 
@@ -651,6 +629,7 @@ export function DealWorkflowProvider({ children }) {
       window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: updated }));
       window.dispatchEvent(new Event('permissions_updated'));
       window.dispatchEvent(new Event('bidding_access_changed'));
+      window.dispatchEvent(new Event('bid_submitted'));
     }
 
     try {
@@ -669,7 +648,7 @@ export function DealWorkflowProvider({ children }) {
   };
 
   // Super Admin / Guest Admin stage activation handler
-  const activateStage = async (stageName) => {
+  const activateStage = async (stageName, customInvitePayload = null) => {
     const normRole = normalizeRole(currentUser?.role);
     if (normRole !== 'super_admin' && normRole !== 'guest_admin') {
       console.warn('Only Super Admin or Guest Admin can activate stages.');
@@ -700,8 +679,8 @@ export function DealWorkflowProvider({ children }) {
     setStageNotification(notificationPayload);
     setStageAdvanceRequest(null);
 
-    let pendingInvitePayload = null;
-    if (normalizeStage(matched) === 'Negotiation') {
+    let pendingInvitePayload = customInvitePayload;
+    if (!pendingInvitePayload && normalizeStage(matched) === 'Negotiation') {
       pendingInvitePayload = {
         id: `neg-invite-${Date.now()}`,
         status: 'PENDING_ACCEPTANCE',
@@ -719,6 +698,9 @@ export function DealWorkflowProvider({ children }) {
         invitedBy: currentUser?.name || 'Super Admin',
         timestamp: Date.now()
       };
+    }
+
+    if (pendingInvitePayload) {
       setNegotiationInvitation(pendingInvitePayload);
     }
 
@@ -1576,12 +1558,12 @@ export function DealWorkflowProvider({ children }) {
     fetchActiveStage();
     fetchDealFolders();
 
-    // Poll active stage, tasks, and deal folders every 3 seconds for seamless cross-user/session synchronization
+    // Poll active stage, tasks, and deal folders every 8 seconds for smooth background synchronization
     const syncInterval = setInterval(() => {
       fetchActiveStage();
       fetchTasks(false);
       fetchDealFolders();
-    }, 3000);
+    }, 8000);
 
     // Listen to storage and focus events so when another user logs in, state updates immediately
         const handleStorageChange = (e) => {

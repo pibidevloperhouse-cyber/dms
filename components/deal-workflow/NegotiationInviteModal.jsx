@@ -16,6 +16,7 @@ import { useDealWorkflow } from './DealWorkflowContext';
 export default function NegotiationInviteModal({ isOpen, onClose }) {
   const {
     dealInfo,
+    negotiationInvitation,
     sendNegotiationInvite,
   } = useDealWorkflow();
 
@@ -27,27 +28,43 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load latest asking price & deadline from DB if available
+  // Load latest asking price & deadline from negotiationInvitation or DB if available
   useEffect(() => {
     if (isOpen) {
-      fetch('/api/bidding/bids?role=super_admin')
-        .then(res => res.json())
-        .then(data => {
-          if (data.round?.askingPrice) {
-            setAskingPrice(String(data.round.askingPrice));
-          }
-          if (data.round?.deadline) {
-            try {
-              const dt = new Date(data.round.deadline);
-              const pad = (n) => String(n).padStart(2, '0');
-              const formattedDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-              setDeadlineDate(formattedDate);
-            } catch (e) {}
-          }
-        })
-        .catch(() => {});
+      if (negotiationInvitation?.askingPrice) {
+        setAskingPrice(String(negotiationInvitation.askingPrice));
+      }
+      if (negotiationInvitation?.deadline) {
+        try {
+          const dt = new Date(negotiationInvitation.deadline);
+          const pad = (n) => String(n).padStart(2, '0');
+          setDeadlineDate(`${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`);
+        } catch (e) {}
+      }
+      if (negotiationInvitation?.message) {
+        setInvitationMessage(negotiationInvitation.message);
+      }
+
+      if (!negotiationInvitation?.askingPrice) {
+        fetch('/api/bidding/bids?role=super_admin')
+          .then(res => res.json())
+          .then(data => {
+            if (data.round?.askingPrice) {
+              setAskingPrice(String(data.round.askingPrice));
+            }
+            if (data.round?.deadline) {
+              try {
+                const dt = new Date(data.round.deadline);
+                const pad = (n) => String(n).padStart(2, '0');
+                const formattedDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+                setDeadlineDate(formattedDate);
+              } catch (e) {}
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, negotiationInvitation]);
 
   if (!isOpen) return null;
 
@@ -85,6 +102,7 @@ export default function NegotiationInviteModal({ isOpen, onClose }) {
         deadlineDisplay,
         invitedBuyerId: buyerGuestAdmin.id,
         invitedBuyerName: buyerGuestAdmin.name,
+        invitedBuyerCompany: buyerGuestAdmin.company,
         message: invitationMessage.trim(),
         dealId: dealInfo?.dealId || '51013f2a-99dd-4405-95fb-f25502053455',
         dealName: dealInfo?.dealName || 'Test User Deal'

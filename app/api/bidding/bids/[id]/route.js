@@ -96,7 +96,7 @@ export async function PATCH(req, { params }) {
       try {
         const { updateRoundInDB } = await import('@/lib/biddingFlowService');
         await updateRoundInDB({ status: 'closed', statusLabel: 'Bidding Round Closed' });
-      } catch (err) {}
+      } catch (err) { }
     }
 
     // 3. Seller Accept Bid & Move to Term Sheet
@@ -119,6 +119,7 @@ export async function PATCH(req, { params }) {
       // Update term sheet in DB to reflect the accepted buyer in draft state
       const updatedTermSheet = {
         ...store.termSheet,
+        dealName: store.round?.dealName || store.termSheet?.dealName || 'VDR Sell',
         acceptedBidId: id,
         buyerName: bid.name,
         buyerMark: bid.mark,
@@ -140,11 +141,17 @@ export async function PATCH(req, { params }) {
     // 4. Buyer Match Counter
     else if (action === 'MATCH_COUNTER') {
       if (bid.counterOffer) {
-        const matchedAmount = bid.counterOffer.amount;
+        const matchedAmount = Number(bid.counterOffer.amount) || bid.offerAmount;
+        const askPrice = Number(store.round?.askingPrice) || 10000000;
+        const vsAskPct = Math.round(((matchedAmount - askPrice) / askPrice) * 100);
         bid.offerAmount = matchedAmount;
         bid.offer = bid.counterOffer.amountFormatted;
-        bid.vsAsk = '±0%';
-        bid.vsColor = '#16a34a';
+        bid.vsAsk = vsAskPct === 0 ? '±0%' : `${vsAskPct > 0 ? '+' : ''}${vsAskPct}%`;
+        bid.vsColor = vsAskPct >= 0 ? '#16a34a' : '#dc2626';
+        if (bid.counterOffer.expectedCloseDate) {
+          bid.expectedCloseDate = bid.counterOffer.expectedCloseDate;
+          bid.close = bid.counterOffer.expectedCloseDisplay || new Date(bid.counterOffer.expectedCloseDate).toLocaleString('default', { month: 'short', year: 'numeric' });
+        }
         bid.status = 'Under review';
         delete bid.counterOffer;
 

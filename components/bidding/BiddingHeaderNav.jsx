@@ -59,14 +59,14 @@ export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'biddin
           if (rawSpa && isMounted) {
             setIsSpaVisible(true);
           }
-        } catch (_) {}
+        } catch (_) { }
       } catch (err) {
         // silent catch
       }
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    const interval = setInterval(checkStatus, 8000);
     const handleEvents = () => checkStatus();
 
     window.addEventListener('storage', handleEvents);
@@ -125,11 +125,10 @@ export default function BiddingHeaderNav({ portal = 'buyer', activeTab = 'biddin
               <Link
                 key={tab.id}
                 href={tab.href}
-                className={`px-3.5 py-[13px] text-[13px] font-semibold transition-all relative shrink-0 ${
-                  isActive
+                className={`px-3.5 py-[13px] text-[13px] font-semibold transition-all relative shrink-0 ${isActive
                     ? 'text-[#006666]'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 {isActive && (

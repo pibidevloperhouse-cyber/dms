@@ -434,8 +434,8 @@ export default function StageReviewNotification({ inDropdown = false }) {
                     </div>
                     <p className="text-xs text-slate-700 mt-0.5 font-medium">
                       {isAccepted
-                        ? 'Buyer accepted invitation and unlocked bidding portal. Awaiting initial proposals.'
-                        : 'Invitation sent to Buyer (Naga Tech). Bidding portal unlocks for buyer once accepted.'}
+                        ? `Buyer (${activeInvite.acceptedBy || activeInvite.invitedBuyerName || dealInfo?.buyerCompany || 'Buyer'}) accepted invitation and unlocked bidding portal. Awaiting initial proposals.`
+                        : `Invitation sent to Buyer (${activeInvite.invitedBuyerCompany || activeInvite.invitedBuyerName || dealInfo?.buyerCompany || 'Buyer'}). Bidding portal unlocks for buyer once accepted.`}
                     </p>
                   </div>
                 </div>
