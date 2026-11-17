@@ -123,6 +123,12 @@ export default function AuditTrailPage() {
       set.add("Review Query Raised by Sub Admin");
       set.add("Files Moved to Documents Section & Marked as Done");
       set.add("Approved & Completed");
+      set.add("Negotiation Stage Activated");
+      set.add("Negotiation Invitation Dispatched");
+      set.add("Negotiation Invitation Accepted");
+      set.add("LOI Document Uploaded & Binding Proposal Submitted");
+      set.add("Seller Counter-Offer Sent");
+      set.add("Bid Accepted by Seller");
     }
 
     return Array.from(set);

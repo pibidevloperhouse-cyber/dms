@@ -22,11 +22,15 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowRight,
+  Gavel,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
 export function getActionIcon(action = "") {
   const norm = action.toLowerCase();
+  if (norm.includes("bid") || norm.includes("gavel") || norm.includes("negotiation") || norm.includes("loi")) {
+    return <Gavel className="w-3.5 h-3.5 text-teal-600" />;
+  }
   if (norm.includes("task") || norm.includes("workflow") || norm.includes("subtask") || norm.includes("assign") || norm.includes("claim")) {
     return <ListTodo className="w-3.5 h-3.5 text-emerald-600" />;
   }
@@ -348,7 +352,14 @@ export default function AuditEventRow({
           )
         ) : moduleView === "Tasks & Workflow" || (moduleView === "all" && event.module === "Tasks & Workflow") ? (
           <div className="flex items-start gap-2 min-w-0" title={event.resource || "Task"}>
-            <ListTodo size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+            {event.action?.toLowerCase().includes("bidding") ||
+            event.action?.toLowerCase().includes("bid") ||
+            event.action?.toLowerCase().includes("negotiation") ||
+            event.action?.toLowerCase().includes("loi") ? (
+              <Gavel size={14} className="text-teal-600 shrink-0 mt-0.5" />
+            ) : (
+              <ListTodo size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+            )}
             <div className="min-w-0 truncate">
               <span className="font-bold text-slate-800 truncate block text-xs">
                 {event.resource || "Task"}
