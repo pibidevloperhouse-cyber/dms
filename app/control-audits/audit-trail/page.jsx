@@ -102,6 +102,14 @@ export default function AuditTrailPage() {
       set.add("Document Download (Original)");
       set.add("Document Upload");
       set.add("Document Moved to Trash");
+      set.add("Due Diligence Certificate Signed by Admin");
+      set.add("Certificate Reviewed & Signed by S.P");
+      set.add("Certificate Executed by Seller Super Admin");
+      set.add("Binding Term Sheet Digitally Signed by Buyer");
+      set.add("Binding Term Sheet Executed & Approved by Seller");
+      set.add("Definitive SPA Agreement Digitally Signed by Buyer");
+      set.add("Definitive SPA Agreement Executed & Sealed by Seller");
+      set.add("Document Digitally Signed");
     }
     if (selectedModule === "Authentication" || selectedModule === "all") {
       set.add("Login Attempt");

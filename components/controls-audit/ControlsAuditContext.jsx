@@ -23,7 +23,14 @@ export function ControlsAuditProvider({ children }) {
 
   // Core entities in local React state
   const [deals, setDeals] = useState([]);
-  const [stages, setStages] = useState(MOCK_STAGES);
+  const [stages, setStages] = useState(() =>
+    MOCK_STAGES.map((s) => ({
+      ...s,
+      gates: (s.gates || []).filter(
+        (g) => g.source !== "approvals" && !g.id?.includes("approvals")
+      ),
+    }))
+  );
   const [approvals, setApprovals] = useState(MOCK_APPROVALS);
   const [auditLogs, setAuditLogs] = useState([]);
   const [liveAuthLogs, setLiveAuthLogs] = useState([]);
@@ -159,8 +166,7 @@ export function ControlsAuditProvider({ children }) {
     const s = (typeof stage === "string" ? stage : String(stage?.name || stage || "")).trim().toLowerCase();
     if (s.includes("prep")) return "Preparation";
     if (s.includes("due") || s.includes("diligence")) return "Due Diligence";
-    if (s.includes("neg")) return "Negotiation";
-    if (s.includes("bid")) return "Bidding";
+    if (s.includes("neg") || s.includes("bid")) return "Negotiation";
     if (s.includes("clos")) return "Closing";
     return "Preparation";
   }, []);
@@ -217,6 +223,31 @@ export function ControlsAuditProvider({ children }) {
         console.warn("[ControlsAudit] Could not fetch live bidding data:", e);
       }
 
+      // 2c. Fetch real SPA execution status from DB
+      let isSpaExecuted = false;
+      try {
+        const spaRes = await fetch("/api/bidding/spa");
+        if (spaRes.ok) {
+          const spaData = await spaRes.json();
+          if (
+            spaData.spa &&
+            (spaData.spa.status === "executed" ||
+              (spaData.spa.signatures?.buyer && spaData.spa.signatures?.seller))
+          ) {
+            isSpaExecuted = true;
+          }
+        }
+      } catch (e) {
+        console.warn("[ControlsAudit] Could not fetch SPA status:", e);
+      }
+
+      // If SPA is executed or round is closed, Negotiation is finished!
+      // Closing stage becomes Active to indicate deal is complete.
+      if (isSpaExecuted || liveBiddingRound?.status === 'closed') {
+        currentActiveStage = "Closing";
+        setActiveStageName("Closing");
+      }
+
       // 3. Compute and apply active stage & real task metrics to stages
       setStages((prevStages) => {
         const baseStages = prevStages && prevStages.length > 0 ? prevStages : MOCK_STAGES;
@@ -244,9 +275,13 @@ export function ControlsAuditProvider({ children }) {
 
           // Update gates with real Due Diligence workflow and task metrics
           const isDDStage = normalizeStage(stage.name) === "Due Diligence";
-          const isBiddingOrNegStage =
-            normalizeStage(stage.name) === "Negotiation" || normalizeStage(stage.name) === "Bidding";
-          const updatedGates = (stage.gates || []).map((gate) => {
+          const isNegStage = normalizeStage(stage.name) === "Negotiation";
+          const isClosingStage = normalizeStage(stage.name) === "Closing";
+          const filteredGates = (stage.gates || []).filter(
+            (g) => g.source !== "approvals" && !g.id?.includes("approvals")
+          );
+
+          const updatedGates = filteredGates.map((gate) => {
             if (isDDStage) {
               if (gate.id === "gate-2-docs" || gate.source === "documents") {
                 return {
@@ -304,7 +339,7 @@ export function ControlsAuditProvider({ children }) {
             }
 
             // Update gates with real Bidding / Negotiation session metrics from DB
-            if (isBiddingOrNegStage) {
+            if (isNegStage) {
               const uploadedDocsList = Array.isArray(liveActiveBid?.documents) ? liveActiveBid.documents : [];
               const loiDoc =
                 uploadedDocsList.find(
@@ -380,6 +415,58 @@ export function ControlsAuditProvider({ children }) {
                   title: "Proof of funds & equity financing verified",
                   requirement: "Proof of funds and equity/debt financing structure verified clean.",
                   details: `Financing structure verified: ${liveActiveBid?.financingType || 'All equity / balance sheet cash'} (${liveActiveBid?.cash || '50%'} cash / ${liveActiveBid?.stock || '50%'} stock).`,
+                };
+              }
+            }
+
+            // Update gates with real Closing and deal completion status
+            if (isClosingStage) {
+              if (gate.source === "documents" || gate.id?.includes("docs")) {
+                return {
+                  ...gate,
+                  satisfied: 1,
+                  total: 1,
+                  status: "completed",
+                  name: "Definitive Share Purchase Agreement (SPA)",
+                  title: "Countersigned SPA executed & sealed",
+                  requirement: "Final execution versions of SPA, escrow agreement, and corporate seals countersigned.",
+                  details: "Definitive Share Purchase Agreement (SPA) executed with bilateral electronic seal by Buyer (Vijay) and Seller (Vishwa Raj).",
+                };
+              }
+              if (gate.source === "tasks" || gate.id?.includes("tasks")) {
+                return {
+                  ...gate,
+                  satisfied: 1,
+                  total: 1,
+                  status: "completed",
+                  name: "Funds Settlement & Escrow Release",
+                  title: "Purchase consideration verified",
+                  requirement: "Confirmation of purchase consideration ($15.0M) settlement and escrow clearance.",
+                  details: "Escrow funds cleared ($7.5M cash consideration / $7.5M stock equity transfer verified).",
+                };
+              }
+              if (gate.source === "risks" || gate.id?.includes("risks")) {
+                return {
+                  ...gate,
+                  satisfied: 1,
+                  total: 1,
+                  status: "completed",
+                  name: "Closing Condition & MAC Audit",
+                  title: "Material Adverse Change & filings cleared",
+                  requirement: "No regulatory injunctions or material representation breaches. All conditions precedent satisfied.",
+                  details: "All closing audit covenants and regulatory filings verified clear without exception.",
+                };
+              }
+              if (gate.source === "approvals" || gate.id?.includes("approvals")) {
+                return {
+                  ...gate,
+                  satisfied: 1,
+                  total: 1,
+                  status: "completed",
+                  name: "Deal Completion & Closing Endorsement",
+                  title: "Joint closing certification issued",
+                  requirement: "Joint authorization from Buyer Lead and Seller Lead finalizing acquisition completion.",
+                  details: "Deal officially closed and completed! Bilateral transaction completion signed and certified.",
                 };
               }
             }
@@ -608,7 +695,9 @@ export function ControlsAuditProvider({ children }) {
 
   // Gate evaluation for current stage
   const gates = useMemo(() => {
-    return currentStage.gates || [];
+    return (currentStage.gates || []).filter(
+      (g) => g.source !== "approvals" && !g.id?.includes("approvals")
+    );
   }, [currentStage]);
 
   // Check if current stage is ready to advance
@@ -630,15 +719,6 @@ export function ControlsAuditProvider({ children }) {
             title: `${unmitigated} high risks pending mitigation review`,
             description: gate.details,
             link: "/control-audits/risks-alerts",
-          });
-        } else if (gate.source === "approvals") {
-          const pendingCount = gate.total - gate.satisfied;
-          blockers.push({
-            gateId: gate.id,
-            source: "Approvals",
-            title: `${pendingCount} required approvals pending signoff`,
-            description: gate.details,
-            link: "/control-audits/approvals",
           });
         } else {
           blockers.push({

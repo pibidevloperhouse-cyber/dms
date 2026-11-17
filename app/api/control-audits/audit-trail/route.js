@@ -24,6 +24,8 @@ import {
   biddingRounds,
   biddingBids,
   biddingMessages,
+  biddingTermSheets,
+  biddingSpas,
 } from '@/db/schema';
 import { eq, desc, or, and, ne, isNull, inArray, isNotNull } from 'drizzle-orm';
 import fs from 'fs';
@@ -624,6 +626,14 @@ export async function GET(req) {
     // Helper: format document action name with Redacted vs Original fidelity
     const getDocumentActionName = (actionType, metadata, isRedactedDoc) => {
       const type = (actionType || '').toUpperCase();
+      if (type === 'SIGN_DOCUMENT' || type.includes('SIGN')) {
+        return metadata?.document_name
+          ? `Document Digitally Signed (${metadata.document_name})`
+          : 'Document Digitally Signed';
+      }
+      if (metadata?.download_type === 'REPORT_PDF' && metadata?.document_name) {
+        return `Document Download (${metadata.document_name})`;
+      }
       if (type === 'UPLOAD') return 'Document Upload';
       if (type === 'VIEW_REDACTED' || (type === 'VIEW' && isRedactedDoc)) {
         return 'Document View (Redacted)';
@@ -657,6 +667,10 @@ export async function GET(req) {
 
     // 11. Filter Document Logs strictly to this active deal
     const dealScopedDocLogs = rawDocLogs.filter((log) => {
+      // Compliance Report PDFs (DDC, LOI, Term Sheet, SPA) always surface in audit logs
+      if (log.metadata?.download_type === 'REPORT_PDF') {
+        return true;
+      }
       // If the document has a specific workspace_id, it MUST match this active deal
       if (log.docWorkspaceId) {
         return log.docWorkspaceId === activeDeal.dealId;
@@ -664,6 +678,10 @@ export async function GET(req) {
       // If metadata has workspace_id, check it
       if (log.metadata?.workspace_id) {
         return log.metadata.workspace_id === activeDeal.dealId;
+      }
+      // If the log is for a report download or signature tied to this deal
+      if (log.documentId === activeDeal.dealId) {
+        return true;
       }
       // Fallback: check if the acting user is a member of this active deal
       const lowerEmail = (log.userEmail || '').toLowerCase();
@@ -740,15 +758,20 @@ export async function GET(req) {
         companyId: log.docCompanyId,
       });
 
+      const actorName = log.userName || (log.userEmail ? log.userEmail.split('@')[0] : (log.metadata?.signer || log.metadata?.userName || activeDeal.buyerName || 'Vijay'));
+      const resourceTitle = log.metadata?.download_type === 'REPORT_PDF' && log.metadata?.document_name
+        ? `${log.metadata.document_name} (${log.metadata.file_name || 'Official PDF Package'})`
+        : (log.metadata?.document_name || fileName);
+
       return {
         id: log.id,
-        user: log.userName || (log.userEmail ? log.userEmail.split('@')[0] : 'Unknown User'),
-        userEmail: log.userEmail,
-        userRole: formatRoleName(log.userRole),
+        user: actorName,
+        userEmail: log.userEmail || (userSide === 'buyer' ? (activeDeal.buyerEmail || 'vijay@vdr.com') : 'vishwa@gmail.com'),
+        userRole: formatRoleName(log.userRole || (userSide === 'buyer' ? 'Guest Admin' : 'Super Admin')),
         side: userSide,
         sideLabel: userSide === 'buyer' ? 'Buyer Side' : 'Seller Side',
         action: actionName,
-        resource: fileName,
+        resource: resourceTitle,
         module: 'Documents',
         deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
         dealId: activeDeal.dealId,
@@ -1542,6 +1565,16 @@ export async function GET(req) {
         serverNotificationPayload = stateData.notificationPayload;
       }
 
+      const safeIsoDate = (dStr, fallbackHours = 10) => {
+        if (!dStr) return new Date(Date.now() - fallbackHours * 3600 * 1000).toISOString();
+        try {
+          const cleaned = String(dStr).replace(' IST', '').trim();
+          const d = new Date(cleaned);
+          if (!isNaN(d.getTime())) return d.toISOString();
+        } catch (_) {}
+        return new Date(Date.now() - fallbackHours * 3600 * 1000).toISOString();
+      };
+
       // Event 1: System sends Notification to Admin (Image 2 - Step 1 & 2)
       formattedDDCertificateLogs.push({
         id: `aud-dd-complete-notify-${activeDeal.dealId.slice(0, 6)}`,
@@ -1553,15 +1586,13 @@ export async function GET(req) {
         action: 'All Due Diligence Tasks Completed - Admin Notified',
         resource: 'Due Diligence Stage Verification Notification',
         channelName: '#deal-workflow-alerts',
-        module: 'Approvals & Governance',
+        module: 'Documents',
         deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
         dealId: activeDeal.dealId,
         projectName: activeDeal.projectName || 'Project',
         companyName: activeDeal.companyName || 'Vishwa Tech',
         result: 'Success',
-        timestamp: serverNotificationPayload?.timestamp
-          ? new Date(serverNotificationPayload.timestamp).toISOString()
-          : new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
+        timestamp: safeIsoDate(serverNotificationPayload?.timestamp, 20),
         ip: '127.0.0.1',
         device: 'Platform Scheduler',
         duration: '—',
@@ -1588,9 +1619,7 @@ export async function GET(req) {
 
       // Event 2: Admin will see and sign that Certificate (Image 2 - Step 3)
       const adminSigner = serverDDCertificate?.guestAdminSignature?.signer || activeDeal.buyerName || 'Arjun Mehta';
-      const adminTimestamp = serverDDCertificate?.guestAdminSignature?.timestamp
-        ? new Date(serverDDCertificate.guestAdminSignature.timestamp).toISOString()
-        : new Date(Date.now() - 16 * 3600 * 1000).toISOString();
+      const adminTimestamp = safeIsoDate(serverDDCertificate?.guestAdminSignature?.timestamp, 16);
 
       formattedDDCertificateLogs.push({
         id: `aud-dd-cert-admin-${activeDeal.dealId.slice(0, 6)}`,
@@ -1602,7 +1631,7 @@ export async function GET(req) {
         action: 'Due Diligence Certificate Signed by Admin',
         resource: 'Due Diligence Completion Certificate #DDC-2026-9F3A (Admin Signature)',
         channelName: '#approvals-vault',
-        module: 'Approvals & Governance',
+        module: 'Documents',
         deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
         dealId: activeDeal.dealId,
         projectName: activeDeal.projectName || 'Project',
@@ -1639,9 +1668,7 @@ export async function GET(req) {
 
       // Event 3: And send to S.P to review this certificate (Image 2 - Step 4)
       const spSigner = serverDDCertificate?.advisorSignature?.signer || 'Rohit Verma';
-      const spTimestamp = serverDDCertificate?.advisorSignature?.timestamp
-        ? new Date(serverDDCertificate.advisorSignature.timestamp).toISOString()
-        : new Date(Date.now() - 12 * 3600 * 1000).toISOString();
+      const spTimestamp = safeIsoDate(serverDDCertificate?.advisorSignature?.timestamp, 12);
 
       formattedDDCertificateLogs.push({
         id: `aud-dd-cert-sp-${activeDeal.dealId.slice(0, 6)}`,
@@ -1653,7 +1680,7 @@ export async function GET(req) {
         action: 'Certificate Reviewed & Signed by S.P',
         resource: 'Due Diligence Completion Certificate #DDC-2026-9F3A (S.P Advisory Review)',
         channelName: '#advisory-clean-room',
-        module: 'Approvals & Governance',
+        module: 'Documents',
         deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
         dealId: activeDeal.dealId,
         projectName: activeDeal.projectName || 'Project',
@@ -1690,9 +1717,7 @@ export async function GET(req) {
 
       // Event 4: If all OK send certificate to seller side to make communication & execute (Image 2 - Step 5)
       const sellerSuperAdmin = serverDDCertificate?.superAdminSignature?.signer || 'Vishwa Raj';
-      const sellerTimestamp = serverDDCertificate?.superAdminSignature?.timestamp
-        ? new Date(serverDDCertificate.superAdminSignature.timestamp).toISOString()
-        : new Date(Date.now() - 6 * 3600 * 1000).toISOString();
+      const sellerTimestamp = safeIsoDate(serverDDCertificate?.superAdminSignature?.timestamp, 6);
 
       formattedDDCertificateLogs.push({
         id: `aud-dd-cert-seller-${activeDeal.dealId.slice(0, 6)}`,
@@ -1704,7 +1729,7 @@ export async function GET(req) {
         action: 'Certificate Executed by Seller Super Admin',
         resource: 'Due Diligence Completion Certificate #DDC-2026-9F3A (Final Seller Execution)',
         channelName: '#deal-room-governance',
-        module: 'Approvals & Governance',
+        module: 'Documents',
         deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
         dealId: activeDeal.dealId,
         projectName: activeDeal.projectName || 'Project',
@@ -1741,6 +1766,266 @@ export async function GET(req) {
       });
     } catch (e) {
       console.warn('[AuditTrail] Error loading DD certificate logs:', e.message);
+    }
+
+    // 12f. Official Digital Signatures for Legal Agreements (Term Sheet, SPA, and Tasks)
+    let formattedAgreementSignLogs = [];
+    try {
+      // 1. Term Sheet Digital Signatures
+      const rawTermSheets = await db.select().from(biddingTermSheets);
+      rawTermSheets.forEach((ts) => {
+        if (ts.signatures && typeof ts.signatures === 'object') {
+          // Buyer Signature
+          if (ts.signatures.buyer && ts.signatures.buyer.signer) {
+            const bSig = ts.signatures.buyer;
+            let sigTimestamp = new Date().toISOString();
+            try {
+              if (bSig.signedAt) {
+                const parsed = new Date(bSig.signedAt.replace(' IST', ''));
+                if (!isNaN(parsed.getTime())) sigTimestamp = parsed.toISOString();
+              }
+            } catch (_) {}
+
+            formattedAgreementSignLogs.push({
+              id: `aud-sig-ts-buyer-${ts.id}`,
+              user: bSig.signer || activeDeal.buyerName || 'Vijay',
+              userEmail: activeDeal.buyerEmail || 'vijay@vdr.com',
+              userRole: bSig.role || 'Buyer Guest Admin',
+              side: 'buyer',
+              sideLabel: 'Buyer Side',
+              action: 'Binding Term Sheet Digitally Signed by Buyer',
+              resource: `[Digital Signature] Binding M&A Term Sheet signed by ${bSig.signer} (@${activeDeal.buyerCompany || 'Naga Tech'})`,
+              channelName: '#legal-agreements',
+              module: 'Documents',
+              deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+              dealId: activeDeal.dealId,
+              projectName: activeDeal.projectName || 'Project',
+              companyName: activeDeal.buyerCompany || 'Naga Tech',
+              result: 'Success',
+              timestamp: sigTimestamp,
+              ip: '198.51.100.42',
+              device: 'Chrome / Cryptographic Sign Pad',
+              duration: '—',
+              durationSeconds: null,
+              durationFormatted: '—',
+              durationText: '—',
+              eventType: 'document.term_sheet_signed_buyer',
+              outcome: 'SUCCESS',
+              failureReason: null,
+              permissionDecision: {
+                rule: 'Commercial Framework Execution Mandate',
+                verdict: 'Digitally Signed & Validated',
+              },
+              metadata: {
+                stage: 'Negotiation',
+                dealStage: 'Negotiation',
+                documentName: 'Binding M&A Term Sheet',
+                signer: bSig.signer,
+                role: bSig.role || 'Buyer Guest Admin',
+                signedAt: bSig.signedAt,
+                signatureType: 'Cryptographic Electronic Signature',
+                details: `Buyer Lead Principal ${bSig.signer} digitally signed the Binding M&A Term Sheet with agreed commercial valuation and exclusivity terms.`,
+              },
+              jsonPayload: {
+                document_type: 'term_sheet',
+                term_sheet_id: ts.id,
+                signer: bSig.signer,
+                role: bSig.role,
+                signed_at: bSig.signedAt,
+              },
+            });
+          }
+
+          // Seller Signature
+          if (ts.signatures.seller && ts.signatures.seller.signer) {
+            const sSig = ts.signatures.seller;
+            let sigTimestamp = new Date().toISOString();
+            try {
+              if (sSig.signedAt) {
+                const parsed = new Date(sSig.signedAt.replace(' IST', ''));
+                if (!isNaN(parsed.getTime())) sigTimestamp = parsed.toISOString();
+              }
+            } catch (_) {}
+
+            formattedAgreementSignLogs.push({
+              id: `aud-sig-ts-seller-${ts.id}`,
+              user: sSig.signer || 'Vishwa Raj',
+              userEmail: 'vishwa@gmail.com',
+              userRole: sSig.role || 'Seller Super Admin',
+              side: 'seller',
+              sideLabel: 'Seller Side',
+              action: 'Binding Term Sheet Executed & Approved by Seller',
+              resource: `[Digital Signature] Binding M&A Term Sheet countersigned & sealed by ${sSig.signer} (@${sSig.company || activeDeal.companyName || 'Vishwa Tech'})`,
+              channelName: '#legal-agreements',
+              module: 'Documents',
+              deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+              dealId: activeDeal.dealId,
+              projectName: activeDeal.projectName || 'Project',
+              companyName: sSig.company || activeDeal.companyName || 'Vishwa Tech',
+              result: 'Success',
+              timestamp: sigTimestamp,
+              ip: '127.0.0.1',
+              device: 'Chrome / Cryptographic Sign Pad',
+              duration: '—',
+              durationSeconds: null,
+              durationFormatted: '—',
+              durationText: '—',
+              eventType: 'document.term_sheet_executed_seller',
+              outcome: 'SUCCESS',
+              failureReason: null,
+              permissionDecision: {
+                rule: 'Seller Board Counter-Signature Mandate',
+                verdict: 'Countersigned & Board Approved',
+              },
+              metadata: {
+                stage: 'Negotiation',
+                dealStage: 'Negotiation',
+                documentName: 'Binding M&A Term Sheet',
+                signer: sSig.signer,
+                role: sSig.role || 'Seller Super Admin',
+                signedAt: sSig.signedAt,
+                signatureType: 'Board Seal & Execution Endorsement',
+                details: `Seller Super Admin ${sSig.signer} reviewed and countersigned the Binding M&A Term Sheet, ratifying bilateral commercial exclusivity.`,
+              },
+              jsonPayload: {
+                document_type: 'term_sheet',
+                term_sheet_id: ts.id,
+                signer: sSig.signer,
+                role: sSig.role,
+                signed_at: sSig.signedAt,
+              },
+            });
+          }
+        }
+      });
+
+      // 2. Definitive Share Purchase Agreement (SPA) Digital Signatures
+      const rawSpas = await db.select().from(biddingSpas);
+      rawSpas.forEach((spa) => {
+        if (spa.signatures && typeof spa.signatures === 'object') {
+          // Buyer SPA Signature
+          if (spa.signatures.buyer && spa.signatures.buyer.signer) {
+            const bSig = spa.signatures.buyer;
+            let sigTimestamp = new Date().toISOString();
+            try {
+              if (bSig.signedAt) {
+                const parsed = new Date(bSig.signedAt.replace(' IST', ''));
+                if (!isNaN(parsed.getTime())) sigTimestamp = parsed.toISOString();
+              }
+            } catch (_) {}
+
+            formattedAgreementSignLogs.push({
+              id: `aud-sig-spa-buyer-${spa.id}`,
+              user: bSig.signer || activeDeal.buyerName || 'Vijay',
+              userEmail: activeDeal.buyerEmail || 'vijay@vdr.com',
+              userRole: bSig.role || 'Buyer Lead Principal & Authorized Signatory',
+              side: 'buyer',
+              sideLabel: 'Buyer Side',
+              action: 'Definitive SPA Agreement Digitally Signed by Buyer',
+              resource: `[Digital Signature] Share Purchase Agreement (SPA) executed with digital seal by ${bSig.signer} (@${bSig.company || activeDeal.buyerCompany || 'Naga Tech'})`,
+              channelName: '#closing-vault',
+              module: 'Documents',
+              deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+              dealId: activeDeal.dealId,
+              projectName: activeDeal.projectName || 'Project',
+              companyName: bSig.company || activeDeal.buyerCompany || 'Naga Tech',
+              result: 'Success',
+              timestamp: sigTimestamp,
+              ip: '198.51.100.42',
+              device: 'Chrome / ESIGN Security Module',
+              duration: '—',
+              durationSeconds: null,
+              durationFormatted: '—',
+              durationText: '—',
+              eventType: 'document.spa_signed_buyer',
+              outcome: 'SUCCESS',
+              failureReason: null,
+              permissionDecision: {
+                rule: 'Definitive Acquisition Instrument Mandate',
+                verdict: 'Digitally Signed & Validated',
+              },
+              metadata: {
+                stage: 'Closing',
+                dealStage: 'Closing',
+                documentName: 'Share Purchase Agreement (SPA)',
+                signer: bSig.signer,
+                role: bSig.role,
+                signedAt: bSig.signedAt,
+                signatureType: 'Cryptographic ESIGN Seal',
+                details: `Buyer Lead Principal ${bSig.signer} affixed legal digital signature to the Definitive Share Purchase Agreement (SPA) for $15.0M consideration.`,
+              },
+              jsonPayload: {
+                document_type: 'spa',
+                spa_id: spa.id,
+                signer: bSig.signer,
+                signed_at: bSig.signedAt,
+              },
+            });
+          }
+
+          // Seller SPA Signature
+          if (spa.signatures.seller && spa.signatures.seller.signer) {
+            const sSig = spa.signatures.seller;
+            let sigTimestamp = new Date().toISOString();
+            try {
+              if (sSig.signedAt) {
+                const parsed = new Date(sSig.signedAt.replace(' IST', ''));
+                if (!isNaN(parsed.getTime())) sigTimestamp = parsed.toISOString();
+              }
+            } catch (_) {}
+
+            formattedAgreementSignLogs.push({
+              id: `aud-sig-spa-seller-${spa.id}`,
+              user: sSig.signer || 'Vishwa Raj',
+              userEmail: 'vishwa@gmail.com',
+              userRole: sSig.role || 'Seller Super Admin & Authorized Officer',
+              side: 'seller',
+              sideLabel: 'Seller Side',
+              action: 'Definitive SPA Agreement Executed & Sealed by Seller',
+              resource: `[Digital Signature] Share Purchase Agreement (SPA) bilateral closing endorsement by ${sSig.signer} (@${sSig.company || activeDeal.companyName || 'Vishwa Tech'})`,
+              channelName: '#closing-vault',
+              module: 'Documents',
+              deal: activeDeal.dealName || activeDeal.projectName || 'Active Deal',
+              dealId: activeDeal.dealId,
+              projectName: activeDeal.projectName || 'Project',
+              companyName: sSig.company || activeDeal.companyName || 'Vishwa Tech',
+              result: 'Success',
+              timestamp: sigTimestamp,
+              ip: '127.0.0.1',
+              device: 'Chrome / ESIGN Security Module',
+              duration: '—',
+              durationSeconds: null,
+              durationFormatted: '—',
+              durationText: '—',
+              eventType: 'document.spa_executed_seller',
+              outcome: 'SUCCESS',
+              failureReason: null,
+              permissionDecision: {
+                rule: 'Bilateral Acquisition Final Clearance',
+                verdict: 'Sealed & Deal Closed',
+              },
+              metadata: {
+                stage: 'Closing',
+                dealStage: 'Closing',
+                documentName: 'Share Purchase Agreement (SPA)',
+                signer: sSig.signer,
+                role: sSig.role,
+                signedAt: sSig.signedAt,
+                signatureType: 'Corporate Seal & Closing Endorsement',
+                details: `Seller Super Admin & Authorized Officer ${sSig.signer} executed final closing endorsement on the Definitive Share Purchase Agreement (SPA).`,
+              },
+              jsonPayload: {
+                document_type: 'spa',
+                spa_id: spa.id,
+                signer: sSig.signer,
+                signed_at: sSig.signedAt,
+              },
+            });
+          }
+        }
+      });
+    } catch (sigErr) {
+      console.warn('[AuditTrail] Error loading agreement signatures:', sigErr.message);
     }
 
     // 12g. Real Bidding & Negotiation Session Tracking (from biddingRounds & biddingBids)
@@ -2213,6 +2498,7 @@ export async function GET(req) {
       ...formattedTaskLogs,
       ...formattedBuyerDisclosureLogs,
       ...formattedDDCertificateLogs,
+      ...formattedAgreementSignLogs,
       ...formattedBiddingWorkflowLogs,
     ].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()

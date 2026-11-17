@@ -3,7 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/db';
-import { dmsDeals, dmsProjects, companies, users } from '@/db/schema';
+import { dmsDeals, dmsProjects, companies, users, documentEditLogs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +19,7 @@ export async function GET(request) {
     let sellerCompany = 'Vishwa Tech';
     let buyerCompany = "Test User's Firm";
     let periodText = '02 Sep to 30 Oct 2026';
+    let activeDealObj = null;
 
     try {
       let query = db.select().from(dmsDeals);
@@ -28,6 +29,7 @@ export async function GET(request) {
       const deals = await query.limit(1);
 
       if (deals.length > 0) {
+        activeDealObj = deals[0];
         const deal = deals[0];
         dealName = deal.dealName || dealName;
         dealNumber = `D-${deal.id.slice(0, 5).toUpperCase()}`;
@@ -377,6 +379,31 @@ export async function GET(request) {
     drawCenteredText('Strictly confidential  |  Authorized Buyer & Seller Counterparty Attestation', footerY - 10, 6.8, fontItalic, rgb(0.55, 0.6, 0.65));
 
     const pdfBytes = await pdfDoc.save();
+
+    // Log official Due Diligence Certificate download to document_edit_logs for audit trails
+    try {
+      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-real-ip') || '127.0.0.1';
+      const actorUserId = searchParams.get('userId') || activeDealObj?.buyerId || '240d8762-77e2-40c0-aa87-1e2cee0c2c52';
+      const targetWorkspaceId = requestedDealId || activeDealObj?.id || '51013f2a-99dd-4405-95fb-f25502053455';
+
+      await db.insert(documentEditLogs).values({
+        userId: actorUserId,
+        documentId: targetWorkspaceId,
+        actionType: 'DOWNLOAD_ORIGINAL',
+        metadata: {
+          file_name: `Due_Diligence_Completion_Certificate_${certSerial}.pdf`,
+          document_name: 'Due Diligence Completion Certificate',
+          download_type: 'REPORT_PDF',
+          ip_address: clientIp,
+          workspace_id: targetWorkspaceId,
+          deal_name: dealName,
+          doc_serial: certSerial,
+        },
+        changedAt: new Date(),
+      });
+    } catch (logErr) {
+      console.warn('Could not insert certificate download log in document_edit_logs:', logErr.message);
+    }
 
     return new Response(pdfBytes, {
       status: 200,

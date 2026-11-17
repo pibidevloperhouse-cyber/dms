@@ -139,7 +139,7 @@ export default function StageControlPage() {
                   : "bg-slate-200 hover:bg-slate-300 text-slate-700"
               }`}
             >
-              <span>Request to Advance Stage</span>
+              <span>{nextStage ? "Request to Advance Stage" : "Deal Fully Executed & Closed"}</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -163,7 +163,7 @@ export default function StageControlPage() {
         </div>
 
         {/* Stepper track */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
           {stages.map((stage, idx) => {
             const isSelected = stage.id === selectedStageTab;
             const isCompleted = stage.status === "completed";
@@ -243,7 +243,11 @@ export default function StageControlPage() {
 
             {/* Checklist Table / Rows */}
             <div className="space-y-3.5">
-              {(displayedStage.gates || gates).map((gate) => {
+              {(displayedStage.gates || gates)
+                .filter(
+                  (g) => g.source !== "approvals" && !g.id?.includes("approvals")
+                )
+                .map((gate) => {
                 const isComplete = gate.status === "completed";
                 const isBlocked = gate.status === "blocked";
                 const moduleLink = getSourceModuleLink(gate.source);
@@ -355,7 +359,9 @@ export default function StageControlPage() {
                 }`}
               >
                 {isReadyToAdvance
-                  ? `All mandatory documents, task signoffs, risk reviews, and signatory approval chains are 100% satisfied. Advancement to Stage ${nextStage?.order || currentStage.order + 1}: ${nextStage?.name || 'Next Stage'} is authorized.`
+                  ? (nextStage
+                      ? `All mandatory documents, task signoffs, and risk reviews are 100% satisfied. Advancement to Stage ${nextStage.order}: ${nextStage.name} is authorized.`
+                      : "All closing covenants, definitive SPA execution, and escrow settlements are 100% verified. Deal is officially complete and closed!")
                   : `Stage advancement is currently blocked. ${currentBlockers.length} condition(s) must be resolved before proceeding to ${nextStage?.name || 'the next stage'}.`}
               </p>
 
@@ -399,7 +405,13 @@ export default function StageControlPage() {
                     : "bg-white border border-rose-300 text-rose-800 hover:bg-rose-100/50"
                 }`}
               >
-                <span>{isReadyToAdvance ? `Proceed to Stage ${nextStage?.order || currentStage.order + 1}: ${nextStage?.name || 'Next Stage'}` : "Inspect Blocker Resolution"}</span>
+                <span>
+                  {isReadyToAdvance
+                    ? (nextStage
+                        ? `Proceed to Stage ${nextStage.order}: ${nextStage.name}`
+                        : "Deal Fully Completed & Closed")
+                    : "Inspect Blocker Resolution"}
+                </span>
                 <ArrowRight size={13} />
               </button>
             </div>

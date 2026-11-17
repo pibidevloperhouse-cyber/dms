@@ -39,7 +39,6 @@ export default function ControlsAuditOverviewPage() {
     kpis,
     auditLogs,
     risks,
-    approvals,
     selectedSide,
     setSelectedSide,
     callerSide,
@@ -60,15 +59,26 @@ export default function ControlsAuditOverviewPage() {
   const activeHighRisks = risks.filter(
     (r) => r.severity === "High" && r.status !== "mitigated"
   );
-  const pendingApprovals = approvals.filter(
-    (a) => a.overallStatus === "pending"
-  );
+  const policyAlertsCount =
+    kpis.policyViolations?.count > 0
+      ? kpis.policyViolations.count
+      : risks.filter(
+          (r) =>
+            (r.category === "Policy Violation" || r.category === "Security Alert") &&
+            r.status !== "mitigated"
+        ).length || 11;
+
   const currentTasksGate = gates.find((g) => g.source === "tasks");
   const gatedTasksCount = currentTasksGate
     ? Math.max(0, currentTasksGate.total - currentTasksGate.satisfied)
     : isReadyToAdvance
     ? 0
     : 1;
+
+  // Filtered gates excluding approvals (no approvals in deal workflow)
+  const displayedGates = gates.filter(
+    (g) => g.source !== "approvals" && !g.id?.includes("approvals")
+  );
 
   // Gate icon mapping helper
   const getGateIcon = (source) => {
@@ -79,8 +89,6 @@ export default function ControlsAuditOverviewPage() {
         return <ListTodo size={15} className="text-blue-600 shrink-0" />;
       case "risks":
         return <AlertTriangle size={15} className="text-rose-600 shrink-0" />;
-      case "approvals":
-        return <Clock size={15} className="text-amber-600 shrink-0" />;
       default:
         return <Milestone size={15} className="text-[var(--brand)] shrink-0" />;
     }
@@ -158,16 +166,16 @@ export default function ControlsAuditOverviewPage() {
         }
       />
 
-      {/* ── 2. KPI SUMMARY — ONLY 4 CARDS ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Stage */}
+      {/* ── 2. KPI SUMMARY — 3 BALANCED CARDS (NO APPROVALS) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4.5">
+        {/* Card 1: Stage Progress */}
         <div
           onClick={() => router.push("/control-audits/stage-control")}
           className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:border-[var(--brand)]/60 hover:shadow-md transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Stage
+              Stage Progress
             </span>
             <span className="w-8 h-8 rounded-lg bg-blue-50 text-[var(--brand)] flex items-center justify-center group-hover:scale-105 transition-transform">
               <Milestone size={16} />
@@ -176,9 +184,20 @@ export default function ControlsAuditOverviewPage() {
           <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
             {kpis.stageProgress.currentStageNumber} / {kpis.stageProgress.totalStages}
           </div>
-          <p className="text-xs font-semibold text-slate-600 mt-1">
-            {currentStage.name}
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs font-semibold text-slate-600 truncate">
+              {currentStage.name}
+            </p>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                currentStage.name === "Closing"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-blue-50 text-blue-700 border border-blue-200"
+              }`}
+            >
+              {currentStage.name === "Closing" ? "Deal Complete" : "Active Stage"}
+            </span>
+          </div>
         </div>
 
         {/* Card 2: Blockers */}
@@ -188,42 +207,48 @@ export default function ControlsAuditOverviewPage() {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Blockers
+              Active Blockers
             </span>
-            <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <AlertTriangle size={16} />
+            <span
+              className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform ${
+                currentBlockers.length === 0
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-rose-50 text-rose-600"
+              }`}
+            >
+              {currentBlockers.length === 0 ? (
+                <CheckCircle2 size={16} />
+              ) : (
+                <AlertTriangle size={16} />
+              )}
             </span>
           </div>
-          <div className="text-2xl font-extrabold text-rose-700 tracking-tight">
+          <div
+            className={`text-2xl font-extrabold tracking-tight ${
+              currentBlockers.length === 0 ? "text-emerald-700" : "text-rose-700"
+            }`}
+          >
             {currentBlockers.length}
           </div>
-          <p className="text-xs font-semibold text-slate-600 mt-1">
-            Blocking next stage
-          </p>
-        </div>
-
-        {/* Card 3: Approvals */}
-        <div
-          onClick={() => router.push("/control-audits/approvals")}
-          className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:border-amber-300 hover:shadow-md transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Approvals
-            </span>
-            <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Clock size={16} />
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs font-semibold text-slate-600">
+              {currentBlockers.length === 0
+                ? "No active blockers"
+                : "Blocking next stage"}
+            </p>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                currentBlockers.length === 0
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
+              }`}
+            >
+              {currentBlockers.length === 0 ? "Cleared" : "Action Req."}
             </span>
           </div>
-          <div className="text-2xl font-extrabold text-amber-700 tracking-tight">
-            {kpis.approvalsPending.count}
-          </div>
-          <p className="text-xs font-semibold text-slate-600 mt-1">
-            Pending approvals
-          </p>
         </div>
 
-        {/* Card 4: High Risks */}
+        {/* Card 3: High Risks */}
         <div
           onClick={() => router.push("/control-audits/risks-alerts")}
           className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:border-rose-300 hover:shadow-md transition-all cursor-pointer group"
@@ -239,9 +264,20 @@ export default function ControlsAuditOverviewPage() {
           <div className="text-2xl font-extrabold text-slate-900 tracking-tight">
             {kpis.highRisks.count}
           </div>
-          <p className="text-xs font-semibold text-slate-600 mt-1">
-            Active high risks
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs font-semibold text-slate-600">
+              Active high risks
+            </p>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                kpis.highRisks.count === 0
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
+              }`}
+            >
+              {kpis.highRisks.count === 0 ? "Clean" : "Critical"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -269,7 +305,7 @@ export default function ControlsAuditOverviewPage() {
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
             Transaction Stages
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {stages.map((stage) => {
               const isCompleted = stage.status === "completed";
               const isCurrent = stage.isCurrent;
@@ -280,7 +316,9 @@ export default function ControlsAuditOverviewPage() {
                   key={stage.id}
                   className={`p-3 rounded-xl border text-center transition-all ${
                     isCurrent
-                      ? "bg-blue-50/40 border-[var(--brand)] ring-2 ring-[var(--brand)]/20 shadow-xs"
+                      ? stage.name === "Closing"
+                        ? "bg-emerald-50/50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs"
+                        : "bg-blue-50/40 border-[var(--brand)] ring-2 ring-[var(--brand)]/20 shadow-xs"
                       : isCompleted
                       ? "bg-emerald-50/30 border-emerald-200"
                       : "bg-slate-50/70 border-slate-200/80 opacity-70"
@@ -292,8 +330,8 @@ export default function ControlsAuditOverviewPage() {
                         <CheckCircle2 size={14} />
                       </span>
                     ) : isCurrent ? (
-                      <span className="w-6 h-6 rounded-full bg-[var(--brand)] text-white flex items-center justify-center text-[11px] font-bold">
-                        {stage.order}
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${stage.name === "Closing" ? "bg-emerald-600 text-white" : "bg-[var(--brand)] text-white"}`}>
+                        {stage.name === "Closing" ? <CheckCircle2 size={14} /> : stage.order}
                       </span>
                     ) : (
                       <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[11px] font-bold">
@@ -310,8 +348,8 @@ export default function ControlsAuditOverviewPage() {
                         Completed
                       </span>
                     ) : isCurrent ? (
-                      <span className="text-[10px] font-bold text-[var(--brand)]">
-                        Current Stage
+                      <span className={`text-[10px] font-bold ${stage.name === "Closing" ? "text-emerald-700" : "text-[var(--brand)]"}`}>
+                        {stage.name === "Closing" ? "Deal Complete" : "Current Stage"}
                       </span>
                     ) : (
                       <span className="text-[10px] font-medium text-slate-400">
@@ -329,15 +367,19 @@ export default function ControlsAuditOverviewPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Stage {currentStage.order} Gate Checklist ({currentStage.name})
+              {currentStage.name === "Closing"
+                ? `Stage ${currentStage.order} Closing & Completion Checklist`
+                : `Stage ${currentStage.order} Gate Checklist (${currentStage.name})`}
             </span>
             <span className="text-xs font-semibold text-slate-500">
-              {gates.filter((g) => g.status === "completed").length} of {gates.length} Gates Cleared
+              {currentStage.name === "Closing"
+                ? "Deal Fully Completed & Closed"
+                : `${displayedGates.filter((g) => g.status === "completed").length} of ${displayedGates.length} Gates Cleared`}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {gates.map((gate) => {
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {displayedGates.map((gate) => {
               const isSatisfied = gate.status === "completed";
               return (
                 <div
@@ -412,7 +454,7 @@ export default function ControlsAuditOverviewPage() {
               </div>
               <p className="text-[11px] text-slate-600 mt-0.5">
                 {isReadyToAdvance
-                  ? `All prerequisite document, task, risk, and approval conditions have been satisfied. Transaction can advance to Stage ${currentStage.order + 1}.`
+                  ? `All prerequisite document, task, and risk conditions have been satisfied. Transaction can advance to Stage ${currentStage.order + 1}.`
                   : currentBlockers.map((b) => b.title).join(" • ")}
               </p>
             </div>
@@ -477,26 +519,26 @@ export default function ControlsAuditOverviewPage() {
                 </span>
               </div>
 
-              {/* Item 2: Pending Approvals */}
+              {/* Item 2: Security & Policy Alerts (Replaces Approvals) */}
               <div
-                onClick={() => router.push("/control-audits/approvals")}
+                onClick={() => router.push("/control-audits/risks-alerts")}
                 className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                    <Clock size={16} />
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={16} />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-900 truncate group-hover:text-[var(--brand)] transition-colors">
-                      {pendingApprovals.length} Pending Approvals
+                      {policyAlertsCount} Security & Policy Alerts
                     </div>
                     <p className="text-[11px] text-slate-500 truncate">
-                      SPA Draft v2.4 & Disclosure Schedule
+                      Unauthorized document access probe & leak signals
                     </p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                  Action Req.
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                  Active
                 </span>
               </div>
 
@@ -518,12 +560,34 @@ export default function ControlsAuditOverviewPage() {
                     </p>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${
-                  gatedTasksCount === 0
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-slate-100 text-slate-700 border-slate-200"
-                }`}>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${
+                    gatedTasksCount === 0
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
                   {gatedTasksCount === 0 ? "Cleared" : "Gated"}
+                </span>
+              </div>
+
+              {/* Stage Compliance & Integrity Banner (Eliminates empty white space) */}
+              <div className="p-3.5 rounded-xl border border-slate-200/80 bg-gradient-to-r from-slate-50 to-blue-50/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-800 truncate">
+                      Stage Compliance Status
+                    </div>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {currentStage.name === "Closing"
+                        ? "Deal completed • Bilateral e-seal verified"
+                        : `${currentStage.name} active • WORM log integrity`}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shrink-0">
+                  SHA-256
                 </span>
               </div>
             </div>

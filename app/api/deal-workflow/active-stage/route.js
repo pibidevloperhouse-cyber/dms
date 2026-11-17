@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dmsDeals, dmsProjects, companies, users, dealTasks } from '@/db/schema';
+import { dmsDeals, dmsProjects, companies, users, dealTasks, biddingSpas } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
@@ -196,9 +196,18 @@ export async function GET() {
     }
     const dealMeta = await getDealMetadata();
 
+    // If SPA is executed in DB, Negotiation is officially concluded and active stage is Closing (Deal Complete)
+    let effectiveActiveStage = serverActiveStage;
+    try {
+      const spas = await db.select().from(biddingSpas).limit(1);
+      if (spas.length > 0 && spas[0].status === 'executed' && spas[0].signatures?.buyer && spas[0].signatures?.seller) {
+        effectiveActiveStage = 'Closing';
+      }
+    } catch (_) {}
+
     return NextResponse.json({
       success: true,
-      activeStage: serverActiveStage,
+      activeStage: effectiveActiveStage,
       dealMeta,
       notificationPayload: serverNotificationPayload,
       stageQuery: serverStageQuery,

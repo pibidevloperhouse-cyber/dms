@@ -6,6 +6,7 @@ import {
   Upload,
   Eye,
   CheckCircle2,
+  FileCheck2,
   XCircle,
   KeyRound,
   HelpCircle,
@@ -28,6 +29,7 @@ import StatusBadge from "./StatusBadge";
 
 export function getActionIcon(action = "") {
   const norm = action.toLowerCase();
+  if (norm.includes("sign")) return <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />;
   if (norm.includes("bid") || norm.includes("gavel") || norm.includes("negotiation") || norm.includes("loi")) {
     return <Gavel className="w-3.5 h-3.5 text-teal-600" />;
   }
@@ -40,7 +42,7 @@ export function getActionIcon(action = "") {
   if (norm.includes("view")) return <Eye className="w-3.5 h-3.5 text-sky-600" />;
   if (norm.includes("delet") || norm.includes("trash")) return <Trash2 className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("approv")) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
-  if (norm.includes("login") || norm.includes("sign")) return <KeyRound className="w-3.5 h-3.5 text-indigo-600" />;
+  if (norm.includes("login")) return <KeyRound className="w-3.5 h-3.5 text-indigo-600" />;
   if (norm.includes("denied") || norm.includes("fail")) return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
   if (norm.includes("permission")) return <KeyRound className="w-3.5 h-3.5 text-amber-600" />;
   if (norm.includes("asked")) return <HelpCircle className="w-3.5 h-3.5 text-purple-600" />;
