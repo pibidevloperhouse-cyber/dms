@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import Link from "next/link";
+import ForestCard from "@/components/ForestCard";
 import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaServer, FaBriefcase } from "react-icons/fa";
 
 export default function DMSLanding() {
@@ -494,6 +495,9 @@ export default function DMSLanding() {
           </div>
         </div>
       </section>
+
+      {/* Forest of the Future Card Banner */}
+      <ForestCard />
 
       {/* The Seller's Journey */}
       <section className="py-24 px-4 md:px-16 bg-gray-50">
