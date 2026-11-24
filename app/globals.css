@@ -3,16 +3,40 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --brand: #1C7F9F;
-  --brand-dark: #166882;
-  --brand-soft: rgba(28, 127, 159, 0.14);
-  --brand-rgb: 28,127,159;
-  --brand-secondary: #2BB8A6;
-  --brand-50: rgba(var(--brand-rgb), 0.08);
-  --brand-100: rgba(var(--brand-rgb), 0.16);
-  --brand-200: rgba(var(--brand-rgb), 0.24);
+  /* Neutrals */
+  --neutral-black: rgb(0, 0, 0);
+  --neutral-dark: rgb(23, 23, 23);
+  --neutral-navy: rgb(15, 23, 42);
+  --background: rgb(255, 255, 255);
+  --foreground: rgb(15, 23, 42);
+
+  /* Primary Blue Palette */
+  --brand: rgb(15, 78, 165);
+  --brand-rgb: 15, 78, 165;
+  --brand-dark: rgb(11, 60, 128);
+  --brand-soft: rgba(15, 78, 165, 0.08);
+  --brand-secondary: rgb(28, 127, 159);
+  --brand-50: rgba(15, 78, 165, 0.08);
+  --brand-100: rgba(15, 78, 165, 0.16);
+  --brand-200: rgba(15, 78, 165, 0.24);
+  --primary-blue: rgb(15, 78, 165);
+  --primary-blue-tint: rgba(15, 78, 165, 0.08);
+
+  /* System / Status Colors */
+  --status-red: rgb(255, 95, 86);
+  --status-yellow: rgb(255, 189, 46);
+  --status-green: rgb(39, 201, 63);
+
+  /* Advanced Color Spaces (oklab / lab for precise luminance control) */
+  --color-primary-oklab: oklab(0.44 -0.01 -0.18);
+  --color-primary-tint-oklab: oklab(0.44 -0.01 -0.18 / 0.08);
+  --bg-subtle-oklab: oklab(0.985 -0.002 -0.006);
+  --bg-overlay-oklab: oklab(0.965 0.001 -0.012 / 0.65);
+  --border-subtle-oklab: oklab(0.915 0.001 -0.008 / 0.8);
+  --ring-faint-oklab: oklab(0.91 0.001 -0.015 / 0.75);
+  --status-red-oklab: oklab(0.66 0.21 0.12);
+  --status-yellow-oklab: oklab(0.81 0.05 0.17);
+  --status-green-oklab: oklab(0.74 -0.19 0.14);
 }
 
 @theme inline {
@@ -506,3 +530,210 @@ textarea {
   background-color: #ffffff;
 }
 
+
+.hero-full-bleed-bg {
+  background:
+    radial-gradient(ellipse 48% 75% at top left, rgb(0 0 0 / 88%) 0%, rgb(0 0 0 / 66%) 30%, transparent 100%),
+    radial-gradient(ellipse 48% 75% at top right, rgb(0 0 0 / 88%) 0%, rgb(0 0 0 / 66%) 30%, transparent 100%),
+    radial-gradient(
+    ellipse at 50% 35%,
+    #1360b4 0%,
+    #104b91 48%,
+    #102f60 85%
+  );
+}
+
+.hero-background {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero-background .ring {
+  position: absolute;
+  top: 53%;
+  left: 50%;
+  width: 48%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: linear-gradient(
+    115deg,
+    #171c83 3%,
+    #1258a9 40%,
+    #b0bfd7 75%
+  );
+}
+
+.hero-background .ring::after {
+  content: "";
+  position: absolute;
+  inset: 17.5%;
+  border-radius: 50%;
+  background: radial-gradient(circle at top, #0c1426, #080d1b 72%);
+}
+
+.hero-background .ring::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 20%;
+  left: 50%;
+  width: 48%;
+  aspect-ratio: 211 / 140;
+  transform: translateX(-50%);
+  background: url("/deal-hero-building.svg") center / contain no-repeat;
+}
+
+.hero-background .ring[data-closed="true"]::before {
+  filter: brightness(1.65) drop-shadow(0 0 2px #6fffe2) drop-shadow(0 0 8px #14b8a6);
+}
+
+.hero-background .trace {
+  position: absolute;
+  top: 47%;
+  width: 11%;
+  height: 34%;
+  color: #a3b9cf;
+  opacity: 0.52;
+}
+
+.hero-background .trace-left {
+  left: 5.4%;
+}
+
+.hero-background .trace-right {
+  right: 5.4%;
+  transform: scaleX(-1);
+}
+
+.hero-background .trace::before,
+.hero-background .trace::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  border: 0 solid currentColor;
+}
+
+.hero-background .trace::before {
+  inset: 0 0 64% 0;
+  border-right-width: 1.5px;
+}
+
+.hero-background .trace::after {
+  inset: 36% 0 0 0;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.hero-background .terminal {
+  position: absolute;
+  width: max(8px, 0.95vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hero-background .trace .terminal {
+  bottom: 0;
+  left: 0;
+  transform: translate(-50%, 50%);
+}
+
+.hero-background .short-trace {
+  position: absolute;
+  top: 81%;
+  left: 18.2%;
+  width: 16%;
+  border-top: 1.5px solid currentColor;
+  color: #a3b9cf;
+  opacity: 0.52;
+}
+
+.hero-background .short-trace .terminal {
+  transform: translate(-50%, -50%);
+}
+
+
+
+
+
+.deal-hero-title {
+  font-size: clamp(1.2rem, 5.1vw, 4.6rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+}
+
+.deal-hero-title > span {
+  display: block;
+}
+
+@supports (background-clip: text) {
+  .deal-hero-title {
+    background-image: linear-gradient(to bottom, #fff 15%, #dcf5ff 50%, #8de7f5 95%);
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+.deal-stage-card {
+  top: var(--card-top);
+  --card-shift: 0px;
+  transform: translate(calc(-50% + var(--card-shift)), -100%);
+}
+
+.deal-stage-card:is([data-side="left"], [data-side="right"]) {
+  top: var(--badge-top);
+  width: min(225px, calc(30cqw - 42px));
+  --side-gap: 36px;
+  transform: translate(calc(-100% - var(--side-gap)), -50%);
+}
+
+.deal-stage-card:is([data-side="left"], [data-side="right"]) > div {
+  min-width: 0;
+}
+
+.deal-stage-card:is([data-side="left"], [data-side="right"]) h4 {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.deal-stage-card[data-side="left"] .deal-stage-pointer {
+  top: calc(50% - 6px);
+  left: calc(100% - 6px);
+  bottom: auto;
+}
+
+@media (min-width: 640px) {
+  .deal-stage-card:is([data-side="left"], [data-side="right"]) {
+    width: min(225px, calc(30cqw - 54px));
+    --side-gap: 46px;
+  }
+}
+
+@media (max-width: 639px) {
+  .deal-stage-card:is([data-side="left"], [data-side="right"]) > div { padding: 6px 3px; }
+  .deal-stage-card:is([data-side="left"], [data-side="right"]) button { padding-inline: 3px; gap: 2px; }
+}
+
+
+.deal-stage-pointer {
+  bottom: -6px;
+  left: calc(50% - var(--card-shift) - 6px);
+}
+
+
+.deal-stage-card[data-side="right"] {
+  transform: translate(var(--side-gap), -50%);
+}
+
+.deal-stage-card[data-side="right"] .deal-stage-pointer {
+  top: calc(50% - 6px);
+  left: -6px;
+  bottom: auto;
+}

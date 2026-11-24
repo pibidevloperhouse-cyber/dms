@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import Link from "next/link";
+import DocumentWorkspaceHero from "@/components/landing/DocumentWorkspaceHero";
 import { FaFolderOpen, FaBars, FaTimes, FaChevronDown, FaServer, FaBriefcase } from "react-icons/fa";
 
 export default function Home() {
@@ -147,33 +148,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Hero Section */}
-      <section className="min-h-screen flex flex-col md:flex-row items-center justify-between px-4 md:px-16 pt-32 pb-16 bg-gradient-to-br from-[var(--brand)]/10 to-[var(--brand-secondary)]/10">
-        <div className="flex-1 max-w-xl text-center md:text-left" data-aos="fade-right" data-aos-duration="800">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-800 leading-tight mb-6">Secure Your Business Data with Smart VDR Platform</h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-8">IPO, Due Diligence, Legal Docs — All in One Place. Enterprise-grade security meets intelligent collaboration.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-            <Link href="/login" className="w-full sm:w-auto px-8 py-3 bg-[var(--brand)] text-white rounded-full font-semibold shadow-lg hover:bg-[var(--brand-dark)] hover:shadow-xl hover:scale-102 transition-all duration-300 flex items-center justify-center gap-2">Get Started <i className="fas fa-arrow-right"></i></Link>
-            <button className="w-full sm:w-auto px-8 py-3 border-2 border-[var(--brand)] text-[var(--brand)] rounded-full font-semibold hover:bg-[var(--brand)]/10 transition-all duration-300 flex items-center justify-center gap-2">Request Demo <i className="fas fa-play"></i></button>
-          </div>
-        </div>
-        <div className="flex-1 flex justify-center mt-16 md:mt-0 w-full" data-aos="fade-left" data-aos-duration="800">
-          <div className="relative w-72 h-72 md:w-80 md:h-80 scale-90 md:scale-100">
-            <div className="absolute top-0 left-0 bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center gap-2 animate-float">
-              <FaFolderOpen className="text-4xl text-[var(--brand)]" />
-              <p className="font-semibold text-gray-700">Due Diligence</p>
-            </div>
-            <div className="absolute top-20 right-0 bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center gap-2 animate-float-delayed">
-              <i className="fas fa-lock text-4xl text-green-500"></i>
-              <p className="font-semibold text-gray-700">Watermark Active</p>
-            </div>
-            <div className="absolute bottom-0 left-10 bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center gap-2 animate-float">
-              <i className="fas fa-chart-line text-4xl text-purple-500"></i>
-              <p className="font-semibold text-gray-700">Analytics</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Document Workspace Hero Section */}
+      <DocumentWorkspaceHero
+        headlinePrimary="Move your deal forward."
+        headlineAccent="From first interest to close."
+        description="Discover opportunities, manage due diligence, and share deal documents with the right people at each stage."
+        primaryActionText="Sell your business"
+        primaryActionHref="/business-owner/login"
+        secondaryActionText="Find a deal"
+        secondaryActionHref="/dms/marketplace/find_deal"
+        supportsPrivateByDefault={true}
+        supportsAccessControls={true}
+      />
 
       {/* Features Section */}
       <section className="py-20 px-4 md:px-16 bg-white" data-aos="fade-up">
