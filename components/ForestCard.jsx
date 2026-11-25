@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Store, ShieldCheck, CheckSquare, FileText, Gavel, ArrowRight, Lock } from "lucide-react";
+import { Store, ShieldCheck, CheckSquare, FileText, Gavel, Lock } from "lucide-react";
 
 export default function ForestCard() {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -1125,30 +1125,140 @@ export default function ForestCard() {
             </div>
           </div>
         ) : (
-          <div className="w-full h-full bg-[#f8fafc] p-2.5 sm:p-3 flex flex-col justify-between select-none font-sans">
-            <div className="flex items-center justify-between border-b border-slate-200/90 pb-1.5">
-              <span className="text-[11px] font-bold text-slate-900">Bidding Round 2 & Closing</span>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                Round Active (24h)
-              </span>
+          <div className="w-full h-full bg-[#f8fafc] p-2 flex flex-col justify-between select-none font-sans overflow-hidden">
+            {/* Top Sub-Nav Bar */}
+            <div className="flex items-center justify-between border-b border-slate-200/80 pb-1 text-[5.5px] shrink-0">
+              <div className="flex items-center gap-2.5 text-slate-500 font-semibold">
+                <span>← Deal Workflow</span>
+                <span className="text-[#0d9488] border-b border-[#0d9488] pb-0.5 font-bold">
+                  My Bid & Proposal
+                </span>
+                <span>Bid History</span>
+                <span>Messages</span>
+                <span>Term Sheet</span>
+                <span>SPA Agreement</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200 text-[5px] font-bold text-slate-600 uppercase">
+                  Buyer Portal
+                </span>
+                <span className="text-[7.5px] text-slate-500">🔔</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 my-1.5">
-              <div className="p-2 rounded-lg bg-white border border-slate-200 shadow-2xs">
-                <span className="text-[8px] font-bold text-slate-400 block uppercase">Top Binding Offer</span>
-                <span className="text-sm font-black text-slate-900">₹18.5 Cr</span>
-                <span className="text-[8px] text-emerald-600 block mt-0.5 font-semibold">100% Cash at Close</span>
+            {/* 3 KPI Cards */}
+            <div className="grid grid-cols-3 gap-1.5 shrink-0">
+              <div className="bg-white border border-slate-200/80 rounded-lg p-1.5 shadow-2xs flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-md bg-emerald-50 border border-emerald-100 text-[#0d9488] flex items-center justify-center text-[8px] font-bold shrink-0">
+                  $
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[4.5px] font-bold text-slate-400 uppercase truncate">
+                    Seller Asking Benchmark
+                  </p>
+                  <p className="text-[9px] font-black text-slate-900 leading-tight">10.0M</p>
+                  <p className="text-[4.5px] text-slate-400 truncate">Enterprise valuation target</p>
+                </div>
               </div>
-              <div className="p-2 rounded-lg bg-white border border-slate-200 shadow-2xs">
-                <span className="text-[8px] font-bold text-slate-400 block uppercase">SPA Execution</span>
-                <span className="text-sm font-black text-emerald-600">2 / 2 Signed</span>
-                <span className="text-[8px] text-slate-500 block mt-0.5">Escrow Deposit Confirmed</span>
+              <div className="bg-white border border-slate-200/80 rounded-lg p-1.5 shadow-2xs flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-md bg-emerald-50 border border-emerald-100 text-[#0d9488] flex items-center justify-center text-[8px] font-bold shrink-0">
+                  ↗
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[4.5px] font-bold text-slate-400 uppercase truncate">
+                    Your Current Offer
+                  </p>
+                  <p className="text-[9px] font-black text-[#0d9488] leading-tight">$10.0M</p>
+                  <p className="text-[4.5px] text-slate-400 truncate">70% Cash / 30% Stock</p>
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200/80 rounded-lg p-1.5 shadow-2xs flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-md bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center text-[7.5px] font-bold shrink-0">
+                  📅
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[4.5px] font-bold text-slate-400 uppercase truncate">
+                    Submission Deadline
+                  </p>
+                  <p className="text-[8.5px] font-black text-slate-900 leading-tight">25 Nov 2026</p>
+                  <p className="text-[4.5px] text-slate-400 truncate">Bilateral submission window</p>
+                </div>
               </div>
             </div>
 
-            <div className="p-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white flex items-center justify-between text-[9px] font-bold shadow-xs">
-              <span>🎉 Ready for Definitive Settlement</span>
-              <span className="bg-white/20 px-2 py-0.5 rounded">EXECUTE →</span>
+            {/* Prepare Acquisition Proposal Card */}
+            <div className="bg-white border border-slate-200/80 rounded-lg p-2 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
+              <div className="flex items-start justify-between gap-2 shrink-0">
+                <div>
+                  <h4 className="text-[8px] font-extrabold text-slate-900 leading-tight">
+                    Prepare Acquisition Proposal
+                  </h4>
+                  <p className="text-[5px] text-slate-400">
+                    Configure your binding acquisition terms, consideration mix, and attached documents.
+                  </p>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-[5px] font-semibold text-slate-600 shrink-0">
+                  Initial binding proposal
+                </span>
+              </div>
+
+              {/* Row 1: Offer Amount & Expected Close Date */}
+              <div className="grid grid-cols-2 gap-2 shrink-0">
+                <div>
+                  <p className="text-[5px] font-bold text-slate-600 mb-0.5">Offer Amount ($)</p>
+                  <div className="border border-slate-200/80 rounded px-1.5 py-1 bg-slate-50/40 text-[6.5px] font-bold text-slate-800 flex items-center gap-1">
+                    <span className="text-slate-400">$</span>
+                    <span>10000000</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[5px] font-bold text-slate-600 mb-0.5">Expected Close Date</p>
+                  <div className="border border-slate-200/80 rounded px-1.5 py-1 bg-white text-[6.5px] font-semibold text-slate-700 flex items-center justify-between">
+                    <span>25-11-2026</span>
+                    <span className="text-slate-400 text-[6px]">📅</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Consideration Structure Slider */}
+              <div className="border border-slate-200/70 rounded-md p-1.5 bg-slate-50/30 shrink-0">
+                <div className="flex items-center justify-between text-[5.5px] mb-1">
+                  <span className="font-bold text-slate-700">Consideration Structure</span>
+                  <span className="font-bold text-[#0d9488]">70% Cash / 30% Stock</span>
+                </div>
+                <div className="relative w-full h-1 rounded-full bg-slate-200 flex items-center">
+                  <div className="w-[70%] h-full rounded-full bg-[#0d9488]" />
+                  <span className="w-2 h-2 rounded-full bg-[#0d9488] border border-white shadow-xs -ml-1" />
+                </div>
+                <div className="flex items-center justify-between text-[4.5px] text-slate-400 mt-1">
+                  <span>100% Stock</span>
+                  <span>50 / 50</span>
+                  <span>100% Cash</span>
+                </div>
+              </div>
+
+              {/* Row 3: Financing Type & Key Contingencies */}
+              <div className="grid grid-cols-2 gap-2 shrink-0">
+                <div>
+                  <p className="text-[5px] font-bold text-slate-600 mb-0.5">Financing Type</p>
+                  <div className="border border-slate-200/80 rounded px-1.5 py-0.5 bg-white text-[6px] font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Committed debt + equity</span>
+                    <span className="text-slate-400">⌄</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[5px] font-bold text-slate-600 mb-0.5">Key Contingencies</p>
+                  <div className="border border-slate-200/80 rounded px-1.5 py-0.5 bg-slate-50/40 text-[6px] text-slate-400 h-[18px]" />
+                </div>
+              </div>
+
+              {/* Row 4: Strategic Note */}
+              <div className="shrink-0">
+                <p className="text-[5px] font-bold text-slate-600 mb-0.5">Strategic Note to Seller Board</p>
+                <div className="border border-slate-200/80 rounded px-1.5 py-1 bg-slate-50/40 text-[5.5px] text-slate-400">
+                  Add context on your acquisition proposal, synergies, or conditions...
+                </div>
+              </div>
             </div>
           </div>
         ),
@@ -1279,54 +1389,43 @@ export default function ForestCard() {
       </div>
 
       {/* ========================================================= */}
-      {/* 2. THE CARD: WIDER WIDTH & 80% HEIGHT                     */}
+      {/* 2. CONTENT: LEFT CONTROLS & RIGHT PC MONITOR (NO CARD)    */}
       {/* ========================================================= */}
-      <div className="w-full md:w-[88%] lg:w-[88%] xl:w-[86%] mx-auto px-4">
+      <div className="relative w-full">
+        {/* Left-edge vertical gradient accent pill tab spanning from Seller/Buyer to Monitor bottom */}
+        <div className="hidden md:block absolute left-0 top-6 lg:top-7 w-5 lg:w-7 h-[415px] lg:h-[435px] bg-gradient-to-b from-[#1f6fb2] to-[#2ec4b6] rounded-r-2xl z-30 shadow-md pointer-events-none" />
+        <div className="w-full md:w-[94%] lg:w-[94%] xl:w-[92%] mx-auto px-4">
         <div
           data-aos="fade-up"
-          className="relative w-full rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.08)] border border-slate-200/90 bg-[#f4f7fc] flex flex-col md:flex-row h-auto md:h-[76vh] md:min-h-[480px] md:max-h-[560px] select-none transition-all duration-500"
+          className="relative w-full bg-white flex flex-col md:flex-row h-auto md:h-[76vh] md:min-h-[480px] md:max-h-[560px] select-none transition-all duration-500"
         >
-          {/* Subtle Digital Circuit Overlay on Card Background */}
-          <div className="absolute inset-0 z-0 pointer-events-none opacity-25 overflow-hidden">
-            <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern id="digitalGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1f6fb2" strokeWidth="0.5" strokeOpacity="0.25" />
-                  <circle cx="0" cy="0" r="1" fill="#1f6fb2" fillOpacity="0.4" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#digitalGrid)" />
-              {/* Digital Circuit traces */}
-              <path d="M 0 80 H 90 L 130 120 H 250 L 290 160" fill="none" stroke="#1f6fb2" strokeWidth="1.2" strokeOpacity="0.25" strokeDasharray="6 3" />
-              <circle cx="90" cy="80" r="2.5" fill="#1f6fb2" />
-              <circle cx="250" cy="120" r="2.5" fill="#1f6fb2" />
-              <circle cx="290" cy="160" r="3" fill="#1f6fb2" />
-              <path d="M 40 380 H 180 L 220 340 H 340" fill="none" stroke="#2ec4b6" strokeWidth="1.2" strokeOpacity="0.25" strokeDasharray="5 3" />
-              <circle cx="180" cy="380" r="2" fill="#2ec4b6" />
-              <circle cx="340" cy="340" r="2.5" fill="#2ec4b6" />
-            </svg>
-          </div>
-
-          {/* Left accent vertical pill tab (Harmonized gradient) */}
-          <div className="absolute left-0 top-[28%] -translate-y-1/2 w-3 sm:w-4 md:w-5 h-24 sm:h-28 md:h-32 bg-gradient-to-b from-[#1f6fb2] to-[#2ec4b6] rounded-r-2xl z-30 shadow-md pointer-events-none" />
-
           {/* Left Content Column */}
-          <div className="relative z-10 w-full md:w-[38%] lg:w-[37%] xl:w-[36%] h-full p-5 sm:p-6 md:p-6 lg:p-7 pr-3 sm:pr-4 flex flex-col justify-start bg-gradient-to-r from-white via-[#f8fafc] to-[#f4f7fc] shrink-0">
-            {/* Top Row: Digital Symbol & Double Chevrons */}
+          <div className="relative z-10 w-full md:w-[38%] lg:w-[37%] xl:w-[36%] h-full py-5 sm:py-6 md:py-6 lg:py-7 pl-1 sm:pl-2 md:pl-2 pr-3 sm:pr-4 flex flex-col justify-start bg-white shrink-0">
+            {/* Top Row: Seller/Buyer Toggle & Double Chevrons (Aligned Straight) */}
             <div className="flex items-center justify-between gap-2 sm:gap-3">
-              {/* Digital Symbol Badge */}
-              <div
-                key={`badge-${activeSlide}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200/90 shadow-sm hover:border-[#1f6fb2]/40 transition-all duration-300 animate-slideSub"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2ec4b6] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2ec4b6]"></span>
-                </span>
-                <current.Icon className="w-3.5 h-3.5 text-[#1f6fb2] animate-pulse" />
-                <span className="text-[9px] sm:text-[10px] font-mono font-bold tracking-wider text-slate-800 uppercase">
-                  {current.symbolLabel}
-                </span>
+              <div className="inline-flex items-center p-1.5 rounded-2xl bg-white border border-[#1f6fb2]/30 shadow-md ring-4 ring-[#2ec4b6]/10 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRoleMode("seller")}
+                  className={`px-5 sm:px-6 py-2 rounded-xl text-sm font-extrabold tracking-wide transition-all cursor-pointer ${
+                    roleMode === "seller"
+                      ? "bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] text-white shadow-md shadow-[#1f6fb2]/30 scale-[1.03]"
+                      : "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  Seller
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleMode("buyer")}
+                  className={`px-5 sm:px-6 py-2 rounded-xl text-sm font-extrabold tracking-wide transition-all cursor-pointer ${
+                    roleMode === "buyer"
+                      ? "bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] text-white shadow-md shadow-[#1f6fb2]/30 scale-[1.03]"
+                      : "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
+                  }`}
+                >
+                  Buyer
+                </button>
               </div>
 
               {/* Double Arrow Chevrons (Interactive next button) */}
@@ -1334,7 +1433,7 @@ export default function ForestCard() {
                 type="button"
                 onClick={nextSlide}
                 title="Next slide"
-                className="text-slate-800 hover:text-[#1f6fb2] hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer p-0.5"
+                className="text-slate-800 hover:text-[#1f6fb2] hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer p-0.5 shrink-0"
               >
                 <svg
                   className="w-11 h-6 sm:w-12 sm:h-7 md:w-14 md:h-8"
@@ -1367,41 +1466,17 @@ export default function ForestCard() {
               </button>
             </div>
 
-            {/* Middle Section: Animated Big Bold Title & Subtitle & Buttons */}
+            {/* Middle Section: Animated Big Bold Title & Subtitle (Vertically Centered) */}
             <div
               key={activeSlide}
-              className="mt-10 sm:mt-14 md:mt-16 lg:mt-20 py-1 transition-all duration-500 animate-slideText"
+              className="my-auto pb-6 transition-all duration-500 animate-slideText"
             >
-              <div className="mb-6 sm:mb-7 md:mb-8 inline-flex items-center p-1.5 rounded-2xl bg-white border border-[#1f6fb2]/30 shadow-md ring-4 ring-[#2ec4b6]/10 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setRoleMode("seller")}
-                  className={`px-4 sm:px-5 py-1.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer ${
-                    roleMode === "seller"
-                      ? "bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] text-white shadow-md shadow-[#1f6fb2]/30 scale-[1.03]"
-                      : "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-                  }`}
-                >
-                  Seller
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoleMode("buyer")}
-                  className={`px-4 sm:px-5 py-1.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer ${
-                    roleMode === "buyer"
-                      ? "bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] text-white shadow-md shadow-[#1f6fb2]/30 scale-[1.03]"
-                      : "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-                  }`}
-                >
-                  Buyer
-                </button>
-              </div>
 
               <h2
                 className={`${
                   (current.titleLine1 + current.titleLine2).length > 13
-                    ? "text-xl sm:text-2xl md:text-[21px] lg:text-[25px] xl:text-[28px]"
-                    : "text-2xl sm:text-3xl md:text-[28px] lg:text-[34px] xl:text-[38px]"
+                    ? "text-2xl sm:text-3xl md:text-[28px] lg:text-[33px] xl:text-[37px]"
+                    : "text-3xl sm:text-4xl md:text-[38px] lg:text-[46px] xl:text-[52px]"
                 } whitespace-nowrap font-black text-slate-900 uppercase tracking-tight leading-[1.05] drop-shadow-sm font-sans`}
               >
                 {current.titleLine1}
@@ -1410,31 +1485,16 @@ export default function ForestCard() {
                   {current.titleLine2}
                 </span>
               </h2>
-              <p className="mt-2 text-xs sm:text-[12.5px] lg:text-[13px] text-slate-600 font-medium tracking-normal leading-relaxed animate-slideSub">
+              <p className="mt-3 sm:mt-4 text-base sm:text-[17px] lg:text-[18px] text-slate-600 font-medium tracking-normal leading-relaxed animate-slideSub">
                 {current.subtitle}
               </p>
-
-              {/* Requested Action Button: Controls & reflects real PC screen */}
-              <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={nextSlide}
-                  className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] shadow-md hover:shadow-lg hover:shadow-[#1f6fb2]/25 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer group"
-                >
-                  <span>{current.buttonText}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <span className="text-[10px] font-mono font-bold text-slate-400 bg-white border border-slate-200/80 px-2 py-1 rounded-md">
-                  0{activeSlide + 1} / 05
-                </span>
-              </div>
             </div>
           </div>
 
           {/* ========================================================= */}
           {/* Right Column: Real PC Monitor Screen (Interactive UI)    */}
           {/* ========================================================= */}
-          <div className="w-full md:w-[62%] lg:w-[63%] xl:w-[64%] h-auto md:h-full relative overflow-hidden flex flex-col items-center justify-start pt-5 sm:pt-6 md:pt-6 lg:pt-7 pb-4 px-2 sm:px-3 md:px-4 bg-[#f4f7fc]">
+          <div className="w-full md:w-[62%] lg:w-[63%] xl:w-[64%] h-auto md:h-full relative overflow-hidden flex flex-col items-center justify-start pt-5 sm:pt-6 md:pt-6 lg:pt-7 pb-4 px-2 sm:px-3 md:px-4 bg-white">
             {/* Monitor Outer Shell: Controlled Width & Enhanced Height */}
             <div className="w-full max-w-[640px] lg:max-w-[670px] bg-slate-900 border-[6px] sm:border-[7px] md:border-[8px] border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_25px_60px_rgba(15,23,42,0.22)]">
               {/* Top Monitor Bezel with Web Camera & Window Controls */}
@@ -1490,6 +1550,7 @@ export default function ForestCard() {
               <div className="w-32 h-1.5 bg-gradient-to-r from-slate-500 via-slate-400 to-slate-500 rounded-full shadow-md" />
             </div>
           </div>
+        </div>
         </div>
       </div>
 
