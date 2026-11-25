@@ -27,6 +27,8 @@ export default function DMSLanding() {
 
   const journeyRef = useRef(null);
   const [roadProgress, setRoadProgress] = useState(0);
+  const buyerJourneyRef = useRef(null);
+  const [buyerProgress, setBuyerProgress] = useState(0);
 
   useEffect(() => {
     AOS.init({
@@ -42,14 +44,23 @@ export default function DMSLanding() {
     let rafId = null;
 
     const updateProgress = () => {
-      if (!journeyRef.current) return;
-      const rect = journeyRef.current.getBoundingClientRect();
       const vh = window.innerHeight;
-      const startY = vh * 0.85;
-      const totalScrollable = rect.height + vh * 0.35;
-      const raw = (startY - rect.top) / totalScrollable;
-      const clamped = Math.max(0, Math.min(1, raw));
-      setRoadProgress(clamped);
+
+      if (journeyRef.current) {
+        const rect = journeyRef.current.getBoundingClientRect();
+        const startY = vh * 0.85;
+        const totalScrollable = rect.height + vh * 0.35;
+        const raw = (startY - rect.top) / totalScrollable;
+        setRoadProgress(Math.max(0, Math.min(1, raw)));
+      }
+
+      if (buyerJourneyRef.current) {
+        const rect = buyerJourneyRef.current.getBoundingClientRect();
+        const startY = vh * 0.88;
+        const totalScrollable = Math.max(rect.height * 0.9, vh * 0.42);
+        const raw = (startY - rect.top) / totalScrollable;
+        setBuyerProgress(Math.max(0, Math.min(1, raw)));
+      }
     };
 
     const onScroll = () => {
@@ -543,6 +554,11 @@ export default function DMSLanding() {
               aria-hidden="true"
             >
               <defs>
+                <linearGradient id="sellerRoadGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#06d6c8" />
+                  <stop offset="50%" stopColor="#0ea5e9" />
+                  <stop offset="100%" stopColor="#1d4ed8" />
+                </linearGradient>
                 <mask id="sellerRoadRevealMask">
                   <path
                     d="M 790 155 Q 790 200 745 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
@@ -561,23 +577,24 @@ export default function DMSLanding() {
                 {/* Dashed lead-in from Card 1 (top-right) to road start */}
                 <path
                   d="M 790 155 Q 790 200 745 200 L 360 200"
-                  stroke="#94a3b8"
+                  stroke="#06d6c8"
                   strokeWidth="3"
                   strokeDasharray="10 10"
                   strokeLinecap="round"
                 />
-                {/* Wide soft road track */}
+                {/* Wide gradient road track */}
                 <path
                   d="M 360 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
-                  stroke="#e2e8f0"
+                  stroke="url(#sellerRoadGradient)"
                   strokeWidth="52"
                   strokeLinecap="butt"
                   strokeLinejoin="round"
                 />
-                {/* Dashed center line */}
+                {/* Crisp white dashed center line */}
                 <path
                   d="M 360 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
-                  stroke="#94a3b8"
+                  stroke="#ffffff"
+                  strokeOpacity="0.9"
                   strokeWidth="3"
                   strokeDasharray="10 10"
                   strokeLinecap="round"
@@ -688,8 +705,8 @@ export default function DMSLanding() {
 
           {/* Mobile / Tablet Vertical Road */}
           <div className="lg:hidden relative pl-10 space-y-8">
-            <div className="absolute left-5 top-4 bottom-4 w-2 -translate-x-1/2 bg-[#e2e8f0] rounded-full" />
-            <div className="absolute left-5 top-4 bottom-4 w-0 -translate-x-1/2 border-l-2 border-dashed border-[#94a3b8]" />
+            <div className="absolute left-5 top-4 bottom-4 w-3 -translate-x-1/2 bg-gradient-to-b from-[#06d6c8] via-[#0ea5e9] to-[#1d4ed8] rounded-full" />
+            <div className="absolute left-5 top-4 bottom-4 w-0 -translate-x-1/2 border-l-2 border-dashed border-white/90" />
 
             <div className="relative bg-gradient-to-br from-white via-[#f5f8ff] to-[#eaf1ff] p-6 rounded-2xl shadow-md border border-[#d6e4ff]">
               <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[var(--brand)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">01</div>
@@ -735,66 +752,148 @@ export default function DMSLanding() {
       </section>
 
       {/* The Buyer's Journey */}
-      <section className="py-24 px-4 md:px-16 bg-white relative">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col lg:flex-row-reverse items-center gap-16">
-            <div className="flex-1" data-aos="fade-left">
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-6">The Buyer's Journey</h2>
-              <p className="text-xl text-gray-500 mb-8">Discover, analyze, and acquire premium businesses with confidence.</p>
+      <section className="py-24 px-4 md:px-16 bg-gradient-to-br from-[#0F4EA5] via-[#1d63cc] to-[#2b7fff] relative overflow-hidden">
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="mb-12" data-aos="fade-up">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-3">The Buyer&apos;s Journey</h2>
+            <p className="text-lg md:text-xl text-blue-100 max-w-2xl">Discover, analyze, and acquire premium businesses with confidence.</p>
+          </div>
 
-              <div className="space-y-6">
-                <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                  <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaSearch /></div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-lg">Explore Marketplace</h4>
-                    <p className="text-gray-600">Browse anonymous teasers on our Deal Marketplace to find the perfect acquisition target.</p>
+          <div ref={buyerJourneyRef} className="relative">
+            {/* Continuous Orange Wave Across All 4 Phase Cards (Desktop) */}
+            <div className="hidden lg:block pointer-events-none absolute -left-[25%] -right-[25%] bottom-6 h-40 z-10">
+              <svg
+                className="w-full h-full"
+                viewBox="-300 0 1800 160"
+                preserveAspectRatio="none"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M -300 115 C -140 105, 10 40, 144 40 C 246 40, 346 120, 448 120 C 550 120, 650 40, 752 40 C 854 40, 954 120, 1056 120 C 1190 120, 1340 55, 1500 45"
+                  stroke="#fb7c3c"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                  pathLength="1"
+                  strokeDasharray="1"
+                  strokeDashoffset={1 - buyerProgress}
+                />
+              </svg>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Phase 1 (Peak -> Pill Below) */}
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.12 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+                <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="0">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 1</span>
+                  <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Explore Marketplace</h3>
+                  <p className="text-sm text-[#4b5563] leading-relaxed">Browse anonymous teasers on our Deal Marketplace to find the perfect acquisition target.</p>
+                </div>
+
+                {/* Wave Node + Insight Pill (Desktop) */}
+                <div className="hidden lg:block relative h-40 z-20">
+                  <div className="absolute left-1/2 top-[40px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm" />
+                  <div className="absolute left-1/2 top-[50px] -translate-x-1/2 flex flex-col items-center">
+                    <div className="w-0.5 h-5 bg-[#18181b]" />
+                    <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2 whitespace-nowrap">
+                      <FaSearch className="text-[#fb7c3c]" />
+                      <span>Browse Teasers</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaKey /></div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-lg">Request Access & Sign NDA</h4>
-                    <p className="text-gray-600">Express interest and instantly sign a digital e-Signature NDA upon Seller approval.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                  <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaShieldAlt /></div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-lg">Due Diligence in Private Workspace</h4>
-                    <p className="text-gray-600">Enter your secure VDR. Unveil the CIM, review classified documents, and ask direct questions via the Q&A module.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                  <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xl flex-shrink-0"><FaHandshake /></div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-lg">Submit Bid & Sign SPA</h4>
-                    <p className="text-gray-600">Confidently submit your Letter of Intent (LOI). If accepted, sign the final SPA digitally to close the deal.</p>
+                {/* Mobile Badge */}
+                <div className="lg:hidden mt-6 pt-4 border-t-2 border-[#fb7c3c]/40 flex justify-center">
+                  <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+                    <FaSearch className="text-[#fb7c3c]" />
+                    <span>Browse Teasers</span>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 w-full" data-aos="fade-right">
-              <div className="bg-gray-50 rounded-3xl p-8 border border-gray-200 shadow-inner relative">
-                {/* Mockup UI of Buyer Dashboard */}
-                <div className="bg-white rounded-xl shadow-md border border-gray-100 p-5 mb-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="font-bold text-gray-700">Deal Marketplace</span>
-                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Live</span>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="p-4 border border-gray-100 rounded-lg hover:border-blue-300 transition-colors cursor-pointer">
-                      <div className="text-sm text-gray-400 mb-1">Teaser ID: #9042</div>
-                      <div className="font-bold text-lg mb-2">Profitable SaaS Startup</div>
-                      <div className="flex gap-2">
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">$10M Revenue</span>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">Tech</span>
-                      </div>
-                      <button className="mt-4 w-full py-2 bg-indigo-600 text-white rounded font-medium text-sm hover:bg-indigo-700 transition-colors">Request NDA & Access</button>
+              {/* Phase 2 (Trough -> Pill Above) */}
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.35 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+                <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="100">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 2</span>
+                  <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Request Access &amp; Sign NDA</h3>
+                  <p className="text-sm text-[#4b5563] leading-relaxed">Express interest and instantly sign a digital e-Signature NDA upon Seller approval.</p>
+                </div>
+
+                {/* Wave Node + Insight Pill (Desktop) */}
+                <div className="hidden lg:block relative h-40 z-20">
+                  <div className="absolute left-1/2 bottom-[50px] -translate-x-1/2 flex flex-col items-center">
+                    <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2 whitespace-nowrap">
+                      <FaKey className="text-[#fb7c3c]" />
+                      <span>e-Signature NDA</span>
                     </div>
+                    <div className="w-0.5 h-5 bg-[#18181b]" />
+                  </div>
+                  <div className="absolute left-1/2 top-[120px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm" />
+                </div>
+
+                {/* Mobile Badge */}
+                <div className="lg:hidden mt-6 pt-4 border-t-2 border-[#fb7c3c]/40 flex justify-center">
+                  <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+                    <FaKey className="text-[#fb7c3c]" />
+                    <span>e-Signature NDA</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phase 3 (Peak -> Pill Below) */}
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.58 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+                <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="200">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 3</span>
+                  <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Private Workspace</h3>
+                  <p className="text-sm text-[#4b5563] leading-relaxed">Enter your secure VDR. Unveil the CIM, review classified documents, and ask questions via Q&amp;A.</p>
+                </div>
+
+                {/* Wave Node + Insight Pill (Desktop) */}
+                <div className="hidden lg:block relative h-40 z-20">
+                  <div className="absolute left-1/2 top-[40px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm" />
+                  <div className="absolute left-1/2 top-[50px] -translate-x-1/2 flex flex-col items-center">
+                    <div className="w-0.5 h-5 bg-[#18181b]" />
+                    <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2 whitespace-nowrap">
+                      <FaShieldAlt className="text-[#fb7c3c]" />
+                      <span>VDR &amp; Q&amp;A Module</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Badge */}
+                <div className="lg:hidden mt-6 pt-4 border-t-2 border-[#fb7c3c]/40 flex justify-center">
+                  <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+                    <FaShieldAlt className="text-[#fb7c3c]" />
+                    <span>VDR &amp; Q&amp;A Module</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phase 4 (Trough -> Pill Above) */}
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.80 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+                <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 4</span>
+                  <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Submit Bid &amp; Sign SPA</h3>
+                  <p className="text-sm text-[#4b5563] leading-relaxed">Confidently submit your Letter of Intent (LOI). If accepted, sign the final SPA digitally to close.</p>
+                </div>
+
+                {/* Wave Node + Insight Pill (Desktop) */}
+                <div className="hidden lg:block relative h-40 z-20">
+                  <div className="absolute left-1/2 bottom-[50px] -translate-x-1/2 flex flex-col items-center">
+                    <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2 whitespace-nowrap">
+                      <FaHandshake className="text-[#fb7c3c]" />
+                      <span>LOI &amp; Digital SPA</span>
+                    </div>
+                    <div className="w-0.5 h-5 bg-[#18181b]" />
+                  </div>
+                  <div className="absolute left-1/2 top-[120px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm" />
+                </div>
+
+                {/* Mobile Badge */}
+                <div className="lg:hidden mt-6 pt-4 border-t-2 border-[#fb7c3c]/40 flex justify-center">
+                  <div className="bg-[#18181b] text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+                    <FaHandshake className="text-[#fb7c3c]" />
+                    <span>LOI &amp; Digital SPA</span>
                   </div>
                 </div>
               </div>
