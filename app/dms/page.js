@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import Link from "next/link";
@@ -25,6 +25,9 @@ export default function DMSLanding() {
     }));
   };
 
+  const journeyRef = useRef(null);
+  const [roadProgress, setRoadProgress] = useState(0);
+
   useEffect(() => {
     AOS.init({
       duration: 700,
@@ -33,6 +36,35 @@ export default function DMSLanding() {
       offset: 30,
       easing: 'ease-out-quad'
     });
+  }, []);
+
+  useEffect(() => {
+    let rafId = null;
+
+    const updateProgress = () => {
+      if (!journeyRef.current) return;
+      const rect = journeyRef.current.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const startY = vh * 0.85;
+      const totalScrollable = rect.height + vh * 0.35;
+      const raw = (startY - rect.top) / totalScrollable;
+      const clamped = Math.max(0, Math.min(1, raw));
+      setRoadProgress(clamped);
+    };
+
+    const onScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateProgress);
+    };
+
+    updateProgress();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   return (
@@ -478,34 +510,225 @@ export default function DMSLanding() {
       <ForestCard />
 
       {/* The Seller's Journey */}
-      <section className="py-24 px-4 md:px-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16" data-aos="fade-up">
-            <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">The Seller's Journey</h2>
-            <p className="text-xl text-gray-500">A seamless pathway to list, market, and sell your company.</p>
+      <section className="pt-24 pb-24 lg:pb-0 px-4 md:px-16 bg-[#f1f5fb] relative overflow-hidden">
+        {/* Decorative dot-matrix patterns in corners */}
+        <div
+          className="pointer-events-none absolute top-10 left-8 w-44 h-44 opacity-35"
+          style={{
+            backgroundImage: "radial-gradient(#94a3b8 2px, transparent 2px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute bottom-10 right-8 w-44 h-44 opacity-35"
+          style={{
+            backgroundImage: "radial-gradient(#94a3b8 2px, transparent 2px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-12 lg:mb-0 lg:text-left lg:absolute lg:left-[3%] lg:top-[10px] lg:max-w-xl z-20" data-aos="fade-up">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight mb-3">The Seller's Journey</h2>
+            <p className="text-lg md:text-xl text-[#4b5568]">A seamless pathway to list, market, and sell your company.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative">
-            <div className="absolute top-1/2 left-0 w-full h-1 bg-indigo-100 -z-10 hidden lg:block transform -translate-y-1/2"></div>
 
-            {/* Step 1 & 2 */}
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-shadow group" data-aos="fade-up" data-aos-delay="0">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold mb-6 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">01</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">Onboarding & Project Creation</h3>
-              <p className="text-gray-600">Sign up and access your dashboard. Create a new confidential project by inputting industry and revenue metrics—completely hidden from the public.</p>
+          {/* Desktop Winding Road Journey */}
+          <div ref={journeyRef} className="hidden lg:block relative w-full h-[1080px]">
+            <svg
+              className="w-full h-full"
+              viewBox="0 0 1000 1080"
+              preserveAspectRatio="none"
+              fill="none"
+              aria-hidden="true"
+            >
+              <defs>
+                <mask id="sellerRoadRevealMask">
+                  <path
+                    d="M 790 155 Q 790 200 745 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
+                    stroke="white"
+                    strokeWidth="64"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pathLength="1"
+                    strokeDasharray="1"
+                    strokeDashoffset={1 - roadProgress}
+                  />
+                </mask>
+              </defs>
+
+              <g mask="url(#sellerRoadRevealMask)">
+                {/* Dashed lead-in from Card 1 (top-right) to road start */}
+                <path
+                  d="M 790 155 Q 790 200 745 200 L 360 200"
+                  stroke="#94a3b8"
+                  strokeWidth="3"
+                  strokeDasharray="10 10"
+                  strokeLinecap="round"
+                />
+                {/* Wide soft road track */}
+                <path
+                  d="M 360 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
+                  stroke="#e2e8f0"
+                  strokeWidth="52"
+                  strokeLinecap="butt"
+                  strokeLinejoin="round"
+                />
+                {/* Dashed center line */}
+                <path
+                  d="M 360 200 L 250 200 A 165 165 0 0 0 250 530 L 750 530 A 165 165 0 0 1 750 860 L 220 860 A 100 100 0 0 0 120 960 L 120 1080"
+                  stroke="#94a3b8"
+                  strokeWidth="3"
+                  strokeDasharray="10 10"
+                  strokeLinecap="round"
+                />
+              </g>
+            </svg>
+
+            {/* Card 1 (Top-Right) with 01 badge */}
+            <div className={`absolute right-[2%] top-[0px] w-[460px] overflow-visible bg-gradient-to-br from-white via-[#f5f8ff] to-[#eaf1ff] p-7 rounded-2xl shadow-[0_10px_30px_rgba(15,78,165,0.08)] border border-[#d6e4ff] hover:border-[var(--brand)]/50 hover:shadow-[0_16px_40px_rgba(15,78,165,0.14)] transition-all duration-500 group z-20 ${roadProgress >= 0.04 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-gradient-to-r from-[var(--brand)] to-[#2563eb]" />
+              <div className="absolute -left-5 -top-5 w-14 h-14 rounded-full bg-[var(--brand)] text-white ring-4 ring-white shadow-md flex items-center justify-center text-base font-extrabold">
+                01
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-[var(--brand)] text-white flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
+                  <FaBriefcase />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-[#1f2738] mb-2 group-hover:text-[var(--brand)] transition-colors">Onboarding & Project Creation</h3>
+                  <p className="text-[#505b6f] text-[15px] leading-relaxed">Sign up and create a confidential project with industry and revenue metrics—hidden from the public.</p>
+                </div>
+              </div>
             </div>
 
-            {/* Step 3 & 4 */}
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-shadow group" data-aos="fade-up" data-aos-delay="100">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold mb-6 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">02</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">VDR Setup & Teaser Publishing</h3>
-              <p className="text-gray-600">Upload structured documents (Financials, Legal) into the VDR. Generate an anonymous 'Teaser' and publish it live to the Buyer Marketplace.</p>
+            {/* Road Dot: Stage 1 (Start of wide road) */}
+            <div className={`absolute left-[36%] top-[200px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.16 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+              <div className="absolute top-12 w-60 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">1. Register &amp; Setup Project</p>
+                <p className="text-sm text-[#505b6f] mt-0.5">Confidential deal profile</p>
+              </div>
             </div>
 
-            {/* Step 5, 6, 7 */}
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-shadow group" data-aos="fade-up" data-aos-delay="200">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-bold mb-6 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all">03</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">Monitor, Q&A & Close</h3>
-              <p className="text-gray-600">Approve buyers, enforce NDAs, and manage isolated Workspaces. Monitor audit logs, answer Q&As, review bids, and digitally sign the SPA.</p>
+            {/* Milestone 02 on Track 2 */}
+            <div className={`absolute left-[25%] top-[530px] -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-[#2563eb] text-white ring-4 ring-white shadow-md flex items-center justify-center text-base font-extrabold z-20 transition-all duration-500 ${roadProgress >= 0.34 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              02
+            </div>
+            {/* Road Dots: Stages 2, 3, 4 */}
+            <div className={`absolute left-[42%] top-[530px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.43 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">2. Create Teaser &amp; Accept Requests</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            <div className={`absolute left-[59%] top-[530px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.50 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">3. Sign NDA &amp; Create Deal Room</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            <div className={`absolute left-[75%] top-[530px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.57 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">4. VDR (Virtual Data Room)</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            {/* Card 2 */}
+            <div className={`absolute left-[4%] top-[576px] w-[390px] overflow-hidden bg-gradient-to-br from-white via-[#f3f8ff] to-[#e5f0ff] p-6 rounded-2xl shadow-[0_10px_30px_rgba(37,99,235,0.08)] border border-[#cfe0ff] hover:border-[#2563eb]/50 hover:shadow-[0_16px_40px_rgba(37,99,235,0.14)] transition-all duration-500 group z-10 ${roadProgress >= 0.36 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#2563eb] to-[#38bdf8]" />
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-[#2563eb] text-white flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                  <FaFileContract />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#1f2738] mb-1.5 group-hover:text-[#2563eb] transition-colors">VDR Setup & Teaser Publishing</h3>
+                  <p className="text-[#505b6f] text-sm leading-relaxed">Publish an anonymous Teaser, approve buyer requests, enforce NDAs, and organize your Virtual Data Room.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Milestone 03 on Track 3 (Right side, entering from U-turn) */}
+            <div className={`absolute left-[75%] top-[860px] -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-[var(--brand-secondary)] text-white ring-4 ring-white shadow-md flex items-center justify-center text-base font-extrabold z-20 transition-all duration-500 ${roadProgress >= 0.68 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              03
+            </div>
+            {/* Road Dots: Stages 5, 6, 7 (flowing right-to-left) */}
+            <div className={`absolute left-[60%] top-[860px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.74 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">5. Due Diligence (Q&amp;A &amp; Review)</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            <div className={`absolute left-[43%] top-[860px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.80 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">6. Bidding (Offer Comparison)</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            <div className={`absolute left-[25%] top-[860px] -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center transition-all duration-500 ${roadProgress >= 0.86 ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+              <div className="absolute bottom-12 w-44 text-center">
+                <p className="text-[15px] font-bold text-[#1f2738] leading-snug">7. Closing (SPA &amp; Deal Done!)</p>
+              </div>
+              <div className="w-5 h-5 rounded-full bg-[#1e293b] ring-4 ring-white shadow-sm" />
+            </div>
+            {/* Card 3 */}
+            <div className={`absolute right-[3%] top-[906px] w-[440px] overflow-hidden bg-gradient-to-br from-white via-[#f2fbfc] to-[#e3f5f7] p-6 rounded-2xl shadow-[0_10px_30px_rgba(28,127,159,0.08)] border border-[#cbeaf0] hover:border-[var(--brand-secondary)]/55 hover:shadow-[0_16px_40px_rgba(28,127,159,0.16)] transition-all duration-500 group z-10 ${roadProgress >= 0.70 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[var(--brand-secondary)] to-[#0ea5e9]" />
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-[var(--brand-secondary)] text-white flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                  <FaHandshake />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#1f2738] mb-1.5 group-hover:text-[var(--brand-secondary)] transition-colors">Monitor, Q&A & Close</h3>
+                  <p className="text-[#505b6f] text-sm leading-relaxed">Manage due diligence Q&amp;As, compare buyer offers, and close the deal with a digitally signed SPA.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile / Tablet Vertical Road */}
+          <div className="lg:hidden relative pl-10 space-y-8">
+            <div className="absolute left-5 top-4 bottom-4 w-2 -translate-x-1/2 bg-[#e2e8f0] rounded-full" />
+            <div className="absolute left-5 top-4 bottom-4 w-0 -translate-x-1/2 border-l-2 border-dashed border-[#94a3b8]" />
+
+            <div className="relative bg-gradient-to-br from-white via-[#f5f8ff] to-[#eaf1ff] p-6 rounded-2xl shadow-md border border-[#d6e4ff]">
+              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[var(--brand)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">01</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-[var(--brand)] text-white flex items-center justify-center text-sm"><FaBriefcase /></div>
+                <h3 className="text-lg font-bold text-[#1f2738]">Onboarding & Project Creation</h3>
+              </div>
+              <p className="text-[#505b6f] text-sm leading-relaxed mb-3">Sign up and create a confidential project with industry and revenue metrics—hidden from the public.</p>
+              <ul className="space-y-1 text-xs font-semibold text-[#1f2738]">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)]" />1. Register &amp; Setup Project</li>
+              </ul>
+            </div>
+
+            <div className="relative bg-gradient-to-br from-white via-[#f3f8ff] to-[#e5f0ff] p-6 rounded-2xl shadow-md border border-[#cfe0ff]">
+              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[#2563eb] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">02</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-[#2563eb] text-white flex items-center justify-center text-sm"><FaFileContract /></div>
+                <h3 className="text-lg font-bold text-[#1f2738]">VDR Setup & Teaser Publishing</h3>
+              </div>
+              <p className="text-[#505b6f] text-sm leading-relaxed mb-3">Publish an anonymous Teaser, approve buyer requests, enforce NDAs, and organize your Virtual Data Room.</p>
+              <ul className="space-y-1 text-xs font-semibold text-[#1f2738]">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />2. Create Teaser &amp; Accept Buyer Requests</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />3. Sign NDA &amp; Create Deal Room</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />4. VDR (Virtual Data Room)</li>
+              </ul>
+            </div>
+
+            <div className="relative bg-gradient-to-br from-white via-[#f2fbfc] to-[#e3f5f7] p-6 rounded-2xl shadow-md border border-[#cbeaf0]">
+              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[var(--brand-secondary)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">03</div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-[var(--brand-secondary)] text-white flex items-center justify-center text-sm"><FaHandshake /></div>
+                <h3 className="text-lg font-bold text-[#1f2738]">Monitor, Q&A & Close</h3>
+              </div>
+              <p className="text-[#505b6f] text-sm leading-relaxed mb-3">Manage due diligence Q&amp;As, compare buyer offers, and close the deal with a digitally signed SPA.</p>
+              <ul className="space-y-1 text-xs font-semibold text-[#1f2738]">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-secondary)]" />5. Due Diligence (Q&amp;A &amp; Review)</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-secondary)]" />6. Bidding (Offer Comparison)</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-secondary)]" />7. Closing (SPA &amp; Deal Done!)</li>
+              </ul>
             </div>
           </div>
         </div>
