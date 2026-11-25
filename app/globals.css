@@ -532,15 +532,7 @@ textarea {
 
 
 .hero-full-bleed-bg {
-  background:
-    radial-gradient(ellipse 48% 75% at top left, rgb(0 0 0 / 88%) 0%, rgb(0 0 0 / 66%) 30%, transparent 100%),
-    radial-gradient(ellipse 48% 75% at top right, rgb(0 0 0 / 88%) 0%, rgb(0 0 0 / 66%) 30%, transparent 100%),
-    radial-gradient(
-    ellipse at 50% 35%,
-    #1360b4 0%,
-    #104b91 48%,
-    #102f60 85%
-  );
+  background: linear-gradient(135deg, #0F4EA5 0%, #1d63cc 50%, #2b7fff 100%);
 }
 
 .hero-background {
@@ -562,9 +554,9 @@ textarea {
   border-radius: 50%;
   background: linear-gradient(
     115deg,
-    #171c83 3%,
-    #1258a9 40%,
-    #b0bfd7 75%
+    #06d6c8 3%,
+    #0ea5e9 45%,
+    #dbeafe 85%
   );
 }
 
@@ -573,7 +565,7 @@ textarea {
   position: absolute;
   inset: 17.5%;
   border-radius: 50%;
-  background: radial-gradient(circle at top, #0c1426, #080d1b 72%);
+  background: radial-gradient(circle at top, #0F4EA5, #092c63 72%);
 }
 
 .hero-background .ring::before {

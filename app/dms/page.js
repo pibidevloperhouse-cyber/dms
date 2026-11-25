@@ -902,54 +902,32 @@ export default function DMSLanding() {
         </div>
       </section>
 
-      {/* Workflow Diagram Section */}
-      <section className="py-24 px-4 md:px-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-6" data-aos="fade-up">Where Journeys Intersect</h2>
-          <p className="text-xl text-gray-500 mb-16 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="100">Our platform orchestrates the complex dance between Sellers and Buyers securely in real-time.</p>
-
-          <div className="relative" data-aos="zoom-in" data-aos-delay="200">
-            {/* Custom Visual Timeline */}
-            <div className="flex flex-col md:flex-row items-center justify-between relative bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
-              {/* Connector line */}
-              <div className="absolute top-1/2 left-0 w-full h-1 bg-gradient-to-r from-blue-200 via-indigo-300 to-teal-200 hidden md:block -translate-y-1/2"></div>
-
-              <div className="relative z-10 flex flex-col items-center bg-white p-4 rounded-xl w-48 mb-8 md:mb-0">
-                <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl mb-4 border-4 border-white shadow-md"><FaBuilding /></div>
-                <h4 className="font-bold text-gray-800">1. Publish Teaser</h4>
-                <p className="text-xs text-gray-500 mt-2">Seller lists company</p>
-              </div>
-
-              <div className="relative z-10 flex flex-col items-center bg-white p-4 rounded-xl w-48 mb-8 md:mb-0">
-                <div className="w-16 h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-2xl mb-4 border-4 border-white shadow-md"><FaKey /></div>
-                <h4 className="font-bold text-gray-800">2. NDA & Access</h4>
-                <p className="text-xs text-gray-500 mt-2">Buyer requests, Seller approves</p>
-              </div>
-
-              <div className="relative z-10 flex flex-col items-center bg-white p-4 rounded-xl w-48 mb-8 md:mb-0">
-                <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl mb-4 border-4 border-white shadow-md"><FaShieldAlt /></div>
-                <h4 className="font-bold text-gray-800">3. Isolated VDR</h4>
-                <p className="text-xs text-gray-500 mt-2">Due Diligence & Q&A phase</p>
-              </div>
-
-              <div className="relative z-10 flex flex-col items-center bg-white p-4 rounded-xl w-48">
-                <div className="w-16 h-16 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-2xl mb-4 border-4 border-white shadow-md"><FaFileContract /></div>
-                <h4 className="font-bold text-gray-800">4. SPA Closing</h4>
-                <p className="text-xs text-gray-500 mt-2">Bid accepted, deal signed</p>
-              </div>
-            </div>
+      {/* CTA Section */}
+      <section className="relative pt-20 md:pt-24 pb-0 bg-white overflow-hidden text-center">
+        <div className="max-w-3xl mx-auto px-4 md:px-16 relative z-10 mb-6 md:mb-10" data-aos="zoom-in">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight mb-5 leading-tight">
+            Ready to Streamline Your Next M&amp;A Deal?
+          </h2>
+          <p className="text-[#4b5568] text-lg md:text-xl max-w-2xl mx-auto mb-9 leading-relaxed">
+            Join thousands of sellers and investors who trust our secure Deal Management System.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Link
+              href="/register"
+              className="px-9 py-4 bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white font-bold rounded-full shadow-[0_12px_30px_rgba(15,78,165,0.25)] hover:shadow-[0_16px_38px_rgba(15,78,165,0.35)] hover:scale-105 transition-all duration-300"
+            >
+              Create Your Account Today
+            </Link>
           </div>
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 md:px-16 bg-indigo-900 text-center">
-        <div className="max-w-3xl mx-auto" data-aos="zoom-in">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Ready to Streamline Your Next M&A Deal?</h2>
-          <p className="text-indigo-200 text-lg mb-10">Join thousands of sellers and investors who trust our secure Deal Management System.</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/register" className="px-8 py-4 bg-[var(--brand)] text-white font-bold rounded-full shadow-lg hover:scale-105 transition-transform duration-300">Create Your Account Today</Link>
-          </div>
+        {/* Building skyline sitting flush above the footer on white background */}
+        <div className="relative w-full">
+          <img
+            src="/images/cta-buildings.jpg"
+            alt="Modern glass corporate buildings"
+            className="w-full h-auto block"
+          />
         </div>
       </section>
 
