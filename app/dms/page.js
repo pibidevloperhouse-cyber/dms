@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import Link from "next/link";
+import DocumentWorkspaceHero from "@/components/landing/DocumentWorkspaceHero";
 import ForestCard from "@/components/ForestCard";
 import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaServer, FaBriefcase } from "react-icons/fa";
 
@@ -460,41 +461,18 @@ export default function DMSLanding() {
         </div>
       )}
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 md:px-16 bg-gradient-to-br from-indigo-900 via-blue-900 to-[var(--brand)] text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center relative z-10">
-          <div className="flex-1 md:pr-10 text-center md:text-left" data-aos="fade-right">
-            <div className="inline-block px-4 py-2 bg-white/10 backdrop-blur-md rounded-full text-sm font-semibold mb-6 border border-white/20">🚀 End-to-End M&A Platform</div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 tracking-tight">Master Your Deals From <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-teal-200">Start to Close</span></h1>
-            <p className="text-lg md:text-xl text-blue-100 mb-8 max-w-2xl mx-auto md:mx-0">Empowering Sellers and Buyers with a unified ecosystem for project creation, marketplace discovery, rigorous due diligence, and digital closings.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <Link href="/business-owner/login" className="px-8 py-3 bg-white text-indigo-900 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform duration-300 flex items-center justify-center gap-2">Sell Your Business <FaBuilding /></Link>
-              <Link href="/register" className="px-8 py-3 bg-transparent border-2 border-white/50 text-white rounded-full font-bold hover:bg-white/10 transition-colors duration-300 flex items-center justify-center gap-2">Join as Investor <FaChartLine /></Link>
-            </div>
-          </div>
-          <div className="flex-1 mt-16 md:mt-0 w-full" data-aos="fade-left">
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl relative">
-              <div className="absolute -top-6 -right-6 bg-teal-400 text-teal-900 p-4 rounded-xl shadow-lg font-bold flex flex-col items-center animate-bounce">
-                <FaHandshake className="text-3xl mb-1" /> Deal Closed!
-              </div>
-              <div className="flex items-center gap-4 border-b border-white/10 pb-4 mb-4">
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center"><FaUserTie className="text-xl" /></div>
-                <div>
-                  <div className="font-bold">Project Alpha</div>
-                  <div className="text-sm text-blue-200">SaaS Startup • $10M Revenue</div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg"><span>1. VDR Setup</span><FaShieldAlt className="text-green-400" /></div>
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg"><span>2. NDA Signed</span><FaKey className="text-green-400" /></div>
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg"><span>3. Due Diligence</span><FaSearch className="text-green-400" /></div>
-                <div className="flex justify-between items-center bg-blue-500 p-3 rounded-lg font-semibold shadow-inner"><span>4. SPA Closing</span><FaFileContract className="text-white" /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Document Workspace Hero Section */}
+      <DocumentWorkspaceHero
+        headlinePrimary="Move your deal forward."
+        headlineAccent="From first interest to close."
+        description="Discover opportunities, manage due diligence, and share deal documents with the right people at each stage."
+        primaryActionText="Sell your business"
+        primaryActionHref="/business-owner/login"
+        secondaryActionText="Find a deal"
+        secondaryActionHref="/dms/marketplace/find_deal"
+        supportsPrivateByDefault={true}
+        supportsAccessControls={true}
+      />
 
       {/* Forest of the Future Card Banner */}
       <ForestCard />
@@ -694,6 +672,27 @@ export default function DMSLanding() {
 
       {/* Custom styles */}
       <style jsx global>{`
+        .deal-network-watermark {
+          color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+          -webkit-text-stroke: 1.5px #cbd5e1 !important;
+          user-select: none;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        @keyframes float-delayed {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(10px); }
+        }
+        .animate-float {
+          animation: float 4s ease-in-out infinite;
+        }
+        .animate-float-delayed {
+          animation: float-delayed 4.5s ease-in-out infinite;
+        }
         .btn-bo-hover {
           position: relative;
           z-index: 1;
