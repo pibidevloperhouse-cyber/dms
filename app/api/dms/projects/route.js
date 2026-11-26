@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { dmsProjects, dmsDeals, userGroups, groups, companies, dmsTeasers, dmsDealProposals } from '@/db/schema';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, gte } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -181,6 +181,24 @@ export async function POST(req) {
 
     if (!name || !companyId) {
       return NextResponse.json({ error: 'Missing name or companyId' }, { status: 400 });
+    }
+
+    // Prevent accidental duplicate project creation from double-clicks
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const [recentDuplicate] = await db
+      .select()
+      .from(dmsProjects)
+      .where(
+        and(
+          eq(dmsProjects.companyId, companyId),
+          eq(dmsProjects.name, name),
+          gte(dmsProjects.createdAt, tenSecondsAgo)
+        )
+      )
+      .limit(1);
+
+    if (recentDuplicate) {
+      return NextResponse.json({ project: recentDuplicate, duplicatePrevented: true }, { status: 200 });
     }
 
     // Parse JSON strings

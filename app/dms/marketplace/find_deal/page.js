@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getBestBuyerMatch } from "@/lib/signalScore";
 import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog, FaCalendarAlt, FaDollarSign, FaUsers } from "react-icons/fa";
 
 export default function MarketplacePage() {
@@ -226,16 +227,33 @@ export default function MarketplacePage() {
   };
 
 
+  const currentCompanyId = isMounted && typeof window !== 'undefined' ? localStorage.getItem('companyId') : null;
+  const sellerActiveTeasers = opportunities.filter(
+    (t) =>
+      (currentCompanyId && t.companyId === currentCompanyId) ||
+      workspaces.some((ws) => ws.id === t.projectId)
+  );
+
   const uniqueCountries = Array.from(new Set(buyerProfiles.map(b => b.country).filter(Boolean))).sort();
 
-  const filteredBuyers = buyerProfiles.filter(buyer => {
-    const matchesSearch = buyer.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCompanyType = companyTypeFilter === 'All Company Types' || buyer.companyType === companyTypeFilter;
-    const matchesLocation = locationFilter === 'All Locations' || buyer.country === locationFilter;
-    const matchesDealType = dealTypeFilter === 'All Deal Types' || buyer.investorType === dealTypeFilter;
+  const filteredBuyers = buyerProfiles
+    .filter(buyer => {
+      const matchesSearch = buyer.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCompanyType = companyTypeFilter === 'All Company Types' || buyer.companyType === companyTypeFilter;
+      const matchesLocation = locationFilter === 'All Locations' || buyer.country === locationFilter;
+      const matchesDealType = dealTypeFilter === 'All Deal Types' || buyer.investorType === dealTypeFilter;
 
-    return matchesSearch && matchesCompanyType && matchesLocation && matchesDealType;
-  });
+      return matchesSearch && matchesCompanyType && matchesLocation && matchesDealType;
+    })
+    .map(buyer => ({
+      ...buyer,
+      signalMatch: getBestBuyerMatch(sellerActiveTeasers, buyer)
+    }))
+    .sort((a, b) => {
+      const scoreDiff = (b.signalMatch?.numericScore || 0) - (a.signalMatch?.numericScore || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   const filteredOpportunities = opportunities.filter(opp => {
     const q = searchQuery.toLowerCase();
@@ -785,7 +803,9 @@ export default function MarketplacePage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                      {[...filteredBuyers].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((buyer, idx) => (
+                      {filteredBuyers.map((buyer, idx) => {
+                        const match = buyer.signalMatch || {};
+                        return (
                         <div key={buyer.id || idx} className="bg-white rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.04)] border border-gray-100 p-6 flex flex-col hover:shadow-lg transition-shadow h-full">
                           {/* Header Section */}
                           <div className="flex justify-between items-start mb-5">
@@ -824,24 +844,66 @@ export default function MarketplacePage() {
                           </p>
 
                           {/* Signal Score Box */}
-                          <div className="bg-gradient-to-r from-[#1f6fb2]/5 to-[#2ec4b6]/5 rounded-xl p-5 flex items-center gap-6 mb-8 relative overflow-hidden border border-[#2ec4b6]/20">
-                            <div className="flex flex-col border-r border-gray-300/60 pr-6 relative z-10">
-                              <div className="flex items-center gap-1.5 text-[#1f6fb2] text-[10px] font-bold uppercase tracking-[0.15em] mb-2">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
-                                SIGNAL SCORE
+                          <div className="bg-gradient-to-r from-[#1f6fb2]/5 to-[#2ec4b6]/5 rounded-xl p-5 flex flex-col gap-3 mb-8 relative overflow-hidden border border-[#2ec4b6]/20">
+                            {match.hasTeaser ? (
+                              <>
+                                <div className="flex items-center gap-6">
+                                  <div className="flex flex-col border-r border-gray-300/60 pr-6 relative z-10 shrink-0">
+                                    <div className="flex items-center gap-1.5 text-[#1f6fb2] text-[10px] font-bold uppercase tracking-[0.15em] mb-2">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
+                                      SIGNAL SCORE
+                                    </div>
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] text-[40px] leading-none font-bold">{match.score}</span>
+                                      <span className="text-[#2ec4b6]/70 text-base font-bold">/10</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col relative z-10 min-w-0">
+                                    {match.bestProjectName && (
+                                      <span className="inline-block w-fit max-w-full truncate text-[10px] font-bold uppercase tracking-wider text-[#008f70] bg-[#008f70]/10 px-2 py-0.5 rounded mb-1.5">
+                                        Best fit for: {match.bestProjectName}
+                                      </span>
+                                    )}
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <FaChartLine className="text-[#1f6fb2] text-sm shrink-0" />
+                                      <span className="text-gray-900 text-[14px] font-bold truncate">{match.label}</span>
+                                    </div>
+                                    <p className="text-gray-500 text-[12px] font-medium pl-5">{match.subtext}</p>
+                                  </div>
+                                </div>
+                                {match.matchedTags?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-[#2ec4b6]/15">
+                                    {match.matchedTags.map((tag) => (
+                                      <span key={tag} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#008f70] bg-white/80 px-2 py-0.5 rounded-md border border-[#008f70]/20">
+                                        <FaCheck className="text-[9px]" /> {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {match.dealBreakerWarning && (
+                                  <p className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
+                                    ⚠ {match.dealBreakerWarning}
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <div className="flex items-center gap-6">
+                                <div className="flex flex-col border-r border-gray-300/60 pr-6 relative z-10">
+                                  <div className="flex items-center gap-1.5 text-[#1f6fb2] text-[10px] font-bold uppercase tracking-[0.15em] mb-2">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
+                                    SIGNAL SCORE
+                                  </div>
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-gray-400 text-[34px] leading-none font-bold">—</span>
+                                    <span className="text-gray-400 text-base font-bold">/10</span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col relative z-10">
+                                  <span className="text-gray-900 text-[14px] font-bold mb-1">No active teaser yet</span>
+                                  <p className="text-gray-500 text-[12px] font-medium">Publish a teaser to see Signal Score.</p>
+                                </div>
                               </div>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] text-[40px] leading-none font-bold">{((99 - ((idx * 7) % 40)) / 10).toFixed(1)}</span>
-                                <span className="text-[#2ec4b6]/70 text-base font-bold">/10</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col relative z-10">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <FaChartLine className="text-[#1f6fb2] text-sm" />
-                                <span className="text-gray-900 text-[14px] font-bold">Strong fit for your thesis</span>
-                              </div>
-                              <p className="text-gray-500 text-[13px] font-medium pl-6">Worth a closer look.</p>
-                            </div>
+                            )}
                           </div>
 
                           {/* Spacer */}
@@ -888,7 +950,8 @@ export default function MarketplacePage() {
                             )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
