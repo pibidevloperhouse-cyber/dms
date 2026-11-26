@@ -746,7 +746,7 @@ export default function MarketplacePage() {
 
                           <div>
                             {/* Metrics 3 Columns */}
-                            <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-5 mb-5 bg-[#fafbfc] -mx-6 px-6 py-4">
+                            <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2 border-t border-gray-100 pt-5 mb-5 bg-[#fafbfc] -mx-6 px-6 py-4">
                               <div className="space-y-2">
                                 <div className="h-2.5 w-14 bg-slate-200 rounded"></div>
                                 <div className="h-3.5 w-16 bg-slate-300 rounded"></div>
@@ -848,7 +848,7 @@ export default function MarketplacePage() {
                           <div className="flex-grow"></div>
 
                           {/* Stats Grid Box */}
-                          <div className="grid grid-cols-3 gap-4 mb-6 pt-6 border-t border-gray-100">
+                          <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-4 mb-6 pt-6 border-t border-gray-100">
                             <div>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">SECTOR</p>
                               <p className="text-[13px] font-bold text-gray-900">{buyer.companyType || 'Corporate Development'}</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -96,7 +97,8 @@ export default function DocumentsSidebar({ isOpen = true }) {
     ];
 
     return (
-        <aside className={`${isOpen ? 'w-64 border-r' : 'w-0 border-r-0'} transition-all duration-300 overflow-hidden bg-white border-gray-200 shrink-0 h-full hidden md:flex flex-col justify-between`}>
+        <MobileNavigation label="Document folders">
+          <aside className={`${isOpen ? 'w-64 border-r' : 'w-0 border-r-0'} transition-all duration-300 overflow-hidden bg-white border-gray-200 shrink-0 h-full hidden md:flex flex-col justify-between`}>
             <div className="w-64 flex-1 flex flex-col h-full overflow-y-auto">
                 <div className="p-5">
                     <h2 className="text-[15px] font-bold text-gray-800 tracking-tight uppercase">Documents</h2>
@@ -156,6 +158,7 @@ export default function DocumentsSidebar({ isOpen = true }) {
                     <span className="text-slate-600 hover:text-[var(--brand)] cursor-pointer hover:underline">Manage</span>
                 </div>
             </div>
-        </aside>
+          </aside>
+        </MobileNavigation>
     );
 }

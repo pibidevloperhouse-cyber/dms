@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -157,9 +158,11 @@ export default function MarketplaceLayout({ children }) {
   if (!isMounted || !userRole) {
     return (
       <div className="flex min-h-screen bg-[#f8fafc]">
-        <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+        <MobileNavigation label="Marketplace menu" variant="icons">
+          <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
           <div className="w-10 h-10 bg-[#008f70] rounded-md mb-8"></div>
-        </aside>
+          </aside>
+        </MobileNavigation>
         <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc]"></div>
       </div>
     );
@@ -178,7 +181,8 @@ export default function MarketplaceLayout({ children }) {
   return (
     <div className="flex min-h-screen bg-[#f8fafc] font-sans text-gray-900 selection:bg-teal-600/20">
       {/* Sidebar */}
-      <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+      <MobileNavigation label="Marketplace menu" variant="icons">
+        <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
         <Link href="/dms/marketplace/overview" className="w-10 h-10 bg-[#008f70] rounded-md flex items-center justify-center text-white font-bold text-xl mb-8 shadow-sm cursor-pointer hover:bg-[#007058] transition-colors">
           D
         </Link>
@@ -251,28 +255,30 @@ export default function MarketplaceLayout({ children }) {
             <FaPowerOff className="w-[22px] h-[22px]" />
           </button>
         </div>
-      </aside>
+        </aside>
+      </MobileNavigation>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-[72px] border-b border-gray-200 flex items-center justify-between px-8 bg-white shrink-0 z-40 sticky top-0">
-          <div className="flex items-center gap-6">
-            <div className="text-[17px] font-bold text-gray-900 tracking-tight capitalize">{title}</div>
+        <header className="h-14 md:h-[72px] border-b border-gray-200/80 flex items-center justify-between gap-2 px-4 md:px-8 bg-white/95 backdrop-blur-md shrink-0 z-40 sticky top-0">
+          <div className="flex min-w-0 items-center gap-2.5 md:gap-6">
+            <span className="w-1 h-4 rounded-full bg-[#008f70] md:hidden shrink-0" aria-hidden="true"></span>
+            <div className="truncate text-[15px] md:text-[17px] font-bold text-gray-900 tracking-tight capitalize">{title}</div>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="flex min-w-0 items-center gap-2.5 md:gap-8">
             <div className="relative">
               <button
-                className="relative text-gray-800 hover:text-black transition-colors"
+                className="relative w-9 h-9 md:w-auto md:h-auto rounded-full bg-gray-100/80 hover:bg-gray-200/70 md:bg-transparent md:hover:bg-transparent flex items-center justify-center text-gray-700 md:text-gray-800 hover:text-black transition-colors"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-                <FaRegBell className="w-[20px] h-[20px]" />
+                <FaRegBell className="w-[17px] h-[17px] md:w-[20px] md:h-[20px]" />
                 {notifications.length > 0 && (
-                  <span className="absolute -top-[2px] -right-[2px] w-2.5 h-2.5 bg-[#008f70] rounded-full border-2 border-white shadow-xs"></span>
+                  <span className="absolute top-1.5 right-1.5 md:-top-[2px] md:-right-[2px] w-2.5 h-2.5 bg-[#008f70] rounded-full border-2 border-white shadow-xs"></span>
                 )}
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="fixed inset-x-3 top-[58px] md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-3 md:w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                     <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
                     {notifications.length > 0 && (
@@ -358,13 +364,13 @@ export default function MarketplaceLayout({ children }) {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[#003b5c] font-bold text-[15px] shrink-0">
+            <div className="flex min-w-0 items-center gap-2.5 md:gap-3 bg-gray-50/90 md:bg-transparent border border-gray-200/80 md:border-0 rounded-full md:rounded-none py-1 pl-1 pr-3 md:p-0">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#e6fbf2] md:bg-gray-100 border border-[#008f70]/20 md:border-0 flex items-center justify-center text-[#007058] md:text-[#003b5c] font-bold text-xs md:text-[15px] shrink-0">
                 {userName ? userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'VP'}
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-gray-900 font-bold text-[15px] leading-tight truncate tracking-tight">{userName || 'Vairajothi P.'}</span>
-                <span className="text-gray-500 font-medium text-[13px] leading-tight truncate">{userRole === 'admin' ? 'Super Admin' : (userRole || 'Buyer')}</span>
+              <div className="hidden min-[400px]:flex flex-col min-w-0">
+                <span className="text-gray-900 font-bold text-xs md:text-[15px] leading-tight truncate tracking-tight">{userName || 'Vairajothi P.'}</span>
+                <span className="text-[#008f70] md:text-gray-500 font-semibold md:font-medium text-[10px] md:text-[13px] uppercase md:normal-case tracking-wider md:tracking-normal leading-tight truncate">{userRole === 'admin' ? 'Super Admin' : (userRole || 'Buyer')}</span>
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -89,7 +90,8 @@ export default function SettingsLayout({ children }) {
       <MainSidebar />
 
       {/* VERTICAL SETTINGS SIDEBAR */}
-      <div className="w-64 bg-white/90 backdrop-blur-xl border-r border-gray-200/80 flex flex-col shrink-0 z-10 shadow-[4px_0_24px_rgba(28,127,159,0.06)]">
+      <MobileNavigation label="Settings menu">
+        <div className="w-64 bg-white/90 backdrop-blur-xl border-r border-gray-200/80 flex flex-col shrink-0 z-10 shadow-[4px_0_24px_rgba(28,127,159,0.06)]">
         {/* Sidebar Header with PiBi accent */}
         <div className="p-6 border-b border-gray-100/80">
           <div className="flex items-center gap-3 mb-1">
@@ -143,7 +145,8 @@ export default function SettingsLayout({ children }) {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </MobileNavigation>
 
       {/* ACTUAL PAGE CONTENT */}
       <div className="flex-1 overflow-y-auto relative z-10">

@@ -868,7 +868,7 @@ export default function TeasersList() {
                     </p>
 
                     {/* 4 Key Specifications Horizontal Row */}
-                    <div className="grid grid-cols-4 gap-4 py-3 border-t border-b border-gray-100 mb-3 shrink-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-t border-b border-gray-100 mb-3 shrink-0">
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-1 text-gray-400 text-[11px] font-semibold uppercase tracking-wider mb-0.5">
                           <FaBriefcase className="w-3 h-3 text-[#1f6fb2] shrink-0" />

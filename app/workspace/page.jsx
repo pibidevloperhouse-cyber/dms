@@ -142,7 +142,7 @@ export default function WorkspacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10 flex flex-col items-center">
+    <div className="min-h-screen bg-slate-50 p-3 md:p-10 flex flex-col items-center">
 
       {/* Warning Modal */}
       {toastMessage && (
@@ -253,7 +253,7 @@ export default function WorkspacePage() {
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shrink-0 shadow-sm border border-blue-100/50">
                 <FaDatabase size={18} />
               </div>
-              <div className="flex flex-col w-48">
+              <div className="flex flex-col w-36 sm:w-48">
                 <div className="flex justify-between items-center text-xs font-medium mb-1.5 text-gray-600">
                   <span>0 KB / 50 GB</span>
                   <span className="text-gray-400">(0%)</span>

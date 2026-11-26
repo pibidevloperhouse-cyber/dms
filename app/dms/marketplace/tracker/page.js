@@ -109,7 +109,7 @@ export default function TrackerPage() {
             <p className="text-gray-500 text-sm">Review investor profiles and control access to the data room.</p>
           </div>
 
-          <div className="flex items-center gap-3 mt-4 md:mt-0">
+          <div className="flex flex-wrap items-center gap-2 mt-4 md:mt-0">
             <div className="relative">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input
@@ -117,7 +117,7 @@ export default function TrackerPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search investors or companies..."
-                className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-[#b48629] focus:ring-1 focus:ring-[#b48629] w-64"
+                className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-[#b48629] focus:ring-1 focus:ring-[#b48629] w-full md:w-64"
               />
             </div>
             <select 
