@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -239,7 +240,8 @@ export default function MainSidebar() {
 
   return (
     <>
-      <aside className="w-16 md:w-20 h-screen bg-white/90 backdrop-blur-xl border-r border-gray-200/80 flex flex-col items-center py-6 shrink-0 z-50 shadow-[4px_0_24px_rgba(28,127,159,0.06)]">
+      <MobileNavigation label="Workspace menu" variant="rail">
+        <aside className="w-16 md:w-20 h-screen bg-white/90 backdrop-blur-xl border-r border-gray-200/80 flex flex-col items-center py-6 shrink-0 z-50 shadow-[4px_0_24px_rgba(28,127,159,0.06)]">
 
         {/* Top Logo — PiBi gradient icon */}
         <Link href="/dashboard" className="w-10 h-10 bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] rounded-xl flex items-center justify-center mb-8 hover:shadow-lg hover:scale-105 transition-all duration-300 shadow-[var(--brand)]/30 shadow-md">
@@ -414,7 +416,8 @@ export default function MainSidebar() {
             </div>
           )}
         </div>
-      </aside>
+        </aside>
+      </MobileNavigation>
     </>
   );
 }

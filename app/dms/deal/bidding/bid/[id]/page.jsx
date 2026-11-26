@@ -37,7 +37,7 @@ export default function BidDetailsPage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button className="font-sans text-[13.5px] font-medium px-5 py-2.5 rounded-lg cursor-pointer border border-red-600 text-red-600 bg-transparent hover:bg-red-600 hover:text-white transition-colors">Decline bid</button>
           <button className="font-sans text-[13.5px] font-medium px-5 py-2.5 rounded-lg cursor-pointer border border-slate-200 text-slate-500 bg-transparent hover:bg-white hover:text-slate-900 hover:border-slate-900 transition-colors">Counter offer</button>
           <Link href="/dms/deal/bidding/term-sheet" className="font-sans text-[13.5px] font-medium px-5 py-2.5 rounded-lg cursor-pointer border border-green-600 bg-green-600 text-white hover:opacity-90 transition-opacity">Accept &amp; move to term sheet</Link>

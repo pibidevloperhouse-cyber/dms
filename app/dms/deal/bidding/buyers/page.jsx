@@ -21,7 +21,7 @@ export default function SellerBuyersPage() {
         </div>
       </div>
 
-      <div className="flex gap-3.5 mt-4 px-7">
+      <div className="flex flex-wrap gap-2 sm:gap-3.5 mt-4 px-4 sm:px-7">
         <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Invited <b className="text-slate-900 font-bold">4</b></span>
         <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">NDA signed <b className="text-slate-900 font-bold">3</b></span>
         <span className="text-[12px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-full bg-white">Bids received <b className="text-slate-900 font-bold">3</b></span>

@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import { useState, useEffect, Suspense } from "react";
 import { FaPowerOff, FaCog, FaDatabase, FaPlus, FaEllipsisV, FaShieldAlt, FaTimes, FaSave, FaArrowLeft, FaBell, FaCheck, FaFolder, FaFileInvoiceDollar, FaTrash, FaBuilding, FaMapMarkerAlt, FaUser, FaEnvelope, FaFileAlt, FaSlidersH, FaCommentDots, FaLock, FaClock, FaSpinner, FaExternalLinkAlt, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import Link from "next/link";
@@ -548,7 +549,8 @@ function DealDashboardContent() {
     <div className="flex h-screen bg-[#F8F9FA] font-sans overflow-hidden">
 
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between py-6 z-40 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+      <MobileNavigation label="Deal menu">
+        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between py-6 z-40 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div>
           <div className="px-6 mb-8 flex items-center gap-3">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">{userRole === 'buyer' || userRole.includes('guest') ? 'Deal View' : 'Deal Setup'}</h2>
@@ -618,10 +620,11 @@ function DealDashboardContent() {
             <span>Logout</span>
           </button>
         </div>
-      </aside>
+        </aside>
+      </MobileNavigation>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8 relative">
+      <main className="flex-1 min-w-0 overflow-y-auto p-4 md:p-8 relative">
 
         {/* Top Header outside card */}
         <div className={`w-full mx-auto flex items-center justify-between mb-4 mt-2 ${activeTab === "bidding" ? "max-w-[1600px]" : "max-w-5xl"}`}>

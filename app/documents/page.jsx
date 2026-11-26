@@ -970,8 +970,8 @@ function UnifiedWorkspace() {
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── TOP ACTION BAR (Exact Firmata Match) ── */}
-                <div className="flex items-center px-6 py-4 bg-white border-b border-slate-200">
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center px-3 py-2 md:px-6 md:py-4 bg-white border-b border-slate-200">
+                    <div className="flex flex-wrap items-center gap-1 md:gap-3">
                         {!['trash', 'bookmarks', 'downloads', 'buyers_side'].includes(currentView) && canUploadHere && (
                             <button onClick={() => { setInitialUploadFiles([]); setIsUploadModalOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-brand-soft hover:text-brand rounded-lg transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
@@ -1087,7 +1087,7 @@ function UnifiedWorkspace() {
                 </div>
 
                 {/* ── BREADCRUMBS & LIST ── */}
-                <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                <div className="flex-1 min-h-0 flex flex-col p-3 md:p-6 overflow-hidden">
                     <div className="flex items-center gap-2 mb-4 px-2">
                         <button 
                             onDragOver={handleDragOver}

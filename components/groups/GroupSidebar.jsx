@@ -1,6 +1,7 @@
 
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
@@ -781,7 +782,8 @@ export default function GroupsSidebar({ isOpen = true }) {
 
         return (
             <>
-                <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
+                <MobileNavigation label="Groups menu">
+                  <aside className={`${isOpen ? 'w-64 border-r border-gray-200' : 'w-0 border-r-0'} transition-all duration-300 bg-white flex flex-col h-screen sticky top-0 shrink-0 font-sans`}>
                     <div
                         className="flex-1 overflow-y-auto pb-6 white-scrollbar"
                         style={{
@@ -1054,7 +1056,8 @@ export default function GroupsSidebar({ isOpen = true }) {
                             </button>
                         </div>
                     )}
-                </aside>
+                  </aside>
+                </MobileNavigation>
 
                 {/* ── Delete Confirmation Modal ─────────────────────────────── */}
                 {deleteTarget && (

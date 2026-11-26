@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaFileAlt, FaUpload, FaShieldAlt } from "react-icons/fa";
@@ -26,7 +27,8 @@ export default function RedactionSidebar() {
   ];
 
   return (
-    <div className="w-64 border-r border-slate-200 bg-white h-screen flex flex-col">
+    <MobileNavigation label="Redaction menu">
+      <div className="w-64 border-r border-slate-200 bg-white h-screen flex flex-col">
       <div className="p-4 border-b border-slate-200">
         <h2 className="text-xl font-bold text-slate-800">Redaction</h2>
       </div>
@@ -51,6 +53,7 @@ export default function RedactionSidebar() {
           );
         })}
       </div>
-    </div>
+      </div>
+    </MobileNavigation>
   );
 }

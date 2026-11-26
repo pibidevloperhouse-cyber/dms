@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -85,7 +86,8 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
   };
 
   return (
-    <aside
+    <MobileNavigation label="Audit menu">
+      <aside
       className={`${isOpen ? "w-64 border-r" : "w-0 border-r-0"
         } transition-all duration-300 overflow-hidden bg-white border-gray-200 shrink-0 h-full flex flex-col justify-between font-sans select-none z-20`}
     >
@@ -155,6 +157,7 @@ export default function ControlsAuditSidebar({ isOpen = true }) {
           </div>
         </div>
       </div> */}
-    </aside>
+      </aside>
+    </MobileNavigation>
   );
 }

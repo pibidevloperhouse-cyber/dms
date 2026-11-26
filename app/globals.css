@@ -713,26 +713,6 @@ textarea {
   }
 }
 
-@media (max-width: 639px) {
-  .deal-stage-card,
-  .deal-stage-card:is([data-side="left"], [data-side="right"]) {
-    left: 50% !important;
-    top: 26% !important;
-    width: min(290px, calc(100vw - 32px)) !important;
-    transform: translate(-50%, 0) !important;
-  }
-  .deal-stage-card > div {
-    min-width: 0 !important;
-    padding: 12px 14px !important;
-  }
-  .deal-stage-card h4 {
-    white-space: normal !important;
-  }
-  .deal-stage-card .deal-stage-pointer {
-    display: none;
-  }
-}
-
 
 .deal-stage-pointer {
   bottom: -6px;
@@ -749,3 +729,192 @@ textarea {
   left: -6px;
   bottom: auto;
 }
+
+.mobile-navigation,
+.mobile-navigation-panel {
+  display: contents;
+}
+.mobile-navigation-toggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .flex:has(> .mobile-navigation) {
+    flex-direction: column;
+    min-width: 0;
+  }
+  .h-screen:has(.mobile-navigation) { height: 100dvh; }
+  .mobile-navigation ~ .flex-1 { min-height: 0; min-width: 0; }
+  .mobile-navigation {
+    display: block;
+    flex: none;
+    width: 100%;
+  }
+  .mobile-navigation-toggle {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    width: 100%;
+    min-height: 48px;
+    padding: .65rem 1rem;
+    text-align: left;
+    font-size: .875rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    color: #f8fafc;
+    background: linear-gradient(135deg, #0f172a 0%, #111827 65%, #0b2d29 100%);
+    border-bottom: 1px solid #1f2937;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.14);
+  }
+  .mobile-navigation-toggle svg:first-child {
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+    border-radius: 8px;
+    background: rgba(16, 185, 129, 0.16);
+    color: #34d399;
+  }
+  .mobile-navigation-toggle svg:last-child {
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    transition: transform .2s ease, background-color .2s ease;
+  }
+  .mobile-navigation-toggle[aria-expanded="true"] svg:last-child {
+    transform: rotate(180deg);
+    background: rgba(16, 185, 129, 0.22);
+    color: #34d399;
+  }
+  .mobile-navigation-panel { display: none; }
+  .mobile-navigation-panel[data-expanded="true"] {
+    display: block;
+    overflow: auto;
+    max-height: 48dvh;
+    overscroll-behavior: contain;
+  }
+  .mobile-navigation-panel > :is(aside, nav, div) {
+    position: static;
+    display: flex;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  .mobile-navigation-panel .w-64 { width: 100%; }
+  .mobile-navigation[data-variant="icons"] aside { align-items: stretch; padding: .5rem; }
+  .mobile-navigation[data-variant="icons"] aside > :first-child { display: none; }
+  .mobile-navigation[data-variant="icons"] aside > div { gap: 0; }
+  .mobile-navigation[data-variant="icons"] [title] {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .75rem;
+    min-height: 44px;
+    padding: .25rem .75rem;
+  }
+  .mobile-navigation[data-variant="icons"] [title]::after { content: attr(title); }
+  .mobile-navigation[data-variant="rail"] aside { align-items: stretch; padding: .5rem 1rem; }
+  .mobile-navigation[data-variant="rail"] aside > a { margin-bottom: .5rem; }
+  .mobile-navigation[data-variant="rail"] .group[title] {
+    width: 100%;
+    justify-content: start;
+    gap: .5rem;
+  }
+  .mobile-navigation[data-variant="rail"] .group[title] > span.left-16 {
+    position: static;
+    opacity: 1;
+    background: none;
+    color: inherit;
+    box-shadow: none;
+    transform: none;
+    font-size: .875rem;
+  }
+  .mobile-navigation[data-variant="rail"] :is(div.left-16, div.left-full) {
+    position: static;
+    margin: 0;
+    width: 100%;
+  }
+  :where(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+    max-width: 100%;
+  }
+  body input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  body select, body textarea { font-size: max(1rem, 1em); }
+  :is(main, section, article, .flex-1, form) { min-width: 0; }
+  div:has(> table) { max-width: 100%; overflow-x: auto; }
+  [role="dialog"] { max-width: calc(100vw - 1rem); max-height: 94dvh; overflow-y: auto; }
+}
+
+@media (max-width: 767px) {
+  .hero-full-bleed-bg {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 6rem 0 0;
+  }
+  .deal-hero-canvas {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    align-content: space-between;
+    aspect-ratio: auto;
+    min-height: 0;
+    max-width: 29rem;
+  }
+  .deal-hero-heading {
+    position: static;
+    translate: none;
+    transform: none;
+    padding-inline: .75rem;
+    margin-bottom: 0;
+  }
+  .deal-hero-title {
+    font-size: clamp(1.45rem, 7vw, 2.1rem);
+    line-height: 1.18;
+  }
+  .deal-stage-card,
+  .deal-stage-card:is([data-side="left"], [data-side="right"]) {
+    position: static;
+    grid-area: 2 / 1;
+    justify-self: center;
+    width: calc(100% - 5rem);
+    max-width: 15.5rem;
+    margin-top: 0;
+    margin-bottom: 0;
+    transform: none;
+  }
+  .deal-stage-card > div {
+    min-width: 0;
+    padding: .5rem .75rem;
+    border-radius: .875rem;
+  }
+  .deal-stage-card h4 { font-size: .875rem; white-space: normal; }
+  .deal-stage-card button { min-height: 36px; padding-block: .375rem; font-size: .8125rem; }
+  .deal-stage-card .deal-stage-pointer { display: none; }
+
+  .deal-hero-canvas > .hero-background {
+    position: relative;
+    grid-area: 3 / 1;
+    height: calc(43cqw + 5.5rem);
+    overflow: hidden;
+  }
+  .hero-background .ring { top: 5.5rem; width: 86%; }
+  .hero-background .trace,
+  .hero-background .short-trace { display: none; }
+  .deal-stage-badge {
+    grid-area: 3 / 1;
+    top: calc(5.5rem + 24cqw) !important;
+  }
+  .deal-stage-badge[data-step="1"] { left: 20% !important; }
+  .deal-stage-badge[data-step="2"] { left: 39% !important; top: calc(5.5rem + 9.25cqw) !important; }
+  .deal-stage-badge[data-step="3"] { left: 61% !important; top: calc(5.5rem + 9.25cqw) !important; }
+  .deal-stage-badge[data-step="4"] { left: 80% !important; }
+  .deal-stage-badge button { width: clamp(42px, 11vw, 48px); height: clamp(42px, 11vw, 48px); }
+}
+

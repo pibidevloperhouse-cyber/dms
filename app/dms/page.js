@@ -458,7 +458,9 @@ export default function DMSLanding() {
         </div>
 
         <button
-          className="lg:hidden text-2xl text-[var(--brand)] focus:outline-none"
+          aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={isMobileMenuOpen}
+          className="min-h-11 min-w-11 grid place-items-center lg:hidden text-2xl text-[var(--brand)] focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
@@ -467,7 +469,7 @@ export default function DMSLanding() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed top-[68px] left-0 w-full bg-white shadow-md z-40 flex flex-col p-6 lg:hidden gap-4 border-t border-gray-100 animate-fade-in max-h-[calc(100vh-68px)] overflow-y-auto">
+        <div className="fixed top-[68px] left-0 w-full bg-white shadow-md z-40 flex flex-col p-6 lg:hidden gap-4 border-t border-gray-100 animate-fade-in max-h-[calc(100dvh-68px)] overflow-y-auto">
           <div className="flex flex-col gap-2">
             {/* Products Mobile Accordion */}
             <div>

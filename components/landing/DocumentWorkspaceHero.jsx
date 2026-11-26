@@ -106,7 +106,7 @@ export default function DocumentWorkspaceHero({
         and the interactive elements (badges, dotted path, tooltip card)
         share this EXACT same coordinate canvas, ensuring 100% locked alignment!
       */}
-      <div className="relative w-full [container-type:inline-size] aspect-[2.52/1] min-h-[440px] sm:min-h-[520px] md:min-h-[580px] lg:min-h-[620px] max-w-[1440px] mx-auto select-none">
+      <div className="deal-hero-canvas relative w-full [container-type:inline-size] aspect-[2.52/1] min-h-[440px] sm:min-h-[520px] md:min-h-[580px] lg:min-h-[620px] max-w-[1440px] mx-auto select-none">
         {/* Pure CSS Hero Background Layer from user's snippet */}
         <div className="hero-background" aria-hidden="true">
           <div className="trace trace-left"><span className="terminal"></span></div>
@@ -117,7 +117,7 @@ export default function DocumentWorkspaceHero({
         </div>
 
         {/* Centered Headline positioned matching user reference */}
-        <div className="absolute top-4 sm:top-5 lg:top-6 left-1/2 -translate-x-1/2 w-full text-center px-4 z-10 pointer-events-none">
+        <div className="deal-hero-heading md:absolute md:top-5 lg:top-6 md:left-1/2 md:-translate-x-1/2 w-full text-center px-4 z-10 pointer-events-none">
           <h1
             id="hero-heading"
             className="deal-hero-title"
@@ -130,10 +130,6 @@ export default function DocumentWorkspaceHero({
             )}
           </h1>
         </div>
-
-
-
-
 
         {/* Dynamic Next Card hovering with pointer caret pointing directly to the active badge */}
         <div
@@ -204,7 +200,8 @@ export default function DocumentWorkspaceHero({
           return (
             <div
               key={stage.step}
-              className="absolute z-20 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+              data-step={stage.step}
+              className="deal-stage-badge absolute z-20 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
               style={{
                 left: stage.nodeLeft,
                 top: stage.nodeTop,
