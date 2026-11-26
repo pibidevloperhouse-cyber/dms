@@ -1388,7 +1388,7 @@ export default function ForestCard() {
       {/* Section Title (Left-Aligned, No Background) */}
       <div className="w-full md:w-[94%] lg:w-[94%] xl:w-[92%] mx-auto px-4 mb-3" data-aos="fade-up">
         <h2 className="pl-1 sm:pl-2 md:pl-2 text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight text-left">
-          DMS Modules
+          DMS Module
         </h2>
       </div>
 
