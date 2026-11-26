@@ -8,7 +8,119 @@ import DocumentWorkspaceHero from "@/components/landing/DocumentWorkspaceHero";
 import ForestCard from "@/components/ForestCard";
 import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaServer, FaBriefcase } from "react-icons/fa";
 
+const DMS_FEATURE_TABS = [
+  {
+    id: "marketplace",
+    label: "Marketplace",
+    steps: [
+      {
+        title: "Confidential Setup & Teaser",
+        desc: "Create your confidential deal profile, organize structured VDR documents, and publish an anonymous Teaser to vetted buyers.",
+      },
+      {
+        title: "NDA, Access & Due Diligence",
+        desc: "Approve buyer requests, enforce digital e-Signature NDAs, and manage isolated Q&A and document reviews in real time.",
+      },
+      {
+        title: "Offer Comparison & SPA Close",
+        desc: "Compare LOIs side by side, monitor audit logs, and digitally sign the final SPA to close your deal with full confidence.",
+      },
+    ],
+  },
+  {
+    id: "deal-room",
+    label: "Deal Room",
+    steps: [
+      {
+        title: "Structured Folder Hierarchy",
+        desc: "Organize Financials, Legal, HR, and IP documents into clean, permission-controlled VDR folders.",
+      },
+      {
+        title: "Granular Access & Watermarking",
+        desc: "Grant view-only or download rights per buyer group with dynamic user-stamped watermarks.",
+      },
+      {
+        title: "Instant Document Preview & Sync",
+        desc: "Preview PDFs, spreadsheets, and contracts securely inside the browser with real-time updates.",
+      },
+    ],
+  },
+  {
+    id: "task-workflow",
+    label: "Task & Workflow",
+    steps: [
+      {
+        title: "Deal Readiness Checklists",
+        desc: "Assign due diligence tasks to advisors, legal teams, and internal stakeholders with clear deadlines.",
+      },
+      {
+        title: "Automated Stage Approvals",
+        desc: "Route NDA approvals, document sign-offs, and buyer access requests through structured workflows.",
+      },
+      {
+        title: "Live Milestone Tracking",
+        desc: "Monitor completion percentages across every workstream so nothing delays closing.",
+      },
+    ],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    steps: [
+      {
+        title: "Direct Buyer Outreach Inbox",
+        desc: "Pitch anonymous Teasers and send NDA invites directly to matched buyers from one unified inbox.",
+      },
+      {
+        title: "Structured Q&A Threading",
+        desc: "Answer buyer due diligence questions pinned to specific VDR folders, with private or FAQ visibility.",
+      },
+      {
+        title: "Read Receipts & Follow-Ups",
+        desc: "Track message reads and Teaser views in real time to prioritize the most engaged buyers.",
+      },
+    ],
+  },
+  {
+    id: "audit-logs",
+    label: "Audit & Logs",
+    steps: [
+      {
+        title: "Real-Time Activity Timeline",
+        desc: "Capture every login, NDA signature, file view, download, and permission change with IP and timestamp.",
+      },
+      {
+        title: "Document-Level VDR Forensics",
+        desc: "See which buyers viewed which files, view counts, and total time spent during due diligence.",
+      },
+      {
+        title: "Tamper-Proof Compliance Exports",
+        desc: "Generate audit-ready PDF and CSV logs for legal counsel, regulators, and closing binders.",
+      },
+    ],
+  },
+  {
+    id: "bidding-close",
+    label: "Bidding & Close",
+    steps: [
+      {
+        title: "Guided LOI & Bid Submission",
+        desc: "Collect standardized Letters of Intent (LOIs) with offer price, structure, and timeline terms.",
+      },
+      {
+        title: "Side-by-Side Offer Comparison",
+        desc: "Evaluate competing buyer bids in one comparison matrix to select the strongest deal partner.",
+      },
+      {
+        title: "Digital SPA & Deal Closing",
+        desc: "Finalize closing checklists, execute the SPA via e-Signature, and archive the complete deal room.",
+      },
+    ],
+  },
+];
+
 export default function DMSLanding() {
+  const [activeDmsFeature, setActiveDmsFeature] = useState("marketplace");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState({
     products: false,
@@ -521,6 +633,101 @@ export default function DMSLanding() {
 
       {/* Forest of the Future Card Banner */}
       <ForestCard />
+
+      {/* Structured Deal Transformation Section (Below DMS Modules) */}
+      <section className="pt-4 pb-16 md:pt-8 md:pb-20 px-4 md:px-6 bg-white relative overflow-hidden">
+        <div className="w-full max-w-[1440px] mx-auto">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5 mb-10 md:mb-12" data-aos="fade-up">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight leading-tight flex-shrink-0">
+              DMS Feature
+            </h2>
+
+            {/* Feature Navbar */}
+            <nav
+              aria-label="DMS Feature modules"
+              className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full"
+            >
+              {DMS_FEATURE_TABS.map((tab) => {
+                const isActive = activeDmsFeature === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveDmsFeature(tab.id)}
+                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
+                        : "text-[#4b5568] hover:text-[#0f172a] hover:bg-white/80"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="relative" data-aos="fade-up">
+            {(DMS_FEATURE_TABS.find((t) => t.id === activeDmsFeature) || DMS_FEATURE_TABS[0]).steps.map((step, idx, arr) => {
+              const pillGradients = [
+                "from-[var(--brand)] to-[#0ea5e9]",
+                "from-[#0ea5e9] to-[#06d6c8]",
+                "from-[#06d6c8] to-[var(--brand)]",
+              ];
+              const stepImages = [
+                { src: "/images/dms-step-1.jpg", alt: "Confidential Deal Setup and Analytics" },
+                { src: "/images/dms-step-2.jpg", alt: "Digital NDA Signature and Virtual Data Room" },
+                { src: "/images/dms-step-3.jpg", alt: "Bidding Comparison and Digital SPA Closing" },
+              ];
+              const isLast = idx === arr.length - 1;
+
+              return (
+                <div
+                  key={step.title}
+                  className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start relative ${
+                    isLast ? "" : "pb-8 lg:pb-10"
+                  }`}
+                >
+                  {/* Vertical gradient connector line per row (Desktop & Mobile left) */}
+                  {!isLast && (
+                    <div className="hidden lg:block absolute left-[7px] top-3 bottom-0 w-0.5 bg-gradient-to-b from-[var(--brand)] via-[#0ea5e9] to-[#06d6c8]" />
+                  )}
+
+                  {/* Left Column: Dot + Feature Label + Title & Description */}
+                  <div className="lg:col-span-6 relative pl-8 sm:pl-10">
+                    {!isLast && (
+                      <div className="lg:hidden absolute left-[7px] top-3 bottom-0 w-0.5 bg-gradient-to-b from-[var(--brand)] via-[#0ea5e9] to-[#06d6c8]" />
+                    )}
+                    <span
+                      className={`absolute left-0 top-2 w-4 h-4 rounded-full bg-gradient-to-r ${pillGradients[idx]} ring-4 ring-white shadow-sm z-10`}
+                    />
+                    <span className={`inline-flex items-center px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r ${pillGradients[idx]} text-white shadow-xs mb-2.5`}>
+                      Feature {idx + 1}
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-[#0f172a] mb-2.5">
+                      {step.title}
+                    </h3>
+                    <p className="text-base sm:text-lg text-[#505b6f] leading-relaxed">
+                      {step.desc}
+                    </p>
+                  </div>
+
+                  {/* Right Column: Aligned Image starting flush with Feature label */}
+                  <div className="lg:col-span-6 pl-8 sm:pl-10 lg:pl-0">
+                    <div className="w-full max-w-2xl lg:ml-auto rounded-2xl overflow-hidden shadow-[0_14px_36px_rgba(15,23,42,0.1)] border border-slate-200/80 bg-white">
+                      <img
+                        src={stepImages[idx].src}
+                        alt={stepImages[idx].alt}
+                        className="w-full h-64 sm:h-72 object-cover block"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* The Seller's Journey */}
       <section className="pt-24 pb-24 lg:pb-0 px-4 md:px-16 bg-[#f1f5fb] relative overflow-hidden">
