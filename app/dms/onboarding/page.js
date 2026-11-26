@@ -312,7 +312,7 @@ export default function Onboarding() {
           ></div>
         </div>
         
-        <div className="max-w-4xl mx-auto px-6 py-5 flex justify-between items-center">
+        <div className="max-w-4xl mx-auto px-3 py-3 sm:px-6 sm:py-5 flex justify-between items-center">
           <div>
             {step > 1 ? (
               <button 
@@ -336,7 +336,7 @@ export default function Onboarding() {
             <button 
               onClick={handleNext}
               disabled={(step === 1 && selectedTypes.length === 0) || isSubmitting}
-              className={`flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-sm transition-all duration-200
+              className={`flex items-center gap-2 px-5 sm:px-8 py-3 rounded-lg font-bold text-sm transition-all duration-200
                 ${(step > 1 || selectedTypes.length > 0)
                   ? 'bg-[#1e293b] hover:bg-[#0f172a] text-white shadow hover:shadow-md' 
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'

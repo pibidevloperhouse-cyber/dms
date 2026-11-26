@@ -1,11 +1,13 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import Link from "next/link";
 import { FaPowerOff, FaDatabase, FaShieldAlt, FaBell, FaFolder, FaFileInvoiceDollar } from "react-icons/fa";
 
 export default function DealSidebar({ activeTab, onTabClick, requests = [], projectName = "Project" }) {
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between py-6 z-40 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+    <MobileNavigation label="Deal menu">
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between py-6 z-40 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
       <div>
         <div className="px-6 mb-8 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#303030] text-white flex items-center justify-center shadow-lg font-serif italic text-sm">
@@ -64,6 +66,7 @@ export default function DealSidebar({ activeTab, onTabClick, requests = [], proj
           <span>Logout</span>
         </Link>
       </div>
-    </aside>
+      </aside>
+    </MobileNavigation>
   );
 }

@@ -1127,12 +1127,12 @@ export default function WorkspacePage() {
             </div>
 
             {/* Project Filter Tabs */}
-            <div className="flex items-center gap-2 mb-8 border-b border-gray-200 pb-px">
+            <div className="flex items-center overflow-x-auto gap-0 sm:gap-2 mb-8 border-b border-gray-200 pb-px">
               {['All', 'Approved', 'Pending', 'Rejected'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setProjectFilter(tab)}
-                  className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${projectFilter === tab
+                  className={`shrink-0 px-2 sm:px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${projectFilter === tab
                     ? 'border-[#008f70] text-[#008f70]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}

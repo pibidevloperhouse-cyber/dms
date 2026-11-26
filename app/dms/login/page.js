@@ -212,7 +212,7 @@ export default function DMSLogin() {
   };
 
   return (
-    <div className="h-screen bg-gray-100 flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden relative">
+    <div className="min-h-dvh md:h-screen bg-gray-100 flex items-center justify-center md:p-8 font-sans md:overflow-hidden relative">
       {/* Real-time Toast/Card Notification Modal - Center of Screen with Light Grey Tint & Subtle Blur */}
       {modal && (
         <div 
@@ -288,25 +288,25 @@ export default function DMSLogin() {
         </div>
       )}
 
-      <div className="w-full max-w-6xl h-[95vh] max-h-[900px] min-h-[500px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+      <div className="w-full max-w-6xl min-h-dvh md:h-[95vh] md:max-h-[900px] md:min-h-[500px] bg-white md:rounded-3xl md:shadow-2xl md:overflow-hidden flex flex-col md:flex-row">
         {/* Left Panel */}
-        <div className="relative md:w-[50%] lg:w-[45%] bg-[#0b1120] text-white p-10 md:p-16 flex flex-col justify-center">
-          <Link href="/dms" className="absolute top-10 left-10 md:top-16 md:left-16 flex items-center text-gray-400 hover:text-white transition-colors group w-fit">
+        <div className="relative md:w-[50%] lg:w-[45%] bg-[#0b1120] text-white px-5 py-6 md:p-16 flex flex-col justify-center">
+          <Link href="/dms" className="mb-5 md:mb-0 md:absolute md:top-16 md:left-16 flex items-center text-gray-400 hover:text-white transition-colors group w-fit">
             <FaArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" />
             <span className="font-medium">Back to DMS</span>
           </Link>
 
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Welcome Back</h1>
-            <p className="text-gray-400 text-lg leading-relaxed">
+            <h1 className="text-3xl md:text-5xl font-bold mb-3 md:mb-6 tracking-tight">Welcome Back</h1>
+            <p className="text-gray-300 text-base md:text-lg leading-relaxed">
               Sign in to your Secure DMS account to access your confidential data rooms, manage deals, and review NDAs in one unified environment.
             </p>
           </div>
         </div>
 
         {/* Right Panel - Form */}
-        <div className="md:w-[50%] lg:w-[55%] flex p-8 md:p-12 lg:p-16 bg-white overflow-y-auto">
-          <div className="w-full max-w-md m-auto py-8">
+        <div className="md:w-[50%] lg:w-[55%] flex min-w-0 p-5 md:p-12 lg:p-16 bg-white md:overflow-y-auto">
+          <div className="w-full max-w-md m-auto py-3 md:py-8">
             <div className="mb-10 text-center md:text-left">
               <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">Sign in</h2>
               <p className="text-gray-500 text-lg">Don't have an account? <Link href="/dms/register" className="text-[#3b82f6] font-semibold hover:underline">Create one</Link></p>

@@ -1070,7 +1070,7 @@ export default function InboxPage() {
 
         {/* Logged-in Inbox View */}
         {userRole && activeTab === 'inbox' && (
-          <div className="pt-8 px-4 md:px-8 lg:px-12 max-w-[1500px] w-full mx-auto pb-8 flex-1 flex flex-col h-[calc(100vh-80px)]">
+          <div className="pt-8 px-4 md:px-8 lg:px-12 max-w-[1500px] w-full mx-auto pb-8 flex-1 flex flex-col h-[calc(100dvh-116px)] md:h-[calc(100vh-80px)]">
             {/* Header Row */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 shrink-0">
               <div className="flex items-center gap-3">
@@ -1083,7 +1083,7 @@ export default function InboxPage() {
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
               {/* Left Panel - Messages */}
               {/* Left Panel - Conversations */}
-              <div className="w-full md:w-1/3 border-r border-gray-200 bg-gray-50 flex flex-col">
+              <div className={`w-full md:w-1/3 min-h-0 border-r border-gray-200 bg-gray-50 flex-col ${selectedConversation ? "hidden md:flex" : "flex"}`}>
                 <div className="p-4 border-b border-gray-200 flex gap-4">
                   <button className="text-sm font-bold text-gray-900 border-b-2 border-teal-600 pb-2">Messages</button>
                 </div>
@@ -1188,7 +1188,8 @@ export default function InboxPage() {
 
               {/* Right/Middle Panel */}
               {selectedConversation ? (
-                <div className="w-full md:w-2/3 flex flex-col bg-white">
+                <div className="w-full md:w-2/3 min-h-0 flex flex-col bg-white">
+                  <button type="button" onClick={() => setSelectedConversation(null)} className="md:hidden self-start px-4 py-3 text-sm font-semibold text-teal-700">Back to conversations</button>
                   {/* Message Header */}
                   <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1455,7 +1456,7 @@ export default function InboxPage() {
                   </div>
                 </div>
               ) : (
-                <div className="w-full md:w-2/3 flex flex-col items-center justify-center p-8 text-center bg-white">
+                <div className="hidden w-full md:w-2/3 md:flex flex-col items-center justify-center p-8 text-center bg-white">
                   <div className="w-32 h-32 mb-6 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
                     <FaEnvelope className="text-4xl text-gray-300" />
                   </div>

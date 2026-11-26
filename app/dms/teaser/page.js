@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import { Suspense, useState, useEffect } from "react";
 import { FaArrowLeft, FaLock, FaCheck, FaTimes, FaPowerOff, FaThLarge, FaBriefcase, FaChartLine, FaUser } from "react-icons/fa";
 import Link from "next/link";
@@ -135,7 +136,8 @@ function TeaserContent() {
       
       {/* Left Sidebar (Only for logged in) */}
       {isMounted && userRole && (
-        <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
+        <MobileNavigation label="Marketplace menu" variant="icons">
+          <aside className="w-[72px] bg-[#111827] flex flex-col items-center py-6 shrink-0 h-screen sticky top-0 z-50">
           {/* Logo */}
           <div className="w-10 h-10 bg-[#008f70] rounded-md flex items-center justify-center text-white font-bold text-xl mb-8 shadow-sm cursor-pointer hover:bg-[#007058] transition-colors">
             D
@@ -198,7 +200,8 @@ function TeaserContent() {
               <FaPowerOff className="w-[22px] h-[22px]" />
             </button>
           </div>
-        </aside>
+          </aside>
+        </MobileNavigation>
       )}
 
       {/* Main Content Area */}

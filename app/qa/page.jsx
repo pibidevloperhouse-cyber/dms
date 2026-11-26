@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import { supabase } from "@/utils/supabase/client";
@@ -581,7 +582,8 @@ function QAPageContent() {
     <div className="flex w-full h-full bg-[#F8F9FB] font-sans">
 
       {/* ── SIDEBAR: DIRECTORY TREE ── */}
-      <div className="w-[280px] bg-white border-r border-slate-200/80 flex flex-col h-full py-6 shadow-[4px_0_24px_rgba(0,0,0,0.01)] z-10">
+      <MobileNavigation label="Question filters">
+        <div className="w-[280px] bg-white border-r border-slate-200/80 flex flex-col h-full py-6 shadow-[4px_0_24px_rgba(0,0,0,0.01)] z-10">
         <div className="px-6 mb-5 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-800 tracking-wide flex items-center gap-2">
             <FaShieldAlt className="text-[var(--brand)] w-4 h-4" />
@@ -687,7 +689,8 @@ function QAPageContent() {
             });
           })()}
         </div>
-      </div>
+        </div>
+      </MobileNavigation>
 
       {/* ── MAIN CONTENT AREA ── */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#F8F9FB]">

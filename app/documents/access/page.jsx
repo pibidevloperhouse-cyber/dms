@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import React, { useState, useEffect, useCallback, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 // 🔥 SUPABASE IMPORT REMOVED
@@ -287,7 +288,8 @@ function AccessPageContent() {
     // 🔥 YOUR UI BEGINS HERE: EXACTLY UNTOUCHED. NO CHANGES.
     return (
         <div className="relative flex w-full h-full bg-[#F8F9FB] overflow-hidden text-slate-800 font-sans">
-            <aside className={`${sidebarOpen ? 'w-[280px]' : 'w-0'} shrink-0 border-r border-slate-200 bg-white flex flex-col h-full overflow-hidden transition-all duration-300`}>
+            <MobileNavigation label="Access filters">
+              <aside className={`${sidebarOpen ? 'w-[280px]' : 'w-0'} shrink-0 border-r border-slate-200 bg-white flex flex-col h-full overflow-hidden transition-all duration-300`}>
                 <div className="px-5 pt-5 pb-3 border-b border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Room Groups</p>
                     <p className="text-[11px] text-slate-400 mt-1">{groups.length} group{groups.length !== 1 ? 's' : ''}</p>
@@ -433,7 +435,8 @@ function AccessPageContent() {
                         });
                     })()}
                 </div>
-            </aside>
+              </aside>
+            </MobileNavigation>
 
             <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
                 <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-200 bg-white">

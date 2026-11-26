@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -98,7 +99,8 @@ function LayoutContent({ children }) {
     return (
         <div className="flex w-full h-screen overflow-hidden bg-[#F8F9FB] font-sans">
             <MainSidebar />
-            <nav className="w-[240px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.05)]">
+            <MobileNavigation label="Vault menu">
+              <nav className="w-[240px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.05)]">
 
                 <div className="px-6 py-6 border-b border-slate-100 flex items-center hover:opacity-80 transition-opacity">
                     <span className="text-[15px] font-black text-brand tracking-tight">VDR Vault</span>
@@ -119,7 +121,8 @@ function LayoutContent({ children }) {
                 </div>
 
                 {/* Removed session block as requested */}
-            </nav>
+              </nav>
+            </MobileNavigation>
             <main className="flex-1 min-w-0 h-full overflow-hidden flex flex-col relative">
                 {children}
             </main>

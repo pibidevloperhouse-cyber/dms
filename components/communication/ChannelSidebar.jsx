@@ -1,5 +1,6 @@
 "use client";
 
+import MobileNavigation from "@/components/MobileNavigation";
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -111,7 +112,8 @@ export default function ChannelSidebar() {
   const groupChannels = filteredChannels.filter((c) => c.type !== 'direct_message' && !c.isDirectMessage);
 
   return (
-    <div className="w-[300px] flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full font-sans">
+    <MobileNavigation label="Channels">
+      <div className="w-[300px] flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full font-sans">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 flex items-center justify-between">
         <div>
@@ -356,6 +358,7 @@ export default function ChannelSidebar() {
           </TabsContent>
         </ScrollArea>
       </Tabs>
-    </div>
+      </div>
+    </MobileNavigation>
   );
 }
