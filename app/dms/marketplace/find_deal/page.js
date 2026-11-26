@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getBestBuyerMatch } from "@/lib/signalScore";
-import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog, FaCalendarAlt, FaDollarSign, FaUsers } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaCheck, FaShieldAlt, FaLink, FaArrowRight, FaLock, FaBriefcase, FaPowerOff, FaEllipsisV, FaMapMarkerAlt, FaRegBookmark, FaFilter, FaChevronDown, FaChevronLeft, FaChevronRight, FaRedoAlt, FaThLarge, FaUser, FaUserCircle, FaSignOutAlt, FaRegBell, FaBell, FaHandshake, FaEnvelope, FaBuilding, FaPhone, FaGlobe, FaEdit, FaCheckCircle, FaTimes, FaChartLine, FaFolderOpen, FaRegClock, FaPlus, FaDatabase, FaCog, FaCalendarAlt, FaDollarSign, FaUsers } from "react-icons/fa";
 
 export default function MarketplacePage() {
   const [userRole, setUserRole] = useState(null);
@@ -51,6 +51,8 @@ export default function MarketplacePage() {
   const [companyTypeFilter, setCompanyTypeFilter] = useState('All Company Types');
   const [locationFilter, setLocationFilter] = useState('All Locations');
   const [dealTypeFilter, setDealTypeFilter] = useState('All Deal Types');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
   const router = useRouter();
 
   const loadUserProfile = async () => {
@@ -271,6 +273,83 @@ export default function MarketplacePage() {
     setCompanyTypeFilter('All Company Types');
     setLocationFilter('All Locations');
     setDealTypeFilter('All Deal Types');
+    setCurrentPage(1);
+  };
+
+  const activeItems = userRole === 'seller' ? filteredBuyers : filteredOpportunities;
+  const totalPages = Math.max(1, Math.ceil(activeItems.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBuyers = filteredBuyers.slice(pageStartIndex, pageStartIndex + ITEMS_PER_PAGE);
+  const paginatedOpportunities = filteredOpportunities.slice(pageStartIndex, pageStartIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page) => {
+    const next = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(next);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const renderPagination = (totalItems) => {
+    if (totalItems <= ITEMS_PER_PAGE) return null;
+    const startItem = pageStartIndex + 1;
+    const endItem = Math.min(pageStartIndex + ITEMS_PER_PAGE, totalItems);
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || Math.abs(i - safeCurrentPage) <= 1) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    }
+
+    return (
+      <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-gray-200 rounded-xl px-5 py-3.5 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+        <p className="text-xs font-medium text-gray-500">
+          Showing <span className="font-bold text-gray-900">{startItem}–{endItem}</span> of{' '}
+          <span className="font-bold text-gray-900">{totalItems}</span> results
+        </p>
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+          <button
+            type="button"
+            onClick={() => handlePageChange(safeCurrentPage - 1)}
+            disabled={safeCurrentPage === 1}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <FaChevronLeft className="w-2.5 h-2.5" /> Prev
+          </button>
+          {pages.map((page, i) =>
+            page === '...' ? (
+              <span key={`ellipsis-${i}`} className="px-2 text-xs font-bold text-gray-400">
+                ...
+              </span>
+            ) : (
+              <button
+                key={page}
+                type="button"
+                onClick={() => handlePageChange(page)}
+                className={`min-w-[32px] h-8 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  page === safeCurrentPage
+                    ? 'bg-[#008f70] text-white shadow-sm'
+                    : 'border border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            )
+          )}
+          <button
+            type="button"
+            onClick={() => handlePageChange(safeCurrentPage + 1)}
+            disabled={safeCurrentPage === totalPages}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            Next <FaChevronRight className="w-2.5 h-2.5" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const getHighlightsList = (deal) => {
@@ -593,7 +672,7 @@ export default function MarketplacePage() {
                       <select
                         className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
                         value={companyTypeFilter}
-                        onChange={(e) => setCompanyTypeFilter(e.target.value)}
+                        onChange={(e) => { setCompanyTypeFilter(e.target.value); setCurrentPage(1); }}
                       >
                         <option>All Company Types</option>
                         <option>Technology</option>
@@ -647,7 +726,7 @@ export default function MarketplacePage() {
                       <select
                         className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
                         value={locationFilter}
-                        onChange={(e) => setLocationFilter(e.target.value)}
+                        onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
                       >
                         <option>All Locations</option>
                         {uniqueCountries.map((country, idx) => (
@@ -674,7 +753,7 @@ export default function MarketplacePage() {
                       <select
                         className="w-full appearance-none bg-[#f8fafc] hover:bg-gray-50 border border-gray-200 rounded-lg py-3.5 pl-5 pr-10 text-[13px] font-bold text-gray-800 focus:outline-none transition-colors cursor-pointer"
                         value={dealTypeFilter}
-                        onChange={(e) => setDealTypeFilter(e.target.value)}
+                        onChange={(e) => { setDealTypeFilter(e.target.value); setCurrentPage(1); }}
                       >
                         <option>All Deal Types</option>
                         <option>M&A</option>
@@ -706,7 +785,7 @@ export default function MarketplacePage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   placeholder="Search by industry, keyword, or business model..."
                   className="w-full pl-10 pr-4 py-3 bg-transparent border-none text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
                 />
@@ -803,7 +882,7 @@ export default function MarketplacePage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                      {filteredBuyers.map((buyer, idx) => {
+                      {paginatedBuyers.map((buyer, idx) => {
                         const match = buyer.signalMatch || {};
                         return (
                         <div key={buyer.id || idx} className="bg-white rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.04)] border border-gray-100 p-6 flex flex-col hover:shadow-lg transition-shadow h-full">
@@ -844,31 +923,31 @@ export default function MarketplacePage() {
                           </p>
 
                           {/* Signal Score Box */}
-                          <div className="bg-gradient-to-r from-[#1f6fb2]/5 to-[#2ec4b6]/5 rounded-xl p-5 flex flex-col gap-3 mb-8 relative overflow-hidden border border-[#2ec4b6]/20">
+                          <div className="bg-gradient-to-r from-[#1f6fb2]/5 to-[#2ec4b6]/5 rounded-xl p-4 flex flex-col gap-3 mb-8 relative overflow-hidden border border-[#2ec4b6]/20">
                             {match.hasTeaser ? (
                               <>
-                                <div className="flex items-center gap-6">
-                                  <div className="flex flex-col border-r border-gray-300/60 pr-6 relative z-10 shrink-0">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex flex-col border-r border-gray-300/60 pr-4 relative z-10 shrink-0">
                                     <div className="flex items-center gap-1.5 text-[#1f6fb2] text-[10px] font-bold uppercase tracking-[0.15em] mb-2">
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
                                       SIGNAL SCORE
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                      <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] text-[40px] leading-none font-bold">{match.score}</span>
+                                      <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] text-[36px] leading-none font-bold">{match.score}</span>
                                       <span className="text-[#2ec4b6]/70 text-base font-bold">/10</span>
                                     </div>
                                   </div>
-                                  <div className="flex flex-col relative z-10 min-w-0">
+                                  <div className="flex flex-col relative z-10 min-w-0 flex-1">
                                     {match.bestProjectName && (
-                                      <span className="inline-block w-fit max-w-full truncate text-[10px] font-bold uppercase tracking-wider text-[#008f70] bg-[#008f70]/10 px-2 py-0.5 rounded mb-1.5">
+                                      <span className="inline-block w-fit max-w-full text-[10px] font-bold uppercase tracking-wider text-[#008f70] bg-[#008f70]/10 px-2 py-0.5 rounded mb-1.5 leading-snug break-words">
                                         Best fit for: {match.bestProjectName}
                                       </span>
                                     )}
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <FaChartLine className="text-[#1f6fb2] text-sm shrink-0" />
-                                      <span className="text-gray-900 text-[14px] font-bold truncate">{match.label}</span>
+                                    <div className="flex items-start gap-2 mb-1">
+                                      <FaChartLine className="text-[#1f6fb2] text-sm shrink-0 mt-0.5" />
+                                      <span className="text-gray-900 text-[14px] font-bold leading-snug">{match.label}</span>
                                     </div>
-                                    <p className="text-gray-500 text-[12px] font-medium pl-5">{match.subtext}</p>
+                                    <p className="text-gray-500 text-[12px] font-medium leading-snug">{match.subtext}</p>
                                   </div>
                                 </div>
                                 {match.matchedTags?.length > 0 && (
@@ -954,6 +1033,7 @@ export default function MarketplacePage() {
                       })}
                     </div>
                   )}
+                  {!isLoading && renderPagination(filteredBuyers.length)}
                 </div>
               ) : (
                 /* Projects Area (For Buyers) */
@@ -1032,7 +1112,7 @@ export default function MarketplacePage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {filteredOpportunities.map((opp, idx) => (
+                      {paginatedOpportunities.map((opp, idx) => (
                         <div key={idx} className="bg-white border border-gray-200 flex flex-col group relative overflow-hidden transition-all duration-300 h-full rounded-xl hover:shadow-[0_4px_25px_rgb(0,0,0,0.04)] hover:-translate-y-1">
                           <div className="p-5 flex flex-col h-full">
                             {/* Header */}
@@ -1125,6 +1205,7 @@ export default function MarketplacePage() {
                       ))}
                     </div>
                   )}
+                  {!isLoading && renderPagination(filteredOpportunities.length)}
                 </div>
               )}
             </div>
