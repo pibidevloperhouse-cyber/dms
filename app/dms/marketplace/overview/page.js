@@ -290,13 +290,13 @@ export default function OverviewPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column: Recent Activity */}
               <div className="lg:col-span-2 h-full">
-                <div className="bg-white rounded-xl shadow-[0_2px_15px_rgb(0,0,0,0.02)] border border-gray-200 p-6 md:p-8 h-full flex flex-col">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-bold text-gray-900">Your Active Pipeline</h2>
-                    <button onClick={() => router.push('/dms/marketplace/tracker')} className="text-sm font-bold text-teal-600 hover:text-teal-700">View Tracker</button>
+                <div className="bg-white rounded-xl shadow-[0_2px_15px_rgb(0,0,0,0.02)] border border-gray-200 p-4 sm:p-6 md:p-8 h-full flex flex-col">
+                  <div className="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900">Your Active Pipeline</h2>
+                    <button onClick={() => router.push('/dms/marketplace/tracker')} className="text-xs sm:text-sm font-bold text-teal-600 hover:text-teal-700 whitespace-nowrap">View Tracker</button>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {overviewMetrics.deals && overviewMetrics.deals.length > 0 ? (
                       overviewMetrics.deals.slice(0, 3).map((deal, idx) => {
                         const initials = deal.dealName ? deal.dealName.substring(0, 2).toUpperCase() : 'DL';
@@ -305,26 +305,26 @@ export default function OverviewPage() {
                           <div 
                             key={deal.id || idx}
                             onClick={() => router.push('/dms/marketplace/workspace')}
-                            className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/70 transition-all cursor-pointer group"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 p-3.5 sm:p-4 rounded-xl border border-gray-200 bg-gray-50/60 hover:bg-gray-100/70 transition-all cursor-pointer group"
                           >
-                            <div className="flex items-center gap-4">
-                              <div className={`w-11 h-11 rounded-lg ${idx % 2 === 0 ? 'bg-[#00527c]' : 'bg-[#008f70]'} text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform`}>
+                            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                              <div className={`w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-lg ${idx % 2 === 0 ? 'bg-[#00527c]' : 'bg-[#008f70]'} text-white flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm group-hover:scale-105 transition-transform`}>
                                 {initials}
                               </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900 mb-0.5">{deal.dealName}</p>
-                                <p className="text-xs font-semibold text-gray-500">M&amp;A Transaction &bull; Virtual Data Room</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-gray-900 mb-0.5 truncate">{deal.dealName}</p>
+                                <p className="text-xs font-medium sm:font-semibold text-gray-500 truncate">M&amp;A Transaction &bull; Virtual Data Room</p>
                               </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1.5">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-1.5 pl-[52px] sm:pl-0 shrink-0">
+                              <span className={`whitespace-nowrap inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                                 isSigned 
                                   ? 'bg-green-100 text-green-700 border border-green-200' 
                                   : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
                               }`}>
                                 {isSigned ? 'Due Diligence' : 'NDA Pending'}
                               </span>
-                              <span className="text-[11px] font-medium text-gray-400">
+                              <span className="text-[11px] font-medium text-gray-400 whitespace-nowrap">
                                 {isSigned ? 'NDA Cleared' : 'Action Required'}
                               </span>
                             </div>
