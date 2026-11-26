@@ -552,12 +552,7 @@ textarea {
   aspect-ratio: 1;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: linear-gradient(
-    115deg,
-    #06d6c8 3%,
-    #0ea5e9 45%,
-    #dbeafe 85%
-  );
+  background: #dbeafe;
 }
 
 .hero-background .ring::after {
@@ -589,8 +584,8 @@ textarea {
   top: 47%;
   width: 11%;
   height: 34%;
-  color: #a3b9cf;
-  opacity: 0.52;
+  color: #ffffff;
+  opacity: 0.85;
 }
 
 .hero-background .trace-left {
@@ -654,20 +649,30 @@ textarea {
 
 
 .deal-hero-title {
-  font-size: clamp(1.2rem, 5.1vw, 4.6rem);
+  font-size: clamp(1.45rem, 4.8vw, 3.35rem);
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.045em;
-  text-transform: uppercase;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  text-shadow: 0 2px 18px rgba(7, 25, 54, 0.25);
 }
 
 .deal-hero-title > span {
   display: block;
 }
 
+.deal-hero-title > span:last-child {
+  font-size: 0.88em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-top: 0.12em;
+  color: #bae6fd;
+  text-shadow: none;
+}
+
 @supports (background-clip: text) {
-  .deal-hero-title {
-    background-image: linear-gradient(to bottom, #fff 15%, #dcf5ff 50%, #8de7f5 95%);
+  .deal-hero-title > span:last-child {
+    background-image: linear-gradient(to right, #e0f2fe 0%, #bae6fd 50%, #67e8f9 100%);
     background-clip: text;
     color: transparent;
   }
@@ -709,8 +714,23 @@ textarea {
 }
 
 @media (max-width: 639px) {
-  .deal-stage-card:is([data-side="left"], [data-side="right"]) > div { padding: 6px 3px; }
-  .deal-stage-card:is([data-side="left"], [data-side="right"]) button { padding-inline: 3px; gap: 2px; }
+  .deal-stage-card,
+  .deal-stage-card:is([data-side="left"], [data-side="right"]) {
+    left: 50% !important;
+    top: 26% !important;
+    width: min(290px, calc(100vw - 32px)) !important;
+    transform: translate(-50%, 0) !important;
+  }
+  .deal-stage-card > div {
+    min-width: 0 !important;
+    padding: 12px 14px !important;
+  }
+  .deal-stage-card h4 {
+    white-space: normal !important;
+  }
+  .deal-stage-card .deal-stage-pointer {
+    display: none;
+  }
 }
 
 

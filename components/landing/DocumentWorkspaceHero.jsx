@@ -71,7 +71,7 @@ const STAGES = [
     nodeLeft: "50%",
     nodeTop: "52.6%",
     cardLeft: "50%",
-    cardTop: "45%",
+    cardTop: "49%",
     activeBadgeBg: "bg-teal-400",
     activeRing: "ring-4 ring-teal-300 shadow-[0_0_28px_rgba(45,212,191,0.9)]",
     buttonBg: "bg-slate-100 text-slate-700 hover:bg-slate-200 focus-visible:outline-slate-600",
@@ -146,18 +146,39 @@ export default function DocumentWorkspaceHero({
             "--badge-top": currentStage.nodeTop,
           }}
         >
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 border border-white shadow-[0_14px_36px_rgba(0,0,0,0.35)] min-w-[185px] sm:min-w-[225px] text-center relative group">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/90 shadow-[0_18px_45px_rgba(7,25,54,0.32)] ring-1 ring-[#0F4EA5]/10 min-w-[200px] sm:min-w-[235px] text-center relative group">
+            {/* Step indicator & progress dots */}
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[rgb(15,78,165)]">
+                Step {currentStage.step} / {STAGES.length}
+              </span>
+              <div className="flex items-center gap-1" aria-hidden="true">
+                {STAGES.map((s, i) => (
+                  <span
+                    key={s.step}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === currentStageIdx
+                        ? "w-4 bg-cyan-500"
+                        : i < currentStageIdx
+                          ? "w-1.5 bg-[rgb(15,78,165)]"
+                          : "w-1.5 bg-slate-200"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Card Title */}
-            <h4 className="text-[12px] sm:text-[14px] font-bold text-gray-900 leading-snug whitespace-nowrap">
+            <h4 className="text-[13px] sm:text-[15px] font-bold text-[#0f172a] leading-snug whitespace-nowrap">
               {currentStage.title}
             </h4>
 
             {/* Next / Action Button */}
-            <div className="mt-2 sm:mt-2.5 flex items-center justify-center">
+            <div className="mt-2 flex items-center justify-center">
               <button
                 type="button"
                 onClick={handleNext}
-                className={`inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 ${currentStage.buttonBg} text-[11px] sm:text-xs font-semibold rounded-lg shadow-xs hover:shadow transition-all duration-150 active:scale-95 cursor-pointer`}
+                className={`w-full inline-flex items-center justify-center gap-1.5 px-4 py-1.5 sm:py-2 ${currentStage.buttonBg} text-[11px] sm:text-xs font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-150 active:scale-95 cursor-pointer`}
               >
                 <span>{currentStage.buttonText}</span>
                 {!isFinalStep ? (
@@ -168,7 +189,7 @@ export default function DocumentWorkspaceHero({
               </button>
             </div>
 
-            {/* Downward pointer caret pointing directly down to active logo */}
+            {/* Pointer caret pointing directly to active logo */}
             <div
               className="deal-stage-pointer absolute size-3 rotate-45 bg-white"
             />

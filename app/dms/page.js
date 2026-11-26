@@ -704,12 +704,12 @@ export default function DMSLanding() {
           </div>
 
           {/* Mobile / Tablet Vertical Road */}
-          <div className="lg:hidden relative pl-10 space-y-8">
+          <div className="lg:hidden relative pl-12 space-y-6 sm:space-y-8">
             <div className="absolute left-5 top-4 bottom-4 w-3 -translate-x-1/2 bg-gradient-to-b from-[#06d6c8] via-[#0ea5e9] to-[#1d4ed8] rounded-full" />
             <div className="absolute left-5 top-4 bottom-4 w-0 -translate-x-1/2 border-l-2 border-dashed border-white/90" />
 
-            <div className="relative bg-gradient-to-br from-white via-[#f5f8ff] to-[#eaf1ff] p-6 rounded-2xl shadow-md border border-[#d6e4ff]">
-              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[var(--brand)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">01</div>
+            <div className="relative bg-gradient-to-br from-white via-[#f5f8ff] to-[#eaf1ff] p-5 sm:p-6 rounded-2xl shadow-md border border-[#d6e4ff]">
+              <div className="absolute -left-12 top-6 w-10 h-10 rounded-full bg-[var(--brand)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">01</div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-[var(--brand)] text-white flex items-center justify-center text-sm"><FaBriefcase /></div>
                 <h3 className="text-lg font-bold text-[#1f2738]">Onboarding & Project Creation</h3>
@@ -720,8 +720,8 @@ export default function DMSLanding() {
               </ul>
             </div>
 
-            <div className="relative bg-gradient-to-br from-white via-[#f3f8ff] to-[#e5f0ff] p-6 rounded-2xl shadow-md border border-[#cfe0ff]">
-              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[#2563eb] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">02</div>
+            <div className="relative bg-gradient-to-br from-white via-[#f3f8ff] to-[#e5f0ff] p-5 sm:p-6 rounded-2xl shadow-md border border-[#cfe0ff]">
+              <div className="absolute -left-12 top-6 w-10 h-10 rounded-full bg-[#2563eb] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">02</div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-[#2563eb] text-white flex items-center justify-center text-sm"><FaFileContract /></div>
                 <h3 className="text-lg font-bold text-[#1f2738]">VDR Setup & Teaser Publishing</h3>
@@ -734,8 +734,8 @@ export default function DMSLanding() {
               </ul>
             </div>
 
-            <div className="relative bg-gradient-to-br from-white via-[#f2fbfc] to-[#e3f5f7] p-6 rounded-2xl shadow-md border border-[#cbeaf0]">
-              <div className="absolute -left-10 top-6 w-10 h-10 rounded-full bg-[var(--brand-secondary)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">03</div>
+            <div className="relative bg-gradient-to-br from-white via-[#f2fbfc] to-[#e3f5f7] p-5 sm:p-6 rounded-2xl shadow-md border border-[#cbeaf0]">
+              <div className="absolute -left-12 top-6 w-10 h-10 rounded-full bg-[var(--brand-secondary)] text-white ring-4 ring-white shadow flex items-center justify-center text-xs font-extrabold">03</div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-[var(--brand-secondary)] text-white flex items-center justify-center text-sm"><FaHandshake /></div>
                 <h3 className="text-lg font-bold text-[#1f2738]">Monitor, Q&A & Close</h3>
@@ -781,9 +781,25 @@ export default function DMSLanding() {
               </svg>
             </div>
 
+            {/* Solid Black Dots Layer (Always Above Orange Wave) */}
+            <div className="hidden lg:grid lg:grid-cols-4 gap-5 pointer-events-none absolute left-0 right-0 bottom-6 h-40 z-20">
+              <div className="relative">
+                <div className={`absolute left-1/2 top-[40px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm transition-opacity duration-500 ${buyerProgress >= 0.12 ? "opacity-100" : "opacity-0"}`} />
+              </div>
+              <div className="relative">
+                <div className={`absolute left-1/2 top-[120px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm transition-opacity duration-500 ${buyerProgress >= 0.35 ? "opacity-100" : "opacity-0"}`} />
+              </div>
+              <div className="relative">
+                <div className={`absolute left-1/2 top-[40px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm transition-opacity duration-500 ${buyerProgress >= 0.58 ? "opacity-100" : "opacity-0"}`} />
+              </div>
+              <div className="relative">
+                <div className={`absolute left-1/2 top-[120px] -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#18181b] shadow-sm transition-opacity duration-500 ${buyerProgress >= 0.80 ? "opacity-100" : "opacity-0"}`} />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {/* Phase 1 (Peak -> Pill Below) */}
-              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.12 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-0 lg:min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.12 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
                 <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="0">
                   <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 1</span>
                   <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Explore Marketplace</h3>
@@ -812,7 +828,7 @@ export default function DMSLanding() {
               </div>
 
               {/* Phase 2 (Trough -> Pill Above) */}
-              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.35 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-0 lg:min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.35 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
                 <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="100">
                   <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 2</span>
                   <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Request Access &amp; Sign NDA</h3>
@@ -841,7 +857,7 @@ export default function DMSLanding() {
               </div>
 
               {/* Phase 3 (Peak -> Pill Below) */}
-              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.58 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-0 lg:min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.58 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
                 <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="200">
                   <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 3</span>
                   <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Private Workspace</h3>
@@ -870,7 +886,7 @@ export default function DMSLanding() {
               </div>
 
               {/* Phase 4 (Trough -> Pill Above) */}
-              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.80 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
+              <div className={`bg-white rounded-3xl p-6 pb-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between min-h-0 lg:min-h-[380px] relative transition-all duration-500 ${buyerProgress >= 0.80 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}>
                 <div className="text-center relative z-10" data-aos="fade-up" data-aos-delay="300">
                   <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)]">Phase 4</span>
                   <h3 className="text-xl font-extrabold text-[#111827] mt-1 mb-2">Submit Bid &amp; Sign SPA</h3>
