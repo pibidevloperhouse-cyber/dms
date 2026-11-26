@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Store, ShieldCheck, CheckSquare, FileText, Gavel, Lock } from "lucide-react";
+import { Store, ShieldCheck, CheckSquare, FileText, Gavel, Lock, Layers, GitBranch, ArrowRight } from "lucide-react";
 
 export default function ForestCard() {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -390,7 +390,7 @@ export default function ForestCard() {
               { title: "VDR Sell", deals: 1, highlighted: true },
             ];
 
-        return (
+  return (
           <div className="w-full h-full bg-[#f8fafc] p-2.5 sm:p-3 flex flex-col select-none font-sans overflow-hidden">
             {/* Top App Bar */}
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-1.5 shrink-0">
@@ -522,7 +522,7 @@ export default function ForestCard() {
               { num: "3", title: "Negotiation", active: false, badge: "INACTIVE", statusLeft: "🔒 Stage disabled by Super Admin", lockIcon: true },
             ];
 
-        return (
+  return (
           <div className="w-full h-full bg-[#f8fafc] p-2 sm:p-2.5 flex flex-col justify-between select-none font-sans overflow-hidden">
             {/* Header */}
             <div className="flex items-start justify-between gap-2 shrink-0">
@@ -747,7 +747,7 @@ export default function ForestCard() {
               { user: "Naga raj", role: "Buyer", action: "Due Diligence Certificate Signed by Admin" },
             ];
 
-        return (
+  return (
           <div className="w-full h-full bg-[#f8fafc] p-2 flex flex-col justify-between select-none font-sans overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-2 shrink-0">
@@ -1271,125 +1271,129 @@ export default function ForestCard() {
     setActiveSlide((prev) => (prev + 1) % slides.length);
   };
 
-  return (
-    <section className="py-8 md:py-12 w-full bg-white relative">
-      {/* ========================================================= */}
-      {/* 1. 3D DIGITAL WAVE (FULL WIDTH, 3D ISOMETRIC STEP DESIGN) */}
-      {/* ========================================================= */}
-      <div className="w-full px-3 sm:px-6 md:px-8 lg:px-10 mb-8">
-        <div
-          className="w-full overflow-x-auto pb-3 scrollbar-none"
-          data-aos="fade-down"
-        >
-          <div className="relative min-w-[760px] w-full h-22 sm:h-24 md:h-26 select-none">
-            {/* SVG 3D Isometric Digital Wave */}
-            <svg
-              className="w-full h-full"
-              viewBox="0 0 1020 90"
-              fill="none"
-              preserveAspectRatio="none"
+  const moduleCards = [
+    {
+      idx: 0,
+      title: "Market Place",
+      desc: "Discover verified buyer-seller opportunities",
+      CardIcon: Store,
+      iconColor: "text-teal-600",
+      activeBorder: "border-teal-400 bg-teal-50/40 ring-2 ring-teal-400/20",
+      cornerGrad: "from-teal-100/70",
+      arrowBg: "bg-teal-400",
+    },
+    {
+      idx: 1,
+      title: "Deal Room",
+      desc: "Secure, permission-based virtual data rooms",
+      CardIcon: Layers,
+      iconColor: "text-violet-600",
+      activeBorder: "border-violet-400 bg-violet-50/40 ring-2 ring-violet-400/20",
+      cornerGrad: "from-violet-100/70",
+      arrowBg: "bg-violet-400",
+    },
+    {
+      idx: 2,
+      title: "Task & Workflow",
+      desc: "Manage due diligence with structured tasks",
+      CardIcon: GitBranch,
+      iconColor: "text-emerald-600",
+      activeBorder: "border-emerald-400 bg-emerald-50/40 ring-2 ring-emerald-400/20",
+      cornerGrad: "from-emerald-100/70",
+      arrowBg: "bg-emerald-400",
+    },
+    {
+      idx: 3,
+      title: "Audit & Logs",
+      desc: "Track activity, access and compliance in real time",
+      CardIcon: ShieldCheck,
+      iconColor: "text-amber-500",
+      activeBorder: "border-amber-400 bg-amber-50/40 ring-2 ring-amber-400/20",
+      cornerGrad: "from-amber-100/70",
+      arrowBg: "bg-amber-400",
+    },
+    {
+      idx: 4,
+      title: "Bidding & Deal Close",
+      desc: "Run competitive bidding, negotiations and final closing",
+      CardIcon: Gavel,
+      iconColor: "text-sky-600",
+      activeBorder: "border-sky-400 bg-sky-50/40 ring-2 ring-sky-400/20",
+      cornerGrad: "from-sky-100/70",
+      arrowBg: "bg-sky-400",
+    },
+  ];
+
+  const renderModuleCard = (card, extraClass = "") => {
+    const isActive = activeSlide === card.idx;
+    return (
+      <button
+        key={card.idx}
+        type="button"
+        onClick={() => setActiveSlide(card.idx)}
+        className={`group relative rounded-2xl transition-all cursor-pointer ${
+          isActive
+            ? "p-[2px] bg-gradient-to-br from-[#1f6fb2] to-[#2ec4b6] shadow-lg shadow-[#1f6fb2]/15 scale-[1.02]"
+            : "p-[1px] bg-slate-300/80 shadow-sm hover:bg-slate-400/80 hover:-translate-y-0.5"
+        } ${extraClass}`}
+      >
+        <div className="relative overflow-hidden w-full h-full rounded-[14px] p-3.5 sm:p-4 text-center flex flex-col items-center justify-center min-h-[115px] sm:min-h-[125px] bg-white">
+          <div className="relative z-10">
+            <h3
+              className={`text-xs sm:text-[13.5px] font-extrabold leading-tight ${
+                isActive ? "text-slate-900" : "text-slate-700"
+              }`}
             >
-              <defs>
-                {/* User Requested: linear-gradient(135deg, #1f6fb2, #2ec4b6) */}
-                <linearGradient id="waveLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#1f6fb2" />
-                  <stop offset="100%" stopColor="#2ec4b6" />
-                </linearGradient>
-
-                {/* 3D Shading Gradients harmonized with #1f6fb2 and #2ec4b6 */}
-                <linearGradient id="topSurfaceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f0f9ff" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#e0f2fe" stopOpacity="0.5" />
-                </linearGradient>
-                <linearGradient id="rightRiserGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#1f6fb2" stopOpacity="0.75" />
-                  <stop offset="100%" stopColor="#0f4973" stopOpacity="0.9" />
-                </linearGradient>
-                <linearGradient id="leftRiserGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#2ec4b6" stopOpacity="0.65" />
-                  <stop offset="100%" stopColor="#0f766e" stopOpacity="0.85" />
-                </linearGradient>
-                <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f0fdfa" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#ccfbf1" stopOpacity="0.5" />
-                </linearGradient>
-                <filter id="shadow3D" x="-5%" y="-5%" width="115%" height="135%">
-                  <feDropShadow dx="2" dy="8" stdDeviation="6" floodColor="#1f6fb2" floodOpacity="0.18" />
-                </filter>
-              </defs>
-
-              <g filter="url(#shadow3D)">
-                {/* 3D Top Surfaces (Treads - Elevated High Boxes) */}
-                <polygon points="0,14 14,4 214,4 200,14" fill="url(#topSurfaceGrad)" stroke="#7dd3fc" strokeWidth="1.2" strokeOpacity="0.6" />
-                <polygon points="400,14 414,4 614,4 600,14" fill="url(#topSurfaceGrad)" stroke="#7dd3fc" strokeWidth="1.2" strokeOpacity="0.6" />
-                <polygon points="800,14 814,4 1014,4 1000,14" fill="url(#topSurfaceGrad)" stroke="#7dd3fc" strokeWidth="1.2" strokeOpacity="0.6" />
-
-                {/* 3D Valley Floors (Recessed Low Gaps) */}
-                <polygon points="200,74 214,84 414,84 400,74" fill="url(#floorGrad)" stroke="#5eead4" strokeWidth="1.2" strokeOpacity="0.6" />
-                <polygon points="600,74 614,84 814,84 800,74" fill="url(#floorGrad)" stroke="#5eead4" strokeWidth="1.2" strokeOpacity="0.6" />
-
-                {/* 3D Right-side Drop Walls (Risers - exactly in user's crop) */}
-                <polygon points="200,14 214,4 214,84 200,74" fill="url(#rightRiserGrad)" stroke="#1a5a8f" strokeWidth="1.5" />
-                <polygon points="600,14 614,4 614,84 600,74" fill="url(#rightRiserGrad)" stroke="#1a5a8f" strokeWidth="1.5" />
-                <polygon points="1000,14 1014,4 1014,84 1000,74" fill="url(#rightRiserGrad)" stroke="#1a5a8f" strokeWidth="1.5" />
-
-                {/* 3D Left-side Rising Walls */}
-                <polygon points="400,74 414,84 414,4 400,14" fill="url(#leftRiserGrad)" stroke="#1f8b85" strokeWidth="1.5" />
-                <polygon points="800,74 814,84 814,4 800,14" fill="url(#leftRiserGrad)" stroke="#1f8b85" strokeWidth="1.5" />
-
-                {/* Front Primary Square Wave Line with linear-gradient(135deg, #1f6fb2, #2ec4b6) */}
+              {card.title}
+            </h3>
+            {/* Stylish Curved Double-Line Underline */}
+            <div className="flex justify-center my-1.5">
+              <svg className="w-16 h-3.5" viewBox="0 0 68 14" fill="none">
+                <defs>
+                  <linearGradient id={`curveGrad-${card.idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#1f6fb2" />
+                    <stop offset="100%" stopColor="#2ec4b6" />
+                  </linearGradient>
+                </defs>
                 <path
-                  d="M 0,74 V 14 H 200 V 74 H 400 V 14 H 600 V 74 H 800 V 14 H 1000 V 74"
-                  stroke="url(#waveLineGrad)"
-                  strokeWidth="3.5"
-                  strokeLinecap="square"
-                  strokeLinejoin="miter"
+                  d="M 4 6 Q 34 0 64 6"
+                  stroke={isActive ? `url(#curveGrad-${card.idx})` : "#cbd5e1"}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
                 />
-              </g>
-            </svg>
-
-            {/* Titles placed directly inside the alternating 3D Boxes & Gaps */}
-            {slides.map((slide, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setActiveSlide(idx)}
-                style={{
-                  left: `${idx * 20}%`,
-                  width: "20%",
-                }}
-                className="absolute top-2.5 h-[64px] sm:h-[68px] flex items-center justify-center cursor-pointer group"
-                title={slide.fullTitle}
-              >
-                <div
-                  className={`w-full h-full flex flex-col items-center justify-center px-2 text-center transition-all ${idx === activeSlide
-                    ? "scale-[1.05]"
-                    : "opacity-80 hover:opacity-100"
-                    }`}
-                >
-                  <span
-                    className={`text-[10px] sm:text-[11px] font-mono leading-none ${idx === activeSlide ? "text-[#1f6fb2] font-black" : "text-slate-400"
-                      }`}
-                  >
-                    0{idx + 1}
-                  </span>
-                  <span
-                    className={`text-[11px] sm:text-xs md:text-sm lg:text-[14px] leading-tight line-clamp-2 mt-1 ${idx === activeSlide
-                      ? "text-[#0f3b5f] font-black drop-shadow-sm"
-                      : "text-slate-600 hover:text-slate-950 font-semibold"
-                      }`}
-                  >
-                    {slide.fullTitle}
-                  </span>
-                </div>
-              </button>
-            ))}
+                <path
+                  d="M 15 11 Q 34 6.5 53 11"
+                  stroke={isActive ? `url(#curveGrad-${card.idx})` : "#e2e8f0"}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeOpacity={isActive ? "0.85" : "1"}
+                />
+              </svg>
+            </div>
+            <p
+              className={`text-[9.5px] sm:text-[10.5px] leading-snug ${
+                isActive ? "text-slate-600" : "text-slate-500"
+              }`}
+            >
+              {card.desc}
+            </p>
           </div>
         </div>
+      </button>
+    );
+  };
+
+  return (
+    <section className="py-8 md:py-12 w-full bg-transparent relative">
+      {/* Section Title (Left-Aligned, No Background) */}
+      <div className="w-full md:w-[94%] lg:w-[94%] xl:w-[92%] mx-auto px-4 mb-3" data-aos="fade-up">
+        <h2 className="pl-1 sm:pl-2 md:pl-2 text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight text-left">
+          DMS Modules
+        </h2>
       </div>
 
       {/* ========================================================= */}
-      {/* 2. CONTENT: LEFT CONTROLS & RIGHT PC MONITOR (NO CARD)    */}
+      {/* CONTENT: LEFT CONTROLS & RIGHT PC MONITOR                 */}
       {/* ========================================================= */}
       <div className="relative w-full">
         {/* Left-edge vertical gradient accent pill tab spanning from Seller/Buyer to Monitor bottom */}
@@ -1397,10 +1401,10 @@ export default function ForestCard() {
         <div className="w-full md:w-[94%] lg:w-[94%] xl:w-[92%] mx-auto px-4">
         <div
           data-aos="fade-up"
-          className="relative w-full bg-white flex flex-col md:flex-row h-auto md:h-[76vh] md:min-h-[480px] md:max-h-[560px] select-none transition-all duration-500"
+          className="relative w-full flex flex-col md:flex-row h-auto md:h-[76vh] md:min-h-[480px] md:max-h-[560px] select-none transition-all duration-500"
         >
           {/* Left Content Column */}
-          <div className="relative z-10 w-full md:w-[38%] lg:w-[37%] xl:w-[36%] h-full py-5 sm:py-6 md:py-6 lg:py-7 pl-1 sm:pl-2 md:pl-2 pr-3 sm:pr-4 flex flex-col justify-start bg-white shrink-0">
+          <div className="relative z-10 w-full md:w-[44%] lg:w-[43%] xl:w-[43%] h-full py-5 sm:py-6 md:py-6 lg:py-7 pl-1 sm:pl-2 md:pl-2 pr-2 sm:pr-3 flex flex-col justify-start shrink-0">
             {/* Top Row: Seller/Buyer Toggle & Double Chevrons (Aligned Straight) */}
             <div className="flex items-center justify-between gap-2 sm:gap-3">
               <div className="inline-flex items-center p-1.5 rounded-2xl bg-white border border-[#1f6fb2]/30 shadow-md ring-4 ring-[#2ec4b6]/10 gap-1.5">
@@ -1466,37 +1470,30 @@ export default function ForestCard() {
               </button>
             </div>
 
-            {/* Middle Section: Animated Big Bold Title & Subtitle (Vertically Centered) */}
-            <div
-              key={activeSlide}
-              className="my-auto pb-6 transition-all duration-500 animate-slideText"
-            >
+            {/* 5 Module Cards Grid (3 Top + 2 Bottom Centered) */}
+            <div className="mt-4 flex-1 flex flex-col justify-center gap-2.5 sm:gap-3">
+              {/* Top Row: 3 Cards */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                {moduleCards.slice(0, 3).map((card) => renderModuleCard(card))}
+              </div>
 
-              <h2
-                className={`${
-                  (current.titleLine1 + current.titleLine2).length > 13
-                    ? "text-2xl sm:text-3xl md:text-[28px] lg:text-[33px] xl:text-[37px]"
-                    : "text-3xl sm:text-4xl md:text-[38px] lg:text-[46px] xl:text-[52px]"
-                } whitespace-nowrap font-black text-slate-900 uppercase tracking-tight leading-[1.05] drop-shadow-sm font-sans`}
-              >
-                {current.titleLine1}
-                {!current.singleLineTitle && " "}
-                <span className="bg-gradient-to-r from-[#1f6fb2] to-[#2ec4b6] bg-clip-text text-transparent">
-                  {current.titleLine2}
-                </span>
-              </h2>
-              <p className="mt-3 sm:mt-4 text-base sm:text-[17px] lg:text-[18px] text-slate-600 font-medium tracking-normal leading-relaxed animate-slideSub">
-                {current.subtitle}
-              </p>
+              {/* Bottom Row: 2 Cards Centered */}
+              <div className="flex items-stretch justify-center gap-2 sm:gap-2.5">
+                {moduleCards.slice(3, 5).map((card) =>
+                  renderModuleCard(card, "w-[44%] sm:w-[40%]")
+                )}
+              </div>
             </div>
           </div>
 
           {/* ========================================================= */}
           {/* Right Column: Real PC Monitor Screen (Interactive UI)    */}
           {/* ========================================================= */}
-          <div className="w-full md:w-[62%] lg:w-[63%] xl:w-[64%] h-auto md:h-full relative overflow-hidden flex flex-col items-center justify-start pt-5 sm:pt-6 md:pt-6 lg:pt-7 pb-4 px-2 sm:px-3 md:px-4 bg-white">
+          <div className="w-full md:w-[56%] lg:w-[57%] xl:w-[57%] h-auto md:h-full relative overflow-hidden flex flex-col items-center md:items-end justify-start pt-5 sm:pt-6 md:pt-6 lg:pt-7 pb-4 pl-4 sm:pl-6 md:pl-8 pr-1 sm:pr-2">
+            {/* Monitor + Stand Wrapper (keeps stand centered under monitor) */}
+            <div className="w-full max-w-[640px] lg:max-w-[670px] flex flex-col items-center">
             {/* Monitor Outer Shell: Controlled Width & Enhanced Height */}
-            <div className="w-full max-w-[640px] lg:max-w-[670px] bg-slate-900 border-[6px] sm:border-[7px] md:border-[8px] border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_25px_60px_rgba(15,23,42,0.22)]">
+            <div className="w-full bg-slate-900 border-[6px] sm:border-[7px] md:border-[8px] border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_25px_60px_rgba(15,23,42,0.22)]">
               {/* Top Monitor Bezel with Web Camera & Window Controls */}
               <div className="bg-slate-900 py-1.5 sm:py-2 px-3.5 flex items-center justify-between border-b border-slate-800/90 select-none">
                 {/* Window Dots (Red, Yellow, Green) */}
@@ -1548,6 +1545,7 @@ export default function ForestCard() {
             <div className="hidden sm:flex flex-col items-center pointer-events-none -mt-[1px]">
               <div className="w-14 h-2.5 bg-gradient-to-b from-slate-700 to-slate-800 shadow-xs" />
               <div className="w-32 h-1.5 bg-gradient-to-r from-slate-500 via-slate-400 to-slate-500 rounded-full shadow-md" />
+            </div>
             </div>
           </div>
         </div>
