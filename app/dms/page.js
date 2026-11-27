@@ -184,14 +184,20 @@ const DMS_FEATURE_TABS = [
       {
         title: "Guided LOI & Bid Submission",
         desc: "Collect standardized Letters of Intent (LOIs) with offer price, structure, and timeline terms.",
+        image: "/images/bidding-loi.png",
+        imageAlt: "Guided LOI & Bid Submission",
       },
       {
         title: "Side-by-Side Offer Comparison",
         desc: "Evaluate competing buyer bids in one comparison matrix to select the strongest deal partner.",
+        image: "/images/bidding-comparison.png",
+        imageAlt: "Side-by-Side Offer Comparison",
       },
       {
         title: "Digital SPA & Deal Closing",
         desc: "Finalize closing checklists, execute the SPA via e-Signature, and archive the complete deal room.",
+        image: "/images/bidding-spa-close.jpg",
+        imageAlt: "Digital SPA & Deal Closing",
       },
     ],
   },
