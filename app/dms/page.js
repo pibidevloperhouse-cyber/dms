@@ -152,14 +152,20 @@ const DMS_FEATURE_TABS = [
       {
         title: "Stage-Gated Control Tracking",
         desc: "Log every deal stage transition, approval gate, and permission unlock with full timestamped accountability.",
+        image: "/images/stage-gated-control-tracking.jpg",
+        imageAlt: "Stage-Gated Control Tracking",
       },
       {
         title: "Task & Assignee Audit Trail",
         desc: "Track every task assignment, status update, and completion record with full assignee details and timestamps.",
+        image: "/images/task-assignee-audit-trail.jpg",
+        imageAlt: "Task & Assignee Audit Trail",
       },
       {
         title: "Risk Monitoring & Instant Alerts",
         desc: "Surface compliance gaps, overdue diligence items, and unusual access alerts in real time before they impact closing.",
+        image: "/images/risk-monitoring-instant-alerts.jpg",
+        imageAlt: "Risk Monitoring & Instant Alerts",
       },
     ],
   },
