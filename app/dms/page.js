@@ -124,6 +124,8 @@ const DMS_FEATURE_TABS = [
       {
         title: "Due Diligence Records",
         desc: "Maintain a structured, verifiable record of every due diligence checklist item, review status, and sign-off throughout the deal.",
+        image: "/images/workflow-dd-records.jpg",
+        imageAlt: "Due Diligence Records",
       },
     ],
   },
@@ -134,14 +136,20 @@ const DMS_FEATURE_TABS = [
       {
         title: "Task-Based Communication",
         desc: "Keep discussions anchored directly to specific due diligence tasks and document requests so context is never lost.",
+        image: "/images/comm-task-based.jpg",
+        imageAlt: "Task-Based Communication",
       },
       {
         title: "Group-Based Communication",
         desc: "Collaborate seamlessly within dedicated channels for legal, financial, advisory, and internal deal teams.",
+        image: "/images/comm-group-based.jpg",
+        imageAlt: "Group-Based Communication",
       },
       {
         title: "Isolated Seller & Buyer Channels",
         desc: "Maintain strict separation between internal seller discussions and external buyer threads to prevent accidental cross-talk.",
+        image: "/images/comm-isolated-channels.jpg",
+        imageAlt: "Isolated Seller & Buyer Channels",
       },
     ],
   },
@@ -796,13 +804,13 @@ export default function DMSLanding() {
               : fallbackImages[safeStepIdx % fallbackImages.length];
 
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch" data-aos="fade-up">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start" data-aos="fade-up">
                 {/* Left Side: Vertical Feature List */}
                 <div className="lg:col-span-4 flex md:pl-8 lg:pl-14 xl:pl-16">
                   <div
                     role="tablist"
                     aria-label={`${currentTab.label} features`}
-                    className="w-full flex flex-col justify-between gap-2 bg-slate-100/90 p-3 rounded-2xl border border-slate-200/80 shadow-xs lg:h-full"
+                    className="w-full flex flex-col gap-2 bg-slate-100/90 p-3 rounded-2xl border border-slate-200/80 shadow-xs"
                   >
                     {currentTab.steps.map((step, idx) => {
                       const isStepActive = idx === safeStepIdx;
@@ -824,7 +832,9 @@ export default function DMSLanding() {
                               triggerLineAnimation();
                             }
                           }}
-                          className={`w-full px-4 py-3.5 lg:flex-1 rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 cursor-pointer flex flex-col justify-center text-left ${
+                          className={`w-full px-4 py-3 ${
+                            isStepExpanded ? "min-h-[68px]" : "h-[68px]"
+                          } rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 cursor-pointer flex flex-col justify-center text-left ${
                             isStepActive
                               ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
                               : "bg-white/70 text-[#4b5568] hover:text-[#0f172a] hover:bg-white"
@@ -871,12 +881,12 @@ export default function DMSLanding() {
                   </div>
                 </div>
 
-                {/* Right Side: Single Active Feature Image Showcase */}
-                <div className="lg:col-span-8 flex items-center justify-center">
+                {/* Right Side: Single Active Feature Image Showcase (Fixed Size) */}
+                <div className="lg:col-span-8 h-[320px] sm:h-[420px] flex items-center justify-center">
                   <img
                     src={activeImage.src}
                     alt={activeImage.alt}
-                    className="w-auto max-w-full h-auto max-h-[400px] rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.1)] border border-slate-200/70 block contrast-[1.04] brightness-[1.01]"
+                    className="w-auto max-w-full h-auto max-h-full object-contain rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.1)] border border-slate-200/70 block contrast-[1.04] brightness-[1.01]"
                   />
                 </div>
               </div>
