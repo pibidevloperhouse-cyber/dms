@@ -76,22 +76,32 @@ const DMS_FEATURE_TABS = [
       {
         title: "NDA & DSC Verification",
         desc: "Enforce legally binding digital NDAs and Digital Signature Certificate (DSC) verification before granting access to sensitive files.",
+        image: "/images/vdr-nda-dsc.png",
+        imageAlt: "NDA & DSC Verification",
       },
       {
         title: "Dynamic User Watermarking",
         desc: "Automatically stamp every viewed and exported document with viewer identity, timestamp, and IP watermarks to deter leaks.",
+        image: "/images/vdr-watermarking.png",
+        imageAlt: "Dynamic User Watermarking",
       },
       {
         title: "Secure In-Browser Viewing",
         desc: "Restrict confidential files to protected view-only mode inside an encrypted browser viewer without local caching.",
+        image: "/images/vdr-secure-viewing.png",
+        imageAlt: "Secure In-Browser Viewing",
       },
       {
         title: "Controlled & Secure Downloads",
         desc: "Grant granular, permission-based download access with encrypted delivery and instant revocation at any time.",
+        image: "/images/vdr-secure-downloads.png",
+        imageAlt: "Controlled & Secure Downloads",
       },
       {
         title: "Suspicious Activity Prevention",
         desc: "Detect and block anomalous access patterns, unauthorized sharing attempts, and unusual download spikes in real time.",
+        image: "/images/vdr-suspicious-activity.png",
+        imageAlt: "Suspicious Activity Prevention",
       },
     ],
   },
