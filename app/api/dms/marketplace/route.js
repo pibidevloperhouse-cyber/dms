@@ -11,6 +11,7 @@ export async function GET(req) {
       .select({
         id: dmsTeasers.id,
         projectId: dmsTeasers.projectId,
+        companyId: dmsProjects.companyId,
         projectName: dmsProjects.name,
         projectType: dmsProjects.projectType,
         projectDescription: dmsProjects.description,
@@ -78,7 +79,15 @@ export async function GET(req) {
         capitalValue: buyerProfiles.capitalValue,
         teamSize: buyerProfiles.teamSize,
         timelineToCloseDays: buyerProfiles.timelineToCloseDays,
-        dealBreakers: buyerProfiles.dealBreakers
+        dealBreakers: buyerProfiles.dealBreakers,
+        buyerRole: buyerProfiles.buyerRole,
+        targetIndustries: buyerProfiles.targetIndustries,
+        revenueRange: buyerProfiles.revenueRange,
+        ebitdaRange: buyerProfiles.ebitdaRange,
+        equityRange: buyerProfiles.equityRange,
+        geography: buyerProfiles.geography,
+        ownershipStakeSought: buyerProfiles.ownershipStakeSought,
+        businessTraitsWanted: buyerProfiles.businessTraitsWanted
       })
       .from(users)
       .leftJoin(companies, eq(users.companyId, companies.id))

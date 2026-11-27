@@ -159,6 +159,7 @@ export default function WorkspacePage() {
 
   // Create Project Modal State
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [createStep, setCreateStep] = useState(1);
   const [newProject, setNewProject] = useState({
     name: '',
@@ -199,6 +200,8 @@ export default function WorkspacePage() {
   });
 
   const handleCreateProject = async () => {
+    if (isCreatingProject) return;
+    setIsCreatingProject(true);
     try {
       const companyId = localStorage.getItem('companyId') || 'test-company-123';
       const formData = new FormData();
@@ -249,13 +252,15 @@ export default function WorkspacePage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setWorkspaces([data.project, ...workspaces]);
+        setWorkspaces(prev => prev.some(ws => ws.id === data.project?.id) ? prev : [data.project, ...prev]);
         setIsCreateProjectOpen(false);
         setCreateStep(1);
         setNewProject({ name: '', dealType: 'Merge', projectType: 'Industrial', description: '', businessModel: '', industry: '', subIndustry: '', yearFounded: '', employeeDropdown: '', employeeCustom: '', legalStructure: '', headquarters: '', operationsLocations: [], customerCount: '', topCustomerCurrency: 'USD', topCustomerRevenue: '', revenue: '', ebitda: '', grossMargin: '', netProfit: '', recurringRevenue: '', growthRate: '', debt: '', workingCapital: '', addBacks: '', revenueBandDropdown: '', revenueBandCustom: '', businessSummary: '', keyHighlights: '', reasonForSale: '', askingPrice: '', valuationExpectation: '', preferredBuyerTypes: [], transitionPeriod: '', profitAndLossFile: null, balanceSheetFile: null, ebitdaBandDropdown: '', mandate: '' });
       }
     } catch (e) {
       console.error("Failed to create project", e);
+    } finally {
+      setIsCreatingProject(false);
     }
   };
 
@@ -2256,9 +2261,10 @@ export default function WorkspacePage() {
               ) : (
                 <button
                   onClick={handleCreateProject}
-                  className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 bg-[#008f70] hover:bg-[#007058]`}
+                  disabled={isCreatingProject}
+                  className={`text-sm font-bold text-white px-8 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 ${isCreatingProject ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#008f70] hover:bg-[#007058]'}`}
                 >
-                  <FaCheck /> Create Project
+                  <FaCheck /> {isCreatingProject ? 'Creating...' : 'Create Project'}
                 </button>
               )}
             </div>
