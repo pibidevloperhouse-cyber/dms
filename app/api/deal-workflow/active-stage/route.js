@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { dmsDeals, dmsProjects, companies, users, dealTasks, biddingSpas } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { dmsDeals, dmsProjects, companies, users, dealTasks } from '@/db/schema';
+import { eq, and, or, isNull, inArray } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
-import { updateRoundInDB, saveBidInDB } from '@/lib/biddingFlowService';
+import { updateRoundInDB } from '@/lib/biddingFlowService';
 
 export const dynamic = 'force-dynamic';
+
+function normalizeStageName(stage) {
+  if (!stage) return 'Preparation';
+  const s = String(stage).trim().toLowerCase();
+  if (s.includes('clos')) return 'Closing';
+  if (s.includes('neg')) return 'Negotiation';
+  if (s.includes('due') || s.includes('diligence')) return 'Due Diligence';
+  return 'Preparation';
+}
 
 let serverActiveStage = 'Preparation';
 let serverNotificationPayload = null;
@@ -14,6 +23,7 @@ let serverStageQuery = null;
 let serverStageAdvanceRequest = null;
 let serverDueDiligenceCertificate = null;
 let serverNegotiationInvitation = null;
+let serverByDealState = {};
 
 const STATE_FILE_PATH = path.join(process.cwd(), '.vdr_active_stage.json');
 
@@ -23,9 +33,9 @@ function loadStateFromFile() {
       const content = fs.readFileSync(STATE_FILE_PATH, 'utf-8');
       const data = JSON.parse(content);
       if (data.activeStage) {
-        serverActiveStage = data.activeStage;
+        serverActiveStage = normalizeStageName(data.activeStage);
       }
-      if (data.notificationPayload) {
+      if (data.notificationPayload !== undefined) {
         serverNotificationPayload = data.notificationPayload;
       }
       if (data.stageQuery !== undefined) {
@@ -40,23 +50,39 @@ function loadStateFromFile() {
       if (data.negotiationInvitation !== undefined) {
         serverNegotiationInvitation = data.negotiationInvitation;
       }
+      if (data.byDeal && typeof data.byDeal === 'object') {
+        serverByDealState = data.byDeal;
+      }
     }
   } catch (e) {
     console.error('Error reading active stage state file:', e);
   }
 }
 
-function saveStateToFile(stage, notificationPayload, stageQuery, stageAdvanceRequest, dueDiligenceCertificate, negotiationInvitation) {
+function saveStateToFile(dealKey = null) {
   try {
+    if (dealKey) {
+      serverByDealState[dealKey] = {
+        activeStage: serverActiveStage,
+        notificationPayload: serverNotificationPayload,
+        stageQuery: serverStageQuery,
+        stageAdvanceRequest: serverStageAdvanceRequest,
+        dueDiligenceCertificate: serverDueDiligenceCertificate,
+        negotiationInvitation: serverNegotiationInvitation,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     fs.writeFileSync(
       STATE_FILE_PATH,
       JSON.stringify({
-        activeStage: stage,
-        notificationPayload,
-        stageQuery,
-        stageAdvanceRequest,
-        dueDiligenceCertificate,
-        negotiationInvitation,
+        activeStage: serverActiveStage,
+        notificationPayload: serverNotificationPayload,
+        stageQuery: serverStageQuery,
+        stageAdvanceRequest: serverStageAdvanceRequest,
+        dueDiligenceCertificate: serverDueDiligenceCertificate,
+        negotiationInvitation: serverNegotiationInvitation,
+        byDeal: serverByDealState,
         updatedAt: new Date().toISOString(),
       }),
       'utf-8'
@@ -73,23 +99,30 @@ if (!_stateLoaded) {
   _stateLoaded = true;
 }
 
-let _cachedDealMeta = null;
-let _cachedDealMetaAt = 0;
-let _inFlightDealMeta = null;
+const _dealMetaCache = new Map();
+const _inFlightDealMetaMap = new Map();
 const DEAL_META_TTL_MS = 60000; // 60 seconds cache
 
-async function getDealMetadata(forceRefresh = false) {
-  if (!forceRefresh && _cachedDealMeta && (Date.now() - _cachedDealMetaAt) < DEAL_META_TTL_MS) {
-    return _cachedDealMeta;
+function invalidateDealMetaCache() {
+  _dealMetaCache.clear();
+}
+
+async function getDealMetadata({ dealId = null, workspaceId = null, forceRefresh = false } = {}) {
+  const cacheKey = dealId || workspaceId || '__default__';
+  const cached = _dealMetaCache.get(cacheKey);
+  if (!forceRefresh && cached && (Date.now() - cached.at) < DEAL_META_TTL_MS) {
+    return cached.data;
   }
 
-  if (!forceRefresh && _inFlightDealMeta) {
-    return _inFlightDealMeta;
+  if (!forceRefresh && _inFlightDealMetaMap.has(cacheKey)) {
+    return _inFlightDealMetaMap.get(cacheKey);
   }
 
-  _inFlightDealMeta = (async () => {
+  const promise = (async () => {
     let dealMeta = {
       dealId: '',
+      projectId: '',
+      currentStage: null,
       dealName: '',
       dealNumber: '',
       sellerCompany: '',
@@ -112,12 +145,17 @@ async function getDealMetadata(forceRefresh = false) {
       ]);
 
       if (deals.length > 0) {
-        const deal = deals.find(d => (d.dealName || '').toLowerCase().includes('naga'))
-          || deals.find(d => d.featureTasks)
-          || deals[0];
-
-        if (deal.currentStage) {
-          serverActiveStage = deal.currentStage;
+        let deal = null;
+        if (dealId) {
+          deal = deals.find((d) => d.id === dealId);
+        }
+        if (!deal && workspaceId) {
+          deal = deals.find((d) => d.id === workspaceId || d.workspaceId === workspaceId || d.projectId === workspaceId);
+        }
+        if (!deal) {
+          deal = deals.find((d) => (d.dealName || '').toLowerCase().includes('naga'))
+            || deals.find((d) => d.featureTasks)
+            || deals[0];
         }
 
         let sellerName = 'Vishwa Tech';
@@ -127,41 +165,43 @@ async function getDealMetadata(forceRefresh = false) {
         let leadAdvisorName = 'Vijay';
 
         if (deal.projectId) {
-          const proj = allProjs.find(p => p.id === deal.projectId);
+          const proj = allProjs.find((p) => p.id === deal.projectId);
           if (proj?.companyId) {
-            const seller = allComps.find(c => c.id === proj.companyId);
+            const seller = allComps.find((c) => c.id === proj.companyId);
             if (seller?.name) sellerName = seller.name;
 
-            const sAdmin = allUsers.find(u => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin' && (u.name || '').toLowerCase().includes('vishwa'))
-              || allUsers.find(u => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin');
+            const sAdmin = allUsers.find((u) => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin' && (u.name || '').toLowerCase().includes('vishwa'))
+              || allUsers.find((u) => u.companyId === proj.companyId && (u.role || '').toLowerCase() === 'super_admin');
             if (sAdmin?.name) sellerSuperAdminName = sAdmin.name;
           }
         }
 
         if (deal.buyerId) {
-          const buyer = allUsers.find(u => u.id === deal.buyerId);
+          const buyer = allUsers.find((u) => u.id === deal.buyerId);
           if (buyer) {
             if (buyer.role === 'guest_admin') guestAdminName = buyer.name;
             if (buyer.companyId) {
-              const bComp = allComps.find(c => c.id === buyer.companyId);
+              const bComp = allComps.find((c) => c.id === buyer.companyId);
               if (bComp?.name) buyerName = bComp.name;
 
-              const gAdmin = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'guest_admin');
+              const gAdmin = allUsers.find((u) => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'guest_admin');
               if (gAdmin?.name) guestAdminName = gAdmin.name;
 
-              const adv = allUsers.find(u => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'advisor');
+              const adv = allUsers.find((u) => u.companyId === buyer.companyId && (u.role || '').toLowerCase() === 'advisor');
               if (adv?.name) leadAdvisorName = adv.name;
             }
           }
         }
 
         if (!leadAdvisorName) {
-          const adv = allUsers.find(u => (u.role || '').toLowerCase() === 'advisor');
+          const adv = allUsers.find((u) => (u.role || '').toLowerCase() === 'advisor');
           if (adv?.name) leadAdvisorName = adv.name;
         }
 
         dealMeta = {
           dealId: deal.id,
+          projectId: deal.projectId || '',
+          currentStage: deal.currentStage ? normalizeStageName(deal.currentStage) : null,
           dealName: deal.dealName || 'Naga raj Deal',
           dealNumber: `D-${deal.id.slice(0, 5).toUpperCase()}`,
           sellerCompany: sellerName,
@@ -175,45 +215,68 @@ async function getDealMetadata(forceRefresh = false) {
           period: '02 Sep to 30 Oct 2026',
         };
       }
-      _cachedDealMeta = dealMeta;
-      _cachedDealMetaAt = Date.now();
+      _dealMetaCache.set(cacheKey, { data: dealMeta, at: Date.now() });
     } catch (dbErr) {
       console.warn('Could not query deal metadata from DB:', dbErr?.message);
     } finally {
-      _inFlightDealMeta = null;
+      _inFlightDealMetaMap.delete(cacheKey);
     }
     return dealMeta;
   })();
 
-  return _inFlightDealMeta;
+  _inFlightDealMetaMap.set(cacheKey, promise);
+  return promise;
 }
 
-export async function GET() {
+function getScopedState(dealId) {
+  if (dealId && serverByDealState[dealId]) {
+    const scoped = serverByDealState[dealId];
+    return {
+      activeStage: scoped.activeStage ? normalizeStageName(scoped.activeStage) : serverActiveStage,
+      notificationPayload: scoped.notificationPayload !== undefined ? scoped.notificationPayload : serverNotificationPayload,
+      stageQuery: scoped.stageQuery !== undefined ? scoped.stageQuery : serverStageQuery,
+      stageAdvanceRequest: scoped.stageAdvanceRequest !== undefined ? scoped.stageAdvanceRequest : serverStageAdvanceRequest,
+      dueDiligenceCertificate: scoped.dueDiligenceCertificate !== undefined ? scoped.dueDiligenceCertificate : serverDueDiligenceCertificate,
+      negotiationInvitation: scoped.negotiationInvitation !== undefined ? scoped.negotiationInvitation : serverNegotiationInvitation,
+    };
+  }
+  return {
+    activeStage: serverActiveStage,
+    notificationPayload: serverNotificationPayload,
+    stageQuery: serverStageQuery,
+    stageAdvanceRequest: serverStageAdvanceRequest,
+    dueDiligenceCertificate: serverDueDiligenceCertificate,
+    negotiationInvitation: serverNegotiationInvitation,
+  };
+}
+
+export async function GET(req) {
   try {
     if (!_stateLoaded) {
       loadStateFromFile();
       _stateLoaded = true;
     }
-    const dealMeta = await getDealMetadata();
 
-    // If SPA is executed in DB, Negotiation is officially concluded and active stage is Closing (Deal Complete)
-    let effectiveActiveStage = serverActiveStage;
-    try {
-      const spas = await db.select().from(biddingSpas).limit(1);
-      if (spas.length > 0 && spas[0].status === 'executed' && spas[0].signatures?.buyer && spas[0].signatures?.seller) {
-        effectiveActiveStage = 'Closing';
-      }
-    } catch (_) {}
+    const { searchParams } = new URL(req.url);
+    const dealId = searchParams.get('dealId');
+    const workspaceId = searchParams.get('workspaceId');
+
+    const dealMeta = await getDealMetadata({ dealId, workspaceId });
+    const resolvedDealId = dealMeta?.dealId || dealId || workspaceId || null;
+    const scopedState = getScopedState(resolvedDealId);
+
+    // Authoritative stage comes from DB dms_deals.current_stage for this deal, falling back to persisted stage state.
+    const effectiveActiveStage = dealMeta?.currentStage || scopedState.activeStage || 'Preparation';
 
     return NextResponse.json({
       success: true,
       activeStage: effectiveActiveStage,
       dealMeta,
-      notificationPayload: serverNotificationPayload,
-      stageQuery: serverStageQuery,
-      stageAdvanceRequest: serverStageAdvanceRequest,
-      dueDiligenceCertificate: serverDueDiligenceCertificate,
-      negotiationInvitation: serverNegotiationInvitation,
+      notificationPayload: scopedState.notificationPayload,
+      stageQuery: scopedState.stageQuery,
+      stageAdvanceRequest: scopedState.stageAdvanceRequest,
+      dueDiligenceCertificate: scopedState.dueDiligenceCertificate,
+      negotiationInvitation: scopedState.negotiationInvitation,
     });
   } catch (error) {
     console.error('GET active stage error:', error);
@@ -233,58 +296,85 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    if (!_stateLoaded) {
+      loadStateFromFile();
+      _stateLoaded = true;
+    }
+
     const body = await req.json();
     const {
       stage,
+      dealId,
+      workspaceId,
       notificationPayload,
       stageQuery,
       stageAdvanceRequest,
       dueDiligenceCertificate,
-      negotiationInvitation
+      negotiationInvitation,
     } = body;
 
-    const targetStage = stage || serverActiveStage;
+    const currentMeta = await getDealMetadata({ dealId, workspaceId, forceRefresh: true });
+    const targetDealId = dealId || currentMeta?.dealId || workspaceId || null;
+    const scopedState = getScopedState(targetDealId);
+
+    const targetStage = stage
+      ? normalizeStageName(stage)
+      : (currentMeta?.currentStage || scopedState.activeStage || serverActiveStage || 'Preparation');
+
     serverActiveStage = targetStage;
     if (notificationPayload !== undefined) {
       serverNotificationPayload = notificationPayload;
+    } else if (scopedState.notificationPayload !== undefined) {
+      serverNotificationPayload = scopedState.notificationPayload;
     }
     if (stageQuery !== undefined) {
       serverStageQuery = stageQuery;
+    } else if (scopedState.stageQuery !== undefined) {
+      serverStageQuery = scopedState.stageQuery;
     }
     if (stageAdvanceRequest !== undefined) {
       serverStageAdvanceRequest = stageAdvanceRequest;
+    } else if (scopedState.stageAdvanceRequest !== undefined) {
+      serverStageAdvanceRequest = scopedState.stageAdvanceRequest;
     }
     if (dueDiligenceCertificate !== undefined) {
       serverDueDiligenceCertificate = dueDiligenceCertificate;
+    } else if (scopedState.dueDiligenceCertificate !== undefined) {
+      serverDueDiligenceCertificate = scopedState.dueDiligenceCertificate;
     }
+
     if (negotiationInvitation !== undefined) {
       serverNegotiationInvitation = negotiationInvitation;
-    } else if (targetStage === 'Negotiation' && !serverNegotiationInvitation) {
-      const dm = await getDealMetadata();
+    } else if (targetStage === 'Negotiation' && !scopedState.negotiationInvitation && !serverNegotiationInvitation) {
       serverNegotiationInvitation = {
         id: `neg-invite-${Date.now()}`,
         status: 'PENDING_ACCEPTANCE',
         stage: 'Negotiation',
-        dealId: dm?.dealId || '',
-        dealName: dm?.dealName || '',
+        dealId: currentMeta?.dealId || '',
+        dealName: currentMeta?.dealName || '',
         askingPrice: 0,
         askingPriceFormatted: '',
         deadline: '',
         deadlineDisplay: '',
-        invitedBuyerId: dm?.buyerId || '',
-        invitedBuyerName: dm?.buyerName || '',
-        invitedBuyerCompany: dm?.buyerCompany || '',
+        invitedBuyerId: currentMeta?.buyerId || '',
+        invitedBuyerName: currentMeta?.buyerName || '',
+        invitedBuyerCompany: currentMeta?.buyerCompany || '',
         message: 'The seller board has approved activating the Negotiation Stage. You are invited to review the asking price and submit your acquisition proposal.',
-        invitedBy: notificationPayload?.activatedBy || dm?.sellerSuperAdminName || 'Super Admin',
+        invitedBy: notificationPayload?.activatedBy || currentMeta?.sellerSuperAdminName || 'Super Admin',
         timestamp: Date.now()
       };
+    } else if (scopedState.negotiationInvitation !== undefined) {
+      serverNegotiationInvitation = scopedState.negotiationInvitation;
     }
 
     if (serverNegotiationInvitation) {
       // Handle Negotiation Invite actions
-      if (serverNegotiationInvitation.status === 'ACCEPTED') {
+      if (serverNegotiationInvitation.status === 'ACCEPTED' && targetDealId) {
         try {
-          await db.update(dmsDeals).set({ featureBidding: true });
+          await db
+            .update(dmsDeals)
+            .set({ featureBidding: true })
+            .where(eq(dmsDeals.id, targetDealId));
         } catch (e) {
           console.error('Error enabling featureBidding on dmsDeals:', e);
         }
@@ -308,7 +398,7 @@ export async function POST(req) {
             updates.deadline = serverNegotiationInvitation.deadline;
             updates.deadlineDisplay = serverNegotiationInvitation.deadlineDisplay || new Date(serverNegotiationInvitation.deadline).toLocaleString();
           }
-          const targetRoundId = serverNegotiationInvitation.dealId || null;
+          const targetRoundId = serverNegotiationInvitation.dealId || currentMeta?.projectId || null;
           await updateRoundInDB(updates, targetRoundId);
         } catch (e) {
           console.error('Error updating bidding_rounds from negotiation invite:', e);
@@ -316,37 +406,65 @@ export async function POST(req) {
       }
     }
 
-    saveStateToFile(
-      targetStage,
-      serverNotificationPayload,
-      serverStageQuery,
-      serverStageAdvanceRequest,
-      serverDueDiligenceCertificate,
-      serverNegotiationInvitation
-    );
+    saveStateToFile(targetDealId);
 
     try {
       if (stage) {
-        _cachedDealMeta = null;
-        await db.update(dmsDeals).set({ currentStage: targetStage });
-        // Automatically enable all deal tasks created/assigned for the activated stage in DB
-        await db.update(dealTasks).set({ isEnabled: true });
+        invalidateDealMetaCache();
+
+        if (targetDealId) {
+          await db
+            .update(dmsDeals)
+            .set({ currentStage: targetStage, updatedAt: new Date() })
+            .where(eq(dmsDeals.id, targetDealId));
+        }
+
+        // Enable only tasks belonging to the activated stage (scoped to this deal/workspace or legacy unassigned tasks)
+        const taskFilter = targetDealId
+          ? or(
+              eq(dealTasks.dealId, targetDealId),
+              eq(dealTasks.workspaceId, targetDealId),
+              ...(workspaceId && workspaceId !== targetDealId ? [eq(dealTasks.workspaceId, workspaceId)] : []),
+              and(isNull(dealTasks.dealId), isNull(dealTasks.workspaceId))
+            )
+          : undefined;
+
+        const candidateTasks = taskFilter
+          ? await db
+              .select({ id: dealTasks.id, dealStage: dealTasks.dealStage, isEnabled: dealTasks.isEnabled })
+              .from(dealTasks)
+              .where(taskFilter)
+          : await db
+              .select({ id: dealTasks.id, dealStage: dealTasks.dealStage, isEnabled: dealTasks.isEnabled })
+              .from(dealTasks);
+
+        const taskIdsToEnable = candidateTasks
+          .filter((t) => normalizeStageName(t.dealStage) === targetStage && t.isEnabled !== true)
+          .map((t) => t.id);
+
+        if (taskIdsToEnable.length > 0) {
+          await db
+            .update(dealTasks)
+            .set({ isEnabled: true, updatedAt: new Date() })
+            .where(inArray(dealTasks.id, taskIdsToEnable));
+        }
       }
     } catch (dbErr) {
       console.error('Error updating dmsDeals or dealTasks in DB:', dbErr);
     }
 
-    const dealMeta = await getDealMetadata();
+    const dealMeta = await getDealMetadata({ dealId, workspaceId, forceRefresh: true });
+    const updatedScoped = getScopedState(targetDealId);
 
     return NextResponse.json({
       success: true,
-      activeStage: serverActiveStage,
+      activeStage: dealMeta?.currentStage || targetStage,
       dealMeta,
-      notificationPayload: serverNotificationPayload,
-      stageQuery: serverStageQuery,
-      stageAdvanceRequest: serverStageAdvanceRequest,
-      dueDiligenceCertificate: serverDueDiligenceCertificate,
-      negotiationInvitation: serverNegotiationInvitation,
+      notificationPayload: updatedScoped.notificationPayload,
+      stageQuery: updatedScoped.stageQuery,
+      stageAdvanceRequest: updatedScoped.stageAdvanceRequest,
+      dueDiligenceCertificate: updatedScoped.dueDiligenceCertificate,
+      negotiationInvitation: updatedScoped.negotiationInvitation,
     });
   } catch (error) {
     console.error('POST active stage error:', error);

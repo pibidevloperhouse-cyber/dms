@@ -273,19 +273,20 @@ useEffect(() => {
   }
 }, [availableDepartments, visibility]);
 
-// Sync default deal stage from currently viewed board stage
+// Sync default deal stage from currently viewed board stage when modal opens
 useEffect(() => {
-  if (isCreateModalOpen) {
+  if (isCreateModalOpen && !pendingDraftRef.current) {
     if (currentUser?.side === 'buyer' && (!selectedDealStage || normalizeStage(selectedDealStage) === 'Preparation')) {
       setDealStage('Due Diligence');
     } else if (selectedDealStage && selectedDealStage !== 'ALL') {
-      setDealStage(selectedDealStage);
-      if (normalizeStage(selectedDealStage) === 'Preparation' && visibility === 'EXTERNAL') {
+      const targetStage = selectedDealStage === 'Closing' ? 'Negotiation' : selectedDealStage;
+      setDealStage(targetStage);
+      if (normalizeStage(targetStage) === 'Preparation') {
         setVisibility('INTERNAL');
       }
     }
   }
-}, [isCreateModalOpen, selectedDealStage, visibility, currentUser?.side]);
+}, [isCreateModalOpen, selectedDealStage, currentUser?.side]);
 
 // Restrict visibility: Preparation stage is strictly internal
 useEffect(() => {

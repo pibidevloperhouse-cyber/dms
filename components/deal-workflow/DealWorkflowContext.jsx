@@ -310,9 +310,10 @@ export const DEAL_STAGES = [
 export const normalizeStage = (stage) => {
   if (!stage) return 'Preparation';
   const s = (typeof stage === 'string' ? stage : String(stage?.name || stage || '')).trim().toLowerCase();
-  if (s.includes('prep')) return 'Preparation';
+  if (s.includes('clos')) return 'Closing';
   if (s.includes('due') || s.includes('diligence')) return 'Due Diligence';
   if (s.includes('neg')) return 'Negotiation';
+  if (s.includes('prep')) return 'Preparation';
   return 'Preparation';
 };
 
@@ -321,6 +322,7 @@ export const getStageIndex = (stage) => {
   if (norm === 'Preparation') return 0;
   if (norm === 'Due Diligence') return 1;
   if (norm === 'Negotiation') return 2;
+  if (norm === 'Closing') return 3;
   return 0;
 };
 
@@ -415,6 +417,11 @@ export function DealWorkflowProvider({ children }) {
   // (Preparation, Due Diligence, Negotiation). Default: Preparation
   // ============================================================================
   const [activeDealStage, setActiveDealStage] = useState('Preparation');
+  const activeDealStageRef = useRef('Preparation');
+  const stageMutationEpochRef = useRef(0);
+  useEffect(() => {
+    activeDealStageRef.current = activeDealStage;
+  }, [activeDealStage]);
   const [stageNotification, setStageNotification] = useState(null);
   const [stageQuery, setStageQuery] = useState(null);
   const [stageAdvanceRequest, setStageAdvanceRequest] = useState(null);
@@ -430,6 +437,10 @@ export function DealWorkflowProvider({ children }) {
     sellerSuperAdminName: 'Vishwa Raj',
     period: '02 Sep to 30 Oct 2026',
   });
+  const dealInfoRef = useRef(dealInfo);
+  useEffect(() => {
+    dealInfoRef.current = dealInfo;
+  }, [dealInfo]);
   const [isDDCertificateModalOpen, setIsDDCertificateModalOpen] = useState(false);
 
   // Load saved stage on client mount after hydration
@@ -439,11 +450,13 @@ export function DealWorkflowProvider({ children }) {
       const isBuyer = activeUser?.side === 'buyer';
       const saved = localStorage.getItem('dms_active_deal_stage');
       if (saved && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(saved))) {
-        setActiveDealStage(saved);
-        if (isBuyer && normalizeStage(saved) === 'Preparation') {
+        const normSaved = normalizeStage(saved);
+        activeDealStageRef.current = normSaved;
+        setActiveDealStage(normSaved);
+        if (isBuyer && normSaved === 'Preparation') {
           setSelectedDealStage('Due Diligence');
         } else {
-          setSelectedDealStage(saved);
+          setSelectedDealStage(normSaved);
         }
       } else if (isBuyer) {
         setSelectedDealStage('Due Diligence');
@@ -474,20 +487,94 @@ export function DealWorkflowProvider({ children }) {
     }
   }, [selectedDealStage, selectedVisibility]);
 
+  const getActiveStageContextIds = useCallback(() => {
+    let workspaceId = '';
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('vdr_session');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          workspaceId = parsed?.active_workspace_id || parsed?.workspace_id || '';
+        }
+      } catch (_) {}
+    }
+    return {
+      workspaceId: workspaceId || undefined,
+      dealId: dealInfoRef.current?.dealId || workspaceId || undefined,
+    };
+  }, []);
+
+  const postActiveStageUpdate = useCallback(async (payload, errorLabel = 'saving stage update') => {
+    stageMutationEpochRef.current += 1;
+    try {
+      const { workspaceId, dealId } = getActiveStageContextIds();
+      const res = await fetch('/api/deal-workflow/active-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          dealId,
+          ...payload,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        console.error(`Server error ${errorLabel}:`, data?.error || res.status);
+        return null;
+      }
+      if (data.dealMeta) {
+        setDealInfo(data.dealMeta);
+      }
+      return data;
+    } catch (err) {
+      console.error(`Error ${errorLabel}:`, err);
+      return null;
+    }
+  }, [getActiveStageContextIds]);
+
   // Fetch active stage from server backend
   const fetchActiveStage = async () => {
+    const requestEpoch = stageMutationEpochRef.current;
     try {
-      const res = await fetch('/api/deal-workflow/active-stage');
+      const { workspaceId, dealId } = getActiveStageContextIds();
+      const params = new URLSearchParams();
+      if (workspaceId) params.set('workspaceId', workspaceId);
+      else if (dealId) params.set('dealId', dealId);
+      const url = params.toString()
+        ? `/api/deal-workflow/active-stage?${params.toString()}`
+        : '/api/deal-workflow/active-stage';
+
+      const res = await fetch(url);
       const data = await res.json();
+
+      // Ignore stale background poll responses if a local stage mutation happened while in flight
+      if (requestEpoch !== stageMutationEpochRef.current) {
+        return;
+      }
+
       if (data.success && data.activeStage) {
-        const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(data.activeStage)) || data.activeStage;
-        setActiveDealStage((prev) => {
-          if (normalizeStage(prev) !== normalizeStage(matched)) {
+        const normalizedServerStage = normalizeStage(data.activeStage);
+        const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizedServerStage) || normalizedServerStage;
+        const stageChanged = normalizeStage(activeDealStageRef.current) !== normalizeStage(matched);
+
+        if (stageChanged) {
+          activeDealStageRef.current = matched;
+          setActiveDealStage(matched);
+
+          const activeUser = readSessionUser();
+          const isBuyer = (activeUser?.side || currentUser?.side) === 'buyer';
+          if (matched === 'Closing') {
+            setSelectedDealStage('Negotiation');
+          } else if (isBuyer && matched === 'Preparation') {
+            setSelectedDealStage('Due Diligence');
+          } else {
             setSelectedDealStage(matched);
-            return matched;
           }
-          return prev;
-        });
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('dms_active_deal_stage', matched);
+          }
+        }
 
         if (data.stageQuery !== undefined) {
           setStageQuery((prev) => (JSON.stringify(prev) === JSON.stringify(data.stageQuery) ? prev : data.stageQuery));
@@ -534,7 +621,8 @@ export function DealWorkflowProvider({ children }) {
               localStorage.removeItem('dms_active_bid_id');
               localStorage.removeItem('dms_spa_agreement_dispatched');
             }
-            if (activeInvite?.status === 'ACCEPTED') {
+            const isNegotiationOrClosed = ['Negotiation', 'Closing'].includes(normalizeStage(matched));
+            if (activeInvite?.status === 'ACCEPTED' && isNegotiationOrClosed) {
               localStorage.setItem('dms_bidding_unlocked', 'true');
             } else {
               localStorage.removeItem('dms_bidding_unlocked');
@@ -645,17 +733,10 @@ export function DealWorkflowProvider({ children }) {
       window.dispatchEvent(new Event('bid_submitted'));
     }
 
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          negotiationInvitation: updated
-        })
-      });
-    } catch (err) {
-      console.error('Error accepting negotiation invite:', err);
-    }
+    await postActiveStageUpdate(
+      { negotiationInvitation: updated },
+      'accepting negotiation invite'
+    );
 
     return true;
   };
@@ -667,9 +748,11 @@ export function DealWorkflowProvider({ children }) {
       console.warn('Only Super Admin or Guest Admin can activate stages.');
       return;
     }
-    const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(stageName)) || stageName;
+    stageMutationEpochRef.current += 1;
+    const matched = DEAL_STAGES.find((s) => normalizeStage(s) === normalizeStage(stageName)) || normalizeStage(stageName);
+    activeDealStageRef.current = matched;
     setActiveDealStage(matched);
-    setSelectedDealStage(matched);
+    setSelectedDealStage(matched === 'Closing' ? 'Negotiation' : matched);
     setStageQuery(null);
 
     // Automatically enable all tasks belonging to the newly activated stage in state
@@ -728,6 +811,9 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_negotiation_invite_event', { detail: pendingInvitePayload }));
         window.dispatchEvent(new Event('bidding_access_changed'));
         window.dispatchEvent(new Event('permissions_updated'));
+      } else if (!['Negotiation', 'Closing'].includes(normalizeStage(matched))) {
+        localStorage.removeItem('dms_bidding_unlocked');
+        window.dispatchEvent(new Event('bidding_access_changed'));
       }
       window.dispatchEvent(new CustomEvent('dms_active_stage_changed', { detail: { stage: matched } }));
       window.dispatchEvent(new CustomEvent('dms_stage_notification_event', { detail: notificationPayload }));
@@ -735,20 +821,19 @@ export function DealWorkflowProvider({ children }) {
       window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
     }
 
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: matched,
-          notificationPayload,
-          stageQuery: null,
-          stageAdvanceRequest: null,
-          negotiationInvitation: pendingInvitePayload || negotiationInvitation
-        }),
-      });
-    } catch (err) {
-      console.error('Error saving active stage to server:', err);
+    const data = await postActiveStageUpdate(
+      {
+        stage: matched,
+        notificationPayload,
+        stageQuery: null,
+        stageAdvanceRequest: null,
+        negotiationInvitation: pendingInvitePayload || negotiationInvitation,
+      },
+      'saving active stage to server'
+    );
+    if (data) {
+      // Re-sync tasks from DB so newly enabled stage tasks appear right away
+      fetchTasks(false);
     }
   };
 
@@ -796,19 +881,13 @@ export function DealWorkflowProvider({ children }) {
       window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
     }
 
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: activeDealStage,
-          stageQuery: queryPayload,
-          stageAdvanceRequest: null,
-        }),
-      });
-    } catch (e) {
-      console.error('Error saving stage query to server:', e);
-    }
+    await postActiveStageUpdate(
+      {
+        stageQuery: queryPayload,
+        stageAdvanceRequest: null,
+      },
+      'saving stage query to server'
+    );
 
     return true;
   };
@@ -820,18 +899,7 @@ export function DealWorkflowProvider({ children }) {
       localStorage.removeItem('dms_stage_query');
       window.dispatchEvent(new CustomEvent('dms_stage_query_event', { detail: null }));
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: activeDealStage,
-          stageQuery: null,
-        }),
-      });
-    } catch (e) {
-      console.error('Error clearing stage query on server:', e);
-    }
+    await postActiveStageUpdate({ stageQuery: null }, 'clearing stage query on server');
   };
 
   // Admin requests Super Admin to enable the next stage
@@ -863,18 +931,10 @@ export function DealWorkflowProvider({ children }) {
       window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: payload }));
     }
 
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: activeDealStage,
-          stageAdvanceRequest: payload,
-        }),
-      });
-    } catch (err) {
-      console.error('Error saving stage advance request to server:', err);
-    }
+    await postActiveStageUpdate(
+      { stageAdvanceRequest: payload },
+      'saving stage advance request to server'
+    );
 
     return payload;
   };
@@ -885,18 +945,10 @@ export function DealWorkflowProvider({ children }) {
       localStorage.removeItem('dms_stage_advance_request');
       window.dispatchEvent(new CustomEvent('dms_stage_advance_request_event', { detail: null }));
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: activeDealStage,
-          stageAdvanceRequest: null,
-        }),
-      });
-    } catch (err) {
-      console.error('Error clearing stage advance request on server:', err);
-    }
+    await postActiveStageUpdate(
+      { stageAdvanceRequest: null },
+      'clearing stage advance request on server'
+    );
   };
 
   // Super Admin approves results and enables the next stage
@@ -960,17 +1012,10 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: updatedCert,
-        }),
-      });
-    } catch (e) {
-      console.error('Error signing certificate as advisor on server:', e);
-    }
+    await postActiveStageUpdate(
+      { dueDiligenceCertificate: updatedCert },
+      'signing certificate as advisor on server'
+    );
     return updatedCert;
   };
 
@@ -1011,17 +1056,10 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: updatedCert,
-        }),
-      });
-    } catch (e) {
-      console.error('Error signing certificate as super admin on server:', e);
-    }
+    await postActiveStageUpdate(
+      { dueDiligenceCertificate: updatedCert },
+      'signing certificate as super admin on server'
+    );
 
     try {
       await approveStageAndAdvance('Negotiation');
@@ -1073,17 +1111,10 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: updatedCert,
-        }),
-      });
-    } catch (e) {
-      console.error('Error signing certificate as guest admin on server:', e);
-    }
+    await postActiveStageUpdate(
+      { dueDiligenceCertificate: updatedCert },
+      'signing certificate as guest admin on server'
+    );
     return updatedCert;
   };
 
@@ -1115,17 +1146,10 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: updatedCert,
-        }),
-      });
-    } catch (e) {
-      console.error('Error sending certificate to guest admin on server:', e);
-    }
+    await postActiveStageUpdate(
+      { dueDiligenceCertificate: updatedCert },
+      'sending certificate to guest admin on server'
+    );
     return updatedCert;
   };
 
@@ -1148,17 +1172,10 @@ export function DealWorkflowProvider({ children }) {
         window.dispatchEvent(new CustomEvent('dms_dd_certificate_updated', { detail: updatedCert }));
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: updatedCert,
-        }),
-      });
-    } catch (e) {
-      console.error('Error sending certificate to seller on server:', e);
-    }
+    await postActiveStageUpdate(
+      { dueDiligenceCertificate: updatedCert },
+      'sending certificate to seller on server'
+    );
     return updatedCert;
   };
 
@@ -1170,16 +1187,8 @@ export function DealWorkflowProvider({ children }) {
         localStorage.removeItem('dms_due_diligence_certificate');
       } catch (e) { }
     }
-    try {
-      await fetch('/api/deal-workflow/active-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dueDiligenceCertificate: null,
-        }),
-      });
-    } catch (e) { }
-  }, []);
+    await postActiveStageUpdate({ dueDiligenceCertificate: null }, 'resetting DD certificate');
+  }, [postActiveStageUpdate]);
 
   const ddCertificateMetrics = useMemo(() => {
     const ddTasks = (tasks || []).filter(
@@ -1321,9 +1330,11 @@ export function DealWorkflowProvider({ children }) {
 
     const handleStageEvent = (e) => {
       const stage = e.detail?.stage || localStorage.getItem('dms_active_deal_stage');
-      if (stage && DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(stage))) {
-        setActiveDealStage(stage);
-        setSelectedDealStage(stage);
+      if (stage && (DEAL_STAGES.some((s) => normalizeStage(s) === normalizeStage(stage)) || normalizeStage(stage) === 'Closing')) {
+        const norm = normalizeStage(stage);
+        activeDealStageRef.current = norm;
+        setActiveDealStage(norm);
+        setSelectedDealStage(norm === 'Closing' ? 'Negotiation' : norm);
       }
     };
 
@@ -1343,8 +1354,10 @@ export function DealWorkflowProvider({ children }) {
 
     const handleStorageEvent = (e) => {
       if (e.key === 'dms_active_deal_stage' && e.newValue) {
-        setActiveDealStage(e.newValue);
-        setSelectedDealStage(e.newValue);
+        const norm = normalizeStage(e.newValue);
+        activeDealStageRef.current = norm;
+        setActiveDealStage(norm);
+        setSelectedDealStage(norm === 'Closing' ? 'Negotiation' : norm);
       }
       if (e.key === 'dms_stage_notification' && e.newValue) {
         try {
@@ -2100,6 +2113,7 @@ export function DealWorkflowProvider({ children }) {
       };
     });
 
+    const isClosedDeal = normalizeStage(activeDealStage) === 'Closing';
     const activeStage = stages.find((s) => s.isActive) || stages[0];
     const totalDealTasks = tasks.length;
     const completedDealTasks = tasks.filter((t) => t.status === 'DONE').length;
@@ -2109,8 +2123,8 @@ export function DealWorkflowProvider({ children }) {
     return {
       stages,
       activeDealStage,
-      activeStageName: activeStage.name,
-      activeStageIndex: activeStage.index,
+      activeStageName: isClosedDeal ? 'Closing' : activeStage.name,
+      activeStageIndex: isClosedDeal ? 3 : activeStage.index,
       allStagesComplete,
       totalDealTasks,
       completedDealTasks,
