@@ -11,19 +11,19 @@ export default function MobileNavigation({ label, variant = "section", children 
   const id = useId();
 
   return (
-    <div className="mobile-navigation" data-variant={variant}
+    <div className="mobile-navigation md:contents" data-variant={variant}
       onKeyDown={(event) => {
         if (expanded && event.key === "Escape") {
           setOpenPath(null);
           event.currentTarget.querySelector("button").focus();
         }
       }}>
-      <button type="button" className="mobile-navigation-toggle" aria-expanded={expanded}
+      <button type="button" className="mobile-navigation-toggle md:hidden" aria-expanded={expanded}
         aria-controls={id} onClick={() => setOpenPath(expanded ? null : pathname)}>
         <Menu size={18} aria-hidden="true" /> {label}
         <ChevronDown size={16} aria-hidden="true" />
       </button>
-      <div id={id} className="mobile-navigation-panel" data-expanded={expanded}
+      <div id={id} className="mobile-navigation-panel md:contents" data-expanded={expanded}
         onClick={(event) => {
           if (event.target.closest("a[href]")) setOpenPath(null);
         }}>

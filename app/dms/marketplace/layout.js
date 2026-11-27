@@ -189,64 +189,64 @@ export default function MarketplaceLayout({ children }) {
         <div className="flex flex-col gap-4 w-full items-center">
           <Link href="/dms/marketplace/overview" className="relative p-3 w-full flex justify-center text-white group" title="Overview">
             {getIsActive('/dms/marketplace/overview') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-            <div className={`\${getIsActive('/dms/marketplace/overview') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-              <FaThLarge className={`\${getIsActive('/dms/marketplace/overview') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+            <div className={`${getIsActive('/dms/marketplace/overview') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+              <FaThLarge className={`${getIsActive('/dms/marketplace/overview') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
           <Link href="/dms/marketplace/find_deal" className="relative p-3 w-full flex justify-center text-white group" title={userRole === 'seller' ? "Find Buyers" : "Find Deal"}>
             {getIsActive('/dms/marketplace/find_deal') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-            <div className={`\${getIsActive('/dms/marketplace/find_deal') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-              <FaSearch className={`\${getIsActive('/dms/marketplace/find_deal') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+            <div className={`${getIsActive('/dms/marketplace/find_deal') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+              <FaSearch className={`${getIsActive('/dms/marketplace/find_deal') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
           <Link href="/dms/marketplace/workspace" className="relative p-3 w-full flex justify-center text-white group" title="Workspace">
             {getIsActive('/dms/marketplace/workspace') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-            <div className={`\${getIsActive('/dms/marketplace/workspace') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-              <FaFolderOpen className={`\${getIsActive('/dms/marketplace/workspace') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+            <div className={`${getIsActive('/dms/marketplace/workspace') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+              <FaFolderOpen className={`${getIsActive('/dms/marketplace/workspace') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
           {userRole !== 'seller' && (
             <Link href="/dms/marketplace/tracker" className="relative p-3 w-full flex justify-center text-white group" title="Tracker">
               {getIsActive('/dms/marketplace/tracker') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-              <div className={`\${getIsActive('/dms/marketplace/tracker') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-                <FaChartLine className={`\${getIsActive('/dms/marketplace/tracker') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+              <div className={`${getIsActive('/dms/marketplace/tracker') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+                <FaChartLine className={`${getIsActive('/dms/marketplace/tracker') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
               </div>
             </Link>
           )}
           <Link href="/dms/marketplace/inbox" className="relative p-3 w-full flex justify-center text-white group mt-1" title="Inbox">
             {getIsActive('/dms/marketplace/inbox') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-            <div className={`\${getIsActive('/dms/marketplace/inbox') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-              <FaEnvelope className={`\${getIsActive('/dms/marketplace/inbox') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+            <div className={`${getIsActive('/dms/marketplace/inbox') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+              <FaEnvelope className={`${getIsActive('/dms/marketplace/inbox') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
           {userRole === 'seller' && (
             <Link href="/dms/marketplace/teaser" className="relative p-3 w-full flex justify-center text-white group mt-1" title="Teaser">
               {getIsActive('/dms/marketplace/teaser') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-              <div className={`\${getIsActive('/dms/marketplace/teaser') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-                <FaBriefcase className={`\${getIsActive('/dms/marketplace/teaser') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+              <div className={`${getIsActive('/dms/marketplace/teaser') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+                <FaBriefcase className={`${getIsActive('/dms/marketplace/teaser') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
               </div>
             </Link>
           )}
           {userRole === 'seller' && (
             <Link href="/dms/marketplace/templates" className="relative p-3 w-full flex justify-center text-white group mt-1" title="Message Templates">
               {getIsActive('/dms/marketplace/templates') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-              <div className={`\${getIsActive('/dms/marketplace/templates') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-                <FaFileAlt className={`\${getIsActive('/dms/marketplace/templates') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+              <div className={`${getIsActive('/dms/marketplace/templates') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+                <FaFileAlt className={`${getIsActive('/dms/marketplace/templates') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
               </div>
             </Link>
           )}
           {userRole === 'buyer' && (
             <Link href="/dms/marketplace/my_teaser" className="relative p-3 w-full flex justify-center text-white group mt-1" title="My Teaser">
               {getIsActive('/dms/marketplace/my_teaser') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-              <div className={`\${getIsActive('/dms/marketplace/my_teaser') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-                <FaBriefcase className={`\${getIsActive('/dms/marketplace/my_teaser') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+              <div className={`${getIsActive('/dms/marketplace/my_teaser') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+                <FaBriefcase className={`${getIsActive('/dms/marketplace/my_teaser') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
               </div>
             </Link>
           )}
           <Link href="/dms/marketplace/profile" className="relative p-3 w-full flex justify-center text-white group mt-1" title="Profile">
             {getIsActive('/dms/marketplace/profile') && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#008f70] rounded-r-md"></div>}
-            <div className={`\${getIsActive('/dms/marketplace/profile') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
-              <FaUser className={`\${getIsActive('/dms/marketplace/profile') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
+            <div className={`${getIsActive('/dms/marketplace/profile') ? 'bg-[#1f2937]' : ''} p-2.5 rounded-lg hover:bg-[#1f2937] transition-colors`}>
+              <FaUser className={`${getIsActive('/dms/marketplace/profile') ? 'text-gray-200' : 'text-gray-400 group-hover:text-white transition-colors'} w-[20px] h-[20px]`} />
             </div>
           </Link>
         </div>
