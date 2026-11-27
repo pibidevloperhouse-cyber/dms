@@ -18,7 +18,7 @@ export default function ForestCard() {
       singleLineTitle: true,
       fullTitle: "Market Place",
       subtitle: "Curated M&A Opportunities & Verified Buyer-Seller Discovery",
-      urlPath: "dms.pibi.tech/marketplace",
+      urlPath: "dms/marketplace",
       buttonText: "Explore Marketplace",
       renderScreen: () =>
         roleMode === "seller" ? (
@@ -375,7 +375,7 @@ export default function ForestCard() {
       titleLine2: "ROOM",
       fullTitle: "Deal Room",
       subtitle: "Ultra-Secure Virtual Data Room with Granular Access & Diligence",
-      urlPath: "dms.pibi.tech/deal-room",
+      urlPath: "dms/deal-room",
       buttonText: "Enter Deal Room",
       screenImage: "/images/screen-dealroom.png",
       renderScreen: () => {
@@ -505,7 +505,7 @@ export default function ForestCard() {
       titleLine2: "WORKFLOW",
       fullTitle: "Task & Workflow",
       subtitle: "Automated Milestone Tracking, Pipeline Stages & Approvals",
-      urlPath: "dms.pibi.tech/deal-workflow",
+      urlPath: "dms/deal-workflow",
       buttonText: "Open Task Pipeline",
       screenImage: "/images/screen-workflow.png",
       renderScreen: () => {
@@ -730,7 +730,7 @@ export default function ForestCard() {
       titleLine2: "LOGS",
       fullTitle: "Audit & Logs",
       subtitle: "Immutable Activity Tracking, Document Watermarking & Event Logs",
-      urlPath: "dms.pibi.tech/control-audits",
+      urlPath: "dms/control-audits",
       buttonText: "View Audit Trail",
       screenImage: "/images/screen-audit.png",
       renderScreen: () => {
@@ -949,7 +949,7 @@ export default function ForestCard() {
       titleLine2: "DEAL CLOSE",
       fullTitle: "Bidding & Deal Close",
       subtitle: "Competitive Multi-Round Bidding, SPA Execution & Escrow Closing",
-      urlPath: "dms.pibi.tech/deal-closing",
+      urlPath: "dms/deal-closing",
       buttonText: "Access Bidding Console",
       screenImage: "/images/screen-bidding.png",
       renderScreen: () =>
@@ -1532,13 +1532,7 @@ export default function ForestCard() {
               </div>
 
               {/* Monitor Bottom Bezel Chin */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 py-1.5 px-4 flex items-center justify-between border-t border-slate-800 text-[8.5px] font-mono tracking-widest text-slate-400 select-none">
-                <span className="opacity-75">PIBI DEAL CONSOLE</span>
-                <span className="text-emerald-400 flex items-center gap-1.5 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  ONLINE
-                </span>
-              </div>
+              <div className="h-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t border-slate-800" />
             </div>
 
             {/* Aluminum Monitor Stand Base */}
