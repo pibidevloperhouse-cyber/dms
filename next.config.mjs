@@ -15,26 +15,28 @@ const nextConfig = {
     "10.14.134.243",
   ],
   async redirects() {
+    const isProd = process.env.NODE_ENV === "production";
+
     return [
       {
         source: '/',
         destination: '/dms',
-        permanent: true,
+        permanent: isProd,
       },
       {
         source: '/dms/tracker',
         destination: '/dms/marketplace/tracker',
-        permanent: true,
+        permanent: isProd,
       },
       {
         source: '/tasks',
         destination: '/deal-workflow',
-        permanent: true,
+        permanent: isProd,
       },
       {
         source: '/tasks/:path*',
         destination: '/deal-workflow',
-        permanent: true,
+        permanent: isProd,
       },
     ]
   },

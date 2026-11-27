@@ -152,7 +152,8 @@ export default function StageTracker() {
                       aria-checked={isActive}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (normalizeStage(stage.name) === 'Negotiation' && !isActive) {
+                        if (isActive) return;
+                        if (normalizeStage(stage.name) === 'Negotiation') {
                           setIsNegotiationModalOpen(true);
                           return;
                         }

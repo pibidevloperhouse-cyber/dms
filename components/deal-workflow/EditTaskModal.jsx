@@ -21,6 +21,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
     getRoleLabel,
     dealFolders = [],
     fetchFolders,
+    activeDealStage,
   } = useDealWorkflow();
 
   const userSide = currentUser?.side || 'seller';
@@ -467,6 +468,9 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
       const targetSide = isExternal ? (currentUser?.side === 'seller' ? 'buyer' : 'seller') : (currentUser?.side || 'seller');
       const targetCompany = isExternal ? (currentUser?.side === 'seller' ? 'XYZ Capital' : 'ABC Textiles') : (currentUser?.company || 'Company');
 
+      const isStageActive = normalizeStage(dealStage) === normalizeStage(activeDealStage);
+      const stageChanged = normalizeStage(task?.deal_stage) !== normalizeStage(dealStage);
+
       await updateTask(task.task_id, {
         title: title.trim(),
         description: description.trim(),
@@ -479,6 +483,7 @@ export default function EditTaskModal({ task, isOpen, onClose }) {
         assigned_to_user: finalAssignee,
         priority,
         deal_stage: dealStage,
+        ...(stageChanged ? { is_enabled: isStageActive } : {}),
         due_date: dueDate || null,
         subtasks,
         folder_id: shouldAssignFolder ? (assignedFolderId || null) : null,
