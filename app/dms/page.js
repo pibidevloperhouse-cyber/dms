@@ -6,7 +6,7 @@ import "aos/dist/aos.css";
 import Link from "next/link";
 import DocumentWorkspaceHero from "@/components/landing/DocumentWorkspaceHero";
 import ForestCard from "@/components/ForestCard";
-import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaServer, FaBriefcase } from "react-icons/fa";
+import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaPlus, FaServer, FaBriefcase } from "react-icons/fa";
 
 const DMS_FEATURE_TABS = [
   {
@@ -163,6 +163,7 @@ const DMS_FEATURE_TABS = [
 
 export default function DMSLanding() {
   const [activeDmsFeature, setActiveDmsFeature] = useState("marketplace");
+  const [activeDmsStep, setActiveDmsStep] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState({
     products: false,
@@ -677,14 +678,14 @@ export default function DMSLanding() {
       <ForestCard />
 
       {/* Structured Deal Transformation Section (Below DMS Modules) */}
-      <section className="pt-4 pb-16 md:pt-8 md:pb-20 px-4 md:px-6 bg-white relative overflow-hidden">
+      <section className="pt-0 -mt-4 md:-mt-8 pb-10 md:pb-14 px-4 md:px-6 bg-white relative overflow-hidden">
         <div className="w-full max-w-[1440px] mx-auto">
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5 mb-10 md:mb-12" data-aos="fade-up">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight leading-tight flex-shrink-0">
+          {/* Top Row: DMS Feature Title + Horizontal Module Navbar */}
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6 md:mb-8" data-aos="fade-up">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f172a] tracking-tight leading-tight flex-shrink-0">
               DMS Feature
             </h2>
 
-            {/* Feature Navbar */}
             <nav
               aria-label="DMS Feature modules"
               className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full"
@@ -695,11 +696,15 @@ export default function DMSLanding() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveDmsFeature(tab.id)}
-                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${isActive
-                      ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
-                      : "text-[#4b5568] hover:text-[#0f172a] hover:bg-white/80"
-                      }`}
+                    onClick={() => {
+                      setActiveDmsFeature(tab.id);
+                      setActiveDmsStep(0);
+                    }}
+                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
+                        : "text-[#4b5568] hover:text-[#0f172a] hover:bg-white/80"
+                    }`}
                   >
                     {tab.label}
                   </button>
@@ -708,83 +713,70 @@ export default function DMSLanding() {
             </nav>
           </div>
 
-          <div className="relative" data-aos="fade-up">
-            {(DMS_FEATURE_TABS.find((t) => t.id === activeDmsFeature) || DMS_FEATURE_TABS[0]).steps.map((step, idx, arr) => {
-              const pillGradients = [
-                "from-[var(--brand)] to-[#0ea5e9]",
-                "from-[#0ea5e9] to-[#06d6c8]",
-                "from-[#06d6c8] to-[var(--brand)]",
-              ];
-              const stepImages = [
-                { src: "/images/dms-step-1.jpg", alt: "Confidential Deal Setup and Analytics" },
-                { src: "/images/dms-step-2.jpg", alt: "Digital NDA Signature and Virtual Data Room" },
-                { src: "/images/dms-step-3.jpg", alt: "Bidding Comparison and Digital SPA Closing" },
-              ];
-              const isLast = idx === arr.length - 1;
-              const pillGradient = pillGradients[idx % pillGradients.length];
-              const stepImage = step.image
-                ? { src: step.image, alt: step.imageAlt || step.title }
-                : stepImages[idx % stepImages.length];
+          {(() => {
+            const currentTab = DMS_FEATURE_TABS.find((t) => t.id === activeDmsFeature) || DMS_FEATURE_TABS[0];
+            const safeStepIdx = activeDmsStep < currentTab.steps.length ? activeDmsStep : 0;
+            const activeStep = currentTab.steps[safeStepIdx];
+            const fallbackImages = [
+              { src: "/images/dms-step-1.jpg", alt: "Confidential Deal Setup and Analytics" },
+              { src: "/images/dms-step-2.jpg", alt: "Digital NDA Signature and Virtual Data Room" },
+              { src: "/images/dms-step-3.jpg", alt: "Bidding Comparison and Digital SPA Closing" },
+            ];
+            const activeImage = activeStep.image
+              ? { src: activeStep.image, alt: activeStep.imageAlt || activeStep.title }
+              : fallbackImages[safeStepIdx % fallbackImages.length];
 
-              return (
-                <div
-                  key={step.title}
-                  className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start relative ${isLast ? "" : "pb-8 lg:pb-10"
-                    }`}
-                >
-                  {/* Vertical gradient connector line per row (Desktop & Mobile left) */}
-                  {!isLast && (
-                    <div className="hidden lg:block absolute left-[7px] top-3 bottom-0 w-0.5 bg-gradient-to-b from-[var(--brand)] via-[#0ea5e9] to-[#06d6c8]" />
-                  )}
-
-                  {/* Left Column: Dot + Feature Label + Title & Description */}
-                  <div className="lg:col-span-6 relative pl-8 sm:pl-10">
-                    {!isLast && (
-                      <div className="lg:hidden absolute left-[7px] top-3 bottom-0 w-0.5 bg-gradient-to-b from-[var(--brand)] via-[#0ea5e9] to-[#06d6c8]" />
-                    )}
-                    <span
-                      className={`absolute left-0 top-2 w-4 h-4 rounded-full bg-gradient-to-r ${pillGradient} ring-4 ring-white shadow-sm z-10`}
-                    />
-                    <span className={`inline-flex items-center px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r ${pillGradient} text-white shadow-xs mb-2.5`}>
-                      Feature {idx + 1}
-                    </span>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-[#0f172a] mb-2.5">
-                      {step.title}
-                    </h3>
-                    <p className="text-base sm:text-lg text-[#505b6f] leading-relaxed">
-                      {step.desc}
-                    </p>
-                  </div>
-
-                  {/* Right Column: Aligned Image starting flush with Feature label */}
-                  <div className="lg:col-span-6 pl-8 sm:pl-10 lg:pl-0">
-                    <div
-                      className={`w-full max-w-2xl lg:ml-auto rounded-2xl overflow-hidden shadow-[0_14px_36px_rgba(15,23,42,0.1)] border border-slate-200/80 ${
-                        step.image
-                          ? "bg-gradient-to-br from-slate-50 via-white to-slate-50/80 p-2 sm:p-3"
-                          : "bg-white"
-                      }`}
-                    >
-                      <img
-                        src={stepImage.src}
-                        alt={stepImage.alt}
-                        style={
-                          step.image
-                            ? { imageRendering: "-webkit-optimize-contrast" }
-                            : undefined
-                        }
-                        className={
-                          step.image
-                            ? "w-full h-auto max-h-[340px] object-contain mx-auto rounded-xl block contrast-[1.03] saturate-[1.03]"
-                            : "w-full h-64 sm:h-72 object-cover block"
-                        }
-                      />
-                    </div>
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch" data-aos="fade-up">
+                {/* Left Side: Vertical Feature List */}
+                <div className="lg:col-span-4 flex">
+                  <div
+                    role="tablist"
+                    aria-label={`${currentTab.label} features`}
+                    className="w-full flex flex-col justify-between gap-2 bg-slate-100/90 p-3 rounded-2xl border border-slate-200/80 shadow-xs lg:h-full"
+                  >
+                    {currentTab.steps.map((step, idx) => {
+                      const isStepActive = idx === safeStepIdx;
+                      return (
+                        <button
+                          key={step.title}
+                          type="button"
+                          role="tab"
+                          aria-selected={isStepActive}
+                          onClick={() => setActiveDmsStep(idx)}
+                          className={`w-full px-4 py-3.5 lg:flex-1 rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 text-left ${
+                            isStepActive
+                              ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
+                              : "bg-white/70 text-[#4b5568] hover:text-[#0f172a] hover:bg-white"
+                          }`}
+                        >
+                          <span className="leading-snug">{step.title}</span>
+                          <span
+                            className={`w-7 h-7 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
+                              isStepActive
+                                ? "border-white/70 text-white"
+                                : "border-slate-300 text-slate-500"
+                            }`}
+                          >
+                            <FaPlus className="text-[11px]" />
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Right Side: Single Active Feature Image Showcase */}
+                <div className="lg:col-span-8 flex items-center justify-center">
+                  <img
+                    src={activeImage.src}
+                    alt={activeImage.alt}
+                    className="w-auto max-w-full h-auto max-h-[400px] rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.1)] border border-slate-200/70 block contrast-[1.04] brightness-[1.01]"
+                  />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </section>
 
