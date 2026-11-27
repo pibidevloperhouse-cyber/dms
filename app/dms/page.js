@@ -112,10 +112,14 @@ const DMS_FEATURE_TABS = [
       {
         title: "Role-Based Access Control",
         desc: "Assign clear roles across sellers, buyers, advisors, and legal teams so every participant sees only what they are authorized to handle.",
+        image: "/images/workflow-rbac.png",
+        imageAlt: "Role-Based Access Control",
       },
       {
         title: "Permission-Based Document Access",
         desc: "Control document-level view, upload, and approval permissions across workflow stages and stakeholder groups.",
+        image: "/images/workflow-permissions.png",
+        imageAlt: "Permission-Based Document Access",
       },
       {
         title: "Due Diligence Records",
