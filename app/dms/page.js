@@ -6,7 +6,7 @@ import "aos/dist/aos.css";
 import Link from "next/link";
 import DocumentWorkspaceHero from "@/components/landing/DocumentWorkspaceHero";
 import ForestCard from "@/components/ForestCard";
-import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaPlus, FaServer, FaBriefcase } from "react-icons/fa";
+import { FaBars, FaTimes, FaUserTie, FaBuilding, FaHandshake, FaChartLine, FaShieldAlt, FaFileContract, FaKey, FaSearch, FaChevronDown, FaPlus, FaMinus, FaServer, FaBriefcase } from "react-icons/fa";
 
 const DMS_FEATURE_TABS = [
   {
@@ -46,18 +46,26 @@ const DMS_FEATURE_TABS = [
       {
         title: "Real-Time Deal Tracking",
         desc: "Monitor every stage of your transaction from initial interest to closing with live progress indicators and activity insights.",
+        image: "/images/deal-room-tracking.png",
+        imageAlt: "Real-Time Deal Tracking",
       },
       {
         title: "Multi-Deal Room Management",
         desc: "Create, organize, and switch effortlessly between multiple active deal rooms from one unified workspace.",
+        image: "/images/deal-room-multi.png",
+        imageAlt: "Multi-Deal Room Management",
       },
       {
         title: "Isolated Deal Rooms",
         desc: "Keep every transaction strictly compartmentalized with dedicated permissions, buyer groups, and zero cross-deal data exposure.",
+        image: "/images/deal-room-isolated.png",
+        imageAlt: "Isolated Deal Rooms",
       },
       {
         title: "NDA-Gated Deal Room Access",
         desc: "Enforce mandatory digital NDA signatures before granting buyers access to confidential deal documents and data rooms.",
+        image: "/images/deal-room-nda.png",
+        imageAlt: "NDA-Gated Deal Room Access",
       },
     ],
   },
@@ -164,6 +172,17 @@ const DMS_FEATURE_TABS = [
 export default function DMSLanding() {
   const [activeDmsFeature, setActiveDmsFeature] = useState("marketplace");
   const [activeDmsStep, setActiveDmsStep] = useState(0);
+  const [expandedDmsStep, setExpandedDmsStep] = useState(null);
+  const [lineDrawn, setLineDrawn] = useState(true);
+
+  const triggerLineAnimation = () => {
+    setLineDrawn(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setLineDrawn(true);
+      });
+    });
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState({
     products: false,
@@ -678,11 +697,45 @@ export default function DMSLanding() {
       <ForestCard />
 
       {/* Structured Deal Transformation Section (Below DMS Modules) */}
-      <section className="pt-0 -mt-4 md:-mt-8 pb-10 md:pb-14 px-4 md:px-6 bg-white relative overflow-hidden">
-        <div className="w-full max-w-[1440px] mx-auto">
+      <section className="pt-6 md:pt-10 pb-12 md:pb-16 px-4 md:px-6 bg-white relative overflow-hidden">
+        {/* Decorative Flowing Wave Ribbon Line */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 1440 520"
+          fill="none"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 w-full h-full"
+        >
+          <defs>
+            <linearGradient id="dmsWaveStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.16" />
+              <stop offset="50%" stopColor="#06d6c8" stopOpacity="0.20" />
+              <stop offset="100%" stopColor="#1f6fb2" stopOpacity="0.16" />
+            </linearGradient>
+          </defs>
+
+          {/* Soft Thick Ribbon: Left-Mid -> Center-Dip -> Top-Right (Animates on Click) */}
+          <path
+            d="M0,260 C260,260 440,400 720,380 C1020,360 1240,120 1480,50"
+            pathLength={1}
+            stroke="url(#dmsWaveStroke)"
+            strokeWidth="64"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              strokeDasharray: 1,
+              strokeDashoffset: lineDrawn ? 0 : 1,
+              transition: lineDrawn
+                ? "stroke-dashoffset 1.8s cubic-bezier(0.16, 1, 0.3, 1)"
+                : "none",
+            }}
+          />
+        </svg>
+
+        <div className="w-full max-w-[1440px] mx-auto relative z-10">
           {/* Top Row: DMS Feature Title + Horizontal Module Navbar */}
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6 md:mb-8" data-aos="fade-up">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f172a] tracking-tight leading-tight flex-shrink-0">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight flex-shrink-0 md:pl-8 lg:pl-14 xl:pl-16">
               DMS Feature
             </h2>
 
@@ -699,6 +752,8 @@ export default function DMSLanding() {
                     onClick={() => {
                       setActiveDmsFeature(tab.id);
                       setActiveDmsStep(0);
+                      setExpandedDmsStep(null);
+                      triggerLineAnimation();
                     }}
                     className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
                       isActive
@@ -729,7 +784,7 @@ export default function DMSLanding() {
             return (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch" data-aos="fade-up">
                 {/* Left Side: Vertical Feature List */}
-                <div className="lg:col-span-4 flex">
+                <div className="lg:col-span-4 flex md:pl-8 lg:pl-14 xl:pl-16">
                   <div
                     role="tablist"
                     aria-label={`${currentTab.label} features`}
@@ -737,30 +792,66 @@ export default function DMSLanding() {
                   >
                     {currentTab.steps.map((step, idx) => {
                       const isStepActive = idx === safeStepIdx;
+                      const isStepExpanded = expandedDmsStep === idx;
                       return (
-                        <button
+                        <div
                           key={step.title}
-                          type="button"
                           role="tab"
+                          tabIndex={0}
                           aria-selected={isStepActive}
-                          onClick={() => setActiveDmsStep(idx)}
-                          className={`w-full px-4 py-3.5 lg:flex-1 rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 text-left ${
+                          onClick={() => {
+                            setActiveDmsStep(idx);
+                            triggerLineAnimation();
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setActiveDmsStep(idx);
+                              triggerLineAnimation();
+                            }
+                          }}
+                          className={`w-full px-4 py-3.5 lg:flex-1 rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 cursor-pointer flex flex-col justify-center text-left ${
                             isStepActive
                               ? "bg-gradient-to-r from-[var(--brand)] to-[#0ea5e9] text-white shadow-sm"
                               : "bg-white/70 text-[#4b5568] hover:text-[#0f172a] hover:bg-white"
                           }`}
                         >
-                          <span className="leading-snug">{step.title}</span>
-                          <span
-                            className={`w-7 h-7 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
-                              isStepActive
-                                ? "border-white/70 text-white"
-                                : "border-slate-300 text-slate-500"
-                            }`}
-                          >
-                            <FaPlus className="text-[11px]" />
-                          </span>
-                        </button>
+                          <div className="flex items-center justify-between gap-3 w-full">
+                            <span className="leading-snug">{step.title}</span>
+                            <button
+                              type="button"
+                              aria-label={isStepExpanded ? `Collapse ${step.title} description` : `Expand ${step.title} description`}
+                              aria-expanded={isStepExpanded}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDmsStep(idx);
+                                setExpandedDmsStep(isStepExpanded ? null : idx);
+                                triggerLineAnimation();
+                              }}
+                              className={`w-7 h-7 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors duration-200 cursor-pointer ${
+                                isStepActive
+                                  ? "border-white/70 text-white hover:bg-white/15"
+                                  : "border-slate-300 text-slate-500 hover:border-slate-400 hover:bg-slate-100"
+                              }`}
+                            >
+                              {isStepExpanded ? (
+                                <FaMinus className="text-[11px]" />
+                              ) : (
+                                <FaPlus className="text-[11px]" />
+                              )}
+                            </button>
+                          </div>
+
+                          {isStepExpanded && (
+                            <p
+                              className={`mt-2 text-xs sm:text-sm font-normal leading-relaxed ${
+                                isStepActive ? "text-white/90" : "text-[#505b6f]"
+                              }`}
+                            >
+                              {step.desc}
+                            </p>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
