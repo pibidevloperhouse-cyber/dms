@@ -1405,9 +1405,9 @@ export default function ForestCard() {
         >
           {/* Left Content Column */}
           <div className="relative z-10 w-full md:w-[44%] lg:w-[43%] xl:w-[43%] h-full py-5 sm:py-6 md:py-6 lg:py-7 pl-1 sm:pl-2 md:pl-2 pr-2 sm:pr-3 flex flex-col justify-start shrink-0">
-            {/* Top Row: Seller/Buyer Toggle & Double Chevrons (Aligned Straight) */}
-            <div className="flex items-center justify-between gap-2 sm:gap-3">
-              <div className="inline-flex items-center p-1.5 rounded-2xl bg-white border border-[#1f6fb2]/30 shadow-md ring-4 ring-[#2ec4b6]/10 gap-1.5">
+            {/* Top Row: Seller/Buyer Toggle & Double Chevrons (Second on mobile, First on desktop) */}
+            <div className="order-2 md:order-1 mt-4 md:mt-0 flex items-center justify-between gap-2 sm:gap-3">
+              <div className="w-full md:w-auto grid grid-cols-2 md:inline-flex items-center p-1.5 rounded-2xl bg-white border border-[#1f6fb2]/30 shadow-md ring-4 ring-[#2ec4b6]/10 gap-1.5">
                 <button
                   type="button"
                   onClick={() => setRoleMode("seller")}
@@ -1432,12 +1432,12 @@ export default function ForestCard() {
                 </button>
               </div>
 
-              {/* Double Arrow Chevrons (Interactive next button) */}
+              {/* Double Arrow Chevrons (Desktop only; mobile uses ← → below) */}
               <button
                 type="button"
                 onClick={nextSlide}
                 title="Next slide"
-                className="text-slate-800 hover:text-[#1f6fb2] hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer p-0.5 shrink-0"
+                className="hidden md:block text-slate-800 hover:text-[#1f6fb2] hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer p-0.5 shrink-0"
               >
                 <svg
                   className="w-11 h-6 sm:w-12 sm:h-7 md:w-14 md:h-8"
@@ -1470,8 +1470,55 @@ export default function ForestCard() {
               </button>
             </div>
 
-            {/* 5 Module Cards Grid (3 Top + 2 Bottom Centered) */}
-            <div className="mt-4 flex-1 flex flex-col justify-center gap-2.5 sm:gap-3">
+            {/* Mobile Module Bar: Counter + Arrows + Horizontal Scroll Tabs (First on mobile) */}
+            <div className="order-1 md:hidden">
+              <div className="flex items-center justify-between text-sm text-slate-600 mb-2">
+                <span className="font-mono font-semibold text-slate-700">
+                  {String(activeSlide + 1).padStart(2, "0")} / {String(moduleCards.length).padStart(2, "0")}
+                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Previous module"
+                    onClick={() => setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length)}
+                    className="p-1 text-slate-500 hover:text-[#1f6fb2] transition-colors cursor-pointer"
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next module"
+                    onClick={nextSlide}
+                    className="p-1 text-[#1f6fb2] hover:text-[#2ec4b6] transition-colors cursor-pointer font-bold"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-5 overflow-x-auto border-b border-slate-200 pb-0.5">
+                {moduleCards.map((card) => {
+                  const isActive = activeSlide === card.idx;
+                  return (
+                    <button
+                      key={card.idx}
+                      type="button"
+                      onClick={() => setActiveSlide(card.idx)}
+                      className={`whitespace-nowrap pb-2 text-sm font-semibold transition-colors cursor-pointer border-b-[3px] -mb-[1px] ${
+                        isActive
+                          ? "text-[#1f6fb2] border-[#2ec4b6]"
+                          : "text-slate-500 border-transparent hover:text-slate-800"
+                      }`}
+                    >
+                      {card.title}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5 Module Cards Grid (Desktop: 3 Top + 2 Bottom Centered) */}
+            <div className="hidden md:flex md:order-2 mt-4 flex-1 flex-col justify-center gap-2.5 sm:gap-3">
               {/* Top Row: 3 Cards */}
               <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                 {moduleCards.slice(0, 3).map((card) => renderModuleCard(card))}

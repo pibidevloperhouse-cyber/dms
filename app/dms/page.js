@@ -732,13 +732,37 @@ export default function DMSLanding() {
 
       {/* Structured Deal Transformation Section (Below DMS Modules) */}
       <section className="pt-6 md:pt-10 pb-12 md:pb-16 px-4 md:px-6 bg-white relative overflow-hidden">
-        {/* Decorative Flowing Wave Ribbon Line */}
+        {/* Mobile Background Design: Multi-strand Curved Corner Waves */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 400 600"
+          fill="none"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 w-full h-full lg:hidden"
+        >
+          {/* Top-right sweeping curved strands */}
+          <g stroke="#2ec4b6" strokeOpacity="0.22" strokeWidth="1.75" strokeLinecap="round">
+            <path d="M270,-10 C290,55 345,105 415,125" />
+            <path d="M288,-10 C305,48 355,95 415,112" />
+            <path d="M306,-10 C320,42 365,85 415,98" />
+            <path d="M324,-10 C335,36 375,75 415,85" />
+          </g>
+          {/* Bottom-left sweeping curved strands */}
+          <g stroke="#1f6fb2" strokeOpacity="0.16" strokeWidth="1.75" strokeLinecap="round">
+            <path d="M-15,470 C55,485 110,535 125,610" />
+            <path d="M-15,486 C48,500 98,545 110,610" />
+            <path d="M-15,502 C40,515 86,555 96,610" />
+            <path d="M-15,518 C32,530 74,565 82,610" />
+          </g>
+        </svg>
+
+        {/* Decorative Flowing Wave Ribbon Line (Desktop) */}
         <svg
           aria-hidden="true"
           viewBox="0 0 1440 520"
           fill="none"
           preserveAspectRatio="none"
-          className="pointer-events-none absolute inset-0 w-full h-full"
+          className="pointer-events-none hidden lg:block absolute inset-0 w-full h-full"
         >
           <defs>
             <linearGradient id="dmsWaveStroke" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -767,6 +791,123 @@ export default function DMSLanding() {
         </svg>
 
         <div className="w-full max-w-[1440px] mx-auto relative z-10">
+          {/* Mobile Layout (< lg): Clean Tabbed Accordion Matching Reference */}
+          <div className="lg:hidden" data-aos="fade-up">
+            <h2 className="text-3xl font-extrabold text-[#0f172a] tracking-tight">
+              DMS Feature
+            </h2>
+            <p className="text-sm text-[#505b6f] mt-1.5 leading-relaxed">
+              Explore the capabilities behind seamless deal management.
+            </p>
+
+            {/* Mobile Horizontal Underline Tabs */}
+            <nav
+              aria-label="DMS Feature modules mobile"
+              className="flex items-center gap-5 overflow-x-auto border-b border-slate-200 mt-4"
+            >
+              {DMS_FEATURE_TABS.map((tab) => {
+                const isActive = activeDmsFeature === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveDmsFeature(tab.id);
+                      setActiveDmsStep(0);
+                      setExpandedDmsStep(0);
+                      triggerLineAnimation();
+                    }}
+                    className={`whitespace-nowrap pb-2.5 text-sm font-semibold transition-colors cursor-pointer border-b-[4px] -mb-[1px] ${
+                      isActive
+                        ? "text-[#1f6fb2] border-[#2ec4b6]"
+                        : "text-slate-500 border-transparent hover:text-slate-800"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {(() => {
+              const currentTab = DMS_FEATURE_TABS.find((t) => t.id === activeDmsFeature) || DMS_FEATURE_TABS[0];
+              const fallbackImages = [
+                { src: "/images/dms-step-1.jpg", alt: "Confidential Deal Setup and Analytics" },
+                { src: "/images/dms-step-2.jpg", alt: "Digital NDA Signature and Virtual Data Room" },
+                { src: "/images/dms-step-3.jpg", alt: "Bidding Comparison and Digital SPA Closing" },
+              ];
+              const mobileExpanded = expandedDmsStep === null ? 0 : expandedDmsStep;
+
+              return (
+                <div>
+                  <div className="flex items-center justify-between mt-5 mb-2">
+                    <h3 className="text-base font-bold text-[#0f172a]">
+                      {currentTab.label} features
+                    </h3>
+                    <span className="text-xs font-medium text-slate-500">
+                      {String(currentTab.steps.length).padStart(2, "0")} Features
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-slate-200">
+                    {currentTab.steps.map((step, idx) => {
+                      const isOpen = mobileExpanded === idx;
+                      const stepImg = step.image
+                        ? { src: step.image, alt: step.imageAlt || step.title }
+                        : fallbackImages[idx % fallbackImages.length];
+
+                      return (
+                        <div key={step.title} className="py-3.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDmsStep(idx);
+                              setExpandedDmsStep(isOpen ? -1 : idx);
+                            }}
+                            className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-xs font-mono font-semibold text-[#1f6fb2] shrink-0">
+                                {String(idx + 1).padStart(2, "0")}
+                              </span>
+                              <span
+                                className={`text-sm font-semibold leading-snug ${
+                                  isOpen ? "text-[#1f6fb2]" : "text-[#0f172a]"
+                                }`}
+                              >
+                                {step.title}
+                              </span>
+                            </div>
+                            <span className="text-[#1f6fb2] text-sm font-bold shrink-0">
+                              {isOpen ? "−" : "+"}
+                            </span>
+                          </button>
+
+                          {isOpen && (
+                            <div className="mt-2.5 pl-7">
+                              <p className="text-xs text-[#505b6f] leading-relaxed mb-3">
+                                {step.desc}
+                              </p>
+                              <div className="rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50/70 p-2 shadow-xs">
+                                <img
+                                  src={stepImg.src}
+                                  alt={stepImg.alt}
+                                  className="w-full h-auto max-h-[240px] object-contain rounded-lg block mx-auto"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Desktop Layout (lg+): Preserved */}
+          <div className="hidden lg:block">
           {/* Top Row: DMS Feature Title + Horizontal Module Navbar */}
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6 md:mb-8" data-aos="fade-up">
             <h2 className="text-3xl md:text-5xl font-extrabold text-[#0f172a] tracking-tight flex-shrink-0 md:pl-8 lg:pl-14 xl:pl-16">
@@ -904,6 +1045,7 @@ export default function DMSLanding() {
               </div>
             );
           })()}
+          </div>
         </div>
       </section>
 
